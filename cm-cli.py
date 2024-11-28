@@ -60,7 +60,7 @@ def check_comfyui_hash():
     core.comfy_ui_commit_datetime = repo.head.commit.committed_datetime
 
 
-check_comfyui_hash()  # This is a preparation step for manager_core
+# check_comfyui_hash()  # This is a preparation step for manager_core
 core.check_invalid_nodes()
 
 
@@ -573,7 +573,7 @@ def for_each_nodes(nodes, act, allow_all=True):
     i = 1
     for x in nodes:
         try:
-            act(x, is_all=is_all, cnt_msg=f'{i}/{total}')
+            act(x, is_all=is_all, cnt_msg=f'{i}/{total}', install_path=install_path)
         except Exception as e:
             print(f"ERROR: {e}")
             traceback.print_exc()
