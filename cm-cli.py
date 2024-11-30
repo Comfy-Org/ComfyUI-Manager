@@ -573,7 +573,7 @@ def for_each_nodes(nodes, act, allow_all=True):
     i = 1
     for x in nodes:
         try:
-            act(x, is_all=is_all, cnt_msg=f'{i}/{total}', install_path=install_path)
+            act(x, is_all=is_all, cnt_msg=f'{i}/{total}', install_path=install_path, no_deps=no_deps)
         except Exception as e:
             print(f"ERROR: {e}")
             traceback.print_exc()
@@ -617,6 +617,14 @@ def install(
             None,
             help="user directory"
         ),
+        no_deps: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--no-deps",
+                show_default=False,
+                help="Skip installing any Python dependencies",
+            ),
+        ] = False,
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
