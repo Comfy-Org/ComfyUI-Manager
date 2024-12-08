@@ -842,14 +842,20 @@ def save_snapshot(
                 show_default=False, help="Specify the output file path. (.json/.yaml)"
             ),
         ] = None,
+        full_snapshot: Annotated[
+            bool,
+            typer.Option(
+                show_default=False, help="If the snapshot should include custom node, ComfyUI version and pip versions (default), or only custom node details"
+            ),
+        ] = True,
 ):
-    path = core.save_snapshot_with_postfix('snapshot', output)
+    path = core.save_snapshot_with_postfix('snapshot', output, not full_snapshot)
     print(f"Current snapshot is saved as `{path}`")
 
 
 @app.command("restore-snapshot", help="Restore snapshot from snapshot file")
 def restore_snapshot(
-        snapshot_name: str,
+        snapshot_name: str, 
         pip_non_url: Optional[bool] = typer.Option(
             default=None,
             show_default=False,
