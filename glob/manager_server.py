@@ -1446,12 +1446,14 @@ async def get_notice(request):
                     markdown_content = add_target_blank(markdown_content)
 
                     try:
-                        if core.comfy_ui_commit_datetime == datetime(1900, 1, 1, 0, 0, 0):
-                            markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI isn\'t git repo.</P>' + markdown_content
+                        if core.is_electron:
+                            pass
+                        elif core.comfy_ui_commit_datetime == datetime.datetime(1900, 1, 1, 0, 0, 0):
+                            markdown_content = f'<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI isn\'t git repo.</P>' + markdown_content
                         elif core.comfy_ui_required_commit_datetime.date() > core.comfy_ui_commit_datetime.date():
-                            markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI is too OUTDATED!!!</P>' + markdown_content
-                    except:
-                        pass
+                            markdown_content = f'<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI is too OUTDATED!!!</P>' + markdown_content
+                    except Exception as error:
+                        logging.warning("Unexpected error when checking ComfyUI version via git.")
 
                     return web.Response(text=markdown_content, status=200)
                 else:
