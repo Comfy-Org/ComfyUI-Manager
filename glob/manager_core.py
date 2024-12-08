@@ -1080,7 +1080,7 @@ def get_installed_pip_packages():
     return res
 
 
-def get_current_snapshot():
+def get_current_snapshot(custom_nodes_only = False):
     # Get ComfyUI hash
     repo_path = comfy_path
 
@@ -1088,8 +1088,10 @@ def get_current_snapshot():
         print(f"ComfyUI update fail: The installed ComfyUI does not have a Git repository.")
         return {}
 
-    repo = git.Repo(repo_path)
-    comfyui_commit_hash = repo.head.commit.hexsha
+    comfyui_commit_hash = None
+    if not custom_nodes_only:
+        repo = git.Repo(repo_path)
+        comfyui_commit_hash = repo.head.commit.hexsha
 
     git_custom_nodes = {}
     file_custom_nodes = []
@@ -1135,7 +1137,7 @@ def get_current_snapshot():
 
                 file_custom_nodes.append(item)
 
-    pip_packages = get_installed_pip_packages()
+    pip_packages = None if custom_nodes_only else get_installed_pip_packages()
 
     return {
         'comfyui': comfyui_commit_hash,
@@ -1145,7 +1147,7 @@ def get_current_snapshot():
     }
 
 
-def save_snapshot_with_postfix(postfix, path=None):
+def save_snapshot_with_postfix(postfix, path=None, custom_nodes_only = False):
     if path is None:
         now = datetime.now()
 
@@ -1157,7 +1159,7 @@ def save_snapshot_with_postfix(postfix, path=None):
         file_name = path.replace('\\', '/').split('/')[-1]
         file_name = file_name.split('.')[-2]
 
-    snapshot = get_current_snapshot()
+    snapshot = get_current_snapshot(custom_nodes_only)
     if path.endswith('.json'):
         with open(path, "w") as json_file:
             json.dump(snapshot, json_file, indent=4)
