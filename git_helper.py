@@ -389,12 +389,13 @@ def apply_snapshot(path):
                 git_custom_node_infos = info['git_custom_nodes']
                 file_custom_node_infos = info['file_custom_nodes']
 
-                checkout_comfyui_hash(comfyui_hash)
+                if comfyui_hash:
+                    checkout_comfyui_hash(comfyui_hash)
                 checkout_custom_node_hash(git_custom_node_infos)
                 invalidate_custom_node_file(file_custom_node_infos)
 
                 print("APPLY SNAPSHOT: True")
-                if 'pips' in info:
+                if 'pips' in info and info['pips']:
                     return info['pips']
                 else:
                     return None

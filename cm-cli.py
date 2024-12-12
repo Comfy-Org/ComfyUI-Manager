@@ -1020,17 +1020,22 @@ def save_snapshot(
         user_directory: str = typer.Option(
             None,
             help="user directory"
-        )
+        ),
+        full_snapshot: Annotated[
+            bool,
+            typer.Option(
+                show_default=False, help="If the snapshot should include custom node, ComfyUI version and pip versions (default), or only custom node details"
+            ),
+        ] = True,
 ):
     cmd_ctx.set_user_directory(user_directory)
-
-    path = asyncio.run(core.save_snapshot_with_postfix('snapshot', output))
+    path = core.save_snapshot_with_postfix('snapshot', output, not full_snapshot)
     print(f"Current snapshot is saved as `{path}`")
 
 
 @app.command("restore-snapshot", help="Restore snapshot from snapshot file")
 def restore_snapshot(
-        snapshot_name: str,
+        snapshot_name: str, 
         pip_non_url: Optional[bool] = typer.Option(
             default=None,
             show_default=False,
