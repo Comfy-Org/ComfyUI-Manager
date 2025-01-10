@@ -11,7 +11,9 @@ import {
 	showYouMLShareDialog
 } from "./comfyui-share-common.js";
 import { OpenArtShareDialog } from "./comfyui-share-openart.js";
-import { free_models, install_pip, install_via_git_url, manager_instance, rebootAPI, setManagerInstance, show_message } from "./common.js";
+import {
+	free_models, install_pip, install_via_git_url, manager_instance,
+	rebootAPI, migrateAPI, setManagerInstance, show_message, customAlert, customPrompt } from "./common.js";
 import { ComponentBuilderDialog, getPureName, load_components, set_component_policy } from "./components-manager.js";
 import { CustomNodesManager } from "./custom-nodes-manager.js";
 import { ModelManager } from "./model-manager.js";
@@ -41,7 +43,7 @@ docStyle.innerHTML = `
 	width: 1000px;
 	height: 520px;
 	box-sizing: content-box;
-	z-index: 10000;
+	z-index: 1000;
 	overflow-y: auto;
 }
 
@@ -49,7 +51,7 @@ docStyle.innerHTML = `
 	width: 400px;
 	height: 25px;
 	box-sizing: border-box;
-	z-index: 10000;
+	z-index: 1000;
 	margin-top: 10px;
 	margin-bottom: 5px;
 }
@@ -99,24 +101,6 @@ docStyle.innerHTML = `
 	justify-content: center;
 	align-content: center;
 	vertical-align: middle;
-}
-
-#cm-channel-badge {
-	color: white;
-	background-color: #AA0000;
-	width: 220px;
-	height: 23px;
-	font-size: 13px;
-	border-radius: 5px;
-	left: 5px;
-	top: 5px;
-	align-content: center;
-	justify-content: center;
-	text-align: center;
-	font-weight: bold;
-	float: left;
-	vertical-align: middle;
-	position: relative;
 }
 
 #custom-nodes-grid a {
@@ -239,9 +223,9 @@ function is_legacy_front() {
 document.head.appendChild(docStyle);
 
 var update_comfyui_button = null;
+var switch_comfyui_button = null;
 var fetch_updates_button = null;
 var update_all_button = null;
-var badge_mode = "none";
 let share_option = 'all';
 
 // copied style from https://github.com/pythongosssss/ComfyUI-Custom-Scripts
@@ -285,6 +269,18 @@ const style = `
 	font-size: 17px !important;
 	background-color: #500000 !important;
 	color: white !important;
+}
+
+
+.cm-button-orange {
+	width: 310px;
+	height: 30px;
+	position: relative;
+	overflow: hidden;
+	font-size: 17px !important;
+	font-weight: bold;
+	background-color: orange !important;
+	color: black !important;
 }
 
 .cm-experimental-button {
@@ -411,14 +407,6 @@ const style = `
 }
 `;
 
-
-
-async function init_badge_mode() {
-	api.fetchApi('/manager/badge_mode')
-		.then(response => response.text())
-		.then(data => { badge_mode = data; })
-}
-
 async function init_share_option() {
 	api.fetchApi('/manager/share_option')
 		.then(response => response.text())
@@ -435,7 +423,6 @@ async function init_notice(notice) {
 		})
 }
 
-await init_badge_mode();
 await init_share_option();
 
 async function fetchNicknames() {
@@ -502,65 +489,6 @@ function getNickname(node, nodename) {
 	}
 }
 
-function drawBadge(node, orig, restArgs) {
-	let ctx = restArgs[0];
-	const r = orig?.apply?.(node, restArgs);
-
-	if (!node.flags.collapsed && badge_mode != 'none' && node.constructor.title_mode != LiteGraph.NO_TITLE) {
-		let text = "";
-		if (badge_mode.startsWith('id_nick'))
-			text = `#${node.id} `;
-
-		let nick = node.getNickname();
-		if (nick) {
-			if (nick == 'ComfyUI') {
-				if(badge_mode.endsWith('hide')) {
-					nick = "";
-				}
-				else {
-					nick = "🦊"
-				}
-			}
-
-			if (nick.length > 25) {
-				text += nick.substring(0, 23) + "..";
-			}
-			else {
-				text += nick;
-			}
-		}
-
-		if (text != "") {
-			let fgColor = "white";
-			let bgColor = "#0F1F0F";
-			let visible = true;
-
-			ctx.save();
-			ctx.font = "12px sans-serif";
-			const sz = ctx.measureText(text);
-			ctx.fillStyle = bgColor;
-			ctx.beginPath();
-			ctx.roundRect(node.size[0] - sz.width - 12, -LiteGraph.NODE_TITLE_HEIGHT - 20, sz.width + 12, 20, 5);
-			ctx.fill();
-
-			ctx.fillStyle = fgColor;
-			ctx.fillText(text, node.size[0] - sz.width - 6, -LiteGraph.NODE_TITLE_HEIGHT - 6);
-			ctx.restore();
-
-			if (node.has_errors) {
-				ctx.save();
-				ctx.font = "bold 14px sans-serif";
-				const sz2 = ctx.measureText(node.type);
-				ctx.fillStyle = 'white';
-				ctx.fillText(node.type, node.size[0] / 2 - sz2.width / 2, node.size[1] / 2);
-				ctx.restore();
-			}
-		}
-	}
-	return r;
-}
-
-
 async function updateComfyUI() {
 	let prev_text = update_comfyui_button.innerText;
 	update_comfyui_button.innerText = "Updating ComfyUI...";
@@ -594,6 +522,154 @@ async function updateComfyUI() {
 		update_comfyui_button.style.backgroundColor = "";
 	}
 }
+
+function showVersionSelectorDialog(versions, current, onSelect) {
+		const dialog = new ComfyDialog();
+		dialog.element.style.zIndex = 1100;
+		dialog.element.style.width = "300px";
+		dialog.element.style.padding = "0";
+		dialog.element.style.backgroundColor = "#2a2a2a";
+		dialog.element.style.border = "1px solid #3a3a3a";
+		dialog.element.style.borderRadius = "8px";
+		dialog.element.style.boxSizing = "border-box";
+		dialog.element.style.overflow = "hidden";
+
+		const contentStyle = {
+			width: "300px",
+			display: "flex",
+			flexDirection: "column",
+			alignItems: "center",
+			padding: "20px",
+			boxSizing: "border-box",
+			gap: "15px"
+		};
+
+		let selectedVersion = versions[0];
+
+		const versionList = $el("select", {
+			multiple: true,
+			size: Math.min(10, versions.length),
+			style: {
+				width: "260px",
+				height: "auto",
+				backgroundColor: "#383838",
+				color: "#ffffff",
+				border: "1px solid #4a4a4a",
+				borderRadius: "4px",
+				padding: "5px",
+				boxSizing: "border-box"
+			}
+		},
+		versions.map((v, index) => $el("option", {
+			value: v,
+			textContent: v,
+			selected: v === current
+		}))
+		);
+
+		versionList.addEventListener('change', (e) => {
+			selectedVersion = e.target.value;
+			Array.from(e.target.options).forEach(opt => {
+				opt.selected = opt.value === selectedVersion;
+			});
+		});
+
+		const content = $el("div", {
+			style: contentStyle
+		}, [
+			$el("h3", {
+				textContent: "Select Version",
+				style: {
+					color: "#ffffff",
+					backgroundColor: "#1a1a1a",
+					padding: "10px 15px",
+					margin: "0 0 10px 0",
+					width: "260px",
+					textAlign: "center",
+					borderRadius: "4px",
+					boxSizing: "border-box",
+					whiteSpace: "nowrap",
+					overflow: "hidden",
+					textOverflow: "ellipsis"
+				}
+			}),
+			versionList,
+			$el("div", {
+				style: {
+					display: "flex",
+					justifyContent: "space-between",
+					width: "260px",
+					gap: "10px"
+				}
+			}, [
+				$el("button", {
+					textContent: "Cancel",
+					onclick: () => dialog.close(),
+					style: {
+						flex: "1",
+						padding: "8px",
+						backgroundColor: "#4a4a4a",
+						color: "#ffffff",
+						border: "none",
+						borderRadius: "4px",
+						cursor: "pointer",
+						whiteSpace: "nowrap",
+						overflow: "hidden",
+						textOverflow: "ellipsis"
+					}
+				}),
+				$el("button", {
+					textContent: "Select",
+					onclick: () => {
+						if (selectedVersion) {
+							onSelect(selectedVersion);
+							dialog.close();
+						} else {
+							customAlert("Please select a version.");
+						}
+					},
+					style: {
+						flex: "1",
+						padding: "8px",
+						backgroundColor: "#4CAF50",
+						color: "#ffffff",
+						border: "none",
+						borderRadius: "4px",
+						cursor: "pointer",
+						whiteSpace: "nowrap",
+						overflow: "hidden",
+						textOverflow: "ellipsis"
+					}
+				}),
+			])
+		]);
+
+		dialog.show(content);
+}
+
+async function switchComfyUI() {
+    let res = await api.fetchApi(`/comfyui_manager/comfyui_versions`, { cache: "no-store" });
+
+    if(res.status == 200) {
+        let obj = await res.json();
+
+        let versions = [];
+        let default_version;
+
+        for(let v of obj.versions) {
+            default_version = v;
+            versions.push(v);
+        }
+
+        showVersionSelectorDialog(versions, obj.current, (selected_version) => {
+            api.fetchApi(`/comfyui_manager/comfyui_switch_version?ver=${selected_version}`, { cache: "no-store" });
+        });
+    }
+    else {
+        show_message('Failed to fetch ComfyUI versions.');
+    }
+}
+
 
 async function fetchUpdates(update_check_checkbox) {
 	let prev_text = fetch_updates_button.innerText;
@@ -745,6 +821,14 @@ class ManagerMenuDialog extends ComfyDialog {
 					() => updateComfyUI()
 			});
 
+		switch_comfyui_button =
+			$el("button.cm-button", {
+				type: "button",
+				textContent: "Switch ComfyUI",
+				onclick:
+					() => switchComfyUI()
+			});
+
 		fetch_updates_button =
 			$el("button.cm-button", {
 				type: "button",
@@ -803,8 +887,8 @@ class ManagerMenuDialog extends ComfyDialog {
 				$el("button.cm-button", {
 					type: "button",
 					textContent: "Install via Git URL",
-					onclick: () => {
-						var url = prompt("Please enter the URL of the Git repository to install", "");
+					onclick: async () => {
+						var url = await customPrompt("Please enter the URL of the Git repository to install", "");
 
 						if (url !== null) {
 							install_via_git_url(url, self);
@@ -815,6 +899,7 @@ class ManagerMenuDialog extends ComfyDialog {
 				$el("br", {}, []),
 				update_all_button,
 				update_comfyui_button,
+				switch_comfyui_button,
 				fetch_updates_button,
 
 				$el("br", {}, []),
@@ -838,6 +923,28 @@ class ManagerMenuDialog extends ComfyDialog {
 				}),
 			];
 
+		let migration_btn =
+			$el("button.cm-button-orange", {
+				type: "button",
+				textContent: "Migrate to New Node System",
+				onclick: () => migrateAPI()
+			});
+
+		migration_btn.style.display = 'none';
+
+		res.push(migration_btn);
+
+		api.fetchApi('/manager/need_to_migrate')
+			.then(response => response.text())
+			.then(text => {
+				if (text === 'True') {
+					migration_btn.style.display = 'block';
+				}
+			})
+			.catch(error => {
+				console.error('Error checking migration status:', error);
+			});
+
 		return res;
 	}
 
@@ -856,7 +963,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		this.datasrc_combo.className = "cm-menu-combo";
 		this.datasrc_combo.appendChild($el('option', { value: 'cache', text: 'DB: Channel (1day cache)' }, []));
 		this.datasrc_combo.appendChild($el('option', { value: 'local', text: 'DB: Local' }, []));
-		this.datasrc_combo.appendChild($el('option', { value: 'url', text: 'DB: Channel (remote)' }, []));
+		this.datasrc_combo.appendChild($el('option', { value: 'remote', text: 'DB: Channel (remote)' }, []));
 
 		// preview method
 		let preview_combo = document.createElement("select");
@@ -875,32 +982,9 @@ class ManagerMenuDialog extends ComfyDialog {
 			api.fetchApi(`/manager/preview_method?value=${event.target.value}`);
 		});
 
-		// nickname
-		let badge_combo = "";
-		if(is_legacy_front()) {
-            badge_combo = document.createElement("select");
-            badge_combo.setAttribute("title", "Configure the content to be displayed on the badge at the top right corner of the node. The ID is the identifier of the node. If 'hide built-in' is selected, both unknown nodes and built-in nodes will be omitted, making them indistinguishable");
-            badge_combo.className = "cm-menu-combo";
-            badge_combo.appendChild($el('option', { value: 'none', text: 'Badge: None' }, []));
-            badge_combo.appendChild($el('option', { value: 'nick', text: 'Badge: Nickname' }, []));
-            badge_combo.appendChild($el('option', { value: 'nick_hide', text: 'Badge: Nickname (hide built-in)' }, []));
-            badge_combo.appendChild($el('option', { value: 'id_nick', text: 'Badge: #ID Nickname' }, []));
-            badge_combo.appendChild($el('option', { value: 'id_nick_hide', text: 'Badge: #ID Nickname (hide built-in)' }, []));
-
-            api.fetchApi('/manager/badge_mode')
-                .then(response => response.text())
-                .then(data => { badge_combo.value = data; badge_mode = data; });
-
-            badge_combo.addEventListener('change', function (event) {
-                api.fetchApi(`/manager/badge_mode?value=${event.target.value}`);
-                badge_mode = event.target.value;
-                app.graph.setDirtyCanvas(true);
-            });
-		}
-
 		// channel
 		let channel_combo = document.createElement("select");
-		channel_combo.setAttribute("title", "Configure the channel for retrieving data from the Custom Node list (including missing nodes) or the Model list. Note that the badge utilizes local information.");
+		channel_combo.setAttribute("title", "Configure the channel for retrieving data from the Custom Node list (including missing nodes) or the Model list.");
 		channel_combo.className = "cm-menu-combo";
 		api.fetchApi('/manager/channel_url_list')
 			.then(response => response.json())
@@ -1024,7 +1108,6 @@ class ManagerMenuDialog extends ComfyDialog {
 			this.datasrc_combo,
 			channel_combo,
 			preview_combo,
-			badge_combo,
 			default_ui_combo,
 			share_combo,
 			component_policy_combo,
@@ -1048,8 +1131,8 @@ class ManagerMenuDialog extends ComfyDialog {
 						type: "button",
 						textContent: "Install PIP packages",
 						onclick:
-							() => {
-								var url = prompt("Please enumerate the pip packages to be installed.\n\nExample: insightface opencv-python-headless>=4.1.1\n", "");
+							async () => {
+								var url = await customPrompt("Please enumerate the pip packages to be installed.\n\nExample: insightface opencv-python-headless>=4.1.1\n", "");
 
 								if (url !== null) {
 									install_pip(url, self);
@@ -1313,9 +1396,23 @@ class ManagerMenuDialog extends ComfyDialog {
 	}
 }
 
+async function getVersion() {
+	let version = await api.fetchApi(`/manager/version`);
+	return await version.text();
+}
+
 
 app.registerExtension({
 	name: "Comfy.ManagerMenu",
+
+	aboutPageBadges: [
+		{
+			label: `ComfyUI-Manager ${await getVersion()}`,
+			url: 'https://github.com/ltdrdata/ComfyUI-Manager',
+			icon: 'pi pi-th-large'
+		}
+	],
+
 	init() {
 		$el("style", {
 			textContent: style,
@@ -1340,7 +1437,6 @@ app.registerExtension({
 
 		try {
 			// new style Manager buttons
-
 			// unload models button into new style Manager button
 			let cmGroup = new (await import("../../scripts/ui/components/buttonGroup.js")).ComfyButtonGroup(
 				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
@@ -1353,6 +1449,19 @@ app.registerExtension({
 					tooltip: "ComfyUI Manager",
 					content: "Manager",
 					classList: "comfyui-button comfyui-menu-mobile-collapse primary"
+				}).element,
+				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
+					icon: "star",
+					action: () => {
+						if(!manager_instance)
+							setManagerInstance(new ManagerMenuDialog());
+
+                        if(!CustomNodesManager.instance) {
+                            CustomNodesManager.instance = new CustomNodesManager(app, self);
+                        }
+                        CustomNodesManager.instance.show(CustomNodesManager.ShowMode.FAVORITES);
+					},
+					tooltip: "Show favorite custom node list"
 				}).element,
 				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
 					icon: "vacuum-outline",
@@ -1441,32 +1550,6 @@ app.registerExtension({
 
 	async beforeRegisterNodeDef(nodeType, nodeData, app) {
 		this._addExtraNodeContextMenu(nodeType, app);
-	},
-
-	async nodeCreated(node, app) {
-	    if(is_legacy_front()) {
-            if(!node.badge_enabled) {
-                node.getNickname = function () { return getNickname(node, node.comfyClass.trim()) };
-                let orig = node.onDrawForeground;
-                if(!orig)
-                    orig = node.__proto__.onDrawForeground;
-
-                node.onDrawForeground = function (ctx) {
-                    drawBadge(node, orig, arguments)
-                };
-                node.badge_enabled = true;
-            }
-		}
-	},
-
-	async loadedGraphNode(node, app) {
-	    if(is_legacy_front()) {
-            if(!node.badge_enabled) {
-                const orig = node.onDrawForeground;
-                node.getNickname = function () { return getNickname(node, node.type.trim()) };
-                node.onDrawForeground = function (ctx) { drawBadge(node, orig, arguments) };
-            }
-		}
 	},
 
 	_addExtraNodeContextMenu(node, app) {

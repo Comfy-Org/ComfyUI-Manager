@@ -172,6 +172,7 @@
             "CLIPTextEncodeControlnet",
             "CLIPTextEncodeFlux",
             "CLIPTextEncodeHunyuanDiT",
+            "CLIPTextEncodePixArtAlpha",
             "CLIPTextEncodeSD3",
             "CLIPTextEncodeSDXL",
             "CLIPTextEncodeSDXLRefiner",
@@ -189,6 +190,7 @@
             "ConditioningSetAreaStrength",
             "ConditioningSetMask",
             "ConditioningSetTimestepRange",
+            "ConditioningStableAudio",
             "ConditioningZeroOut",
             "ControlNetApply",
             "ControlNetApplyAdvanced",
@@ -202,7 +204,9 @@
             "DisableNoise",
             "DualCFGGuider",
             "DualCLIPLoader",
+            "EmptyHunyuanLatentVideo",
             "EmptyImage",
+            "EmptyLTXVLatentVideo",
             "EmptyLatentAudio",
             "EmptyLatentImage",
             "EmptyMochiLatentVideo",
@@ -245,6 +249,9 @@
             "KSamplerAdvanced",
             "KSamplerSelect",
             "KarrasScheduler",
+            "LTXVConditioning",
+            "LTXVImgToVideo",
+            "LTXVScheduler",
             "LaplaceScheduler",
             "LatentAdd",
             "LatentApplyOperation",
@@ -265,6 +272,8 @@
             "LatentSubtract",
             "LatentUpscale",
             "LatentUpscaleBy",
+            "Load3D",
+            "Load3DAnimation",
             "LoadAudio",
             "LoadImage",
             "LoadImageMask",
@@ -272,11 +281,15 @@
             "LoraLoader",
             "LoraLoaderModelOnly",
             "LoraSave",
+            "Mahiro",
             "MaskComposite",
             "MaskToImage",
             "ModelMergeAdd",
+            "ModelMergeAuraflow",
             "ModelMergeBlocks",
             "ModelMergeFlux1",
+            "ModelMergeLTXV",
+            "ModelMergeMochiPreview",
             "ModelMergeSD1",
             "ModelMergeSD2",
             "ModelMergeSD35_Large",
@@ -289,6 +302,7 @@
             "ModelSamplingContinuousV",
             "ModelSamplingDiscrete",
             "ModelSamplingFlux",
+            "ModelSamplingLTXV",
             "ModelSamplingSD3",
             "ModelSamplingStableCascade",
             "ModelSave",
@@ -301,6 +315,7 @@
             "PhotoMakerLoader",
             "PolyexponentialScheduler",
             "PorterDuffImageComposite",
+            "Preview3D",
             "PreviewAudio",
             "PreviewImage",
             "RandomNoise",
@@ -334,6 +349,7 @@
             "SelfAttentionGuidance",
             "SetLatentNoiseMask",
             "SetUnionControlNetType",
+            "SkipLayerGuidanceDiT",
             "SkipLayerGuidanceSD3",
             "SolidMask",
             "SplitImageWithAlpha",
@@ -460,6 +476,17 @@
         ],
         {
             "title_aux": "comfyui-custom-nodes"
+        }
+    ],
+    "https://github.com/jhj0517/ComfyUI-CustomNodes-Template": [
+        [
+            "(Down)Load My Model",
+            "Calculate Minus",
+            "Calculate Plus",
+            "Example Output Node"
+        ],
+        {
+            "title_aux": "ComfyUI-CustomNodes-Template"
         }
     ],
     "https://github.com/jtong/comfyui-jtong-workflow": [

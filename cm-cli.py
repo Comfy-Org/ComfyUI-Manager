@@ -3,8 +3,6 @@ import sys
 import traceback
 import json
 import asyncio
-import subprocess
-import shutil
 import concurrent
 import threading
 from typing import Optional
@@ -14,55 +12,67 @@ from rich import print
 from typing_extensions import List, Annotated
 import re
 import git
+import importlib
+
 
 sys.path.append(os.path.dirname(__file__))
 sys.path.append(os.path.join(os.path.dirname(__file__), "glob"))
-import manager_core as core
-import cm_global
 
-comfyui_manager_path = os.path.dirname(__file__)
+import manager_util
+
+comfy_path = os.environ.get('COMFYUI_PATH')
+if comfy_path is None:
+    try:
+        import folder_paths
+        comfy_path = os.path.join(os.path.dirname(folder_paths.__file__))
+    except:
+        comfy_path = os.path.abspath(os.path.join(manager_util.comfyui_manager_path, '..', '..'))
+
+sys.path.append(comfy_path)
+
+import utils.extra_config
+import cm_global
+import manager_core as core
+from manager_core import unified_manager
+import cnr_utils
+
+
+
+comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
 comfy_path = os.environ.get('COMFYUI_PATH')
 
 if comfy_path is None:
-    print(f"\n[bold yellow]WARN: The `COMFYUI_PATH` environment variable is not set. Assuming `custom_nodes/ComfyUI-Manager/../../` as the ComfyUI path.[/bold yellow]", file=sys.stderr)
+    print("\n[bold yellow]WARN: The `COMFYUI_PATH` environment variable is not set. Assuming `custom_nodes/ComfyUI-Manager/../../` as the ComfyUI path.[/bold yellow]", file=sys.stderr)
     comfy_path = os.path.abspath(os.path.join(comfyui_manager_path, '..', '..'))
 
-startup_script_path = os.path.join(comfyui_manager_path, "startup-scripts")
-custom_nodes_path = os.path.join(comfy_path, 'custom_nodes')
-
-script_path = os.path.join(startup_script_path, "install-scripts.txt")
-restore_snapshot_path = os.path.join(startup_script_path, "restore-snapshot.json")
-pip_overrides_path = os.path.join(comfyui_manager_path, "pip_overrides.json")
-git_script_path = os.path.join(comfyui_manager_path, "git_helper.py")
 
 cm_global.pip_blacklist = ['torch', 'torchsde', 'torchvision']
 cm_global.pip_downgrade_blacklist = ['torch', 'torchsde', 'torchvision', 'transformers', 'safetensors', 'kornia']
-cm_global.pip_overrides = {}
-if os.path.exists(pip_overrides_path):
-    with open(pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
+cm_global.pip_overrides = {'numpy': 'numpy<2'}
+
+if os.path.exists(os.path.join(manager_util.comfyui_manager_path, "pip_overrides.json")):
+    with open(os.path.join(manager_util.comfyui_manager_path, "pip_overrides.json"), 'r', encoding="UTF-8", errors="ignore") as json_file:
         cm_global.pip_overrides = json.load(json_file)
-        cm_global.pip_overrides['numpy'] = 'numpy<2'
 
 
 def check_comfyui_hash():
     repo = git.Repo(comfy_path)
     core.comfy_ui_revision = len(list(repo.iter_commits('HEAD')))
 
-    comfy_ui_hash = repo.head.commit.hexsha
     cm_global.variables['comfyui.revision'] = core.comfy_ui_revision
 
     core.comfy_ui_commit_datetime = repo.head.commit.committed_datetime
 
 
 check_comfyui_hash()  # This is a preparation step for manager_core
+core.check_invalid_nodes()
 
 
 def read_downgrade_blacklist():
     try:
         import configparser
-        config_path = os.path.join(os.path.dirname(__file__), "config.ini")
         config = configparser.ConfigParser()
-        config.read(config_path)
+        config.read(core.manager_config.path)
         default_conf = config['default']
 
         if 'downgrade_blacklist' in default_conf:
@@ -78,11 +88,20 @@ read_downgrade_blacklist()  # This is a preparation step for manager_core
 
 
 class Ctx:
+    folder_paths = None
+    
     def __init__(self):
         self.channel = 'default'
-        self.mode = 'remote'
-        self.processed_install = set()
-        self.custom_node_map_cache = None
+        self.no_deps = False
+        self.mode = 'cache'
+        self.user_directory = None
+        self.custom_nodes_paths = [os.path.join(core.comfy_path, 'custom_nodes')]
+        
+        if Ctx.folder_paths is None:
+            try:
+                Ctx.folder_paths = importlib.import_module('folder_paths')
+            except ImportError:
+                print("Warning: Unable to import folder_paths module")
 
     def set_channel_mode(self, channel, mode):
         if mode is not None:
@@ -99,196 +118,180 @@ class Ctx:
         if channel is not None:
             self.channel = channel
 
-    def post_install(self, url):
-        try:
-            repository_name = url.split("/")[-1].strip()
-            repo_path = os.path.join(custom_nodes_path, repository_name)
-            repo_path = os.path.abspath(repo_path)
+        asyncio.run(unified_manager.reload(cache_mode=self.mode == 'cache'))
+        asyncio.run(unified_manager.load_nightly(self.channel, self.mode))
 
-            requirements_path = os.path.join(repo_path, 'requirements.txt')
-            install_script_path = os.path.join(repo_path, 'install.py')
+    def set_no_deps(self, no_deps):
+        self.no_deps = no_deps
 
-            if os.path.exists(requirements_path):
-                with open(requirements_path, 'r', encoding="UTF-8", errors="ignore") as file:
-                    for line in file:
-                        package_name = core.remap_pip_package(line.strip())
-                        if package_name and not core.is_installed(package_name):
-                            install_cmd = [sys.executable, "-m", "pip", "install", package_name]
-                            output = subprocess.check_output(install_cmd, cwd=repo_path, text=True)
-                            for msg_line in output.split('\n'):
-                                if 'Requirement already satisfied:' in msg_line:
-                                    print('.', end='')
-                                else:
-                                    print(msg_line)
+    def set_user_directory(self, user_directory):
+        if user_directory is None:
+            return
 
-            if os.path.exists(install_script_path) and f'{repo_path}/install.py' not in self.processed_install:
-                self.processed_install.add(f'{repo_path}/install.py')
-                install_cmd = [sys.executable, install_script_path]
-                output = subprocess.check_output(install_cmd, cwd=repo_path, text=True)
-                for msg_line in output.split('\n'):
-                    if 'Requirement already satisfied:' in msg_line:
-                        print('.', end='')
-                    else:
-                        print(msg_line)
+        extra_model_paths_yaml = os.path.join(user_directory, 'extra_model_paths.yaml')
+        if os.path.exists(extra_model_paths_yaml):
+            utils.extra_config.load_extra_path_config(extra_model_paths_yaml)
 
-        except Exception:
-            print(f"ERROR: Restoring '{url}' is failed.")
+        core.update_user_directory(user_directory)
 
-    def restore_dependencies(self):
-        node_paths = [os.path.join(custom_nodes_path, name) for name in os.listdir(custom_nodes_path)
-                      if os.path.isdir(os.path.join(custom_nodes_path, name)) and not name.endswith('.disabled')]
+        if os.path.exists(core.manager_pip_overrides_path):
+            with open(core.manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
+                cm_global.pip_overrides = json.load(json_file)
+                cm_global.pip_overrides = {'numpy': 'numpy<2'}
 
-        total = len(node_paths)
-        i = 1
-        for x in node_paths:
-            print(f"----------------------------------------------------------------------------------------------------")
-            print(f"Restoring [{i}/{total}]: {x}")
-            self.post_install(x)
-            i += 1
+    @staticmethod
+    def get_startup_scripts_path():
+        return os.path.join(core.manager_startup_script_path, "install-scripts.txt")
 
-    def load_custom_nodes(self):
-        channel_dict = core.get_channel_dict()
-        if self.channel not in channel_dict:
-            print(f"[bold red]ERROR: Invalid channel is specified `--channel {self.channel}`[/bold red]", file=sys.stderr)
-            exit(1)
+    @staticmethod
+    def get_restore_snapshot_path():
+        return os.path.join(core.manager_startup_script_path, "restore-snapshot.json")
 
-        if self.mode not in ['remote', 'local', 'cache']:
-            print(f"[bold red]ERROR: Invalid mode is specified `--mode {self.mode}`[/bold red]", file=sys.stderr)
-            exit(1)
+    @staticmethod
+    def get_snapshot_path():
+        return core.manager_snapshot_path
 
-        channel_url = channel_dict[self.channel]
-
-        res = {}
-        json_obj = asyncio.run(core.get_data_by_mode(self.mode, 'custom-node-list.json', channel_url=channel_url))
-        for x in json_obj['custom_nodes']:
-            for y in x['files']:
-                if 'github.com' in y and not (y.endswith('.py') or y.endswith('.js')):
-                    repo_name = y.split('/')[-1]
-                    res[repo_name] = (x, False)
-
-            if 'id' in x:
-                if x['id'] not in res:
-                    res[x['id']] = (x, True)
-
-        return res
-
-    def get_custom_node_map(self):
-        if self.custom_node_map_cache is not None:
-            return self.custom_node_map_cache
-
-        self.custom_node_map_cache = self.load_custom_nodes()
-
-        return self.custom_node_map_cache
-
-    def lookup_node_path(self, node_name, robust=False):
-        if '..' in node_name:
-            print(f"\n[bold red]ERROR: Invalid node name '{node_name}'[/bold red]\n")
-            exit(2)
-
-        custom_node_map = self.get_custom_node_map()
-        if node_name in custom_node_map:
-            node_url = custom_node_map[node_name][0]['files'][0]
-            repo_name = node_url.split('/')[-1]
-            node_path = os.path.join(custom_nodes_path, repo_name)
-            return node_path, custom_node_map[node_name][0]
-        elif robust:
-            node_path = os.path.join(custom_nodes_path, node_name)
-            return node_path, None
-
-        print(f"\n[bold red]ERROR: Invalid node name '{node_name}'[/bold red]\n")
-        exit(2)
+    @staticmethod
+    def get_custom_nodes_paths():
+        if Ctx.folder_paths is None:
+            print("Error: folder_paths module is not available")
+            return []
+        return Ctx.folder_paths.get_folder_paths('custom_nodes')
 
 
-cm_ctx = Ctx()
+cmd_ctx = Ctx()
 
 
-def install_node(node_name, is_all=False, cnt_msg=''):
-    if core.is_valid_url(node_name):
+def install_node(node_spec_str, is_all=False, cnt_msg=''):
+    if core.is_valid_url(node_spec_str):
         # install via urls
-        res = core.gitclone_install([node_name])
-        if not res:
-            print(f"[bold red]ERROR: An error occurred while installing '{node_name}'.[/bold red]")
+        res = asyncio.run(core.gitclone_install(node_spec_str, no_deps=cmd_ctx.no_deps))
+        if not res.result:
+            print(res.msg)
+            print(f"[bold red]ERROR: An error occurred while installing '{node_spec_str}'.[/bold red]")
         else:
-            print(f"{cnt_msg} [INSTALLED] {node_name:50}")
+            print(f"{cnt_msg} [INSTALLED] {node_spec_str:50}")
     else:
-        node_path, node_item = cm_ctx.lookup_node_path(node_name)
+        node_spec = unified_manager.resolve_node_spec(node_spec_str)
 
-        if os.path.exists(node_path):
-            if not is_all:
-                print(f"{cnt_msg} [ SKIPPED ] {node_name:50} => Already installed")
-        elif os.path.exists(node_path + '.disabled'):
-            enable_node(node_name)
+        if node_spec is None:
+            return
+
+        node_name, version_spec, is_specified = node_spec
+
+        # NOTE: install node doesn't allow update if version is not specified
+        if not is_specified:
+            version_spec = None
+
+        res = asyncio.run(unified_manager.install_by_id(node_name, version_spec, cmd_ctx.channel, cmd_ctx.mode, instant_execution=True, no_deps=cmd_ctx.no_deps))
+
+        if res.action == 'skip':
+            print(f"{cnt_msg} [   SKIP  ] {node_name:50} => Already installed")
+        elif res.action == 'enable':
+            print(f"{cnt_msg} [ ENABLED ] {node_name:50}")
+        elif res.action == 'install-git' and res.target == 'nightly':
+            print(f"{cnt_msg} [INSTALLED] {node_name:50}[NIGHTLY]")
+        elif res.action == 'install-git' and res.target == 'unknown':
+            print(f"{cnt_msg} [INSTALLED] {node_name:50}[UNKNOWN]")
+        elif res.action == 'install-cnr' and res.result:
+            print(f"{cnt_msg} [INSTALLED] {node_name:50}[{res.target}]")
+        elif res.action == 'switch-cnr' and res.result:
+            print(f"{cnt_msg} [INSTALLED] {node_name:50}[{res.target}]")
+        elif (res.action == 'switch-cnr' or res.action == 'install-cnr') and not res.result and node_name in unified_manager.cnr_map:
+            print(f"\nAvailable version of '{node_name}'")
+            show_versions(node_name)
+            print("")
         else:
-            res = core.gitclone_install(node_item['files'], instant_execution=True, msg_prefix=f"[{cnt_msg}] ")
-            if not res:
-                print(f"[bold red]ERROR: An error occurred while installing '{node_name}'.[/bold red]")
-            else:
-                print(f"{cnt_msg} [INSTALLED] {node_name:50}")
+            print(f"[bold red]ERROR: An error occurred while installing '{node_name}'.\n{res.msg}[/bold red]")
 
 
-def reinstall_node(node_name, is_all=False, cnt_msg=''):
-    node_path, node_item = cm_ctx.lookup_node_path(node_name)
+def reinstall_node(node_spec_str, is_all=False, cnt_msg=''):
+    node_spec = unified_manager.resolve_node_spec(node_spec_str)
 
-    if os.path.exists(node_path):
-        shutil.rmtree(node_path)
-    if os.path.exists(node_path + '.disabled'):
-        shutil.rmtree(node_path + '.disabled')
+    node_name, version_spec, _ = node_spec
 
+    unified_manager.unified_uninstall(node_name, version_spec == 'unknown')
     install_node(node_name, is_all=is_all, cnt_msg=cnt_msg)
 
 
-def fix_node(node_name, is_all=False, cnt_msg=''):
-    node_path, node_item = cm_ctx.lookup_node_path(node_name, robust=True)
+def fix_node(node_spec_str, is_all=False, cnt_msg=''):
+    node_spec = unified_manager.resolve_node_spec(node_spec_str, guess_mode='active')
 
-    files = node_item['files'] if node_item is not None else [node_path]
+    if node_spec is None:
+        if not is_all:
+            if unified_manager.resolve_node_spec(node_spec_str, guess_mode='inactive') is not None:
+                print(f"{cnt_msg} [  SKIPPED  ]: {node_spec_str:50} => Disabled")
+            else:
+                print(f"{cnt_msg} [  SKIPPED  ]: {node_spec_str:50} => Not installed")
 
-    if os.path.exists(node_path):
-        print(f"{cnt_msg} [   FIXING  ]: {node_name:50} => Disabled")
-        res = core.gitclone_fix(files, instant_execution=True)
-        if not res:
-            print(f"ERROR: An error occurred while fixing '{node_name}'.")
-    elif not is_all and os.path.exists(node_path + '.disabled'):
-        print(f"{cnt_msg} [  SKIPPED  ]: {node_name:50} => Disabled")
-    elif not is_all:
-        print(f"{cnt_msg} [  SKIPPED  ]: {node_name:50} => Not installed")
+        return
+
+    node_name, version_spec, _ = node_spec
+
+    print(f"{cnt_msg} [   FIXING  ]: {node_name:50}[{version_spec}]")
+    res = unified_manager.unified_fix(node_name, version_spec, no_deps=cmd_ctx.no_deps)
+
+    if not res.result:
+        print(f"ERROR: f{res.msg}")
 
 
-def uninstall_node(node_name, is_all=False, cnt_msg=''):
-    node_path, node_item = cm_ctx.lookup_node_path(node_name, robust=True)
-
-    files = node_item['files'] if node_item is not None else [node_path]
-
-    if os.path.exists(node_path) or os.path.exists(node_path + '.disabled'):
-        res = core.gitclone_uninstall(files)
-        if not res:
-            print(f"ERROR: An error occurred while uninstalling '{node_name}'.")
-        else:
-            print(f"{cnt_msg} [UNINSTALLED] {node_name:50}")
+def uninstall_node(node_spec_str: str, is_all: bool = False, cnt_msg: str = ''):
+    spec = node_spec_str.split('@')
+    if len(spec) == 2 and spec[1] == 'unknown':
+        node_name = spec[0]
+        is_unknown = True
     else:
+        node_name = spec[0]
+        is_unknown = False
+
+    res = unified_manager.unified_uninstall(node_name, is_unknown)
+    if len(spec) == 1 and res.action == 'skip' and not is_unknown:
+        res = unified_manager.unified_uninstall(node_name, True)
+
+    if res.action == 'skip':
         print(f"{cnt_msg} [  SKIPPED  ]: {node_name:50} => Not installed")
 
+    elif res.result:
+        print(f"{cnt_msg} [UNINSTALLED] {node_name:50}")
+    else:
+        print(f"ERROR: An error occurred while uninstalling '{node_name}'.")
 
-def update_node(node_name, is_all=False, cnt_msg=''):
-    node_path, node_item = cm_ctx.lookup_node_path(node_name, robust=True)
 
-    files = node_item['files'] if node_item is not None else [node_path]
+def update_node(node_spec_str, is_all=False, cnt_msg=''):
+    node_spec = unified_manager.resolve_node_spec(node_spec_str, 'active')
 
-    res = core.gitclone_update(files, skip_script=True, msg_prefix=f"[{cnt_msg}] ")
-
-    if not res:
-        print(f"ERROR: An error occurred while updating '{node_name}'.")
+    if node_spec is None:
+        if unified_manager.resolve_node_spec(node_spec_str, 'inactive'):
+            print(f"{cnt_msg} [  SKIPPED  ]: {node_spec_str:50} => Disabled")
+        else:
+            print(f"{cnt_msg} [  SKIPPED  ]: {node_spec_str:50} => Not installed")
         return None
 
-    return node_path
+    node_name, version_spec, _ = node_spec
+
+    res = unified_manager.unified_update(node_name, version_spec, no_deps=cmd_ctx.no_deps, return_postinstall=True)
+
+    if not res.result:
+        print(f"ERROR: An error occurred while updating '{node_name}'.")
+    elif res.action == 'skip':
+        print(f"{cnt_msg} [  SKIPPED  ]: {node_name:50} => {res.msg}")
+    else:
+        print(f"{cnt_msg} [  UPDATED  ]: {node_name:50} => ({version_spec} -> {res.target})")
+
+    return res.with_target(f'{node_name}@{res.target}')
 
 
 def update_parallel(nodes):
     is_all = False
     if 'all' in nodes:
         is_all = True
-        nodes = [x for x in cm_ctx.get_custom_node_map().keys() if os.path.exists(os.path.join(custom_nodes_path, x)) or os.path.exists(os.path.join(custom_nodes_path, x) + '.disabled')]
-
-    nodes = [x for x in nodes if x.lower() not in ['comfy', 'comfyui', 'all']]
+        nodes = []
+        for x in unified_manager.active_nodes.keys():
+            nodes.append(x)
+        for x in unified_manager.unknown_active_nodes.keys():
+            nodes.append(x+"@unknown")
+    else:
+        nodes = [x for x in nodes if x.lower() not in ['comfy', 'comfyui']]
 
     total = len(nodes)
 
@@ -305,9 +308,9 @@ def update_parallel(nodes):
             i += 1
 
         try:
-            node_path = update_node(x, is_all=is_all, cnt_msg=f'{i}/{total}')
+            res = update_node(x, is_all=is_all, cnt_msg=f'{i}/{total}')
             with lock:
-                processed.append(node_path)
+                processed.append(res)
         except Exception as e:
             print(f"ERROR: {e}")
             traceback.print_exc()
@@ -317,12 +320,11 @@ def update_parallel(nodes):
             executor.submit(process_custom_node, item)
 
     i = 1
-    for node_path in processed:
-        if node_path is None:
-            print(f"[{i}/{total}] Post update: ERROR")
-        else:
-            print(f"[{i}/{total}] Post update: {node_path}")
-            cm_ctx.post_install(node_path)
+    for res in processed:
+        if res is not None:
+            print(f"[{i}/{total}] Post update: {res.target}")
+            if res.postinstall is not None:
+                res.postinstall()
         i += 1
 
 
@@ -336,104 +338,162 @@ def update_comfyui():
         print("ComfyUI is already up to date.")
 
 
-def enable_node(node_name, is_all=False, cnt_msg=''):
-    if node_name == 'ComfyUI-Manager':
+def enable_node(node_spec_str, is_all=False, cnt_msg=''):
+    if unified_manager.resolve_node_spec(node_spec_str, guess_mode='active') is not None:
+        print(f"{cnt_msg} [  SKIP ] {node_spec_str:50} => Already enabled")
         return
 
-    node_path, node_item = cm_ctx.lookup_node_path(node_name, robust=True)
+    node_spec = unified_manager.resolve_node_spec(node_spec_str, guess_mode='inactive')
 
-    if os.path.exists(node_path + '.disabled'):
-        current_name = node_path + '.disabled'
-        os.rename(current_name, node_path)
+    if node_spec is None:
+        print(f"{cnt_msg} [  SKIP ] {node_spec_str:50} => Not found")
+        return
+
+    node_name, version_spec, _ = node_spec
+
+    res = unified_manager.unified_enable(node_name, version_spec)
+
+    if res.action == 'skip':
+        print(f"{cnt_msg} [  SKIP ] {node_name:50} => {res.msg}")
+    elif res.result:
         print(f"{cnt_msg} [ENABLED] {node_name:50}")
-    elif os.path.exists(node_path):
-        print(f"{cnt_msg} [SKIPPED] {node_name:50} => Already enabled")
-    elif not is_all:
-        print(f"{cnt_msg} [SKIPPED] {node_name:50} => Not installed")
+    else:
+        print(f"{cnt_msg} [  FAIL ] {node_name:50} => {res.msg}")
 
 
-def disable_node(node_name, is_all=False, cnt_msg=''):
-    if node_name == 'ComfyUI-Manager':
+def disable_node(node_spec_str: str, is_all=False, cnt_msg=''):
+    if 'comfyui-manager' in node_spec_str.lower():
         return
 
-    node_path, node_item = cm_ctx.lookup_node_path(node_name, robust=True)
+    node_spec = unified_manager.resolve_node_spec(node_spec_str, guess_mode='active')
 
-    if os.path.exists(node_path):
-        current_name = node_path
-        new_name = node_path + '.disabled'
-        os.rename(current_name, new_name)
+    if node_spec is None:
+        if unified_manager.resolve_node_spec(node_spec_str, guess_mode='inactive') is not None:
+            print(f"{cnt_msg} [  SKIP  ] {node_spec_str:50} => Already disabled")
+        else:
+            print(f"{cnt_msg} [  SKIP  ] {node_spec_str:50} => Not found")
+        return
+
+    node_name, version_spec, _ = node_spec
+
+    res = unified_manager.unified_disable(node_name, version_spec == 'unknown')
+
+    if res.action == 'skip':
+        print(f"{cnt_msg} [  SKIP  ] {node_name:50} => {res.msg}")
+    elif res.result:
         print(f"{cnt_msg} [DISABLED] {node_name:50}")
-    elif os.path.exists(node_path + '.disabled'):
-        print(f"{cnt_msg} [ SKIPPED] {node_name:50} => Already disabled")
-    elif not is_all:
-        print(f"{cnt_msg} [ SKIPPED] {node_name:50} => Not installed")
+    else:
+        print(f"{cnt_msg} [  FAIL  ] {node_name:50} => {res.msg}")
 
 
 def show_list(kind, simple=False):
-    for k, v in cm_ctx.get_custom_node_map().items():
-        if v[1]:
-            continue
+    custom_nodes = asyncio.run(unified_manager.get_custom_nodes(channel=cmd_ctx.channel, mode=cmd_ctx.mode))
 
-        node_path = os.path.join(custom_nodes_path, k)
+    # collect not-installed unknown nodes
+    not_installed_unknown_nodes = []
+    repo_unknown = {}
 
-        states = set()
-        if os.path.exists(node_path):
-            prefix = '[    ENABLED    ] '
-            states.add('installed')
-            states.add('enabled')
-            states.add('all')
-        elif os.path.exists(node_path + '.disabled'):
-            prefix = '[    DISABLED   ] '
-            states.add('installed')
-            states.add('disabled')
-            states.add('all')
-        else:
-            prefix = '[ NOT INSTALLED ] '
-            states.add('not-installed')
-            states.add('all')
-
-        if kind in states:
-            if simple:
-                print(f"{k:50}")
-            else:
-                short_id = v[0].get('id', "")
-                print(f"{prefix} {k:50} {short_id:20} (author: {v[0]['author']})")
-
-    # unregistered nodes
-    candidates = os.listdir(os.path.realpath(custom_nodes_path))
-
-    for k in candidates:
-        fullpath = os.path.join(custom_nodes_path, k)
-
-        if os.path.isfile(fullpath):
-            continue
-
-        if k in ['__pycache__']:
-            continue
-
-        states = set()
-        if k.endswith('.disabled'):
-            prefix = '[    DISABLED   ] '
-            states.add('installed')
-            states.add('disabled')
-            states.add('all')
-            k = k[:-9]
-        else:
-            prefix = '[    ENABLED    ] '
-            states.add('installed')
-            states.add('enabled')
-            states.add('all')
-
-        if k not in cm_ctx.get_custom_node_map():
-            if kind in states:
-                if simple:
-                    print(f"{k:50}")
+    for k, v in custom_nodes.items():
+        if 'cnr_latest' not in v:
+            if len(v['files']) == 1:
+                repo_url = v['files'][0]
+                node_name = repo_url.split('/')[-1]
+                if node_name not in unified_manager.unknown_inactive_nodes and node_name not in unified_manager.unknown_active_nodes:
+                    not_installed_unknown_nodes.append(v)
                 else:
-                    print(f"{prefix} {k:50} {'':20} (author: N/A)")
+                    repo_unknown[node_name] = v
+
+    processed = {}
+    unknown_processed = []
+
+    flag = kind in ['all', 'cnr', 'installed', 'enabled']
+    for k, v in unified_manager.active_nodes.items():
+        if flag:
+            cnr = unified_manager.cnr_map[k]
+            processed[k] = "[    ENABLED    ] ", cnr['name'], k, cnr['publisher']['name'], v[0]
+        else:
+            processed[k] = None
+
+    if flag and kind != 'cnr':
+        for k, v in unified_manager.unknown_active_nodes.items():
+            item = repo_unknown.get(k)
+
+            if item is None:
+                continue
+
+            log_item = "[    ENABLED    ] ", item['title'], k, item['author']
+            unknown_processed.append(log_item)
+
+    flag = kind in ['all', 'cnr', 'installed', 'disabled']
+    for k, v in unified_manager.cnr_inactive_nodes.items():
+        if k in processed:
+            continue
+
+        if flag:
+            cnr = unified_manager.cnr_map[k]
+            processed[k] = "[    DISABLED   ] ", cnr['name'], k, cnr['publisher']['name'], ", ".join(list(v.keys()))
+        else:
+            processed[k] = None
+
+    for k, v in unified_manager.nightly_inactive_nodes.items():
+        if k in processed:
+            continue
+
+        if flag:
+            cnr = unified_manager.cnr_map[k]
+            processed[k] = "[    DISABLED   ] ", cnr['name'], k, cnr['publisher']['name'], 'nightly'
+        else:
+            processed[k] = None
+
+    if flag and kind != 'cnr':
+        for k, v in unified_manager.unknown_inactive_nodes.items():
+            item = repo_unknown.get(k)
+
+            if item is None:
+                continue
+
+            log_item = "[    DISABLED   ] ", item['title'], k, item['author']
+            unknown_processed.append(log_item)
+
+    flag = kind in ['all', 'cnr', 'not-installed']
+    for k, v in unified_manager.cnr_map.items():
+        if k in processed:
+            continue
+
+        if flag:
+            cnr = unified_manager.cnr_map[k]
+            ver_spec = v['latest_version']['version'] if 'latest_version' in v else '0.0.0'
+            processed[k] = "[ NOT INSTALLED ] ", cnr['name'], k, cnr['publisher']['name'], ver_spec
+        else:
+            processed[k] = None
+
+    if flag and kind != 'cnr':
+        for x in not_installed_unknown_nodes:
+            if len(x['files']) == 1:
+                node_id = os.path.basename(x['files'][0])
+                log_item = "[ NOT INSTALLED ] ", x['title'], node_id, x['author']
+                unknown_processed.append(log_item)
+
+    for x in processed.values():
+        if x is None:
+            continue
+
+        prefix, title, short_id, author, ver_spec = x
+        if simple:
+            print(title+'@'+ver_spec)
+        else:
+            print(f"{prefix} {title:50} {short_id:30} (author: {author:20}) \\[{ver_spec}]")
+
+    for x in unknown_processed:
+        prefix, title, short_id, author = x
+        if simple:
+            print(title+'@unknown')
+        else:
+            print(f"{prefix} {title:50} {short_id:30} (author: {author:20}) [UNKNOWN]")
 
 
-def show_snapshot(simple_mode=False):
-    json_obj = core.get_current_snapshot()
+async def show_snapshot(simple_mode=False):
+    json_obj = await core.get_current_snapshot()
 
     if simple_mode:
         print(f"[{json_obj['comfyui']}] comfyui")
@@ -448,7 +508,7 @@ def show_snapshot(simple_mode=False):
 
 
 def show_snapshot_list(simple_mode=False):
-    snapshot_path = os.path.join(comfyui_manager_path, 'snapshots')
+    snapshot_path = cmd_ctx.get_snapshot_path()
 
     files = os.listdir(snapshot_path)
     json_files = [x for x in files if x.endswith('.json')]
@@ -457,25 +517,60 @@ def show_snapshot_list(simple_mode=False):
 
 
 def cancel():
-    if os.path.exists(script_path):
-        os.remove(script_path)
+    if os.path.exists(cmd_ctx.get_startup_scripts_path()):
+        os.remove(cmd_ctx.get_startup_scripts_path())
 
-    if os.path.exists(restore_snapshot_path):
-        os.remove(restore_snapshot_path)
+    if os.path.exists(cmd_ctx.get_restore_snapshot_path()):
+        os.remove(cmd_ctx.get_restore_snapshot_path())
 
 
-def auto_save_snapshot():
-    path = core.save_snapshot_with_postfix('cli-autosave')
+async def auto_save_snapshot():
+    path = await core.save_snapshot_with_postfix('cli-autosave')
     print(f"Current snapshot is saved as `{path}`")
+
+
+def get_all_installed_node_specs():
+    res = []
+    processed = set()
+    for k, v in unified_manager.active_nodes.items():
+        node_spec_str = f"{k}@{v[0]}"
+        res.append(node_spec_str)
+        processed.add(k)
+
+    for k, _ in unified_manager.cnr_inactive_nodes.keys():
+        if k in processed:
+            continue
+
+        latest = unified_manager.get_from_cnr_inactive_nodes(k)
+        if latest is not None:
+            node_spec_str = f"{k}@{str(latest[0])}"
+            res.append(node_spec_str)
+
+    for k, _ in unified_manager.nightly_inactive_nodes.keys():
+        if k in processed:
+            continue
+
+        node_spec_str = f"{k}@nightly"
+        res.append(node_spec_str)
+
+    for k in unified_manager.unknown_active_nodes.keys():
+        node_spec_str = f"{k}@unknown"
+        res.append(node_spec_str)
+
+    for k in unified_manager.unknown_inactive_nodes.keys():
+        node_spec_str = f"{k}@unknown"
+        res.append(node_spec_str)
+
+    return res
 
 
 def for_each_nodes(nodes, act, allow_all=True):
     is_all = False
     if allow_all and 'all' in nodes:
         is_all = True
-        nodes = [x for x in cm_ctx.get_custom_node_map().keys() if os.path.exists(os.path.join(custom_nodes_path, x)) or os.path.exists(os.path.join(custom_nodes_path, x) + '.disabled')]
-
-    nodes = [x for x in nodes if x.lower() not in ['comfy', 'comfyui', 'all']]
+        nodes = get_all_installed_node_specs()
+    else:
+        nodes = [x for x in nodes if x.lower() not in ['comfy', 'comfyui', 'all']]
 
     total = len(nodes)
     i = 1
@@ -513,8 +608,22 @@ def install(
             None,
             help="[remote|local|cache]"
         ),
+        no_deps: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--no-deps",
+                show_default=False,
+                help="Skip installing any Python dependencies",
+            ),
+        ] = False,
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
 ):
-    cm_ctx.set_channel_mode(channel, mode)
+    cmd_ctx.set_user_directory(user_directory)
+    cmd_ctx.set_channel_mode(channel, mode)
+    cmd_ctx.set_no_deps(no_deps)
     for_each_nodes(nodes, act=install_node)
 
 
@@ -534,8 +643,22 @@ def reinstall(
             None,
             help="[remote|local|cache]"
         ),
+        no_deps: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--no-deps",
+                show_default=False,
+                help="Skip installing any Python dependencies",
+            ),
+        ] = False,
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
 ):
-    cm_ctx.set_channel_mode(channel, mode)
+    cmd_ctx.set_user_directory(user_directory)
+    cmd_ctx.set_channel_mode(channel, mode)
+    cmd_ctx.set_no_deps(no_deps)
     for_each_nodes(nodes, act=reinstall_node)
 
 
@@ -556,7 +679,7 @@ def uninstall(
             help="[remote|local|cache]"
         ),
 ):
-    cm_ctx.set_channel_mode(channel, mode)
+    cmd_ctx.set_channel_mode(channel, mode)
     for_each_nodes(nodes, act=uninstall_node)
 
 
@@ -577,11 +700,16 @@ def update(
             None,
             help="[remote|local|cache]"
         ),
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
 ):
-    cm_ctx.set_channel_mode(channel, mode)
+    cmd_ctx.set_user_directory(user_directory)
+    cmd_ctx.set_channel_mode(channel, mode)
 
     if 'all' in nodes:
-        auto_save_snapshot()
+        asyncio.run(auto_save_snapshot())
 
     for x in nodes:
         if x.lower() in ['comfyui', 'comfy', 'all']:
@@ -608,11 +736,16 @@ def disable(
             None,
             help="[remote|local|cache]"
         ),
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
 ):
-    cm_ctx.set_channel_mode(channel, mode)
+    cmd_ctx.set_user_directory(user_directory)
+    cmd_ctx.set_channel_mode(channel, mode)
 
     if 'all' in nodes:
-        auto_save_snapshot()
+        asyncio.run(auto_save_snapshot())
 
     for_each_nodes(nodes, disable_node, allow_all=True)
 
@@ -634,11 +767,16 @@ def enable(
             None,
             help="[remote|local|cache]"
         ),
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
 ):
-    cm_ctx.set_channel_mode(channel, mode)
+    cmd_ctx.set_user_directory(user_directory)
+    cmd_ctx.set_channel_mode(channel, mode)
 
     if 'all' in nodes:
-        auto_save_snapshot()
+        asyncio.run(auto_save_snapshot())
 
     for_each_nodes(nodes, enable_node, allow_all=True)
 
@@ -660,19 +798,34 @@ def fix(
             None,
             help="[remote|local|cache]"
         ),
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
 ):
-    cm_ctx.set_channel_mode(channel, mode)
+    cmd_ctx.set_user_directory(user_directory)
+    cmd_ctx.set_channel_mode(channel, mode)
 
     if 'all' in nodes:
-        auto_save_snapshot()
+        asyncio.run(auto_save_snapshot())
 
     for_each_nodes(nodes, fix_node, allow_all=True)
 
 
-@app.command("show", help="Show node list (simple mode)")
+@app.command("show-versions", help="Show all available versions of the node")
+def show_versions(node_name: str):
+    versions = cnr_utils.all_versions_of_node(node_name)
+    if versions is None:
+        print(f"Node not found in Comfy Registry: {node_name}")
+
+    for x in versions:
+        print(f"[{x['createdAt'][:10]}] {x['version']} -- {x['changelog']}")
+
+
+@app.command("show", help="Show node list")
 def show(
         arg: str = typer.Argument(
-            help="[installed|enabled|not-installed|disabled|all|snapshot|snapshot-list]"
+            help="[installed|enabled|not-installed|disabled|all|cnr|snapshot|snapshot-list]"
         ),
         channel: Annotated[
             str,
@@ -685,6 +838,10 @@ def show(
             None,
             help="[remote|local|cache]"
         ),
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
 ):
     valid_commands = [
         "installed",
@@ -692,6 +849,7 @@ def show(
         "not-installed",
         "disabled",
         "all",
+        "cnr",
         "snapshot",
         "snapshot-list",
     ]
@@ -699,7 +857,8 @@ def show(
         typer.echo(f"Invalid command: `show {arg}`", err=True)
         exit(1)
 
-    cm_ctx.set_channel_mode(channel, mode)
+    cmd_ctx.set_user_directory(user_directory)
+    cmd_ctx.set_channel_mode(channel, mode)
     if arg == 'snapshot':
         show_snapshot()
     elif arg == 'snapshot-list':
@@ -724,6 +883,10 @@ def simple_show(
             None,
             help="[remote|local|cache]"
         ),
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
 ):
     valid_commands = [
         "installed",
@@ -738,7 +901,9 @@ def simple_show(
         typer.echo(f"[bold red]Invalid command: `show {arg}`[/bold red]", err=True)
         exit(1)
 
-    cm_ctx.set_channel_mode(channel, mode)
+    cmd_ctx.set_user_directory(user_directory)
+    cmd_ctx.set_channel_mode(channel, mode)
+
     if arg == 'snapshot':
         show_snapshot(True)
     elif arg == 'snapshot-list':
@@ -751,16 +916,23 @@ def simple_show(
 def cli_only_mode(
         mode: str = typer.Argument(
             ..., help="[enable|disable]"
-        )):
-    cli_mode_flag = os.path.join(os.path.dirname(__file__), '.enable-cli-only-mode')
+        ),
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        )
+):
+    cmd_ctx.set_user_directory(user_directory)
+    cli_mode_flag = os.path.join(cmd_ctx.manager_files_directory, '.enable-cli-only-mode')
+
     if mode.lower() == 'enable':
-        with open(cli_mode_flag, 'w') as file:
+        with open(cli_mode_flag, 'w'):
             pass
-        print(f"\nINFO: `cli-only-mode` is enabled\n")
+        print("\nINFO: `cli-only-mode` is enabled\n")
     elif mode.lower() == 'disable':
         if os.path.exists(cli_mode_flag):
             os.remove(cli_mode_flag)
-        print(f"\nINFO: `cli-only-mode` is disabled\n")
+        print("\nINFO: `cli-only-mode` is disabled\n")
     else:
         print(f"\n[bold red]Invalid value for cli-only-mode: {mode}[/bold red]\n")
         exit(1)
@@ -787,8 +959,13 @@ def deps_in_workflow(
             None,
             help="[remote|local|cache]"
         ),
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        )
 ):
-    cm_ctx.set_channel_mode(channel, mode)
+    cmd_ctx.set_user_directory(user_directory)
+    cmd_ctx.set_channel_mode(channel, mode)
 
     input_path = workflow
     output_path = output
@@ -797,7 +974,7 @@ def deps_in_workflow(
         print(f"[bold red]File not found: {input_path}[/bold red]")
         exit(1)
 
-    used_exts, unknown_nodes = asyncio.run(core.extract_nodes_from_workflow(input_path, mode=cm_ctx.mode, channel_url=cm_ctx.channel))
+    used_exts, unknown_nodes = asyncio.run(core.extract_nodes_from_workflow(input_path, mode=cmd_ctx.mode, channel_url=cmd_ctx.channel))
 
     custom_nodes = {}
     for x in used_exts:
@@ -824,8 +1001,14 @@ def save_snapshot(
                 show_default=False, help="Specify the output file path. (.json/.yaml)"
             ),
         ] = None,
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        )
 ):
-    path = core.save_snapshot_with_postfix('snapshot', output)
+    cmd_ctx.set_user_directory(user_directory)
+
+    path = asyncio.run(core.save_snapshot_with_postfix('snapshot', output))
     print(f"Current snapshot is saved as `{path}`")
 
 
@@ -850,7 +1033,13 @@ def restore_snapshot(
             is_flag=True,
             help="Restore for pip packages specified by local paths.",
         ),
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        )
 ):
+    cmd_ctx.set_user_directory(user_directory)
+
     extras = []
     if pip_non_url:
         extras.append('--pip-non-url')
@@ -866,59 +1055,13 @@ def restore_snapshot(
     if os.path.exists(snapshot_name):
         snapshot_path = os.path.abspath(snapshot_name)
     else:
-        snapshot_path = os.path.join(core.comfyui_manager_path, 'snapshots', snapshot_name)
+        snapshot_path = os.path.join(cmd_ctx.get_snapshot_path(), snapshot_name)
         if not os.path.exists(snapshot_path):
             print(f"[bold red]ERROR: `{snapshot_path}` is not exists.[/bold red]")
             exit(1)
 
     try:
-        cloned_repos = []
-        checkout_repos = []
-        skipped_repos = []
-        enabled_repos = []
-        disabled_repos = []
-        is_failed = False
-
-        def extract_infos(msg):
-            nonlocal is_failed
-
-            for x in msg:
-                if x.startswith("CLONE: "):
-                    cloned_repos.append(x[7:])
-                elif x.startswith("CHECKOUT: "):
-                    checkout_repos.append(x[10:])
-                elif x.startswith("SKIPPED: "):
-                    skipped_repos.append(x[9:])
-                elif x.startswith("ENABLE: "):
-                    enabled_repos.append(x[8:])
-                elif x.startswith("DISABLE: "):
-                    disabled_repos.append(x[9:])
-                elif 'APPLY SNAPSHOT: False' in x:
-                    is_failed = True
-
-        print(f"Restore snapshot.")
-        cmd_str = [sys.executable, git_script_path, '--apply-snapshot', snapshot_path] + extras
-        output = subprocess.check_output(cmd_str, cwd=custom_nodes_path, text=True)
-        msg_lines = output.split('\n')
-        extract_infos(msg_lines)
-
-        for url in cloned_repos:
-            cm_ctx.post_install(url)
-
-        # print summary
-        for x in cloned_repos:
-            print(f"[ INSTALLED ] {x}")
-        for x in checkout_repos:
-            print(f"[  CHECKOUT ] {x}")
-        for x in enabled_repos:
-            print(f"[  ENABLED  ] {x}")
-        for x in disabled_repos:
-            print(f"[  DISABLED ] {x}")
-
-        if is_failed:
-            print(output)
-            print("[bold red]ERROR: Failed to restore snapshot.[/bold red]")
-
+        asyncio.run(core.restore_snapshot(snapshot_path, extras))
     except Exception:
         print("[bold red]ERROR: Failed to restore snapshot.[/bold red]")
         traceback.print_exc()
@@ -928,16 +1071,28 @@ def restore_snapshot(
 @app.command(
     "restore-dependencies", help="Restore dependencies from whole installed custom nodes."
 )
-def restore_dependencies():
-    node_paths = [os.path.join(custom_nodes_path, name) for name in os.listdir(custom_nodes_path)
-                  if os.path.isdir(os.path.join(custom_nodes_path, name)) and not name.endswith('.disabled')]
+def restore_dependencies(
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        )
+):
+    cmd_ctx.set_user_directory(user_directory)
+
+    node_paths = []
+
+    for base_path in cmd_ctx.get_custom_nodes_paths():
+        for name in os.listdir(base_path):
+            target = os.path.join(base_path, name)
+            if os.path.isdir(target) and not name.endswith('.disabled'):
+                node_paths.append(target)
 
     total = len(node_paths)
     i = 1
     for x in node_paths:
-        print(f"----------------------------------------------------------------------------------------------------")
+        print("----------------------------------------------------------------------------------------------------")
         print(f"Restoring [{i}/{total}]: {x}")
-        cm_ctx.post_install(x)
+        unified_manager.execute_install_script('', x, instant_execution=True)
         i += 1
 
 
@@ -947,9 +1102,10 @@ def restore_dependencies():
 def post_install(
         path: str = typer.Argument(
             help="path to custom node",
-        )):
+        )
+):
     path = os.path.expanduser(path)
-    cm_ctx.post_install(path)
+    unified_manager.execute_install_script('', path, instant_execution=True)
 
 
 @app.command(
@@ -971,9 +1127,14 @@ def install_deps(
             None,
             help="[remote|local|cache]"
         ),
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
 ):
-    cm_ctx.set_channel_mode(channel, mode)
-    auto_save_snapshot()
+    cmd_ctx.set_user_directory(user_directory)
+    cmd_ctx.set_channel_mode(channel, mode)
+    asyncio.run(auto_save_snapshot())
 
     if not os.path.exists(deps):
         print(f"[bold red]File not found: {deps}[/bold red]")
@@ -991,7 +1152,7 @@ def install_deps(
                 if state == 'installed':
                     continue
                 elif state == 'not-installed':
-                    core.gitclone_install([k], instant_execution=True)
+                    asyncio.run(core.gitclone_install(k, instant_execution=True))
                 else:  # disabled
                     core.gitclone_set_active([k], False)
 
@@ -1016,16 +1177,48 @@ def export_custom_node_ids(
         mode: str = typer.Option(
             None,
             help="[remote|local|cache]"
-        )):
-    cm_ctx.set_channel_mode(channel, mode)
+        ),
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
+):
+    cmd_ctx.set_user_directory(user_directory)
+    cmd_ctx.set_channel_mode(channel, mode)
 
     with open(path, "w", encoding='utf-8') as output_file:
-        for x in cm_ctx.get_custom_node_map().keys():
+        for x in unified_manager.cnr_map.keys():
             print(x, file=output_file)
+
+        custom_nodes = asyncio.run(unified_manager.get_custom_nodes(channel=cmd_ctx.channel, mode=cmd_ctx.mode))
+        for x in custom_nodes.values():
+            if 'cnr_latest' not in x:
+                if len(x['files']) == 1:
+                    repo_url = x['files'][0]
+                    node_id = repo_url.split('/')[-1]
+                    print(f"{node_id}@unknown", file=output_file)
+
+                if 'id' in x:
+                    print(f"{x['id']}@unknown", file=output_file)
+
+
+@app.command(
+    "migrate",
+    help="Migrate legacy node system to new node system",
+)
+def migrate(
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        )
+):
+    cmd_ctx.set_user_directory(user_directory)
+    asyncio.run(unified_manager.migrate_unmanaged_nodes())
 
 
 if __name__ == '__main__':
     sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
     sys.exit(app())
 
-print(f"")
+
+print("")

@@ -109,7 +109,7 @@ https://blog.comfy.org/comfyui-statement-on-the-ultralytics-crypto-miner-situati
 
         for x in detected:
             print(f"\n======== TARGET: {x} =========")
-            print(f"\nTODO:")
+            print("\nTODO:")
             print(guide.get(x))
 
         exit(-1)

@@ -1,13 +1,15 @@
 import { app } from "../../scripts/app.js";
 import { $el, ComfyDialog } from "../../scripts/ui.js";
+import { customAlert } from "./common.js";
+
 const env = "prod";
 
 let DEFAULT_HOMEPAGE_URL = "https://copus.io";
 
-let API_ENDPOINT = "https://api.client.prod.copus.io/copus-client";
+let API_ENDPOINT = "https://api.client.prod.copus.io";
 
 if (env !== "prod") {
-  API_ENDPOINT = "https://api.dev.copus.io/copus-client";
+  API_ENDPOINT = "https://api.test.copus.io";
   DEFAULT_HOMEPAGE_URL = "https://test.copus.io";
 }
 
@@ -61,6 +63,7 @@ export class CopusShareDialog extends ComfyDialog {
       [$el("div.comfy-modal-content", {}, [...this.createButtons()])]
     );
     this.selectedOutputIndex = 0;
+    this.selectedOutput_lock = 0;
     this.selectedNodeId = null;
     this.uploadedImages = [];
     this.allFilesImages = [];
@@ -190,10 +193,36 @@ export class CopusShareDialog extends ComfyDialog {
       type: "text",
       placeholder: "Subtitle (Optional)",
       style: inputStyle,
-      maxLength: "70",
+      maxLength: "350",
       oninput: () => {
         const titleNum = this.SubTitleInput.value.length;
-        subTitleNumDom.textContent = `${titleNum}/70`;
+        subTitleNumDom.textContent = `${titleNum}/350`;
+      },
+    });
+    this.LockInput = $el("input", {
+      type: "text",
+      placeholder: "",
+      style:  {
+        width: "100px",
+        padding: "7px",
+        borderRadius: "4px",
+        border: "1px solid #ddd",
+        boxSizing: "border-box",
+      },
+      oninput: (event) => {
+        let input = event.target.value;
+        // Use a regular expression to match a number with up to two decimal places
+        const regex = /^\d*\.?\d{0,2}$/;
+        if (!regex.test(input)) {
+          // If the input doesn't match, remove the last entered character
+          event.target.value = input.slice(0, -1);
+        }
+        const numericValue = parseFloat(input);
+        if (numericValue > 9999) {
+          input = "9999";
+        }
+        // Update the input field with the valid value
+        event.target.value = input;
       },
     });
     this.descriptionInput = $el("textarea", {
@@ -297,7 +326,7 @@ export class CopusShareDialog extends ComfyDialog {
           color: "#999",
         },
       },
-      ["0/70"]
+      ["0/350"]
     );
     const descriptionNumDom = $el(
       "label",
@@ -333,6 +362,59 @@ export class CopusShareDialog extends ComfyDialog {
       // descriptionNumDom,
     ]);
     // switch  between outputs section and additional inputs section
+    this.radioButtons_lock = [];
+
+    this.radioButtonsCheck_lock = $el("input", {
+      type: "radio",
+      name: "output_type_lock",
+      value: "0",
+      id: "blockchain1_lock",
+      checked: true,
+    });
+    this.radioButtonsCheckOff_lock = $el("input", {
+      type: "radio",
+      name: "output_type_lock",
+      value: "1",
+      id: "blockchain_lock",
+    });
+
+    const blockChainSection_lock = $el("div", { style: sectionStyle }, [
+      $el("label", { style: labelStyle }, ["6️⃣ Pay to download"]),
+      $el(
+        "label",
+        {
+          style: {
+            marginTop: "10px",
+            display: "flex",
+            alignItems: "center",
+            cursor: "pointer",
+          },
+        },
+        [
+          this.radioButtonsCheck_lock,
+          $el("div", { style: { marginLeft: "5px" ,display:'flex',alignItems:'center'} }, [
+            $el("span", { style: { marginLeft: "5px" } }, ["ON"]),
+            $el("span", { style: { marginLeft: "20px",marginRight:'10px' ,color:'#fff'} }, ["Price US$"]),
+            this.LockInput
+          ]),
+        ]
+      ),
+      $el(
+        "label",
+        { style: { display: "flex", alignItems: "center", cursor: "pointer" } },
+        [
+          this.radioButtonsCheckOff_lock,
+          $el("span", { style: { marginLeft: "5px" } }, ["OFF"]),
+        ]
+      ),
+      
+      $el(
+        "p",
+        { style: { fontSize: "16px", color: "#fff", margin: "10px 0 0 0" } },
+        ["Get paid from your workflow. You can change the price and withdraw your earnings on Copus."]
+      ),
+    ]);
+
     this.radioButtons = [];
 
     this.radioButtonsCheck = $el("input", {
@@ -350,7 +432,7 @@ export class CopusShareDialog extends ComfyDialog {
     });
 
     const blockChainSection = $el("div", { style: sectionStyle }, [
-      $el("label", { style: labelStyle }, ["6️⃣ Store on blockchain "]),
+      $el("label", { style: labelStyle }, ["7️⃣ Store on blockchain "]),
       $el(
         "label",
         {
@@ -380,6 +462,8 @@ export class CopusShareDialog extends ComfyDialog {
         ["Secure ownership with a permanent & decentralized storage"]
       ),
     ]);
+
+
     // Message Section
     this.message = $el(
       "div",
@@ -441,6 +525,7 @@ export class CopusShareDialog extends ComfyDialog {
       SubtitleSection,
       DescriptionSection,
       // contestSection,
+      blockChainSection_lock,
       blockChainSection,
       this.message,
       buttonsSection,
@@ -520,7 +605,7 @@ export class CopusShareDialog extends ComfyDialog {
       this.shareButton.textContent = "Sharing...";
       await this.share();
     } catch (e) {
-      alert(e.message);
+      customAlert(e.message);
     }
     this.shareButton.disabled = false;
     this.shareButton.textContent = "Share";
@@ -543,6 +628,8 @@ export class CopusShareDialog extends ComfyDialog {
       subTitle: this.SubTitleInput.value,
       content: this.descriptionInput.value,
       storeOnChain: this.radioButtonsCheck.checked ? true : false,
+      lockState:this.radioButtonsCheck_lock.checked ? 2 : 0,
+      unlockPrice:this.LockInput.value,
     };
 
     if (!this.keyInput.value) {
@@ -555,6 +642,12 @@ export class CopusShareDialog extends ComfyDialog {
 
     if (!form_values.title) {
       throw new Error("Title is required");
+    }
+
+    if(this.radioButtonsCheck_lock.checked){
+      if (!this.LockInput.value){
+        throw new Error("Price is required");
+      }
     }
 
     if (!this.uploadedImages.length) {

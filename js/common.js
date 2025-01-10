@@ -2,22 +2,176 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { $el, ComfyDialog } from "../../scripts/ui.js";
 
+
+function internalCustomConfirm(message, confirmMessage, cancelMessage) {
+	return new Promise((resolve) => {
+		// transparent bg
+		const modalOverlay = document.createElement('div');
+		modalOverlay.style.position = 'fixed';
+		modalOverlay.style.top = 0;
+		modalOverlay.style.left = 0;
+		modalOverlay.style.width = '100%';
+		modalOverlay.style.height = '100%';
+		modalOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+		modalOverlay.style.display = 'flex';
+		modalOverlay.style.alignItems = 'center';
+		modalOverlay.style.justifyContent = 'center';
+		modalOverlay.style.zIndex = '1101';
+
+		// Modal window container (dark bg)
+		const modalDialog = document.createElement('div');
+		modalDialog.style.backgroundColor = '#333';
+		modalDialog.style.padding = '20px';
+		modalDialog.style.borderRadius = '4px';
+		modalDialog.style.maxWidth = '400px';
+		modalDialog.style.width = '80%';
+		modalDialog.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.5)';
+		modalDialog.style.color = '#fff';
+
+		// Display message
+		const modalMessage = document.createElement('p');
+		modalMessage.textContent = message;
+		modalMessage.style.margin = '0';
+		modalMessage.style.padding = '0 0 20px';
+		modalMessage.style.wordBreak = 'keep-all';
+
+		// Button container
+		const modalButtons = document.createElement('div');
+		modalButtons.style.display = 'flex';
+		modalButtons.style.justifyContent = 'flex-end';
+
+		// Confirm button (green)
+		const confirmButton = document.createElement('button');
+		if(confirmMessage)
+			confirmButton.textContent = confirmMessage;
+		else
+			confirmButton.textContent = 'Confirm';
+		confirmButton.style.marginLeft = '10px';
+		confirmButton.style.backgroundColor = '#28a745'; // green
+		confirmButton.style.color = '#fff';
+		confirmButton.style.border = 'none';
+		confirmButton.style.padding = '6px 12px';
+		confirmButton.style.borderRadius = '4px';
+		confirmButton.style.cursor = 'pointer';
+		confirmButton.style.fontWeight = 'bold';
+
+		// Cancel button (red)
+		const cancelButton = document.createElement('button');
+		if(cancelMessage)
+			cancelButton.textContent = cancelMessage;
+		else
+			cancelButton.textContent = 'Cancel';
+
+		cancelButton.style.marginLeft = '10px';
+		cancelButton.style.backgroundColor = '#dc3545'; // red
+		cancelButton.style.color = '#fff';
+		cancelButton.style.border = 'none';
+		cancelButton.style.padding = '6px 12px';
+		cancelButton.style.borderRadius = '4px';
+		cancelButton.style.cursor = 'pointer';
+		cancelButton.style.fontWeight = 'bold';
+
+		const closeModal = () => {
+			document.body.removeChild(modalOverlay);
+		};
+
+		confirmButton.addEventListener('click', () => {
+			closeModal();
+			resolve(true);
+		});
+
+		cancelButton.addEventListener('click', () => {
+			closeModal();
+			resolve(false);
+		});
+
+		modalButtons.appendChild(confirmButton);
+		modalButtons.appendChild(cancelButton);
+		modalDialog.appendChild(modalMessage);
+		modalDialog.appendChild(modalButtons);
+		modalOverlay.appendChild(modalDialog);
+		document.body.appendChild(modalOverlay);
+	});
+}
+
 export function show_message(msg) {
 	app.ui.dialog.show(msg);
-	app.ui.dialog.element.style.zIndex = 10010;
+	app.ui.dialog.element.style.zIndex = 1099;
 }
 
 export async function sleep(ms) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+export async function customConfirm(message) {
+	try {
+		let res = await
+			window['app'].extensionManager.dialog
+			.confirm({
+				title: 'Confirm',
+				message: message
+			});
+
+		return res;
+	}
+	catch {
+		let res = await internalCustomConfirm(message);
+		return res;
+	}
+}
+
+
+export function customAlert(message) {
+	try {
+		window['app'].extensionManager.toast.addAlert(message);
+	}
+	catch {
+		alert(message);
+	}
+}
+
+
+export async function customPrompt(title, message) {
+	try {
+		let res = await
+				window['app'].extensionManager.dialog
+				.prompt({
+					title: title,
+					message: message
+				});
+
+		return res;
+	}
+	catch {
+		return prompt(title, message)
+	}
+}
+
+
 export function rebootAPI() {
 	if ('electronAPI' in window) {
-      		window.electronAPI.restartApp();
-      		return true;
-    	}
-	if (confirm("Are you sure you'd like to reboot the server?")) {
+			window.electronAPI.restartApp();
+			return true;
+	}
+
+	customConfirm("Are you sure you'd like to reboot the server?").then((isConfirmed) => {
+		if (isConfirmed) {
+			try {
+				api.fetchApi("/manager/reboot");
+			}
+			catch(exception) {}
+		}
+	});
+
+	return false;
+}
+
+
+export async function migrateAPI() {
+	let confirmed = await customConfirm("When performing a migration, existing installed custom nodes will be renamed and the server will be restarted. Are you sure you want to apply this?\n\n(If you don't perform the migration, ComfyUI-Manager's start-up time will be longer each time due to re-checking during startup.)")
+	if (confirmed) {
 		try {
+			await api.fetchApi("/manager/migrate_unmanaged_nodes");
 			api.fetchApi("/manager/reboot");
 		}
 		catch(exception) {
@@ -28,6 +182,7 @@ export function rebootAPI() {
 
 	return false;
 }
+
 
 export var manager_instance = null;
 

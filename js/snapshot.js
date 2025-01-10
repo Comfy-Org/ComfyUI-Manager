@@ -291,7 +291,7 @@ export class SnapshotManager extends ComfyDialog {
 		try {
 			this.invalidateControl();
 			this.element.style.display = "block";
-			this.element.style.zIndex = 10001;
+			this.element.style.zIndex = 1099;
 		}
 		catch(exception) {
 			app.ui.dialog.show(`Failed to get external model list. / ${exception}`);
