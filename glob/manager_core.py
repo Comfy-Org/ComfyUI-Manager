@@ -1965,19 +1965,47 @@ def is_valid_url(url):
     return False
 
 
-def gitclone_install(files, instant_execution=False, msg_prefix='', install_path=None, no_deps=False):
-    print(f"{msg_prefix}Install: {files}")
-    for url in files:
-        if not is_valid_url(url):
-            print(f"Invalid git url: '{url}'")
-            return False
+async def gitclone_install(url, instant_execution=False, msg_prefix='', no_deps=False):
+    await unified_manager.reload('cache')
+    await unified_manager.get_custom_nodes('default', 'cache')
 
-        if url.endswith("/"):
-            url = url[:-1]
-        try:
-            print(f"Download: git clone '{url}' to {install_path}")
+    print(f"{msg_prefix}Install: {url}")
+
+    result = ManagedResult('install-git')
+
+    if not is_valid_url(url):
+        return result.fail(f"Invalid git url: '{url}'")
+
+    if url.endswith("/"):
+        url = url[:-1]
+    try:
+        cnr = unified_manager.get_cnr_by_repo(url)
+        if cnr:
+            cnr_id = cnr['id']
+            return await unified_manager.install_by_id(cnr_id, version_spec='nightly')
+        else:
             repo_name = os.path.splitext(os.path.basename(url))[0]
-            repo_path = os.path.join(install_path or get_default_custom_nodes_path(), repo_name)
+
+            # NOTE: Keep original name as possible if unknown node
+            # node_dir = f"{repo_name}@unknown"
+            node_dir = repo_name
+
+            repo_path = os.path.join(get_default_custom_nodes_path(), node_dir)
+
+            if os.path.exists(repo_path):
+                return result.fail(f"Already exists: '{repo_path}'")
+
+            for custom_nodes_dir in get_custom_nodes_paths():
+                disabled_repo_path1 = os.path.join(custom_nodes_dir, '.disabled', node_dir)
+                disabled_repo_path2 = os.path.join(custom_nodes_dir, repo_name+'.disabled')  # old style
+
+                if os.path.exists(disabled_repo_path1):
+                    return result.fail(f"Already exists (disabled): '{disabled_repo_path1}'")
+
+                if os.path.exists(disabled_repo_path2):
+                    return result.fail(f"Already exists (disabled): '{disabled_repo_path2}'")
+
+            print(f"CLONE into '{repo_path}'")
 
             # Clone the repository from the remote URL
             if not instant_execution and platform.system() == 'Windows':
