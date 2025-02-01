@@ -573,7 +573,7 @@ def for_each_nodes(nodes, act, allow_all=True):
     i = 1
     for x in nodes:
         try:
-            act(x, is_all=is_all, cnt_msg=f'{i}/{total}', install_path=install_path, no_deps=no_deps)
+            act(x, is_all=is_all, cnt_msg=f'{i}/{total}')
         except Exception as e:
             print(f"ERROR: {e}")
             traceback.print_exc()

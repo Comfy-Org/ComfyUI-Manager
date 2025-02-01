@@ -1456,8 +1456,8 @@ async def get_notice(request):
                             markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI isn\'t git repo.</P>' + markdown_content
                         elif core.comfy_ui_required_commit_datetime.date() > core.comfy_ui_commit_datetime.date():
                             markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI is too OUTDATED!!!</P>' + markdown_content
-                    except:
-                        pass
+                    except Exception as e:
+                        logging.warning("Unexpected error when checking ComfyUI version via git.")
 
                     return web.Response(text=markdown_content, status=200)
                 else:
