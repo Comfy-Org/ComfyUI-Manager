@@ -221,7 +221,6 @@ function is_legacy_front() {
 
 document.head.appendChild(docStyle);
 
-var update_comfyui_button = null;
 var fetch_updates_button = null;
 var update_all_button = null;
 let share_option = 'all';
@@ -543,41 +542,6 @@ function drawBadge(node, orig, restArgs) {
 		}
 	}
 	return r;
-}
-
-
-async function updateComfyUI() {
-	let prev_text = update_comfyui_button.innerText;
-	update_comfyui_button.innerText = "Updating ComfyUI...";
-	update_comfyui_button.disabled = true;
-	update_comfyui_button.style.backgroundColor = "gray";
-
-	try {
-		const response = await api.fetchApi('/comfyui_manager/update_comfyui');
-
-		if (response.status == 400) {
-			show_message('Failed to update ComfyUI.');
-			return false;
-		}
-
-		if (response.status == 201) {
-			show_message('ComfyUI has been successfully updated.');
-		}
-		else {
-			show_message('ComfyUI is already up to date with the latest version.');
-		}
-
-		return true;
-	}
-	catch (exception) {
-		show_message(`Failed to update ComfyUI / ${exception}`);
-		return false;
-	}
-	finally {
-		update_comfyui_button.disabled = false;
-		update_comfyui_button.innerText = prev_text;
-		update_comfyui_button.style.backgroundColor = "";
-	}
 }
 
 async function fetchUpdates(update_check_checkbox) {
