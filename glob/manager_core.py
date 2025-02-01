@@ -229,9 +229,6 @@ comfy_ui_commit_datetime = datetime(1900, 1, 1, 0, 0, 0)
 
 is_electron = os.environ.get("ORIGINAL_XDG_CURRENT_DESKTOP") != None
 
-cache_lock = threading.Lock()
-
-
 channel_dict = None
 channel_list = None
 
