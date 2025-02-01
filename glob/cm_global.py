@@ -110,3 +110,6 @@ def add_on_revision_detected(k, f):
             traceback.print_exc()
     else:
         variables['cm.on_revision_detected_handler'].append((k, f))
+
+
+error_dict = {}

@@ -1,6 +1,7 @@
 import {app} from "../../scripts/app.js";
 import {api} from "../../scripts/api.js";
 import {ComfyDialog, $el} from "../../scripts/ui.js";
+import { customAlert } from "./common.js";
 
 const LOCAL_STORAGE_KEY = "openart_comfy_workflow_key";
 const DEFAULT_HOMEPAGE_URL = "https://openart.ai/workflows/dev?developer=true";
@@ -431,7 +432,7 @@ export class OpenArtShareDialog extends ComfyDialog {
       this.shareButton.textContent = "Sharing...";
       await this.share();
     } catch (e) {
-      alert(e.message);
+      customAlert(e.message);
     }
     this.shareButton.disabled = false;
     this.shareButton.textContent = "Share";

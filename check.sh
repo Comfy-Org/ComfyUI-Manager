@@ -9,6 +9,7 @@ files=(
     "alter-list.json"
     "extension-node-map.json"
     "github-stats.json"
+    "extras.json"
     "node_db/new/custom-node-list.json"
     "node_db/new/model-list.json"
     "node_db/new/extension-node-map.json"

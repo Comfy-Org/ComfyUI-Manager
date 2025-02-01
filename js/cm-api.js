@@ -1,6 +1,6 @@
 import { api } from "../../scripts/api.js";
 import { app } from "../../scripts/app.js";
-import { sleep } from "./common.js";
+import { sleep, customConfirm, customAlert } from "./common.js";
 
 async function tryInstallCustomNode(event) {
 	let msg = '-= [ComfyUI Manager] extension installation request =-\n\n';
@@ -19,11 +19,10 @@ async function tryInstallCustomNode(event) {
 	msg += `\n\nRequest message:\n${event.detail.msg}`;
 
 	if(event.detail.target.installed == 'True') {
-		alert(msg);
+		customAlert(msg);
 		return;
 	}
-
-	let res = confirm(msg);
+	const res = await customConfirm(msg);
 	if(res) {
 		if(event.detail.target.installed == 'Disabled') {
 			const response = await api.fetchApi(`/customnode/toggle_active`, {
@@ -44,6 +43,11 @@ async function tryInstallCustomNode(event) {
 
 			if(response.status == 403) {
 				show_message('This action is not allowed with this security level configuration.');
+				return false;
+			}
+			else if(response.status == 400) {
+				let msg = await res.text();
+				show_message(msg);
 				return false;
 			}
 		}

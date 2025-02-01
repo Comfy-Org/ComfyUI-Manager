@@ -34,17 +34,23 @@ Detailed information: https://old.reddit.com/r/comfyui/comments/1dbls5n/psa_if_y
 Execute following commands:
     {sys.executable} -m pip uninstall ultralytics
     {sys.executable} -m pip install ultralytics==8.3.40
+    
+And kill and remove /tmp/ultralytics_runner
+
 
 The version 8.3.41 to 8.3.42 of the Ultralytics package you installed is compromised. Please uninstall that version and reinstall the latest version.
-https://github.com/ltdrdata/ComfyUI-Impact-Pack/issues/843
+https://blog.comfy.org/comfyui-statement-on-the-ultralytics-crypto-miner-situation/
     """,
     "ultralytics==8.3.42": f"""
 Execute following commands:
     {sys.executable} -m pip uninstall ultralytics
     {sys.executable} -m pip install ultralytics==8.3.40
 
+And kill and remove /tmp/ultralytics_runner
+
+
 The version 8.3.41 to 8.3.42 of the Ultralytics package you installed is compromised. Please uninstall that version and reinstall the latest version.
-https://github.com/ltdrdata/ComfyUI-Impact-Pack/issues/843
+https://blog.comfy.org/comfyui-statement-on-the-ultralytics-crypto-miner-situation/
     """
              }
 
@@ -103,7 +109,7 @@ https://github.com/ltdrdata/ComfyUI-Impact-Pack/issues/843
 
         for x in detected:
             print(f"\n======== TARGET: {x} =========")
-            print(f"\nTODO:")
+            print("\nTODO:")
             print(guide.get(x))
 
         exit(-1)

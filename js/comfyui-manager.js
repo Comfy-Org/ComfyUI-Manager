@@ -11,11 +11,12 @@ import {
 	showYouMLShareDialog
 } from "./comfyui-share-common.js";
 import { OpenArtShareDialog } from "./comfyui-share-openart.js";
-import { free_models, install_pip, install_via_git_url, manager_instance, rebootAPI, setManagerInstance, show_message } from "./common.js";
+import {
+	free_models, install_pip, install_via_git_url, manager_instance,
+	rebootAPI, migrateAPI, setManagerInstance, show_message, customAlert, customPrompt } from "./common.js";
 import { ComponentBuilderDialog, getPureName, load_components, set_component_policy } from "./components-manager.js";
 import { CustomNodesManager } from "./custom-nodes-manager.js";
 import { ModelManager } from "./model-manager.js";
-import { set_double_click_policy } from "./node_fixer.js";
 import { SnapshotManager } from "./snapshot.js";
 
 var docStyle = document.createElement('style');
@@ -41,7 +42,7 @@ docStyle.innerHTML = `
 	width: 1000px;
 	height: 520px;
 	box-sizing: content-box;
-	z-index: 10000;
+	z-index: 1000;
 	overflow-y: auto;
 }
 
@@ -49,7 +50,7 @@ docStyle.innerHTML = `
 	width: 400px;
 	height: 25px;
 	box-sizing: border-box;
-	z-index: 10000;
+	z-index: 1000;
 	margin-top: 10px;
 	margin-bottom: 5px;
 }
@@ -99,24 +100,6 @@ docStyle.innerHTML = `
 	justify-content: center;
 	align-content: center;
 	vertical-align: middle;
-}
-
-#cm-channel-badge {
-	color: white;
-	background-color: #AA0000;
-	width: 220px;
-	height: 23px;
-	font-size: 13px;
-	border-radius: 5px;
-	left: 5px;
-	top: 5px;
-	align-content: center;
-	justify-content: center;
-	text-align: center;
-	font-weight: bold;
-	float: left;
-	vertical-align: middle;
-	position: relative;
 }
 
 #custom-nodes-grid a {
@@ -238,9 +221,9 @@ function is_legacy_front() {
 
 document.head.appendChild(docStyle);
 
+var update_comfyui_button = null;
 var fetch_updates_button = null;
 var update_all_button = null;
-var badge_mode = "none";
 let share_option = 'all';
 
 // copied style from https://github.com/pythongosssss/ComfyUI-Custom-Scripts
@@ -284,6 +267,18 @@ const style = `
 	font-size: 17px !important;
 	background-color: #500000 !important;
 	color: white !important;
+}
+
+
+.cm-button-orange {
+	width: 310px;
+	height: 30px;
+	position: relative;
+	overflow: hidden;
+	font-size: 17px !important;
+	font-weight: bold;
+	background-color: orange !important;
+	color: black !important;
 }
 
 .cm-experimental-button {
@@ -410,14 +405,6 @@ const style = `
 }
 `;
 
-
-
-async function init_badge_mode() {
-	api.fetchApi('/manager/badge_mode')
-		.then(response => response.text())
-		.then(data => { badge_mode = data; })
-}
-
 async function init_share_option() {
 	api.fetchApi('/manager/share_option')
 		.then(response => response.text())
@@ -434,7 +421,6 @@ async function init_notice(notice) {
 		})
 }
 
-await init_badge_mode();
 await init_share_option();
 
 async function fetchNicknames() {
@@ -559,6 +545,40 @@ function drawBadge(node, orig, restArgs) {
 	return r;
 }
 
+
+async function updateComfyUI() {
+	let prev_text = update_comfyui_button.innerText;
+	update_comfyui_button.innerText = "Updating ComfyUI...";
+	update_comfyui_button.disabled = true;
+	update_comfyui_button.style.backgroundColor = "gray";
+
+	try {
+		const response = await api.fetchApi('/comfyui_manager/update_comfyui');
+
+		if (response.status == 400) {
+			show_message('Failed to update ComfyUI.');
+			return false;
+		}
+
+		if (response.status == 201) {
+			show_message('ComfyUI has been successfully updated.');
+		}
+		else {
+			show_message('ComfyUI is already up to date with the latest version.');
+		}
+
+		return true;
+	}
+	catch (exception) {
+		show_message(`Failed to update ComfyUI / ${exception}`);
+		return false;
+	}
+	finally {
+		update_comfyui_button.disabled = false;
+		update_comfyui_button.innerText = prev_text;
+		update_comfyui_button.style.backgroundColor = "";
+	}
+}
 
 async function fetchUpdates(update_check_checkbox) {
 	let prev_text = fetch_updates_button.innerText;
@@ -700,6 +720,14 @@ class ManagerMenuDialog extends ComfyDialog {
 	createControlsMid() {
 		let self = this;
 
+		update_comfyui_button =
+			$el("button.cm-button", {
+				type: "button",
+				textContent: "Update ComfyUI",
+				onclick:
+					() => updateComfyUI()
+			});
+
 		fetch_updates_button =
 			$el("button.cm-button", {
 				type: "button",
@@ -758,8 +786,8 @@ class ManagerMenuDialog extends ComfyDialog {
 				$el("button.cm-button", {
 					type: "button",
 					textContent: "Install via Git URL",
-					onclick: () => {
-						var url = prompt("Please enter the URL of the Git repository to install", "");
+					onclick: async () => {
+						var url = await customPrompt("Please enter the URL of the Git repository to install", "");
 
 						if (url !== null) {
 							install_via_git_url(url, self);
@@ -769,6 +797,7 @@ class ManagerMenuDialog extends ComfyDialog {
 
 				$el("br", {}, []),
 				update_all_button,
+				update_comfyui_button,
 				fetch_updates_button,
 
 				$el("br", {}, []),
@@ -778,6 +807,28 @@ class ManagerMenuDialog extends ComfyDialog {
 					onclick: () => rebootAPI()
 				}),
 			];
+
+		let migration_btn =
+			$el("button.cm-button-orange", {
+				type: "button",
+				textContent: "Migrate to New Node System",
+				onclick: () => migrateAPI()
+			});
+
+		migration_btn.style.display = 'none';
+
+		res.push(migration_btn);
+
+		api.fetchApi('/manager/need_to_migrate')
+			.then(response => response.text())
+			.then(text => {
+				if (text === 'True') {
+					migration_btn.style.display = 'block';
+				}
+			})
+			.catch(error => {
+				console.error('Error checking migration status:', error);
+			});
 
 		return res;
 	}
@@ -797,7 +848,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		this.datasrc_combo.className = "cm-menu-combo";
 		this.datasrc_combo.appendChild($el('option', { value: 'cache', text: 'DB: Channel (1day cache)' }, []));
 		this.datasrc_combo.appendChild($el('option', { value: 'local', text: 'DB: Local' }, []));
-		this.datasrc_combo.appendChild($el('option', { value: 'url', text: 'DB: Channel (remote)' }, []));
+		this.datasrc_combo.appendChild($el('option', { value: 'remote', text: 'DB: Channel (remote)' }, []));
 
 		// preview method
 		let preview_combo = document.createElement("select");
@@ -816,32 +867,9 @@ class ManagerMenuDialog extends ComfyDialog {
 			api.fetchApi(`/manager/preview_method?value=${event.target.value}`);
 		});
 
-		// nickname
-		let badge_combo = "";
-		if(is_legacy_front()) {
-            badge_combo = document.createElement("select");
-            badge_combo.setAttribute("title", "Configure the content to be displayed on the badge at the top right corner of the node. The ID is the identifier of the node. If 'hide built-in' is selected, both unknown nodes and built-in nodes will be omitted, making them indistinguishable");
-            badge_combo.className = "cm-menu-combo";
-            badge_combo.appendChild($el('option', { value: 'none', text: 'Badge: None' }, []));
-            badge_combo.appendChild($el('option', { value: 'nick', text: 'Badge: Nickname' }, []));
-            badge_combo.appendChild($el('option', { value: 'nick_hide', text: 'Badge: Nickname (hide built-in)' }, []));
-            badge_combo.appendChild($el('option', { value: 'id_nick', text: 'Badge: #ID Nickname' }, []));
-            badge_combo.appendChild($el('option', { value: 'id_nick_hide', text: 'Badge: #ID Nickname (hide built-in)' }, []));
-
-            api.fetchApi('/manager/badge_mode')
-                .then(response => response.text())
-                .then(data => { badge_combo.value = data; badge_mode = data; });
-
-            badge_combo.addEventListener('change', function (event) {
-                api.fetchApi(`/manager/badge_mode?value=${event.target.value}`);
-                badge_mode = event.target.value;
-                app.graph.setDirtyCanvas(true);
-            });
-		}
-
 		// channel
 		let channel_combo = document.createElement("select");
-		channel_combo.setAttribute("title", "Configure the channel for retrieving data from the Custom Node list (including missing nodes) or the Model list. Note that the badge utilizes local information.");
+		channel_combo.setAttribute("title", "Configure the channel for retrieving data from the Custom Node list (including missing nodes) or the Model list.");
 		channel_combo.className = "cm-menu-combo";
 		api.fetchApi('/manager/channel_url_list')
 			.then(response => response.json())
@@ -918,28 +946,6 @@ class ManagerMenuDialog extends ComfyDialog {
 			set_component_policy(event.target.value);
 		});
 
-		let dbl_click_policy_combo = document.createElement("select");
-		dbl_click_policy_combo.setAttribute("title", "Sets the behavior when you double-click the title area of a node.");
-		dbl_click_policy_combo.className = "cm-menu-combo";
-		dbl_click_policy_combo.appendChild($el('option', { value: 'none', text: 'Double-Click: None' }, []));
-		dbl_click_policy_combo.appendChild($el('option', { value: 'copy-all', text: 'Double-Click: Copy All Connections' }, []));
-		dbl_click_policy_combo.appendChild($el('option', { value: 'copy-full', text: 'Double-Click: Copy All Connections and shape' }, []));
-		dbl_click_policy_combo.appendChild($el('option', { value: 'copy-input', text: 'Double-Click: Copy Input Connections' }, []));
-		dbl_click_policy_combo.appendChild($el('option', { value: 'possible-input', text: 'Double-Click: Possible Input Connections' }, []));
-		dbl_click_policy_combo.appendChild($el('option', { value: 'dual', text: 'Double-Click: Possible(left) + Copy(right)' }, []));
-
-		api.fetchApi('/manager/dbl_click/policy')
-			.then(response => response.text())
-			.then(data => {
-				dbl_click_policy_combo.value = data;
-				set_double_click_policy(data);
-			});
-
-		dbl_click_policy_combo.addEventListener('change', function (event) {
-			api.fetchApi(`/manager/dbl_click/policy?value=${event.target.value}`);
-			set_double_click_policy(event.target.value);
-		});
-
 		api.fetchApi('/manager/share_option')
 			.then(response => response.text())
 			.then(data => {
@@ -965,16 +971,36 @@ class ManagerMenuDialog extends ComfyDialog {
 			this.datasrc_combo,
 			channel_combo,
 			preview_combo,
-			badge_combo,
 			default_ui_combo,
 			share_combo,
 			component_policy_combo,
-			dbl_click_policy_combo,
 			$el("br", {}, []),
 
 			$el("br", {}, []),
 			$el("filedset.cm-experimental", {}, [
 					$el("legend.cm-experimental-legend", {}, ["EXPERIMENTAL"]),
+					$el("button.cm-experimental-button", {
+						type: "button",
+						textContent: "Snapshot Manager",
+						onclick:
+							() => {
+								if(!SnapshotManager.instance)
+								SnapshotManager.instance = new SnapshotManager(app, self);
+								SnapshotManager.instance.show();
+							}
+					}),
+					$el("button.cm-experimental-button", {
+						type: "button",
+						textContent: "Install PIP packages",
+						onclick:
+							() => {
+								var url = prompt("Please enumerate the pip packages to be installed.\n\nExample: insightface opencv-python-headless>=4.1.1\n", "");
+
+								if (url !== null) {
+									install_pip(url, self);
+								}
+							}
+					}),
 					$el("button.cm-experimental-button", {
 						type: "button",
 						textContent: "Unload models",
@@ -1086,9 +1112,23 @@ class ManagerMenuDialog extends ComfyDialog {
 	}
 }
 
+async function getVersion() {
+	let version = await api.fetchApi(`/manager/version`);
+	return await version.text();
+}
+
 
 app.registerExtension({
 	name: "Comfy.ManagerMenu",
+
+	aboutPageBadges: [
+		{
+			label: `ComfyUI-Manager ${await getVersion()}`,
+			url: 'https://github.com/ltdrdata/ComfyUI-Manager',
+			icon: 'pi pi-th-large'
+		}
+	],
+
 	init() {
 		$el("style", {
 			textContent: style,
@@ -1113,7 +1153,6 @@ app.registerExtension({
 
 		try {
 			// new style Manager buttons
-
 			// unload models button into new style Manager button
 			let cmGroup = new (await import("../../scripts/ui/components/buttonGroup.js")).ComfyButtonGroup(
 				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
@@ -1126,6 +1165,19 @@ app.registerExtension({
 					tooltip: "ComfyUI Manager",
 					content: "Manager",
 					classList: "comfyui-button comfyui-menu-mobile-collapse primary"
+				}).element,
+				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
+					icon: "star",
+					action: () => {
+						if(!manager_instance)
+							setManagerInstance(new ManagerMenuDialog());
+
+                        if(!CustomNodesManager.instance) {
+                            CustomNodesManager.instance = new CustomNodesManager(app, self);
+                        }
+                        CustomNodesManager.instance.show(CustomNodesManager.ShowMode.FAVORITES);
+					},
+					tooltip: "Show favorite custom node list"
 				}).element,
 				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
 					icon: "vacuum-outline",
@@ -1214,32 +1266,6 @@ app.registerExtension({
 
 	async beforeRegisterNodeDef(nodeType, nodeData, app) {
 		this._addExtraNodeContextMenu(nodeType, app);
-	},
-
-	async nodeCreated(node, app) {
-	    if(is_legacy_front()) {
-            if(!node.badge_enabled) {
-                node.getNickname = function () { return getNickname(node, node.comfyClass.trim()) };
-                let orig = node.onDrawForeground;
-                if(!orig)
-                    orig = node.__proto__.onDrawForeground;
-
-                node.onDrawForeground = function (ctx) {
-                    drawBadge(node, orig, arguments)
-                };
-                node.badge_enabled = true;
-            }
-		}
-	},
-
-	async loadedGraphNode(node, app) {
-	    if(is_legacy_front()) {
-            if(!node.badge_enabled) {
-                const orig = node.onDrawForeground;
-                node.getNickname = function () { return getNickname(node, node.type.trim()) };
-                node.onDrawForeground = function (ctx) { drawBadge(node, orig, arguments) };
-            }
-		}
 	},
 
 	_addExtraNodeContextMenu(node, app) {

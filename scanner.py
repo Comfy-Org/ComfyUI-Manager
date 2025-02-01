@@ -69,7 +69,7 @@ def extract_nodes(code_text):
 
     try:
         if parse_cnt % 100 == 0:
-            print(f".", end="", flush=True)
+            print(".", end="", flush=True)
         parse_cnt += 1
 
         code_text = re.sub(r'\\[^"\']', '', code_text)
@@ -245,7 +245,10 @@ def get_py_urls_from_json(json_file):
 
 
 def clone_or_pull_git_repository(git_url):
-    repo_name = git_url.split("/")[-1].split(".")[0]
+    repo_name = git_url.split("/")[-1]
+    if repo_name.endswith(".git"):
+        repo_name = repo_name[:-4]
+        
     repo_dir = os.path.join(temp_dir, repo_name)
 
     if os.path.exists(repo_dir):
@@ -512,7 +515,7 @@ def gen_json(node_info):
             nodes.sort()
             data[git_url] = (nodes, metadata_in_url)
 
-    json_path = f"extension-node-map.json"
+    json_path = "extension-node-map.json"
     with open(json_path, "w", encoding='utf-8') as file:
         json.dump(data, file, indent=4, sort_keys=True)
 

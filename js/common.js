@@ -2,22 +2,190 @@ import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { $el, ComfyDialog } from "../../scripts/ui.js";
 
+
+function internalCustomConfirm(message, confirmMessage, cancelMessage) {
+	return new Promise((resolve) => {
+		// transparent bg
+		const modalOverlay = document.createElement('div');
+		modalOverlay.style.position = 'fixed';
+		modalOverlay.style.top = 0;
+		modalOverlay.style.left = 0;
+		modalOverlay.style.width = '100%';
+		modalOverlay.style.height = '100%';
+		modalOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+		modalOverlay.style.display = 'flex';
+		modalOverlay.style.alignItems = 'center';
+		modalOverlay.style.justifyContent = 'center';
+		modalOverlay.style.zIndex = '1101';
+
+		// Modal window container (dark bg)
+		const modalDialog = document.createElement('div');
+		modalDialog.style.backgroundColor = '#333';
+		modalDialog.style.padding = '20px';
+		modalDialog.style.borderRadius = '4px';
+		modalDialog.style.maxWidth = '400px';
+		modalDialog.style.width = '80%';
+		modalDialog.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.5)';
+		modalDialog.style.color = '#fff';
+
+		// Display message
+		const modalMessage = document.createElement('p');
+		modalMessage.textContent = message;
+		modalMessage.style.margin = '0';
+		modalMessage.style.padding = '0 0 20px';
+		modalMessage.style.wordBreak = 'keep-all';
+
+		// Button container
+		const modalButtons = document.createElement('div');
+		modalButtons.style.display = 'flex';
+		modalButtons.style.justifyContent = 'flex-end';
+
+		// Confirm button (green)
+		const confirmButton = document.createElement('button');
+		if(confirmMessage)
+			confirmButton.textContent = confirmMessage;
+		else
+			confirmButton.textContent = 'Confirm';
+		confirmButton.style.marginLeft = '10px';
+		confirmButton.style.backgroundColor = '#28a745'; // green
+		confirmButton.style.color = '#fff';
+		confirmButton.style.border = 'none';
+		confirmButton.style.padding = '6px 12px';
+		confirmButton.style.borderRadius = '4px';
+		confirmButton.style.cursor = 'pointer';
+		confirmButton.style.fontWeight = 'bold';
+
+		// Cancel button (red)
+		const cancelButton = document.createElement('button');
+		if(cancelMessage)
+			cancelButton.textContent = cancelMessage;
+		else
+			cancelButton.textContent = 'Cancel';
+
+		cancelButton.style.marginLeft = '10px';
+		cancelButton.style.backgroundColor = '#dc3545'; // red
+		cancelButton.style.color = '#fff';
+		cancelButton.style.border = 'none';
+		cancelButton.style.padding = '6px 12px';
+		cancelButton.style.borderRadius = '4px';
+		cancelButton.style.cursor = 'pointer';
+		cancelButton.style.fontWeight = 'bold';
+
+		const closeModal = () => {
+			document.body.removeChild(modalOverlay);
+		};
+
+		confirmButton.addEventListener('click', () => {
+			closeModal();
+			resolve(true);
+		});
+
+		cancelButton.addEventListener('click', () => {
+			closeModal();
+			resolve(false);
+		});
+
+		modalButtons.appendChild(confirmButton);
+		modalButtons.appendChild(cancelButton);
+		modalDialog.appendChild(modalMessage);
+		modalDialog.appendChild(modalButtons);
+		modalOverlay.appendChild(modalDialog);
+		document.body.appendChild(modalOverlay);
+	});
+}
+
 export function show_message(msg) {
 	app.ui.dialog.show(msg);
-	app.ui.dialog.element.style.zIndex = 10010;
+	app.ui.dialog.element.style.zIndex = 1100;
 }
 
 export async function sleep(ms) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+export async function customConfirm(message) {
+	try {
+		let res = await
+			window['app'].extensionManager.dialog
+			.confirm({
+				title: 'Confirm',
+				message: message
+			});
+
+		return res;
+	}
+	catch {
+		let res = await internalCustomConfirm(message);
+		return res;
+	}
+}
+
+
+export function customAlert(message) {
+	try {
+		window['app'].extensionManager.toast.addAlert(message);
+	}
+	catch {
+		alert(message);
+	}
+}
+
+export function infoToast(summary, message) {
+	try {
+		app.extensionManager.toast.add({
+			severity: 'info',
+			summary: summary,
+			detail: message,
+			life: 3000
+		})
+	}
+	catch {
+		// do nothing
+	}
+}
+
+
+export async function customPrompt(title, message) {
+	try {
+		let res = await
+				window['app'].extensionManager.dialog
+				.prompt({
+					title: title,
+					message: message
+				});
+
+		return res;
+	}
+	catch {
+		return prompt(title, message)
+	}
+}
+
+
 export function rebootAPI() {
 	if ('electronAPI' in window) {
-      		window.electronAPI.restartApp();
-      		return true;
-    	}
-	if (confirm("Are you sure you'd like to reboot the server?")) {
+			window.electronAPI.restartApp();
+			return true;
+	}
+
+	customConfirm("Are you sure you'd like to reboot the server?").then((isConfirmed) => {
+		if (isConfirmed) {
+			try {
+				api.fetchApi("/manager/reboot");
+			}
+			catch(exception) {}
+		}
+	});
+
+	return false;
+}
+
+
+export async function migrateAPI() {
+	let confirmed = await customConfirm("When performing a migration, existing installed custom nodes will be renamed and the server will be restarted. Are you sure you want to apply this?\n\n(If you don't perform the migration, ComfyUI-Manager's start-up time will be longer each time due to re-checking during startup.)")
+	if (confirmed) {
 		try {
+			await api.fetchApi("/manager/migrate_unmanaged_nodes");
 			api.fetchApi("/manager/reboot");
 		}
 		catch(exception) {
@@ -28,6 +196,7 @@ export function rebootAPI() {
 
 	return false;
 }
+
 
 export var manager_instance = null;
 
@@ -241,4 +410,13 @@ export const icons = {
 	conflicts: '<svg viewBox="0 0 400 400" width="100%" height="100%" pointer-events="none" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="m397.2 350.4.2-.2-180-320-.2.2C213.8 24.2 207.4 20 200 20s-13.8 4.2-17.2 10.4l-.2-.2-180 320 .2.2c-1.6 2.8-2.8 6-2.8 9.6 0 11 9 20 20 20h360c11 0 20-9 20-20 0-3.6-1.2-6.8-2.8-9.6M220 340h-40v-40h40zm0-60h-40V120h40z"/></svg>',
 	passed: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 426.667 426.667"><path fill="#6AC259" d="M213.333,0C95.518,0,0,95.514,0,213.333s95.518,213.333,213.333,213.333c117.828,0,213.333-95.514,213.333-213.333S331.157,0,213.333,0z M174.199,322.918l-93.935-93.931l31.309-31.309l62.626,62.622l140.894-140.898l31.309,31.309L174.199,322.918z"/></svg>',
 	download: '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" width="100%" height="100%" viewBox="0 0 32 32"><path fill="currentColor" d="M26 24v4H6v-4H4v4a2 2 0 0 0 2 2h20a2 2 0 0 0 2-2v-4zm0-10l-1.41-1.41L17 20.17V2h-2v18.17l-7.59-7.58L6 14l10 10l10-10z"></path></svg>'
+}
+
+export function sanitizeHTML(str) {
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }

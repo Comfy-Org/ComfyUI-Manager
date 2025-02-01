@@ -1,8 +1,10 @@
+import { app } from "../../scripts/app.js";
 import { $el } from "../../scripts/ui.js";
 import { 
 	manager_instance, rebootAPI, 
-	fetchData, md5, icons 
+	fetchData, md5, icons, show_message, customAlert, infoToast
 } from  "./common.js";
+import { api } from "../../scripts/api.js";
 
 // https://cenfun.github.io/turbogrid/api.html
 import TG from "./turbogrid.esm.js";
@@ -10,7 +12,7 @@ import TG from "./turbogrid.esm.js";
 const pageCss = `
 .cmm-manager {
 	--grid-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-	z-index: 10001;
+	z-index: 1099;
 	width: 80%;
 	height: 80%;
 	display: flex;
@@ -44,6 +46,18 @@ const pageCss = `
 
 .cmm-manager button:disabled {
 	background-color: var(--comfy-input-bg);
+}
+
+.cmm-manager .cmm-manager-refresh {
+	display: none;
+	background-color: #000080;
+	color: white;
+}
+
+.cmm-manager .cmm-manager-stop {
+	display: none;
+	background-color: #500000;
+	color: white;
 }
 
 .cmm-manager-header {
@@ -235,7 +249,14 @@ const pageHtml = `
 <div class="cmm-manager-selection"></div>
 <div class="cmm-manager-message"></div>
 <div class="cmm-manager-footer">
-	<button class="cmm-manager-close">Close</button>
+	<button class="cmm-manager-back">
+		<svg class="arrow-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<path d="M2 8H18M2 8L8 2M2 8L8 14" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+		</svg>
+		Back
+	</button>
+	<button class="cmm-manager-refresh">Refresh</button>
+	<button class="cmm-manager-stop">Stop</button>
 	<div class="cmm-flex-auto"></div>
 </div>
 `;
@@ -254,6 +275,8 @@ export class ModelManager {
 		this.keywords = '';
 
 		this.init();
+
+		api.addEventListener("cm-queue-status", this.onQueueStatus);
 	}
 
 	init() {
@@ -365,10 +388,25 @@ export class ModelManager {
 				}
 			},
 
-			".cmm-manager-close": {
-				click: (e) => this.close()
+			".cmm-manager-refresh": {
+				click: () => {
+					app.refreshComboInNodes();
+				}
 			},
 
+			".cmm-manager-stop": {
+				click: () => {
+					api.fetchApi('/manager/queue/reset');
+					infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
+				}
+			},
+
+			".cmm-manager-back": {
+				click: (e) => {
+				    this.close()
+				    manager_instance.show();
+				}
+			}
 		};
 		Object.keys(eventsMap).forEach(selector => {
 			const target = this.element.querySelector(selector);
@@ -593,17 +631,28 @@ export class ModelManager {
 	}
 
 	async installModels(list, btn) {
-		
+		let stats = await api.fetchApi('/manager/queue/status');
+
+		stats = await stats.json();
+		if(stats.in_progress) {
+			customAlert(`[ComfyUI-Manager] There are already tasks in progress. Please try again after it is completed. (${stats.done_count}/${stats.total_count})`);
+			return;
+		}
+
 		btn.classList.add("cmm-btn-loading");
 		this.showLoading();
 		this.showError("");
 
-		let needRestart = false;
+		let needRefresh = false;
 		let errorMsg = "";
 
+		await api.fetchApi('/manager/queue/reset');
+
+		let target_items = [];
+
 		for (const item of list) {
-			
 			this.grid.scrollRowIntoView(item);
+			target_items.push(item);
 
 			if (!this.focusInstall(item)) {
 				this.grid.onNextUpdated(() => {
@@ -614,48 +663,104 @@ export class ModelManager {
 			this.showStatus(`Install ${item.name} ...`);
 
 			const data = item.originalData;
-			const res = await fetchData('/model/install', {
+			data.ui_id = item.hash;
+
+			const res = await api.fetchApi(`/manager/queue/install_model`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(data)
 			});
 
-
-			if (res.error) {
+			if (res.status != 200) {
 				errorMsg = `Install failed: ${item.name} ${res.error.message}`;
-				break;;
+				break;
 			}
+		}
 
-			needRestart = true;
+		this.install_context = {btn: btn, targets: target_items};
 
-			this.grid.setRowSelected(item, false);
+		if(errorMsg) {
+			this.showError(errorMsg);
+			show_message("Installation Error:\n"+errorMsg);
+
+			// reset
+			for (const hash of list) {
+				const item = this.grid.getRowItemBy("hash", hash);
+				this.grid.updateCell(item, "installed");
+			}
+		}
+		else {
+			await api.fetchApi('/manager/queue/start');
+			this.showStop();
+		}
+	}
+
+	async onQueueStatus(event) {
+		let self = ModelManager.instance;
+
+		if(event.detail.status == 'in_progress' && event.detail.ui_target == 'model_manager') {
+			const hash = event.detail.target;
+
+			const item = self.grid.getRowItemBy("hash", hash);
 
 			item.refresh = true;
+			self.grid.setRowSelected(item, false);
 			item.selectable = false;
-			this.grid.updateCell(item, "installed");
-			this.grid.updateCell(item, "tg-column-select");
+//			self.grid.updateCell(item, "tg-column-select");
+			self.grid.updateRow(item);
+		}
+		else if(event.detail.status == 'done') {
+			self.hideStop();
+			self.onQueueCompleted(event.detail);
+		}
+	}
 
-			this.showStatus(`Install ${item.name} successfully`);
+	async onQueueCompleted(info) {
+		let result = info.model_result;
 
+		if(result.length == 0) {
+			return;
 		}
 
-		this.hideLoading();
+		let self = ModelManager.instance;
+
+		if(!self.install_context) {
+			return;
+		}
+
+		let btn = self.install_context.btn;
+
+		self.hideLoading();
 		btn.classList.remove("cmm-btn-loading");
 
+		let errorMsg = "";
+
+		for(let hash in result){
+			let v = result[hash];
+
+			if(v != 'success')
+				errorMsg += v;
+		}
+
+		for(let k in self.install_context.targets) {
+			let item = self.install_context.targets[k];
+			self.grid.updateCell(item, "installed");
+		}
+
 		if (errorMsg) {
-			this.showError(errorMsg);
+			self.showError(errorMsg);
+			show_message("Installation Error:\n"+errorMsg);
 		} else {
-			this.showStatus(`Install ${list.length} models successfully`);
+			self.showStatus(`Install ${result.length} models successfully`);
 		}
 
-		if (needRestart) {
-			this.showMessage(`To apply the installed model, please click the 'Refresh' button on the main menu.`, "red")
-		}
+		self.showRefresh();
+		self.showMessage(`To apply the installed model, please click the 'Refresh' button.`, "red")
 
+		infoToast('Tasks done', `[ComfyUI-Manager] All model downloading tasks in the queue have been completed.\n${info.done_count}/${info.total_count}`);
+		self.install_context = undefined;
 	}
 
 	getModelList(models) {
-
 		const typeMap = new Map();
 		const baseMap = new Map();
 
@@ -824,7 +929,7 @@ export class ModelManager {
 	}
 
 	showLoading() {
-		this.setDisabled(true);
+//		this.setDisabled(true);
 		if (this.grid) {
 			this.grid.showLoading();
 			this.grid.showMask({
@@ -834,7 +939,7 @@ export class ModelManager {
 	}
 
 	hideLoading() {
-		this.setDisabled(false);
+//		this.setDisabled(false);
 		if (this.grid) {
 			this.grid.hideLoading();
 			this.grid.hideMask();
@@ -842,8 +947,9 @@ export class ModelManager {
 	}
 
 	setDisabled(disabled) {
-
 		const $close = this.element.querySelector(".cmm-manager-close");
+		const $refresh = this.element.querySelector(".cmm-manager-refresh");
+		const $stop = this.element.querySelector(".cmm-manager-stop");
 
 		const list = [
 			".cmm-manager-header input",
@@ -855,7 +961,7 @@ export class ModelManager {
 		})
 		.flat()
 		.filter(it => {
-			return it !== $close;
+			return it !== $close && it !== $refresh && it !== $stop;
 		});
 		
 		list.forEach($elem => {
@@ -870,6 +976,18 @@ export class ModelManager {
 			$elem.classList.remove("cmm-btn-loading");
 		});
 
+	}
+
+	showRefresh() {
+		this.element.querySelector(".cmm-manager-refresh").style.display = "block";
+	}
+
+	showStop() {
+		this.element.querySelector(".cmm-manager-stop").style.display = "block";
+	}
+
+	hideStop() {
+		this.element.querySelector(".cmm-manager-stop").style.display = "none";
 	}
 
 	setKeywords(keywords = "") {
