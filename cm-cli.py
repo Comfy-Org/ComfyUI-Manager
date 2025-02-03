@@ -573,7 +573,7 @@ def for_each_nodes(nodes, act, allow_all=True):
     i = 1
     for x in nodes:
         try:
-            act(x, is_all=is_all, cnt_msg=f'{i}/{total}', install_path=install_path, no_deps=no_deps)
+            act(x, is_all=is_all, cnt_msg=f'{i}/{total}')
         except Exception as e:
             print(f"ERROR: {e}")
             traceback.print_exc()
@@ -616,15 +616,7 @@ def install(
         user_directory: str = typer.Option(
             None,
             help="user directory"
-        ),
-        no_deps: Annotated[
-            Optional[bool],
-            typer.Option(
-                "--no-deps",
-                show_default=False,
-                help="Skip installing any Python dependencies",
-            ),
-        ] = False,
+        )
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
@@ -1035,7 +1027,7 @@ def save_snapshot(
 
 @app.command("restore-snapshot", help="Restore snapshot from snapshot file")
 def restore_snapshot(
-        snapshot_name: str, 
+        snapshot_name: str,
         pip_non_url: Optional[bool] = typer.Option(
             default=None,
             show_default=False,
