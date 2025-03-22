@@ -1,0 +1,699 @@
+.cn-manager {
+	--grid-font: -apple-system, BlinkMacSystemFont, "Segue UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+	z-index: 1099;
+	width: 80%;
+	height: 80%;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	color: var(--fg-color);
+	font-family: arial, sans-serif;
+	text-underline-offset: 3px;
+	outline: none;
+}
+
+.cn-manager .cn-flex-auto {
+	flex: auto;
+}
+
+.cn-manager button {
+	font-size: 16px;
+	color: var(--input-text);
+	background-color: var(--comfy-input-bg);
+	border-radius: 8px;
+	border-color: var(--border-color);
+	border-style: solid;
+	margin: 0;
+	padding: 4px 8px;
+	min-width: 100px;
+}
+
+.cn-manager button:disabled,
+.cn-manager input:disabled,
+.cn-manager select:disabled {
+	color: gray;
+}
+
+.cn-manager button:disabled {
+	background-color: var(--comfy-input-bg);
+}
+
+.cn-manager .cn-manager-restart {
+	display: none;
+	background-color: #500000;
+	color: white;
+}
+
+.cn-manager .cn-manager-stop {
+	display: none;
+	background-color: #500000;
+	color: white;
+}
+
+.cn-manager .cn-manager-back {
+	align-items: center;
+	justify-content: center;
+}
+
+.arrow-icon {
+	height: 1em;
+	width: 1em;
+	margin-right: 5px;
+	transform: translateY(2px);
+}
+
+.cn-icon {
+	display: block;
+	width: 16px;
+	height: 16px;
+}
+
+.cn-icon svg {
+	display: block;
+	margin: 0;
+	pointer-events: none;
+}
+
+.cn-manager-header {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+	align-items: center;
+	padding: 0 5px;
+}
+
+.cn-manager-header label {
+	display: flex;
+	gap: 5px;
+	align-items: center;
+}
+
+.cn-manager-filter {
+	height: 28px;
+	line-height: 28px;
+}
+
+.cn-manager-keywords {
+	height: 28px;
+	line-height: 28px;
+	padding: 0 5px 0 26px;
+	background-size: 16px;
+	background-position: 5px center;
+	background-repeat: no-repeat;
+	background-image: url("data:image/svg+xml;charset=utf8,%3Csvg%20viewBox%3D%220%200%2024%2024%22%20width%3D%22100%25%22%20height%3D%22100%25%22%20pointer-events%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20fill%3D%22none%22%20stroke%3D%22%23888%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22m21%2021-4.486-4.494M19%2010.5a8.5%208.5%200%201%201-17%200%208.5%208.5%200%200%201%2017%200%22%2F%3E%3C%2Fsvg%3E");
+}
+
+.cn-manager-status {
+	padding-left: 10px;
+}
+
+.cn-manager-grid {
+	flex: auto;
+	border: 1px solid var(--border-color);
+	overflow: hidden;
+	position: relative;
+}
+
+.cn-manager-selection {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	align-items: center;
+}
+
+.cn-manager-message {
+	position: relative;
+}
+
+.cn-manager-footer {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	align-items: center;
+}
+
+.cn-manager-grid .tg-turbogrid {
+	font-family: var(--grid-font);
+	font-size: 15px;
+	background: var(--bg-color);
+}
+
+.cn-manager-grid .tg-turbogrid .tg-highlight::after {
+	position: absolute;
+	top: 0;
+	left: 0;
+	content: "";
+	display: block;
+	width: 100%;
+	height: 100%;
+	box-sizing: border-box;
+	background-color: #80bdff11;
+	pointer-events: none;
+}
+
+.cn-manager-grid .cn-pack-name a {
+	color: skyblue;
+	text-decoration: none;
+	word-break: break-word;
+}
+
+.cn-manager-grid .cn-pack-desc a {
+	color: #5555FF;
+	font-weight: bold;
+	text-decoration: none;
+}
+
+.cn-manager-grid .tg-cell a:hover {
+	text-decoration: underline;
+}
+
+.cn-manager-grid .cn-pack-version {
+	line-height: 100%;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	height: 100%;
+	gap: 5px;
+}
+
+.cn-manager-grid .cn-pack-nodes {
+	line-height: 100%;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	gap: 5px;
+	cursor: pointer;
+	height: 100%;
+}
+
+.cn-manager-grid .cn-pack-nodes:hover {
+	text-decoration: underline;
+}
+
+.cn-manager-grid .cn-pack-conflicts {
+	color: orange;
+}
+
+.cn-popover {
+	position: fixed;
+	z-index: 10000;
+	padding: 20px;
+	color: #1e1e1e;
+	filter: drop-shadow(1px 5px 5px rgb(0 0 0 / 30%));
+	overflow: hidden;
+}
+
+.cn-flyover {
+	position: absolute;
+    top: 0;
+	right: 0;
+    z-index: 1000;
+    display: none;
+    width: 50%;
+    height: 100%;
+    background-color: var(--comfy-menu-bg);
+    animation-duration: 0.2s;
+    animation-fill-mode: both;
+	flex-direction: column;
+}
+
+.cn-flyover::before {
+    position: absolute;
+    top: 0;
+    content: "";
+    z-index: 10;
+    display: block;
+    width: 10px;
+    height: 100%;
+    pointer-events: none;
+	left: -10px;
+    background-image: linear-gradient(to left, rgb(0 0 0 / 20%), rgb(0 0 0 / 0%));
+}
+
+.cn-flyover-header {
+	height: 45px;
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	border-bottom: 1px solid var(--border-color);
+}
+
+.cn-flyover-close {
+	display: flex;
+	align-items: center;
+	padding: 0 10px;
+	justify-content: center;
+	cursor: pointer;
+	opacity: 0.8;
+	height: 100%;
+}
+
+.cn-flyover-close:hover {
+	opacity: 1;
+}
+
+.cn-flyover-close svg {
+	display: block;
+	margin: 0;
+	pointer-events: none;
+	width: 20px;
+	height: 20px;
+}
+
+.cn-flyover-title {
+	display: flex;
+	align-items: center;
+	font-weight: bold;
+	gap: 10px;
+	flex: auto;
+}
+
+.cn-flyover-body {
+	height: calc(100% - 45px);
+	overflow-y: auto;
+	position: relative;
+	background-color: var(--comfy-menu-secondary-bg);
+}
+
+@keyframes cn-slide-in-right {
+    from {
+        visibility: visible;
+        transform: translate3d(100%, 0, 0);
+    }
+
+    to {
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+.cn-slide-in-right {
+    animation-name: cn-slide-in-right;
+}
+
+@keyframes cn-slide-out-right {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+
+    to {
+        visibility: hidden;
+        transform: translate3d(100%, 0, 0);
+    }
+}
+
+.cn-slide-out-right {
+    animation-name: cn-slide-out-right;
+}
+
+.cn-nodes-list {
+	width: 100%;
+}
+
+.cn-nodes-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.cn-nodes-row:nth-child(odd) {
+	background-color: rgb(0 0 0 / 5%);
+}
+
+.cn-nodes-row:hover {
+    background-color: rgb(0 0 0 / 10%);
+}
+
+.cn-nodes-sn {
+	text-align: right;
+	min-width: 35px;
+	color: var(--drag-text);
+	flex-shrink: 0;
+	font-size: 12px;
+	padding: 8px 5px;
+}
+
+.cn-nodes-name {
+	cursor: pointer;
+	white-space: nowrap;
+	flex-shrink: 0;
+	position: relative;
+	padding: 8px 5px;
+}
+
+.cn-nodes-name::after {
+	content: attr(action);
+	position: absolute;
+	pointer-events: none;
+	top: 50%;
+	left: 100%;
+	transform: translate(5px, -50%);
+	font-size: 12px;
+	color: var(--drag-text);
+	background-color: var(--comfy-input-bg);
+	border-radius: 10px;
+	border: 1px solid var(--border-color);
+	padding: 3px 8px;
+	display: none;
+}
+
+.cn-nodes-name.action::after {
+	display: block;
+}
+
+.cn-nodes-name:hover {
+	text-decoration: underline;
+}
+
+.cn-nodes-conflict .cn-nodes-name,
+.cn-nodes-conflict .cn-icon {
+	color: orange;
+}
+
+.cn-conflicts-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+	align-items: center;
+	padding: 5px 0;
+}
+
+.cn-conflicts-list b {
+	font-weight: normal;
+	color: var(--descrip-text);
+}
+
+.cn-nodes-pack {
+	cursor: pointer;
+	color: skyblue;
+}
+
+.cn-nodes-pack:hover {
+	text-decoration: underline;
+}
+
+.cn-pack-badge {
+	font-size: 12px;
+	font-weight: normal;
+	background-color: var(--comfy-input-bg);
+	border-radius: 10px;
+	border: 1px solid var(--border-color);
+	padding: 3px 8px;
+	color: var(--error-text);
+}
+
+.cn-preview {
+	min-width: 300px;
+	max-width: 500px;
+	min-height: 120px;
+	overflow: hidden;
+  	font-size: 12px;
+	pointer-events: none;
+	padding: 12px;
+	color: var(--fg-color);
+}
+
+.cn-preview-header {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	border-bottom: 1px solid var(--comfy-input-bg);
+	padding: 5px 10px;
+}
+
+.cn-preview-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background-color: grey;
+	position: relative;
+	filter: drop-shadow(1px 2px 3px rgb(0 0 0 / 30%));
+}
+
+.cn-preview-dot.cn-preview-optional::after {
+	content: "";
+	position: absolute;
+	pointer-events: none;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	background-color: var(--comfy-input-bg);
+	border-radius: 50%;
+	width: 3px;
+  	height: 3px;
+}
+
+.cn-preview-dot.cn-preview-grid {
+	border-radius: 0;
+}
+
+.cn-preview-dot.cn-preview-grid::before {
+	content: '';
+	position: absolute;
+	border-left: 1px solid var(--comfy-input-bg);
+	border-right: 1px solid var(--comfy-input-bg);
+	width: 4px;
+	height: 100%;
+	left: 2px;
+	top: 0;
+	z-index: 1;
+}
+
+.cn-preview-dot.cn-preview-grid::after {
+	content: '';
+	position: absolute;
+	border-top: 1px solid var(--comfy-input-bg);
+	border-bottom: 1px solid var(--comfy-input-bg);
+	width: 100%;
+	height: 4px;
+	left: 0;
+	top: 2px;
+	z-index: 1;
+}
+
+.cn-preview-name {
+	flex: auto;
+	font-size: 14px;
+}
+
+.cn-preview-io {
+	display: flex;
+	justify-content: space-between;
+	padding: 10px 10px;
+}
+
+.cn-preview-column > div {
+	display: flex;
+	gap: 10px;
+	align-items: center;
+	height: 18px;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+.cn-preview-input {
+	justify-content: flex-start;
+}
+
+.cn-preview-output {
+	justify-content: flex-end;
+}
+
+.cn-preview-list {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	padding: 0 10px 10px 10px;
+}
+
+.cn-preview-switch {
+	position: relative;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background: var(--bg-color);
+	border: 2px solid var(--border-color);
+	border-radius: 10px;
+	text-wrap: nowrap;
+	padding: 2px 20px;
+	gap: 10px;
+}
+
+.cn-preview-switch::before,
+.cn-preview-switch::after {
+	position: absolute;
+	pointer-events: none;
+	top: 50%;
+	transform: translate(0, -50%);
+	color: var(--fg-color);
+	opacity: 0.8;
+}
+
+.cn-preview-switch::before {
+	content: "◀";
+	left: 5px;
+}
+
+.cn-preview-switch::after {
+	content: "▶";
+	right: 5px;
+}
+
+.cn-preview-value {
+	color: var(--descrip-text);
+}
+
+.cn-preview-string {
+	min-height: 30px;
+	max-height: 300px;
+	background: var(--bg-color);
+	color: var(--descrip-text);
+	border-radius: 3px;
+	padding: 3px 5px;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+.cn-preview-description {
+	margin: 0px 10px 10px 10px;
+	padding: 6px;
+	background: var(--border-color);
+	color: var(--descrip-text);
+	border-radius: 5px;
+	font-style: italic;
+	word-break: break-word;
+}
+
+.cn-tag-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+	align-items: center;
+	margin-bottom: 5px;
+}
+
+.cn-tag-list > div {
+	background-color: var(--border-color);
+	border-radius: 5px;
+	padding: 0 5px;
+}
+
+.cn-install-buttons {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	padding: 3px;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+}
+
+.cn-selected-buttons {
+	display: flex;
+	gap: 5px;
+	align-items: center;
+	padding-right: 20px;
+}
+
+.cn-manager .cn-btn-enable {
+	background-color: #333399;
+	color: white;
+}
+
+.cn-manager .cn-btn-disable {
+	background-color: #442277;
+	color: white;
+}
+
+.cn-manager .cn-btn-update {
+	background-color: #1155AA;
+	color: white;
+}
+
+.cn-manager .cn-btn-try-update {
+	background-color: Gray;
+	color: white;
+}
+
+.cn-manager .cn-btn-try-fix {
+	background-color: #6495ED;
+	color: white;
+}
+
+.cn-manager .cn-btn-import-failed {
+	background-color: #AA1111;
+    font-size: 10px;
+	font-weight: bold;
+	color: white;
+}
+
+.cn-manager .cn-btn-install {
+	background-color: black;
+	color: white;
+}
+
+.cn-manager .cn-btn-try-install {
+	background-color: Gray;
+	color: white;
+}
+
+.cn-manager .cn-btn-uninstall {
+	background-color: #993333;
+	color: white;
+}
+
+.cn-manager .cn-btn-reinstall {
+	background-color: #993333;
+	color: white;
+}
+
+.cn-manager .cn-btn-switch {
+	background-color: #448833;
+	color: white;
+
+}
+
+@keyframes cn-btn-loading-bg {
+	0% {
+		left: 0;
+	}
+	100% {
+		left: -105px;
+	}
+}
+
+.cn-manager button.cn-btn-loading {
+	position: relative;
+	overflow: hidden;
+	border-color: rgb(0 119 207 / 80%);
+	background-color: var(--comfy-input-bg);
+}
+
+.cn-manager button.cn-btn-loading::after {
+	position: absolute;
+	top: 0;
+	left: 0;
+	content: "";
+	width: 500px;
+	height: 100%;
+	background-image: repeating-linear-gradient(
+		-45deg,
+		rgb(0 119 207 / 30%),
+		rgb(0 119 207 / 30%) 10px,
+		transparent 10px,
+		transparent 15px
+	);
+	animation: cn-btn-loading-bg 2s linear infinite;
+}
+
+.cn-manager-light .cn-pack-name a {
+	color: blue;
+}
+
+.cn-manager-light .cm-warn-note {
+	background-color: #ccc !important;
+}
+
+.cn-manager-light .cn-btn-install {
+	background-color: #333;
+}

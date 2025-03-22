@@ -121,8 +121,9 @@ ComfyUI-Loopchain
   * If no file exists at the snapshot path, it is implicitly assumed to be in ComfyUI-Manager/snapshots.
   * `--pip-non-url`: Restore for pip packages registered on PyPI.
   * `--pip-non-local-url`: Restore for pip packages registered at web URLs.
-  * `--pip-local-url`: Restore for pip packages specified by local paths. 
-
+  * `--pip-local-url`: Restore for pip packages specified by local paths.
+  * `--user-directory`: Set the user directory.
+  * `--restore-to`: The path where the restored custom nodes will be installed. (When this option is applied, only the custom nodes installed in the target path are recognized as installed.)
 
 ### 5. CLI Only Mode
 

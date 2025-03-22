@@ -1,16 +1,6 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 
-let double_click_policy = "copy-all";
-
-api.fetchApi('/manager/dbl_click/policy')
-	.then(response => response.text())
-	.then(data => set_double_click_policy(data));
-
-export function set_double_click_policy(mode) {
-	double_click_policy = mode;
-}
-
 function addMenuHandler(nodeType, cb) {
 	const getOpts = nodeType.prototype.getExtraMenuOptions;
 	nodeType.prototype.getExtraMenuOptions = function () {
@@ -153,62 +143,6 @@ function node_info_copy(src, dest, connect_both, copy_shape) {
 
 app.registerExtension({
 	name: "Comfy.Manager.NodeFixer",
-
-	async nodeCreated(node, app) {
-		let orig_dblClick = node.onDblClick;
-		node.onDblClick = function (e, pos, self) {
-			orig_dblClick?.apply?.(this, arguments);
-
-			if((!node.inputs && !node.outputs) || pos[1] > 0)
-				return;
-
-			switch(double_click_policy) {
-				case "copy-all":
-				case "copy-full":
-				case "copy-input":
-					{
-						if(node.inputs?.some(x => x.link != null) || node.outputs?.some(x => x.links != null && x.links.length > 0) )
-							return;
-
-						let src_node = lookup_nearest_nodes(node);
-						if(src_node)
-						{
-							let both_connection = double_click_policy != "copy-input";
-							let copy_shape = double_click_policy == "copy-full";
-							node_info_copy(src_node, node, both_connection, copy_shape);
-						}
-					}
-					break;
-				case "possible-input":
-					{
-						let nearest_inputs = lookup_nearest_inputs(node);
-						if(nearest_inputs)
-							connect_inputs(nearest_inputs, node);
-					}
-					break;
-				case "dual":
-					{
-						if(pos[0] < node.size[0]/2) {
-							// left: possible-input
-							let nearest_inputs = lookup_nearest_inputs(node);
-							if(nearest_inputs)
-								connect_inputs(nearest_inputs, node);
-						}
-						else {
-							// right: copy-all
-							if(node.inputs?.some(x => x.link != null) || node.outputs?.some(x => x.links != null && x.links.length > 0) )
-								return;
-
-							let src_node = lookup_nearest_nodes(node);
-							if(src_node)
-								node_info_copy(src_node, node, true);
-						}
-					}
-					break;
-			}
-		}
-	},
-
 	beforeRegisterNodeDef(nodeType, nodeData, app) {
 		addMenuHandler(nodeType, function (_, options) {
 			options.push({

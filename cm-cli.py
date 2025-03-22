@@ -20,14 +20,19 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "glob"))
 
 import manager_util
 
+# read env vars
+# COMFYUI_FOLDERS_BASE_PATH is not required in cm-cli.py
+# `comfy_path` should be resolved before importing manager_core
 comfy_path = os.environ.get('COMFYUI_PATH')
 if comfy_path is None:
     try:
         import folder_paths
         comfy_path = os.path.join(os.path.dirname(folder_paths.__file__))
     except:
+        print("\n[bold yellow]WARN: The `COMFYUI_PATH` environment variable is not set. Assuming `custom_nodes/ComfyUI-Manager/../../` as the ComfyUI path.[/bold yellow]", file=sys.stderr)
         comfy_path = os.path.abspath(os.path.join(manager_util.comfyui_manager_path, '..', '..'))
 
+# This should be placed here
 sys.path.append(comfy_path)
 
 import utils.extra_config
@@ -36,17 +41,9 @@ import manager_core as core
 from manager_core import unified_manager
 import cnr_utils
 
-
-
 comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
-comfy_path = os.environ.get('COMFYUI_PATH')
 
-if comfy_path is None:
-    print("\n[bold yellow]WARN: The `COMFYUI_PATH` environment variable is not set. Assuming `custom_nodes/ComfyUI-Manager/../../` as the ComfyUI path.[/bold yellow]", file=sys.stderr)
-    comfy_path = os.path.abspath(os.path.join(comfyui_manager_path, '..', '..'))
-
-
-cm_global.pip_blacklist = ['torch', 'torchsde', 'torchvision']
+cm_global.pip_blacklist = {'torch', 'torchsde', 'torchvision'}
 cm_global.pip_downgrade_blacklist = ['torch', 'torchsde', 'torchvision', 'transformers', 'safetensors', 'kornia']
 cm_global.pip_overrides = {'numpy': 'numpy<2'}
 
@@ -55,13 +52,25 @@ if os.path.exists(os.path.join(manager_util.comfyui_manager_path, "pip_overrides
         cm_global.pip_overrides = json.load(json_file)
 
 
+if os.path.exists(os.path.join(manager_util.comfyui_manager_path, "pip_blacklist.list")):
+    with open(os.path.join(manager_util.comfyui_manager_path, "pip_blacklist.list"), 'r', encoding="UTF-8", errors="ignore") as f:
+        for x in f.readlines():
+            y = x.strip()
+            if y != '':
+                cm_global.pip_blacklist.add(y)
+
+
 def check_comfyui_hash():
-    repo = git.Repo(comfy_path)
-    core.comfy_ui_revision = len(list(repo.iter_commits('HEAD')))
+    try:
+        repo = git.Repo(comfy_path)
+        core.comfy_ui_revision = len(list(repo.iter_commits('HEAD')))
+        core.comfy_ui_commit_datetime = repo.head.commit.committed_datetime
+    except:
+        print('[bold yellow]INFO: Frozen ComfyUI mode.[/bold yellow]')
+        core.comfy_ui_revision = 0
+        core.comfy_ui_commit_datetime = 0
 
     cm_global.variables['comfyui.revision'] = core.comfy_ui_revision
-
-    core.comfy_ui_commit_datetime = repo.head.commit.committed_datetime
 
 
 check_comfyui_hash()  # This is a preparation step for manager_core
@@ -71,7 +80,7 @@ core.check_invalid_nodes()
 def read_downgrade_blacklist():
     try:
         import configparser
-        config = configparser.ConfigParser()
+        config = configparser.ConfigParser(strict=False)
         config.read(core.manager_config.path)
         default_conf = config['default']
 
@@ -95,7 +104,8 @@ class Ctx:
         self.no_deps = False
         self.mode = 'cache'
         self.user_directory = None
-        self.custom_nodes_paths = [os.path.join(core.comfy_path, 'custom_nodes')]
+        self.custom_nodes_paths = [os.path.join(core.comfy_base_path, 'custom_nodes')]
+        self.manager_files_directory = os.path.dirname(__file__)
         
         if Ctx.folder_paths is None:
             try:
@@ -118,7 +128,7 @@ class Ctx:
         if channel is not None:
             self.channel = channel
 
-        asyncio.run(unified_manager.reload(cache_mode=self.mode == 'cache'))
+        asyncio.run(unified_manager.reload(cache_mode=self.mode, dont_wait=False))
         asyncio.run(unified_manager.load_nightly(self.channel, self.mode))
 
     def set_no_deps(self, no_deps):
@@ -138,6 +148,18 @@ class Ctx:
             with open(core.manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
                 cm_global.pip_overrides = json.load(json_file)
                 cm_global.pip_overrides = {'numpy': 'numpy<2'}
+
+        if os.path.exists(core.manager_pip_blacklist_path):
+            with open(core.manager_pip_blacklist_path, 'r', encoding="UTF-8", errors="ignore") as f:
+                for x in f.readlines():
+                    y = x.strip()
+                    if y != '':
+                        cm_global.pip_blacklist.add(y)
+
+    def update_custom_nodes_dir(self, target_dir):
+        import folder_paths
+        a, b = folder_paths.folder_names_and_paths['custom_nodes']
+        folder_paths.folder_names_and_paths['custom_nodes'] = [os.path.abspath(target_dir)], set()
 
     @staticmethod
     def get_startup_scripts_path():
@@ -232,7 +254,7 @@ def fix_node(node_spec_str, is_all=False, cnt_msg=''):
     res = unified_manager.unified_fix(node_name, version_spec, no_deps=cmd_ctx.no_deps)
 
     if not res.result:
-        print(f"ERROR: f{res.msg}")
+        print(f"[bold red]ERROR: f{res.msg}[/bold red]")
 
 
 def uninstall_node(node_spec_str: str, is_all: bool = False, cnt_msg: str = ''):
@@ -537,7 +559,7 @@ def get_all_installed_node_specs():
         res.append(node_spec_str)
         processed.add(k)
 
-    for k, _ in unified_manager.cnr_inactive_nodes.keys():
+    for k in unified_manager.cnr_inactive_nodes.keys():
         if k in processed:
             continue
 
@@ -546,7 +568,7 @@ def get_all_installed_node_specs():
             node_spec_str = f"{k}@{str(latest[0])}"
             res.append(node_spec_str)
 
-    for k, _ in unified_manager.nightly_inactive_nodes.keys():
+    for k in unified_manager.nightly_inactive_nodes.keys():
         if k in processed:
             continue
 
@@ -624,7 +646,10 @@ def install(
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
     cmd_ctx.set_no_deps(no_deps)
+
+    pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, core.manager_files_path)
     for_each_nodes(nodes, act=install_node)
+    pip_fixer.fix_broken()
 
 
 @app.command(help="Reinstall custom nodes")
@@ -659,7 +684,10 @@ def reinstall(
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
     cmd_ctx.set_no_deps(no_deps)
+
+    pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, core.manager_files_path)
     for_each_nodes(nodes, act=reinstall_node)
+    pip_fixer.fix_broken()
 
 
 @app.command(help="Uninstall custom nodes")
@@ -683,7 +711,7 @@ def uninstall(
     for_each_nodes(nodes, act=uninstall_node)
 
 
-@app.command(help="Disable custom nodes")
+@app.command(help="Update custom nodes")
 def update(
         nodes: List[str] = typer.Argument(
             ...,
@@ -711,12 +739,15 @@ def update(
     if 'all' in nodes:
         asyncio.run(auto_save_snapshot())
 
+    pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, core.manager_files_path)
+
     for x in nodes:
         if x.lower() in ['comfyui', 'comfy', 'all']:
             update_comfyui()
             break
 
     update_parallel(nodes)
+    pip_fixer.fix_broken()
 
 
 @app.command(help="Disable custom nodes")
@@ -809,7 +840,9 @@ def fix(
     if 'all' in nodes:
         asyncio.run(auto_save_snapshot())
 
+    pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, core.manager_files_path)
     for_each_nodes(nodes, fix_node, allow_all=True)
+    pip_fixer.fix_broken()
 
 
 @app.command("show-versions", help="Show all available versions of the node")
@@ -1004,17 +1037,36 @@ def save_snapshot(
         user_directory: str = typer.Option(
             None,
             help="user directory"
-        )
+        ),
+        full_snapshot: Annotated[
+            bool,
+            typer.Option(
+                show_default=False, help="If the snapshot should include custom node, ComfyUI version and pip versions (default), or only custom node details"
+            ),
+        ] = True,
 ):
     cmd_ctx.set_user_directory(user_directory)
 
-    path = asyncio.run(core.save_snapshot_with_postfix('snapshot', output))
+    if output is None:
+        print("[bold red]ERROR: missing output path[/bold red]")
+        raise typer.Exit(code=1)
+        
+    if(not output.endswith('.json') and not output.endswith('.yaml')):
+        print("[bold red]ERROR: output path should be either '.json' or '.yaml' file.[/bold red]")
+        raise typer.Exit(code=1)
+    
+    dir_path = os.path.dirname(output)
+    if(dir_path != '' and not os.path.exists(dir_path)):
+        print(f"[bold red]ERROR: {output} path not exists.[/bold red]")
+        raise typer.Exit(code=1)
+        
+    path = asyncio.run(core.save_snapshot_with_postfix('snapshot', output, not full_snapshot))
     print(f"Current snapshot is saved as `{path}`")
 
 
 @app.command("restore-snapshot", help="Restore snapshot from snapshot file")
 def restore_snapshot(
-        snapshot_name: str,
+        snapshot_name: str, 
         pip_non_url: Optional[bool] = typer.Option(
             default=None,
             show_default=False,
@@ -1036,9 +1088,16 @@ def restore_snapshot(
         user_directory: str = typer.Option(
             None,
             help="user directory"
+        ),
+        restore_to: Optional[str] = typer.Option(
+            None,
+            help="Manually specify the installation path for the custom node. Ignore user directory."
         )
 ):
     cmd_ctx.set_user_directory(user_directory)
+
+    if restore_to:
+        cmd_ctx.update_custom_nodes_dir(restore_to)
 
     extras = []
     if pip_non_url:
@@ -1060,12 +1119,14 @@ def restore_snapshot(
             print(f"[bold red]ERROR: `{snapshot_path}` is not exists.[/bold red]")
             exit(1)
 
+    pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, core.manager_files_path)
     try:
         asyncio.run(core.restore_snapshot(snapshot_path, extras))
     except Exception:
         print("[bold red]ERROR: Failed to restore snapshot.[/bold red]")
         traceback.print_exc()
         raise typer.Exit(code=1)
+    pip_fixer.fix_broken()
 
 
 @app.command(
@@ -1089,11 +1150,14 @@ def restore_dependencies(
 
     total = len(node_paths)
     i = 1
+
+    pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, core.manager_files_path)
     for x in node_paths:
         print("----------------------------------------------------------------------------------------------------")
         print(f"Restoring [{i}/{total}]: {x}")
         unified_manager.execute_install_script('', x, instant_execution=True)
         i += 1
+    pip_fixer.fix_broken()
 
 
 @app.command(
@@ -1105,7 +1169,10 @@ def post_install(
         )
 ):
     path = os.path.expanduser(path)
+
+    pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, core.manager_files_path)
     unified_manager.execute_install_script('', path, instant_execution=True)
+    pip_fixer.fix_broken()
 
 
 @app.command(
@@ -1147,6 +1214,7 @@ def install_deps(
                 print(f"[bold red]Invalid json file: {deps}[/bold red]")
                 exit(1)
 
+            pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, core.manager_files_path)
             for k in json_obj['custom_nodes'].keys():
                 state = core.simple_check_custom_node(k)
                 if state == 'installed':
@@ -1155,6 +1223,7 @@ def install_deps(
                     asyncio.run(core.gitclone_install(k, instant_execution=True))
                 else:  # disabled
                     core.gitclone_set_active([k], False)
+            pip_fixer.fix_broken()
 
         print("Dependency installation and activation complete.")
 
@@ -1200,20 +1269,6 @@ def export_custom_node_ids(
 
                 if 'id' in x:
                     print(f"{x['id']}@unknown", file=output_file)
-
-
-@app.command(
-    "migrate",
-    help="Migrate legacy node system to new node system",
-)
-def migrate(
-        user_directory: str = typer.Option(
-            None,
-            help="user directory"
-        )
-):
-    cmd_ctx.set_user_directory(user_directory)
-    asyncio.run(unified_manager.migrate_unmanaged_nodes())
 
 
 if __name__ == '__main__':

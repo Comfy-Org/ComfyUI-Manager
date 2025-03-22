@@ -1,3 +1,148 @@
 {
-  "models": []
+  "models": [
+    {
+      "name": "Inswapper-fp16 (face swap) [REMOVED]",
+      "type": "insightface",
+      "base": "inswapper",
+      "save_path": "insightface",
+      "description": "Checkpoint of the insightface swapper model\n(used by ComfyUI-FaceSwap, comfyui-reactor-node, CharacterFaceSwap,\nComfyUI roop and comfy_mtb)",
+      "reference": "https://github.com/facefusion/facefusion-assets",
+      "filename": "inswapper_128_fp16.onnx",
+      "url": "https://github.com/facefusion/facefusion-assets/releases/download/models/inswapper_128_fp16.onnx",
+      "size": "277.7MB"
+    },
+    {
+      "name": "Inswapper (face swap) [REMOVED]",
+      "type": "insightface",
+      "base": "inswapper",
+      "save_path": "insightface",
+      "description": "Checkpoint of the insightface swapper model\n(used by ComfyUI-FaceSwap, comfyui-reactor-node, CharacterFaceSwap,\nComfyUI roop and comfy_mtb)",
+      "reference": "https://github.com/facefusion/facefusion-assets",
+      "filename": "inswapper_128.onnx",
+      "url": "https://github.com/facefusion/facefusion-assets/releases/download/models/inswapper_128.onnx",
+      "size": "555.3MB"
+    },
+    {
+      "name": "pfg-novel-n10.pt",
+      "type": "PFG",
+      "base": "SD1.5",
+      "save_path": "custom_nodes/pfg-ComfyUI/models",
+      "description": "Pressing 'install' directly downloads the model from the pfg-ComfyUI/models extension node. (Note: Requires ComfyUI-Manager V0.24 or above)",
+      "reference": "https://huggingface.co/furusu/PFG",
+      "filename": "pfg-novel-n10.pt",
+      "url": "https://huggingface.co/furusu/PFG/resolve/main/pfg-novel-n10.pt",
+      "size": "23.6MB"
+    },
+    {
+      "name": "pfg-wd14-n10.pt",
+      "type": "PFG",
+      "base": "SD1.5",
+      "save_path": "custom_nodes/pfg-ComfyUI/models",
+      "description": "Pressing 'install' directly downloads the model from the pfg-ComfyUI/models extension node. (Note: Requires ComfyUI-Manager V0.24 or above)",
+      "reference": "https://huggingface.co/furusu/PFG",
+      "filename": "pfg-wd14-n10.pt",
+      "url": "https://huggingface.co/furusu/PFG/resolve/main/pfg-wd14-n10.pt",
+      "size": "31.5MB"
+    },
+    {
+      "name": "pfg-wd15beta2-n10.pt",
+      "type": "PFG",
+      "base": "SD1.5",
+      "save_path": "custom_nodes/pfg-ComfyUI/models",
+      "description": "Pressing 'install' directly downloads the model from the pfg-ComfyUI/models extension node. (Note: Requires ComfyUI-Manager V0.24 or above)",
+      "reference": "https://huggingface.co/furusu/PFG",
+      "filename": "pfg-wd15beta2-n10.pt",
+      "url": "https://huggingface.co/furusu/PFG/resolve/main/pfg-wd15beta2-n10.pt",
+      "size": "31.5MB"
+    },
+    {
+      "name": "shape_predictor_68_face_landmarks.dat [Face Analysis]",
+      "type": "Shape Predictor",
+      "base": "DLIB",
+      "save_path": "custom_nodes/comfyui_faceanalysis/dlib",
+      "description": "To use the Face Analysis for ComfyUI custom node, installation of this model is needed.",
+      "reference": "https://huggingface.co/matt3ounstable/dlib_predictor_recognition/tree/main",
+      "filename": "shape_predictor_68_face_landmarks.dat",
+      "url": "https://huggingface.co/matt3ounstable/dlib_predictor_recognition/resolve/main/shape_predictor_68_face_landmarks.dat",
+      "size": "99.7MB"
+    },
+    {
+      "name": "dlib_face_recognition_resnet_model_v1.dat [Face Analysis]",
+      "type": "Face Recognition",
+      "base": "DLIB",
+      "save_path": "custom_nodes/comfyui_faceanalysis/dlib",
+      "description": "To use the Face Analysis for ComfyUI custom node, installation of this model is needed.",
+      "reference": "https://huggingface.co/matt3ounstable/dlib_predictor_recognition/tree/main",
+      "filename": "dlib_face_recognition_resnet_model_v1.dat",
+      "url": "https://huggingface.co/matt3ounstable/dlib_predictor_recognition/resolve/main/dlib_face_recognition_resnet_model_v1.dat",
+      "size": "22.5MB"
+    },
+    {
+      "name": "ID-Animator/animator.ckpt",
+      "type": "ID-Animator",
+      "base": "SD1.5",
+      "save_path": "custom_nodes/comfyui_id_animator/models",
+      "description": "ID-Animator checkpoint",
+      "reference": "https://huggingface.co/spaces/ID-Animator/ID-Animator",
+      "filename": "animator.ckpt",
+      "url": "https://huggingface.co/spaces/ID-Animator/ID-Animator/resolve/main/animator.ckpt",
+      "size": "247.3MB"
+    },
+    {
+      "name": "ID-Animator/mm_sd_v15_v2.ckpt",
+      "type": "ID-Animator",
+      "base": "SD1.5",
+      "save_path": "custom_nodes/comfyui_id_animator/models/animatediff_models",
+      "description": "AnimateDiff checkpoint for ID-Animator",
+      "reference": "https://huggingface.co/spaces/ID-Animator/ID-Animator",
+      "filename": "mm_sd_v15_v2.ckpt",
+      "url": "https://huggingface.co/spaces/ID-Animator/ID-Animator/resolve/main/mm_sd_v15_v2.ckpt",
+      "size": "1.82GB"
+    },
+    {
+      "name": "ID-Animator/image_encoder",
+      "type": "ID-Animator",
+      "base": "SD1.5",
+      "save_path": "custom_nodes/comfyui_id_animator/models/image_encoder",
+      "description": "CLIP Image encoder for ID-Animator",
+      "reference": "https://huggingface.co/spaces/ID-Animator/ID-Animator",
+      "filename": "model.safetensors",
+      "url": "https://huggingface.co/spaces/ID-Animator/ID-Animator/resolve/main/image_encoder/model.safetensors",
+      "size": "2.53GB"
+    },
+    {
+      "name": "Doubiiu/ToonCrafter model checkpoint",
+      "type": "checkpoint",
+      "base": "ToonCrafter",
+      "save_path": "custom_nodes/comfyui-tooncrafter/ToonCrafter/checkpoints/tooncrafter_512_interp_v1",
+      "description": "ToonCrafter checkpoint model for ComfyUI-ToonCrafter",
+      "reference": "https://huggingface.co/Doubiiu/ToonCrafter/tree/main",
+      "filename": "model.ckpt",
+      "url": "https://huggingface.co/Doubiiu/ToonCrafter/resolve/main/model.ckpt",
+      "size": "10.5GB"
+    },
+
+    {
+      "name": "BAAI/SegGPT",
+      "type": "SegGPT",
+      "base": "SegGPT",
+      "save_path": "custom_nodes/comfyui-seggpt",
+      "description": "SegGPT",
+      "reference": "https://huggingface.co/BAAI/SegGPT",
+      "filename": "seggpt_vit_large.pth",
+      "url": "https://huggingface.co/BAAI/SegGPT/resolve/main/seggpt_vit_large.pth",
+      "size": "1.48GB"
+    },
+    {
+      "name": "kohya-ss/ControlNet-LLLite: SDXL Canny Anime",
+      "type": "controlnet",
+      "base": "SDXL",
+      "save_path": "custom_nodes/ControlNet-LLLite-ComfyUI/models",
+      "description": "An extremely compactly designed controlnet model (a.k.a. ControlNet-LLLite). Note: The model structure is highly experimental and may be subject to change in the future.",
+      "reference": "https://huggingface.co/kohya-ss/controlnet-lllite",
+      "filename": "controllllite_v01032064e_sdxl_canny_anime.safetensors",
+      "url": "https://huggingface.co/kohya-ss/controlnet-lllite/resolve/main/controllllite_v01032064e_sdxl_canny_anime.safetensors",
+      "size": "46.2MB"
+    }
+  ]
 }

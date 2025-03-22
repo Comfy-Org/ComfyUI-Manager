@@ -1,220 +1,18 @@
+import { app } from "../../scripts/app.js";
 import { $el } from "../../scripts/ui.js";
 import { 
 	manager_instance, rebootAPI, 
-	fetchData, md5, icons 
+	fetchData, md5, icons, show_message, customAlert, infoToast, showTerminal,
+	storeColumnWidth, restoreColumnWidth, loadCss
 } from  "./common.js";
+import { api } from "../../scripts/api.js";
 
 // https://cenfun.github.io/turbogrid/api.html
 import TG from "./turbogrid.esm.js";
 
-const pageCss = `
-.cmm-manager {
-	--grid-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-	z-index: 1099;
-	width: 80%;
-	height: 80%;
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
-	color: var(--fg-color);
-	font-family: arial, sans-serif;
-}
+loadCss("./model-manager.css");
 
-.cmm-manager .cmm-flex-auto {
-	flex: auto;
-}
-
-.cmm-manager button {
-	font-size: 16px;
-	color: var(--input-text);
-    background-color: var(--comfy-input-bg);
-    border-radius: 8px;
-    border-color: var(--border-color);
-    border-style: solid;
-    margin: 0;
-	padding: 4px 8px;
-	min-width: 100px;
-}
-
-.cmm-manager button:disabled,
-.cmm-manager input:disabled,
-.cmm-manager select:disabled {
-	color: gray;
-}
-
-.cmm-manager button:disabled {
-	background-color: var(--comfy-input-bg);
-}
-
-.cmm-manager-header {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 5px;
-	align-items: center;
-	padding: 0 5px;
-}
-
-.cmm-manager-header label {
-	display: flex;
-	gap: 5px;
-	align-items: center;
-}
-
-.cmm-manager-type,
-.cmm-manager-base,
-.cmm-manager-filter {
-	height: 28px;
-	line-height: 28px;
-}
-
-.cmm-manager-keywords {
-	height: 28px;
-	line-height: 28px;
-	padding: 0 5px 0 26px;
-	background-size: 16px;
-	background-position: 5px center;
-	background-repeat: no-repeat;
-	background-image: url("data:image/svg+xml;charset=utf8,${encodeURIComponent(icons.search.replace("currentColor", "#888"))}");
-}
-
-.cmm-manager-status {
-	padding-left: 10px;
-}
-
-.cmm-manager-grid {
-	flex: auto;
-	border: 1px solid var(--border-color);
-	overflow: hidden;
-}
-
-.cmm-manager-selection {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 10px;
-	align-items: center;
-}
-
-.cmm-manager-message {
-	
-}
-
-.cmm-manager-footer {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 10px;
-	align-items: center;
-}
-
-.cmm-manager-grid .tg-turbogrid {
-	font-family: var(--grid-font);
-	font-size: 15px;
-	background: var(--bg-color);
-}
-
-.cmm-manager-grid .cmm-node-name a {
-	color: skyblue;
-	text-decoration: none;
-	word-break: break-word;
-}
-
-.cmm-manager-grid .cmm-node-desc a {
-	color: #5555FF;
-    font-weight: bold;
-	text-decoration: none;
-}
-
-.cmm-manager-grid .tg-cell a:hover {
-	text-decoration: underline;
-}
-
-.cmm-icon-passed {
-	width: 20px;
-	height: 20px;
-	position: absolute;
-	left: calc(50% - 10px);
-	top: calc(50% - 10px);
-}
-
-.cmm-manager .cmm-btn-enable {
-	background-color: blue;
-	color: white;
-}
-
-.cmm-manager .cmm-btn-disable {
-	background-color: MediumSlateBlue;
-	color: white;
-}
-
-.cmm-manager .cmm-btn-install {
-	background-color: black;
-	color: white;
-}
-
-.cmm-btn-download {
-	width: 18px;
-	height: 18px;
-	position: absolute;
-	left: calc(50% - 10px);
-	top: calc(50% - 10px);
-	cursor: pointer;
-	opacity: 0.8;
-	color: #fff;
-}
-
-.cmm-btn-download:hover {
-	opacity: 1;
-}
-
-.cmm-manager-light .cmm-btn-download {
-	color: #000;
-}
-
-@keyframes cmm-btn-loading-bg {
-    0% {
-        left: 0;
-    }
-    100% {
-        left: -105px;
-    }
-}
-
-.cmm-manager button.cmm-btn-loading {
-    position: relative;
-    overflow: hidden;
-    border-color: rgb(0 119 207 / 80%);
-	background-color: var(--comfy-input-bg);
-}
-
-.cmm-manager button.cmm-btn-loading::after {
-    position: absolute;
-    top: 0;
-    left: 0;
-    content: "";
-    width: 500px;
-    height: 100%;
-    background-image: repeating-linear-gradient(
-        -45deg,
-        rgb(0 119 207 / 30%),
-        rgb(0 119 207 / 30%) 10px,
-        transparent 10px,
-        transparent 15px
-    );
-    animation: cmm-btn-loading-bg 2s linear infinite;
-}
-
-.cmm-manager-light .cmm-node-name a {
-	color: blue;
-}
-
-.cmm-manager-light .cm-warn-note {
-	background-color: #ccc !important;
-}
-
-.cmm-manager-light .cmm-btn-install {
-	background-color: #333;
-}
-
-`;
+const gridId = "model";
 
 const pageHtml = `
 <div class="cmm-manager-header">
@@ -235,7 +33,14 @@ const pageHtml = `
 <div class="cmm-manager-selection"></div>
 <div class="cmm-manager-message"></div>
 <div class="cmm-manager-footer">
-	<button class="cmm-manager-back">Back</button>
+	<button class="cmm-manager-back">
+		<svg class="arrow-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+			<path d="M2 8H18M2 8L8 2M2 8L8 14" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+		</svg>
+		Back
+	</button>
+	<button class="cmm-manager-refresh">Refresh</button>
+	<button class="cmm-manager-stop">Stop</button>
 	<div class="cmm-flex-auto"></div>
 </div>
 `;
@@ -254,17 +59,11 @@ export class ModelManager {
 		this.keywords = '';
 
 		this.init();
+
+		api.addEventListener("cm-queue-status", this.onQueueStatus);
 	}
 
 	init() {
-
-		if (!document.querySelector(`style[context="${this.id}"]`)) {
-			const $style = document.createElement("style");
-			$style.setAttribute("context", this.id);
-			$style.innerHTML = pageCss;
-			document.head.appendChild($style);
-		}
-
 		this.element = $el("div", {
 			parent: document.body,
 			className: "comfy-modal cmm-manager"
@@ -365,12 +164,25 @@ export class ModelManager {
 				}
 			},
 
+			".cmm-manager-refresh": {
+				click: () => {
+					app.refreshComboInNodes();
+				}
+			},
+
+			".cmm-manager-stop": {
+				click: () => {
+					api.fetchApi('/manager/queue/reset');
+					infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
+				}
+			},
+
 			".cmm-manager-back": {
 				click: (e) => {
 				    this.close()
 				    manager_instance.show();
 				}
-			},
+			}
 		};
 		Object.keys(eventsMap).forEach(selector => {
 			const target = this.element.querySelector(selector);
@@ -401,6 +213,10 @@ export class ModelManager {
 		grid.bind('onSelectChanged', (e, changes) => {
             this.renderSelected();
         });
+
+		grid.bind("onColumnWidthChanged", (e, columnItem) => {
+			storeColumnWidth(gridId, columnItem)
+		});
 
 		grid.bind('onClick', (e, d) => {
 			const { rowItem } = d;
@@ -518,7 +334,7 @@ export class ModelManager {
 			sortable: false,
 			align: 'center',
 			formatter: (url, rowItem, columnItem) => {
-				return `<a class="cmm-btn-download" title="Download file" href="${url}" target="_blank">${icons.download}</a>`;
+				return `<a class="cmm-btn-download" tooltip="Download file" href="${url}" target="_blank">${icons.download}</a>`;
 			}
 		}, {
 			id: 'size',
@@ -552,6 +368,8 @@ export class ModelManager {
 			name: 'Filename',
 			width: 200
 		}];
+
+		restoreColumnWidth(gridId, columns);
 
 		this.grid.setData({
 			options,
@@ -595,17 +413,27 @@ export class ModelManager {
 	}
 
 	async installModels(list, btn) {
-		
+		let stats = await api.fetchApi('/manager/queue/status');
+
+		stats = await stats.json();
+		if(stats.is_processing) {
+			customAlert(`[ComfyUI-Manager] There are already tasks in progress. Please try again after it is completed. (${stats.done_count}/${stats.total_count})`);
+			return;
+		}
+
 		btn.classList.add("cmm-btn-loading");
-		this.showLoading();
 		this.showError("");
 
-		let needRestart = false;
+		let needRefresh = false;
 		let errorMsg = "";
 
+		await api.fetchApi('/manager/queue/reset');
+
+		let target_items = [];
+
 		for (const item of list) {
-			
 			this.grid.scrollRowIntoView(item);
+			target_items.push(item);
 
 			if (!this.focusInstall(item)) {
 				this.grid.onNextUpdated(() => {
@@ -616,48 +444,112 @@ export class ModelManager {
 			this.showStatus(`Install ${item.name} ...`);
 
 			const data = item.originalData;
-			const res = await fetchData('/model/install', {
+			data.ui_id = item.hash;
+
+			const res = await api.fetchApi(`/manager/queue/install_model`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(data)
 			});
 
+			if (res.status != 200) {
+				errorMsg = `'${item.name}': `;
 
-			if (res.error) {
-				errorMsg = `Install failed: ${item.name} ${res.error.message}`;
-				break;;
+				if(res.status == 403) {
+					errorMsg += `This action is not allowed with this security level configuration.\n`;
+				} else {
+					errorMsg += await res.text() + '\n';
+				}
+
+				break;
 			}
+		}
 
-			needRestart = true;
+		this.install_context = {btn: btn, targets: target_items};
 
-			this.grid.setRowSelected(item, false);
+		if(errorMsg) {
+			this.showError(errorMsg);
+			show_message("[Installation Errors]\n"+errorMsg);
+
+			// reset
+			for(let k in target_items) {
+				const item = target_items[k];
+				this.grid.updateCell(item, "installed");
+			}
+		}
+		else {
+			await api.fetchApi('/manager/queue/start');
+			this.showStop();
+			showTerminal();
+		}
+	}
+
+	async onQueueStatus(event) {
+		let self = ModelManager.instance;
+
+		if(event.detail.status == 'in_progress' && event.detail.ui_target == 'model_manager') {
+			const hash = event.detail.target;
+
+			const item = self.grid.getRowItemBy("hash", hash);
 
 			item.refresh = true;
+			self.grid.setRowSelected(item, false);
 			item.selectable = false;
-			this.grid.updateCell(item, "installed");
-			this.grid.updateCell(item, "tg-column-select");
+//			self.grid.updateCell(item, "tg-column-select");
+			self.grid.updateRow(item);
+		}
+		else if(event.detail.status == 'done') {
+			self.hideStop();
+			self.onQueueCompleted(event.detail);
+		}
+	}
 
-			this.showStatus(`Install ${item.name} successfully`);
+	async onQueueCompleted(info) {
+		let result = info.model_result;
 
+		if(result.length == 0) {
+			return;
 		}
 
-		this.hideLoading();
+		let self = ModelManager.instance;
+
+		if(!self.install_context) {
+			return;
+		}
+
+		let btn = self.install_context.btn;
+
+		self.hideLoading();
 		btn.classList.remove("cmm-btn-loading");
 
+		let errorMsg = "";
+
+		for(let hash in result){
+			let v = result[hash];
+
+			if(v != 'success')
+				errorMsg += v + '\n';
+		}
+
+		for(let k in self.install_context.targets) {
+			let item = self.install_context.targets[k];
+			self.grid.updateCell(item, "installed");
+		}
+
 		if (errorMsg) {
-			this.showError(errorMsg);
+			self.showError(errorMsg);
+			show_message("Installation Error:\n"+errorMsg);
 		} else {
-			this.showStatus(`Install ${list.length} models successfully`);
+			self.showStatus(`Install ${result.length} models successfully`);
 		}
 
-		if (needRestart) {
-			this.showMessage(`To apply the installed model, please click the 'Refresh' button on the main menu.`, "red")
-		}
+		self.showRefresh();
+		self.showMessage(`To apply the installed model, please click the 'Refresh' button.`, "red")
 
+		infoToast('Tasks done', `[ComfyUI-Manager] All model downloading tasks in the queue have been completed.\n${info.done_count}/${info.total_count}`);
+		self.install_context = undefined;
 	}
 
 	getModelList(models) {
-
 		const typeMap = new Map();
 		const baseMap = new Map();
 
@@ -826,7 +718,7 @@ export class ModelManager {
 	}
 
 	showLoading() {
-		this.setDisabled(true);
+//		this.setDisabled(true);
 		if (this.grid) {
 			this.grid.showLoading();
 			this.grid.showMask({
@@ -836,7 +728,7 @@ export class ModelManager {
 	}
 
 	hideLoading() {
-		this.setDisabled(false);
+//		this.setDisabled(false);
 		if (this.grid) {
 			this.grid.hideLoading();
 			this.grid.hideMask();
@@ -844,8 +736,9 @@ export class ModelManager {
 	}
 
 	setDisabled(disabled) {
-
 		const $close = this.element.querySelector(".cmm-manager-close");
+		const $refresh = this.element.querySelector(".cmm-manager-refresh");
+		const $stop = this.element.querySelector(".cmm-manager-stop");
 
 		const list = [
 			".cmm-manager-header input",
@@ -857,7 +750,7 @@ export class ModelManager {
 		})
 		.flat()
 		.filter(it => {
-			return it !== $close;
+			return it !== $close && it !== $refresh && it !== $stop;
 		});
 		
 		list.forEach($elem => {
@@ -872,6 +765,18 @@ export class ModelManager {
 			$elem.classList.remove("cmm-btn-loading");
 		});
 
+	}
+
+	showRefresh() {
+		this.element.querySelector(".cmm-manager-refresh").style.display = "block";
+	}
+
+	showStop() {
+		this.element.querySelector(".cmm-manager-stop").style.display = "block";
+	}
+
+	hideStop() {
+		this.element.querySelector(".cmm-manager-stop").style.display = "none";
 	}
 
 	setKeywords(keywords = "") {

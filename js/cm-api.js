@@ -45,6 +45,11 @@ async function tryInstallCustomNode(event) {
 				show_message('This action is not allowed with this security level configuration.');
 				return false;
 			}
+			else if(response.status == 400) {
+				let msg = await res.text();
+				show_message(msg);
+				return false;
+			}
 		}
 
 		let response = await api.fetchApi("/manager/reboot");
