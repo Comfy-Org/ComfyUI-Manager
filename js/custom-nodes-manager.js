@@ -7,7 +7,7 @@ import {
 	fetchData, md5, icons, show_message, customConfirm, customAlert, customPrompt,
 	sanitizeHTML, infoToast, showTerminal, setNeedRestart,
 	storeColumnWidth, restoreColumnWidth, getTimeAgo, copyText, loadCss,
-	showPopover, hidePopover
+	showPopover, hidePopover, leven
 } from  "./common.js";
 
 // https://cenfun.github.io/turbogrid/api.html
@@ -418,11 +418,7 @@ export class CustomNodesManager {
 
 			".cn-manager-keywords": {
 				input: (e) => {
-					const keywords = `${e.target.value}`.trim();
-					if (keywords !== this.keywords) {
-						this.keywords = keywords;
-						this.updateGrid();
-					}
+					this.onKeywordsChange(e);
 				},
 				focus: (e) => e.target.select()
 			},
@@ -539,7 +535,7 @@ export class CustomNodesManager {
 
 			this.addHighlight(d.rowItem);
 
-			if (d.columnItem.id === "nodes") {
+			if (d.columnItem && d.columnItem.id === "nodes") {
 				this.showNodes(d);
 				return;
 			}
@@ -596,6 +592,14 @@ export class CustomNodesManager {
 				return autoHeightColumns.includes(columnItem.id)
 			},
 
+			rowFilteredSort: () => {
+				if (this.keywords) {
+					return {
+						id: 'sort_score'
+					};
+				}
+			},
+
 			// updateGrid handler for filter and keywords
 			rowFilter: (rowItem) => {
 
@@ -612,10 +616,107 @@ export class CustomNodesManager {
 					}
 				}
 
+				// calculate sort score
+				if (shouldShown && this.keywords) {
+					rowItem.sort_score = this.calculateSortScore(rowItem, searchableColumns);
+				}
+
 				return shouldShown;
 			}
 		});
 
+	}
+
+	onKeywordsChange(e) {
+		this.grid.showLoading();
+		// debounce for performance
+		clearTimeout(this.timeKeywords);
+		this.timeKeywords = setTimeout(() => {
+			this.grid.hideLoading();
+			const keywords = `${e.target.value}`.trim();
+			if (keywords !== this.keywords) {
+				this.keywords = keywords;
+				if (keywords) {
+					this.grid.removeSortColumn();
+				} else {
+					this.grid.sortRows("id", {
+						sortAsc: true
+					});
+				}
+				this.updateGrid();
+			}
+		}, 300);
+	}
+
+	calculateSortScore(rowItem, searchableColumns) {
+		const keywords = this.keywords.split(/\s+/g).filter((s) => s);
+		const lowerKeywords = keywords.map(k => k.toLowerCase());
+		const matchedList = searchableColumns.map(id => {
+			const { highlightKey, textKey } = this.grid.options.highlightKeywords;
+			const highlight = rowItem[`${highlightKey}${id}`];
+			if (!highlight) {
+				return;
+			}
+			const text = `${rowItem[`${textKey}${id}`] || rowItem[id]}`;
+			const lowerText = text.toLowerCase();
+			const matchedItems = keywords.map((key, i) => {
+				// multiple matched
+				const lowerKey = lowerKeywords[i];
+				const len = lowerKey.length;
+				const matches  = [];
+				let index = lowerText.indexOf(lowerKey);
+				while (index !== -1) {
+					matches.push(index);
+					index = lowerText.indexOf(lowerKey, index + len);
+				}
+				if (!matches.length) {
+					return
+				}
+				const distances = matches.map(start => {
+					const end = start + len
+					const str = text.slice(start, end);
+					let distance = leven(key, str);
+					const prev = text.slice(start - 1, start);
+					if (prev) {
+						if (/[A-Za-z]/.test(prev)) {
+							distance += 1;
+						} else if (/[0-9]/.test(prev)) {
+							distance += 0.8;
+						} 
+					}
+					const next = text.slice(end, end + 1);
+					if (next) {
+						if (/[A-Za-z]/.test(next)) {
+							distance += 0.8;
+						} else if (/[0-9]/.test(next)) {
+							distance += 0.5;
+						} 
+					}
+					return distance;
+				});
+				// console.log(rowItem.title, distances)
+				return {
+					// min
+					distance: Math.min.apply(null, distances)
+				}
+			}).filter(it => it);
+			if (matchedItems.length < keywords.length) {
+				return;
+			}
+			return {
+				// avg
+				distance: matchedItems.map(it => it.distance).reduce((p, v) => p + v, 0) / matchedItems.length
+			}
+		}).filter(it => it);
+		// by distance
+		let distance = Math.min.apply(null, matchedList.map(it => it.distance));
+		// by matched count
+		distance += 1 - matchedList.length / searchableColumns.length;
+		// by stars
+		const stars = TG.Util.toNum(rowItem.stars);
+		distance += 1 - stars / 10000;
+		// score
+		return 1 / distance;
 	}
 
 	hasAlternatives() {
@@ -756,6 +857,7 @@ export class CustomNodesManager {
 			id: "nodes",
 			name: "Nodes",
 			width: 100,
+			sortAsc: false,
 			formatter: (v, rowItem, columnItem) => {
 				if (!rowItem.nodes) {
 					return '';
@@ -796,6 +898,7 @@ export class CustomNodesManager {
 			id: 'stars',
 			name: '★',
 			align: 'center',
+			sortAsc: false,
 			classMap: "cn-pack-stars",
 			formatter: (stars) => {
 				if (stars < 0) {
@@ -811,6 +914,7 @@ export class CustomNodesManager {
 			name: 'Last Update',
 			align: 'center',
 			type: 'date',
+			sortAsc: false,
 			width: 100,
 			classMap: "cn-pack-last-update",
 			formatter: (last_update) => {
