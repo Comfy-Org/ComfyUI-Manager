@@ -1271,7 +1271,7 @@ class UnifiedManager:
 
         return result
 
-    def repo_install(self, url: str, repo_path: str, instant_execution=False, no_deps=False, return_postinstall=False):
+    def repo_install(self, url: str, repo_path: str, instant_execution=False, no_deps=False, return_postinstall=False, commit_id=None):
         result = ManagedResult('install-git')
         result.append(url)
 
@@ -1294,6 +1294,14 @@ class UnifiedManager:
                     return result.fail(f"Failed to clone repo: {clone_url}")
             else:
                 repo = git.Repo.clone_from(clone_url, repo_path, recursive=True, progress=GitProgress())
+                if commit_id:
+                    print(f"Checkout commit: {commit_id}")
+                    try:
+                        # Try checking out as a commit, branch, or tag
+                        repo.git.checkout(commit_id)
+                    except Exception as checkout_error:
+                        print(f"Error checking out {commit_id}: {checkout_error}")
+                        return False
                 repo.git.clear_cache()
                 repo.close()
 
@@ -1398,7 +1406,7 @@ class UnifiedManager:
         else:
             return self.cnr_switch_version(node_id, instant_execution=instant_execution, no_deps=no_deps, return_postinstall=return_postinstall).with_ver('cnr')
 
-    async def install_by_id(self, node_id: str, version_spec=None, channel=None, mode=None, instant_execution=False, no_deps=False, return_postinstall=False):
+    async def install_by_id(self, node_id: str, version_spec=None, channel=None, mode=None, instant_execution=False, no_deps=False, return_postinstall=False, commit_id=None):
         """
         priority if version_spec == None
         1. CNR latest
@@ -1448,7 +1456,7 @@ class UnifiedManager:
                     self.unified_disable(node_id, False)
 
             to_path = os.path.abspath(os.path.join(get_default_custom_nodes_path(), node_id))
-            res = self.repo_install(repo_url, to_path, instant_execution=instant_execution, no_deps=no_deps, return_postinstall=return_postinstall)
+            res = self.repo_install(repo_url, to_path, instant_execution=instant_execution, no_deps=no_deps, return_postinstall=return_postinstall, commit_id=commit_id)
             if res.result:
                 if version_spec == 'unknown':
                     self.unknown_active_nodes[node_id] = repo_url, to_path
@@ -2073,12 +2081,11 @@ def is_valid_url(url):
     return False
 
 
-async def gitclone_install(url, instant_execution=False, msg_prefix='', no_deps=False):
+async def gitclone_install(url, instant_execution=False, msg_prefix='', no_deps=False, commit_id=None):
     await unified_manager.reload('cache')
     await unified_manager.get_custom_nodes('default', 'cache')
 
-    print(f"{msg_prefix}Install: {url}")
-
+    print(f"{msg_prefix}Install: {url}:{commit_id}")
     result = ManagedResult('install-git')
 
     if not is_valid_url(url):
@@ -2123,7 +2130,16 @@ async def gitclone_install(url, instant_execution=False, msg_prefix='', no_deps=
                 if res != 0:
                     return result.fail(f"Failed to clone '{clone_url}' into  '{repo_path}'")
             else:
-                repo = git.Repo.clone_from(clone_url, repo_path, recursive=True, progress=GitProgress())
+                repo = git.Repo.clone_from(url, repo_path, recursive=True, progress=GitProgress())
+                if commit_id:
+                    print(f"Checkout commit: {commit_id}")
+                    try:
+                        # Try checking out as a commit, branch, or tag
+                        repo.git.checkout(commit_id)
+                    except Exception as checkout_error:
+                        print(f"Error checking out {commit_id}: {checkout_error}")
+                        return False
+
                 repo.git.clear_cache()
                 repo.close()
 
