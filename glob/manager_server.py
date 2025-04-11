@@ -272,13 +272,12 @@ import json
 import zipfile
 import urllib.request
 
-
+if 'download_model_base' in folder_paths.folder_names_and_paths:
+    models_base = folder_paths.folder_names_and_paths['download_model_base'][0][0]
+    logging.info(f"models_base download_model_base: {models_base}")
+else:
+    models_base = folder_paths.models_dir
 def get_model_dir(data, show_log=False):
-    if 'download_model_base' in folder_paths.folder_names_and_paths:
-        models_base = folder_paths.folder_names_and_paths['download_model_base'][0][0]
-    else:
-        models_base = folder_paths.models_dir
-
     # NOTE: Validate to prevent path traversal.
     if any(char in data['filename'] for char in {'/', '\\', ':'}):
         return None
@@ -926,7 +925,7 @@ def check_model_installed(json_obj):
                 else:
                     filename = item['filename']
 
-                fullpath = os.path.join(folder_paths.models_dir, item['save_path'], filename)
+                fullpath = os.path.join(models_base, item['save_path'], filename)
 
                 item['installed'] = 'True' if os.path.exists(fullpath) else 'False'
 
