@@ -1,5 +1,6 @@
 import mimetypes
-import manager_core as core
+from . import manager_core as core
+
 import os
 from aiohttp import web
 import aiohttp
@@ -53,7 +54,7 @@ def compute_sha256_checksum(filepath):
     return sha256.hexdigest()
 
 
-@PromptServer.instance.routes.get("/manager/share_option")
+@PromptServer.instance.routes.get("/v2/manager/share_option")
 async def share_option(request):
     if "value" in request.rel_url.query:
         core.get_config()['share_option'] = request.rel_url.query['value']
@@ -122,7 +123,7 @@ def set_youml_settings(settings):
         f.write(settings)
 
 
-@PromptServer.instance.routes.get("/manager/get_openart_auth")
+@PromptServer.instance.routes.get("/v2/manager/get_openart_auth")
 async def api_get_openart_auth(request):
     # print("Getting stored Matrix credentials...")
     openart_key = get_openart_auth()
@@ -131,7 +132,7 @@ async def api_get_openart_auth(request):
     return web.json_response({"openart_key": openart_key})
 
 
-@PromptServer.instance.routes.post("/manager/set_openart_auth")
+@PromptServer.instance.routes.post("/v2/manager/set_openart_auth")
 async def api_set_openart_auth(request):
     json_data = await request.json()
     openart_key = json_data['openart_key']
@@ -140,7 +141,7 @@ async def api_set_openart_auth(request):
     return web.Response(status=200)
 
 
-@PromptServer.instance.routes.get("/manager/get_matrix_auth")
+@PromptServer.instance.routes.get("/v2/manager/get_matrix_auth")
 async def api_get_matrix_auth(request):
     # print("Getting stored Matrix credentials...")
     matrix_auth = get_matrix_auth()
@@ -149,7 +150,7 @@ async def api_get_matrix_auth(request):
     return web.json_response(matrix_auth)
 
 
-@PromptServer.instance.routes.get("/manager/youml/settings")
+@PromptServer.instance.routes.get("/v2/manager/youml/settings")
 async def api_get_youml_settings(request):
     youml_settings = get_youml_settings()
     if not youml_settings:
@@ -157,14 +158,14 @@ async def api_get_youml_settings(request):
     return web.json_response(json.loads(youml_settings))
 
 
-@PromptServer.instance.routes.post("/manager/youml/settings")
+@PromptServer.instance.routes.post("/v2/manager/youml/settings")
 async def api_set_youml_settings(request):
     json_data = await request.json()
     set_youml_settings(json.dumps(json_data))
     return web.Response(status=200)
 
 
-@PromptServer.instance.routes.get("/manager/get_comfyworkflows_auth")
+@PromptServer.instance.routes.get("/v2/manager/get_comfyworkflows_auth")
 async def api_get_comfyworkflows_auth(request):
     # Check if the user has provided Matrix credentials in a file called 'matrix_accesstoken'
     # in the same directory as the ComfyUI base folder
@@ -175,7 +176,7 @@ async def api_get_comfyworkflows_auth(request):
     return web.json_response({"comfyworkflows_sharekey": comfyworkflows_auth})
 
 
-@PromptServer.instance.routes.post("/manager/set_esheep_workflow_and_images")
+@PromptServer.instance.routes.post("/v2/manager/set_esheep_workflow_and_images")
 async def set_esheep_workflow_and_images(request):
     json_data = await request.json()
     with open(os.path.join(core.manager_files_path, "esheep_share_message.json"), "w", encoding='utf-8') as file:
@@ -183,7 +184,7 @@ async def set_esheep_workflow_and_images(request):
         return web.Response(status=200)
 
 
-@PromptServer.instance.routes.get("/manager/get_esheep_workflow_and_images")
+@PromptServer.instance.routes.get("/v2/manager/get_esheep_workflow_and_images")
 async def get_esheep_workflow_and_images(request):
     with open(os.path.join(core.manager_files_path, "esheep_share_message.json"), 'r', encoding='utf-8') as file:
         data = json.load(file)
@@ -211,7 +212,7 @@ def has_provided_comfyworkflows_auth(comfyworkflows_sharekey):
     return comfyworkflows_sharekey.strip()
 
 
-@PromptServer.instance.routes.post("/manager/share")
+@PromptServer.instance.routes.post("/v2/manager/share")
 async def share_art(request):
     # get json data
     json_data = await request.json()

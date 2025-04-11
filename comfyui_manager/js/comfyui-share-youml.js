@@ -179,7 +179,7 @@ export class YouMLShareDialog extends ComfyDialog {
   async loadToken() {
     let key = ""
     try {
-      const response = await api.fetchApi(`/manager/youml/settings`)
+      const response = await api.fetchApi(`/v2/manager/youml/settings`)
       const settings = await response.json()
       return settings.token
     } catch (error) {
@@ -188,7 +188,7 @@ export class YouMLShareDialog extends ComfyDialog {
   }
 
   async saveToken(value) {
-    await api.fetchApi(`/manager/youml/settings`, {
+    await api.fetchApi(`/v2/manager/youml/settings`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
@@ -380,7 +380,7 @@ export class YouMLShareDialog extends ComfyDialog {
     try {
       let snapshotData = null;
       try {
-        const snapshot = await api.fetchApi(`/snapshot/get_current`)
+        const snapshot = await api.fetchApi(`/v2/snapshot/get_current`)
         snapshotData = await snapshot.json()
       } catch (e) {
         console.error("Failed to get snapshot", e)

@@ -25,7 +25,7 @@ async function tryInstallCustomNode(event) {
 	const res = await customConfirm(msg);
 	if(res) {
 		if(event.detail.target.installed == 'Disabled') {
-			const response = await api.fetchApi(`/customnode/toggle_active`, {
+			const response = await api.fetchApi(`/v2/customnode/toggle_active`, {
 										method: 'POST',
 										headers: { 'Content-Type': 'application/json' },
 										body: JSON.stringify(event.detail.target)
@@ -35,7 +35,7 @@ async function tryInstallCustomNode(event) {
 			await sleep(300);
 			app.ui.dialog.show(`Installing... '${event.detail.target.title}'`);
 
-			const response = await api.fetchApi(`/customnode/install`, {
+			const response = await api.fetchApi(`/v2/customnode/install`, {
 										method: 'POST',
 										headers: { 'Content-Type': 'application/json' },
 										body: JSON.stringify(event.detail.target)
@@ -52,7 +52,7 @@ async function tryInstallCustomNode(event) {
 			}
 		}
 
-		let response = await api.fetchApi("/manager/reboot");
+		let response = await api.fetchApi("/v2/manager/reboot");
 		if(response.status == 403) {
 			show_message('This action is not allowed with this security level configuration.');
 			return false;

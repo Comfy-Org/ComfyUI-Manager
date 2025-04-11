@@ -12,13 +12,10 @@ import ast
 import logging
 import traceback
 
-glob_path = os.path.join(os.path.dirname(__file__), "glob")
-sys.path.append(glob_path)
-
-import security_check
-import manager_util
-import cm_global
-import manager_downloader
+from .glob import security_check
+from .glob import manager_util
+from .glob import cm_global
+from .glob import manager_downloader
 import folder_paths
 
 manager_util.add_python_path_to_env()
@@ -68,14 +65,16 @@ comfy_path = os.environ.get('COMFYUI_PATH')
 comfy_base_path = os.environ.get('COMFYUI_FOLDERS_BASE_PATH')
 
 if comfy_path is None:
-    # legacy env var
-    comfy_path = os.environ.get('COMFYUI_PATH')
-
-if comfy_path is None:
-    comfy_path = os.path.abspath(os.path.dirname(sys.modules['__main__'].__file__))
+    try:
+        comfy_path = os.path.abspath(os.path.dirname(sys.modules['__main__'].__file__))
+        os.environ['COMFYUI_PATH'] = comfy_path
+    except:
+        print("[ComfyUI-Manager] environment variable 'COMFYUI_PATH' is not specified.")
+        exit(-1)
 
 if comfy_base_path is None:
     comfy_base_path = comfy_path
+
 
 sys.__comfyui_manager_register_message_collapse = register_message_collapse
 sys.__comfyui_manager_is_import_failed_extension = is_import_failed_extension
@@ -121,12 +120,11 @@ read_config()
 read_uv_mode()
 check_file_logging()
 
-cm_global.pip_overrides = {'numpy': 'numpy<2', 'ultralytics': 'ultralytics==8.3.40'}
+cm_global.pip_overrides = {'numpy': 'numpy<2'}
 if os.path.exists(manager_pip_overrides_path):
     with open(manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
         cm_global.pip_overrides = json.load(json_file)
         cm_global.pip_overrides['numpy'] = 'numpy<2'
-        cm_global.pip_overrides['ultralytics'] = 'ultralytics==8.3.40'  # for security
 
 
 if os.path.exists(manager_pip_blacklist_path):
@@ -393,7 +391,11 @@ try:
         def emit(self, record):
             global is_start_mode
 
-            message = record.getMessage()
+            try:
+                message = record.getMessage()
+            except Exception as e:
+                message = f"<<logging error>>: {record} - {e}"
+                original_stderr.write(message)
 
             if is_start_mode:
                 match = re.search(pat_import_fail, message)

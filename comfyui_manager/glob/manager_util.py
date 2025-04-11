@@ -18,12 +18,15 @@ import shlex
 
 
 cache_lock = threading.Lock()
+session_lock = threading.Lock()
 
 comfyui_manager_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 cache_dir = os.path.join(comfyui_manager_path, '.cache')  # This path is also updated together in **manager_core.update_user_directory**.
 
 use_uv = False
 
+def is_manager_pip_package():
+    return not os.path.exists(os.path.join(comfyui_manager_path, '..', 'custom_nodes'))
 
 def add_python_path_to_env():
     if platform.system() != "Windows":

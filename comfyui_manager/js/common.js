@@ -172,7 +172,7 @@ export function rebootAPI() {
 	customConfirm("Are you sure you'd like to reboot the server?").then((isConfirmed) => {
 		if (isConfirmed) {
 			try {
-				api.fetchApi("/manager/reboot");
+				api.fetchApi("/v2/manager/reboot");
 			}
 			catch(exception) {}
 		}
@@ -210,7 +210,7 @@ export async function install_pip(packages) {
 	if(packages.includes('&'))
 		app.ui.dialog.show(`Invalid PIP package enumeration: '${packages}'`);
 
-	const res = await api.fetchApi("/customnode/install/pip", {
+	const res = await api.fetchApi("/v2/customnode/install/pip", {
 		method: "POST",
 		body: packages,
 	});
@@ -245,7 +245,7 @@ export async function install_via_git_url(url, manager_dialog) {
 
 	show_message(`Wait...<BR><BR>Installing '${url}'`);
 
-	const res = await api.fetchApi("/customnode/install/git_url", {
+	const res = await api.fetchApi("/v2/customnode/install/git_url", {
 		method: "POST",
 		body: url,
 	});

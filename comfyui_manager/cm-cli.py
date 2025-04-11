@@ -15,31 +15,30 @@ import git
 import importlib
 
 
-sys.path.append(os.path.dirname(__file__))
-sys.path.append(os.path.join(os.path.dirname(__file__), "glob"))
-
 import manager_util
 
 # read env vars
 # COMFYUI_FOLDERS_BASE_PATH is not required in cm-cli.py
 # `comfy_path` should be resolved before importing manager_core
-comfy_path = os.environ.get('COMFYUI_PATH')
-if comfy_path is None:
-    try:
-        import folder_paths
-        comfy_path = os.path.join(os.path.dirname(folder_paths.__file__))
-    except:
-        print("\n[bold yellow]WARN: The `COMFYUI_PATH` environment variable is not set. Assuming `custom_nodes/ComfyUI-Manager/../../` as the ComfyUI path.[/bold yellow]", file=sys.stderr)
-        comfy_path = os.path.abspath(os.path.join(manager_util.comfyui_manager_path, '..', '..'))
 
-# This should be placed here
+comfy_path = os.environ.get('COMFYUI_PATH')
+
+if comfy_path is None:
+    print("[bold red]cm-cli: environment variable 'COMFYUI_PATH' is not specified.[/bold red]")
+    exit(-1)
+
 sys.path.append(comfy_path)
 
+if not os.path.exists(os.path.join(comfy_path, 'folder_paths.py')):
+    print("[bold red]cm-cli: '{comfy_path}' is not a valid 'COMFYUI_PATH' location.[/bold red]")
+    exit(-1)
+
+
 import utils.extra_config
-import cm_global
-import manager_core as core
-from manager_core import unified_manager
-import cnr_utils
+from .glob import cm_global
+from .glob import manager_core as core
+from .glob.manager_core import unified_manager
+from .glob import cnr_utils
 
 comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
 

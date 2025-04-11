@@ -32,18 +32,15 @@ from packaging import version
 
 import uuid
 
-glob_path = os.path.join(os.path.dirname(__file__))  # ComfyUI-Manager/glob
-sys.path.append(glob_path)
+from . import cm_global
+from . import cnr_utils
+from . import manager_util
+from . import git_utils
+from . import manager_downloader
+from .node_package import InstalledNodePackage
+from .enums import NetworkMode, SecurityLevel, DBMode
 
-import cm_global
-import cnr_utils
-import manager_util
-import git_utils
-import manager_downloader
-from node_package import InstalledNodePackage
-
-
-version_code = [3, 31, 9]
+version_code = [4, 0]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
@@ -57,6 +54,7 @@ class InvalidChannel(Exception):
     def __init__(self, channel):
         self.channel = channel
         super().__init__(channel)
+
 
 def get_default_custom_nodes_path():
     global default_custom_nodes_path
@@ -183,10 +181,11 @@ comfy_base_path = os.environ.get('COMFYUI_FOLDERS_BASE_PATH')
 
 if comfy_path is None:
     try:
-        import folder_paths
-        comfy_path = os.path.join(os.path.dirname(folder_paths.__file__))
+        comfy_path = os.path.abspath(os.path.dirname(sys.modules['__main__'].__file__))
+        os.environ['COMFYUI_PATH'] = comfy_path
     except:
-        comfy_path = os.path.abspath(os.path.join(manager_util.comfyui_manager_path, '..', '..'))
+        logging.error("[ComfyUI-Manager] environment variable 'COMFYUI_PATH' is not specified.")
+        exit(-1)
 
 if comfy_base_path is None:
     comfy_base_path = comfy_path
@@ -737,7 +736,7 @@ class UnifiedManager:
         self.unknown_active_nodes = {}    # node_id -> repo url * fullpath
         self.active_nodes = {}            # node_id -> node_version * fullpath
 
-        if get_config()['network_mode'] != 'public':
+        if get_config()['network_mode'] != 'public' or manager_util.is_manager_pip_package():
             dont_wait = True
 
         # reload 'cnr_map' and 'repo_cnr_map'
@@ -1442,12 +1441,20 @@ class UnifiedManager:
             return self.unified_enable(node_id, version_spec)
 
         elif version_spec == 'unknown' or version_spec == 'nightly':
+            to_path = os.path.abspath(os.path.join(get_default_custom_nodes_path(), node_id))
+
             if version_spec == 'nightly':
                 # disable cnr nodes
                 if self.is_enabled(node_id, 'cnr'):
                     self.unified_disable(node_id, False)
 
-            to_path = os.path.abspath(os.path.join(get_default_custom_nodes_path(), node_id))
+                # use `repo name` as a dir name instead of `cnr id` if system added nodepack (i.e. publisher is null)
+                cnr = self.cnr_map.get(node_id)
+
+                if cnr is not None and cnr.get('publisher') is None:
+                    repo_name = os.path.basename(git_utils.normalize_url(repo_url))
+                    to_path = os.path.abspath(os.path.join(get_default_custom_nodes_path(), repo_name))
+
             res = self.repo_install(repo_url, to_path, instant_execution=instant_execution, no_deps=no_deps, return_postinstall=return_postinstall)
             if res.result:
                 if version_spec == 'unknown':
@@ -1664,9 +1671,9 @@ def read_config():
                     'model_download_by_agent': get_bool('model_download_by_agent', False),
                     'downgrade_blacklist': default_conf.get('downgrade_blacklist', '').lower(),
                     'always_lazy_install': get_bool('always_lazy_install', False),
-                    'network_mode': default_conf.get('network_mode', 'public').lower(),
-                    'security_level': default_conf.get('security_level', 'normal').lower(),
-                    'db_mode': default_conf.get('db_mode', 'cache').lower(),
+                    'network_mode': default_conf.get('network_mode', NetworkMode.PUBLIC.value).lower(),
+                    'security_level': default_conf.get('security_level', SecurityLevel.NORMAL.value).lower(),
+                    'db_mode': default_conf.get('db_mode', DBMode.CACHE.value).lower(),
                }
 
     except Exception:
@@ -1687,9 +1694,9 @@ def read_config():
             'model_download_by_agent': False,
             'downgrade_blacklist': '',
             'always_lazy_install': False,
-            'network_mode': 'public',   # public | private | offline
-            'security_level': 'normal', # strong | normal | normal- | weak
-            'db_mode': 'cache',         # local | cache | remote
+            'network_mode': NetworkMode.OFFLINE.value,
+            'security_level': SecurityLevel.NORMAL.value,
+            'db_mode': DBMode.CACHE.value,
         }
 
 
@@ -2186,7 +2193,7 @@ async def get_data_by_mode(mode, filename, channel_url=None):
             cache_uri = str(manager_util.simple_hash(uri))+'_'+filename
             cache_uri = os.path.join(manager_util.cache_dir, cache_uri)
 
-            if get_config()['network_mode'] == 'offline':
+            if get_config()['network_mode'] == 'offline' or manager_util.is_manager_pip_package():
                 # offline network mode
                 if os.path.exists(cache_uri):
                     json_obj = await manager_util.get_data(cache_uri)
@@ -2206,7 +2213,7 @@ async def get_data_by_mode(mode, filename, channel_url=None):
                         with open(cache_uri, "w", encoding='utf-8') as file:
                             json.dump(json_obj, file, indent=4, sort_keys=True)
     except Exception as e:
-        print(f"[ComfyUI-Manager] Due to a network error, switching to local mode.\n=> {filename}\n=> {e}")
+        print(f"[ComfyUI-Manager] Due to a network error, switching to local mode.\n=> {filename} @ {channel_url}/{mode}\n=> {e}")
         uri = os.path.join(manager_util.comfyui_manager_path, filename)
         json_obj = await manager_util.get_data(uri)
 

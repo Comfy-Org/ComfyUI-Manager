@@ -38,7 +38,7 @@ class WorkflowMetadataExtension {
    * enabled is true if the node is enabled, false if it is disabled
    */
   async getInstalledNodes() {
-    const res = await api.fetchApi("/customnode/installed");
+    const res = await api.fetchApi("/v2/customnode/installed");
     return await res.json();
   }
 

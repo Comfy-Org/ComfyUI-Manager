@@ -15,9 +15,12 @@ comfy_path = os.environ.get('COMFYUI_PATH')
 git_exe_path = os.environ.get('GIT_EXE_PATH')
 
 if comfy_path is None:
-    print("\nWARN: The `COMFYUI_PATH` environment variable is not set. Assuming `custom_nodes/ComfyUI-Manager/../../` as the ComfyUI path.", file=sys.stderr)
-    comfy_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    print("git_helper: environment variable 'COMFYUI_PATH' is not specified.")
+    exit(-1)
 
+if not os.path.exists(os.path.join(comfy_path, 'folder_paths.py')):
+    print("git_helper: '{comfy_path}' is not a valid 'COMFYUI_PATH' location.")
+    exit(-1)
 
 def download_url(url, dest_folder, filename=None):
     # Ensure the destination folder exists

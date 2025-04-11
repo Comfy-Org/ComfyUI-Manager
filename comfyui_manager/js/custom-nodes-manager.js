@@ -66,7 +66,7 @@ export class CustomNodesManager {
 		this.id = "cn-manager";
 
 		app.registerExtension({
-			name: "Comfy.CustomNodesManager",
+			name: "Comfy.Legacy.CustomNodesManager",
 			afterConfigureGraph: (missingNodeTypes) => {
 				const item = this.getFilterItem(ShowMode.MISSING);
 				if (item) {
@@ -459,7 +459,7 @@ export class CustomNodesManager {
 
 			".cn-manager-stop": {
 				click: () => {
-					api.fetchApi('/manager/queue/reset');
+					api.fetchApi('/v2/manager/queue/reset');
 					infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 				}
 			},
@@ -635,7 +635,7 @@ export class CustomNodesManager {
 			};
 		}
 
-		const response = await api.fetchApi(`/customnode/import_fail_info`, {
+		const response = await api.fetchApi(`/v2/customnode/import_fail_info`, {
 									method: 'POST',
 									headers: { 'Content-Type': 'application/json' },
 									body: JSON.stringify(info)
@@ -1243,7 +1243,7 @@ export class CustomNodesManager {
 	async loadNodes(node_packs) {
 		const mode = manager_instance.datasrc_combo.value;
 		this.showStatus(`Loading node mappings (${mode}) ...`);
-		const res = await fetchData(`/customnode/getmappings?mode=${mode}`);
+		const res = await fetchData(`/v2/customnode/getmappings?mode=${mode}`);
 		if (res.error) {
 			console.log(res.error);
 			return;
@@ -1395,10 +1395,10 @@ export class CustomNodesManager {
 		this.showLoading();
 		let res;
 		if(is_enable) {
-			res = await api.fetchApi(`/customnode/disabled_versions/${node_id}`, { cache: "no-store" });
+			res = await api.fetchApi(`/v2/customnode/disabled_versions/${node_id}`, { cache: "no-store" });
 		}
 		else {
-			res = await api.fetchApi(`/customnode/versions/${node_id}`, { cache: "no-store" });
+			res = await api.fetchApi(`/v2/customnode/versions/${node_id}`, { cache: "no-store" });
 		}
 		this.hideLoading();
 
@@ -1439,7 +1439,7 @@ export class CustomNodesManager {
 	}
 
 	async installNodes(list, btn, title, selected_version) {
-		let stats = await api.fetchApi('/manager/queue/status');
+		let stats = await api.fetchApi('/v2/manager/queue/status');
 		stats = await stats.json();
 		if(stats.is_processing) {
 			customAlert(`[ComfyUI-Manager] There are already tasks in progress. Please try again after it is completed. (${stats.done_count}/${stats.total_count})`);
@@ -1472,7 +1472,7 @@ export class CustomNodesManager {
 		let needRestart = false;
 		let errorMsg = "";
 
-		await api.fetchApi('/manager/queue/reset');
+		await api.fetchApi('/v2/manager/queue/reset');
 
 		let target_items = [];
 
@@ -1517,7 +1517,7 @@ export class CustomNodesManager {
 				api_mode = 'reinstall';
 			}
 
-			const res = await api.fetchApi(`/manager/queue/${api_mode}`, {
+			const res = await api.fetchApi(`/v2/manager/queue/${api_mode}`, {
 				method: 'POST',
 				body: JSON.stringify(data)
 			});
@@ -1550,7 +1550,7 @@ export class CustomNodesManager {
 			}
 		}
 		else {
-			await api.fetchApi('/manager/queue/start');
+			await api.fetchApi('/v2/manager/queue/start');
 			this.showStop();
 			showTerminal();
 		}
@@ -1558,6 +1558,9 @@ export class CustomNodesManager {
 
 	async onQueueStatus(event) {
 		let self = CustomNodesManager.instance;
+		// If legacy manager front is not open, return early (using new manager front)
+		if (self.element?.style.display === 'none') return
+
 		if(event.detail.status == 'in_progress' && event.detail.ui_target == 'nodepack_manager') {
 			const hash = event.detail.target;
 
@@ -1744,7 +1747,7 @@ export class CustomNodesManager {
 	async getMissingNodesLegacy(hashMap, missing_nodes) {
 		const mode = manager_instance.datasrc_combo.value;
 		this.showStatus(`Loading missing nodes (${mode}) ...`);
-		const res = await fetchData(`/customnode/getmappings?mode=${mode}`);
+		const res = await fetchData(`/v2/customnode/getmappings?mode=${mode}`);
 		if (res.error) {
 			this.showError(`Failed to get custom node mappings: ${res.error}`);
 			return;
@@ -1859,7 +1862,7 @@ export class CustomNodesManager {
 	async getAlternatives() {
 		const mode = manager_instance.datasrc_combo.value;
 		this.showStatus(`Loading alternatives (${mode}) ...`);
-		const res = await fetchData(`/customnode/alternatives?mode=${mode}`);
+		const res = await fetchData(`/v2/customnode/alternatives?mode=${mode}`);
 		if (res.error) {
 			this.showError(`Failed to get alternatives: ${res.error}`);
 			return [];
@@ -1907,7 +1910,7 @@ export class CustomNodesManager {
 			infoToast('Fetching updated information. This may take some time if many custom nodes are installed.');
 		}
 
-		const res = await fetchData(`/customnode/getlist?mode=${mode}${skip_update}`);
+		const res = await fetchData(`/v2/customnode/getlist?mode=${mode}${skip_update}`);
 		if (res.error) {
 			this.showError("Failed to get custom node list.");
 			this.hideLoading();

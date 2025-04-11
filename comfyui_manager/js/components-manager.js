@@ -64,7 +64,7 @@ function storeGroupNode(name, data, register=true) {
 }
 
 export async function load_components() {
-	let data = await api.fetchApi('/manager/component/loads', {method: "POST"});
+	let data = await api.fetchApi('/v2/manager/component/loads', {method: "POST"});
 	let components = await data.json();
 
 	let start_time = Date.now();
@@ -222,7 +222,7 @@ async function save_as_component(node, version, author, prefix, nodename, packna
 	pack_map[packname] = component_name;
 	rpack_map[component_name] = subgraph;
 
-	const res = await api.fetchApi('/manager/component/save', {
+	const res = await api.fetchApi('/v2/manager/component/save', {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",
@@ -259,7 +259,7 @@ async function import_component(component_name, component, mode) {
 				workflow: component
 			};
 
-		const res = await api.fetchApi('/manager/component/save', {
+		const res = await api.fetchApi('/v2/manager/component/save', {
 						method: "POST",
 						headers: { "Content-Type": "application/json", },
 						body: JSON.stringify(body)
@@ -709,7 +709,7 @@ app.handleFile = handleFile;
 
 let current_component_policy = 'workflow';
 try {
-	api.fetchApi('/manager/policy/component')
+	api.fetchApi('/v2/manager/policy/component')
 		.then(response => response.text())
 		.then(data => { current_component_policy = data; });
 }

@@ -6,8 +6,9 @@ import time
 from dataclasses import dataclass
 from typing import List
 
-import manager_core
-import manager_util
+from . import manager_core
+from . import manager_util
+
 import requests
 import toml
 

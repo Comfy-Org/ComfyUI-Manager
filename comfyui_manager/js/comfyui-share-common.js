@@ -172,7 +172,7 @@ export const shareToEsheep= () => {
 		const nodes = app.graph._nodes
 		const { potential_outputs, potential_output_nodes } = getPotentialOutputsAndOutputNodes(nodes);
 		const workflow = prompt['workflow']
-		api.fetchApi(`/manager/set_esheep_workflow_and_images`, {
+		api.fetchApi(`/v2/manager/set_esheep_workflow_and_images`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({
@@ -812,7 +812,7 @@ export class ShareDialog extends ComfyDialog {
 		// get the user's existing matrix auth and share key
 		ShareDialog.matrix_auth = { homeserver: "matrix.org", username: "", password: "" };
 		try {
-			api.fetchApi(`/manager/get_matrix_auth`)
+			api.fetchApi(`/v2/manager/get_matrix_auth`)
 				.then(response => response.json())
 				.then(data => {
 					ShareDialog.matrix_auth = data;
@@ -831,7 +831,7 @@ export class ShareDialog extends ComfyDialog {
 		ShareDialog.cw_sharekey = "";
 		try {
 			// console.log("Fetching comfyworkflows share key")
-			api.fetchApi(`/manager/get_comfyworkflows_auth`)
+			api.fetchApi(`/v2/manager/get_comfyworkflows_auth`)
 				.then(response => response.json())
 				.then(data => {
 					ShareDialog.cw_sharekey = data.comfyworkflows_sharekey;
@@ -891,7 +891,7 @@ export class ShareDialog extends ComfyDialog {
 			// Change the text of the share button to "Sharing..." to indicate that the share process has started
 			this.share_button.textContent = "Sharing...";
 
-			const response = await api.fetchApi(`/manager/share`, {
+			const response = await api.fetchApi(`/v2/manager/share`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({

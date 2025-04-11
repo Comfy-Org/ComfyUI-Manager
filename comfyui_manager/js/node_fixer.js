@@ -142,7 +142,7 @@ function node_info_copy(src, dest, connect_both, copy_shape) {
 }
 
 app.registerExtension({
-	name: "Comfy.Manager.NodeFixer",
+	name: "Comfy.Legacy.Manager.NodeFixer",
 	beforeRegisterNodeDef(nodeType, nodeData, app) {
 		addMenuHandler(nodeType, function (_, options) {
 			options.push({

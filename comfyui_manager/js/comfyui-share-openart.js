@@ -67,7 +67,7 @@ export class OpenArtShareDialog extends ComfyDialog {
   async readKey() {
     let key = ""
     try {
-      key = await api.fetchApi(`/manager/get_openart_auth`)
+      key = await api.fetchApi(`/v2/manager/get_openart_auth`)
         .then(response => response.json())
         .then(data => {
           return data.openart_key;
@@ -82,7 +82,7 @@ export class OpenArtShareDialog extends ComfyDialog {
   }
 
   async saveKey(value) {
-    await api.fetchApi(`/manager/set_openart_auth`, {
+    await api.fetchApi(`/v2/manager/set_openart_auth`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
@@ -399,7 +399,7 @@ export class OpenArtShareDialog extends ComfyDialog {
     form.append("file", uploadFile);
     try {
       const res = await this.fetchApi(
-        `/workflows/upload_thumbnail`,
+        `/v2/workflows/upload_thumbnail`,
         {
           method: "POST",
           body: form,
@@ -459,7 +459,7 @@ export class OpenArtShareDialog extends ComfyDialog {
       throw new Error("Title is required");
     }
 
-    const current_snapshot = await api.fetchApi(`/snapshot/get_current`)
+    const current_snapshot = await api.fetchApi(`/v2/snapshot/get_current`)
       .then(response => response.json())
       .catch(error => {
         // console.log(error);
@@ -489,7 +489,7 @@ export class OpenArtShareDialog extends ComfyDialog {
 
     try {
       const response = await this.fetchApi(
-        "/workflows/publish",
+        "/v2/workflows/publish",
         {
           method: "POST",
           headers: {"Content-Type": "application/json"},
