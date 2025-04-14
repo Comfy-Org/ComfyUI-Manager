@@ -183,16 +183,28 @@ class Ctx:
 
 cmd_ctx = Ctx()
 
+# use '@@' to separate node name and commit id
+def parse_node(node: str):
+    if '@@' in node:
+        name, commit = node.split('@@', 1)
+    else:
+        name, commit = node, None
+    return name, commit
 
-def install_node(node_spec_str, is_all=False, cnt_msg=''):
+def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
+    _, commit_id = parse_node(node_spec_str)
+    exit_on_fail = kwargs.get('exit_on_fail', False)
+    print(f"node_spec_str:{node_spec_str}, exit_on_fail:{exit_on_fail}...")
     if core.is_valid_url(node_spec_str):
         # install via urls
-        res = asyncio.run(core.gitclone_install(node_spec_str, no_deps=cmd_ctx.no_deps))
+        res = asyncio.run(core.gitclone_install(node_spec_str, no_deps=cmd_ctx.no_deps, commit_id=commit_id))
         if not res.result:
             print(res.msg)
             print(f"[bold red]ERROR: An error occurred while installing '{node_spec_str}'.[/bold red]")
+            if exit_on_fail:
+                sys.exit(1)
         else:
-            print(f"{cnt_msg} [INSTALLED] {node_spec_str:50}")
+            print(f"{cnt_msg} [INSTALLED] {node_spec_str:50} => {commit_id}")
     else:
         node_spec = unified_manager.resolve_node_spec(node_spec_str)
 
@@ -205,7 +217,7 @@ def install_node(node_spec_str, is_all=False, cnt_msg=''):
         if not is_specified:
             version_spec = None
 
-        res = asyncio.run(unified_manager.install_by_id(node_name, version_spec, cmd_ctx.channel, cmd_ctx.mode, instant_execution=True, no_deps=cmd_ctx.no_deps))
+        res = asyncio.run(unified_manager.install_by_id(node_name, version_spec, cmd_ctx.channel, cmd_ctx.mode, instant_execution=True, no_deps=cmd_ctx.no_deps, commit_id=commit_id))
 
         if res.action == 'skip':
             print(f"{cnt_msg} [   SKIP  ] {node_name:50} => Already installed")
@@ -225,6 +237,8 @@ def install_node(node_spec_str, is_all=False, cnt_msg=''):
             print("")
         else:
             print(f"[bold red]ERROR: An error occurred while installing '{node_name}'.\n{res.msg}[/bold red]")
+            if exit_on_fail:
+                sys.exit(1)
 
 
 def reinstall_node(node_spec_str, is_all=False, cnt_msg=''):
@@ -586,7 +600,7 @@ def get_all_installed_node_specs():
     return res
 
 
-def for_each_nodes(nodes, act, allow_all=True):
+def for_each_nodes(nodes, act, allow_all=True, **kwargs):
     is_all = False
     if allow_all and 'all' in nodes:
         is_all = True
@@ -598,7 +612,7 @@ def for_each_nodes(nodes, act, allow_all=True):
     i = 1
     for x in nodes:
         try:
-            act(x, is_all=is_all, cnt_msg=f'{i}/{total}')
+            act(x, is_all=is_all, cnt_msg=f'{i}/{total}', **kwargs)
         except Exception as e:
             print(f"ERROR: {e}")
             traceback.print_exc()
@@ -642,13 +656,17 @@ def install(
             None,
             help="user directory"
         ),
+        exit_on_fail: bool = typer.Option(
+            False,
+            help="Exit on failure"
+        )
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
     cmd_ctx.set_no_deps(no_deps)
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, core.manager_files_path)
-    for_each_nodes(nodes, act=install_node)
+    for_each_nodes(nodes, act=install_node, exit_on_fail=exit_on_fail)
     pip_fixer.fix_broken()
 
 
@@ -679,7 +697,7 @@ def reinstall(
         user_directory: str = typer.Option(
             None,
             help="user directory"
-        ),
+        )
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
