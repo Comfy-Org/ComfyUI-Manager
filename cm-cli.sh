@@ -1,2 +1,2 @@
 #!/bin/bash
-python cm-cli.py $*
+python ./comfyui_manager/cm-cli.py $*
