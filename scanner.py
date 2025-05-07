@@ -94,7 +94,7 @@ def extract_nodes(code_text):
             return s
         else:
             return set()
-    except:
+    except Exception:
         return set()
 
 
@@ -400,7 +400,7 @@ def update_custom_nodes():
 
         try:
             download_url(url, temp_dir)
-        except:
+        except Exception:
             print(f"[ERROR] Cannot download '{url}'")
 
     with concurrent.futures.ThreadPoolExecutor(10) as executor:
