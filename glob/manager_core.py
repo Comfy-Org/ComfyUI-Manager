@@ -43,7 +43,7 @@ import manager_downloader
 from node_package import InstalledNodePackage
 
 
-version_code = [3, 31, 7]
+version_code = [3, 31, 8]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
@@ -256,7 +256,7 @@ comfy_ui_revision = "Unknown"
 comfy_ui_commit_datetime = datetime(1900, 1, 1, 0, 0, 0)
 
 channel_dict = None
-valid_channels = set()
+valid_channels = {'default', 'local'}
 channel_list = None
 
 
