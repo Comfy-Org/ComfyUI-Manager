@@ -2072,6 +2072,13 @@ def is_valid_url(url):
     return False
 
 
+def extract_url_and_commit_id(s):
+    index = s.rfind('@')
+    if index == -1:
+        return (s, '')
+    else:
+        return (s[:index], s[index+1:])
+
 async def gitclone_install(url, instant_execution=False, msg_prefix='', no_deps=False):
     await unified_manager.reload('cache')
     await unified_manager.get_custom_nodes('default', 'cache')
@@ -2089,8 +2096,11 @@ async def gitclone_install(url, instant_execution=False, msg_prefix='', no_deps=
         cnr = unified_manager.get_cnr_by_repo(url)
         if cnr:
             cnr_id = cnr['id']
-            return await unified_manager.install_by_id(cnr_id, version_spec='nightly', channel='default', mode='cache')
+            return await unified_manager.install_by_id(cnr_id, version_spec=None, channel='default', mode='cache')
         else:
+            new_url, commit_id = extract_url_and_commit_id(url)
+            if commit_id != "":
+                url = new_url
             repo_name = os.path.splitext(os.path.basename(url))[0]
 
             # NOTE: Keep original name as possible if unknown node
@@ -2123,6 +2133,10 @@ async def gitclone_install(url, instant_execution=False, msg_prefix='', no_deps=
                     return result.fail(f"Failed to clone '{clone_url}' into  '{repo_path}'")
             else:
                 repo = git.Repo.clone_from(clone_url, repo_path, recursive=True, progress=GitProgress())
+                if commit_id!= "":
+                    repo.git.checkout(commit_id)
+                    repo.git.submodule('update', '--init', '--recursive')
+
                 repo.git.clear_cache()
                 repo.close()
 
