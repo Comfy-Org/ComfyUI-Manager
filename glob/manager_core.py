@@ -868,8 +868,9 @@ class UnifiedManager:
                     package_name = remap_pip_package(line.strip())
                     if package_name and not package_name.startswith('#') and package_name not in self.processed_install:
                         self.processed_install.add(package_name)
-                        install_cmd = manager_util.make_pip_cmd(["install", package_name])
-                        if package_name.strip() != "" and not package_name.startswith('#'):
+                        clean_package_name = package_name.split('#')[0].strip()
+                        install_cmd = manager_util.make_pip_cmd(["install", clean_package_name])
+                        if clean_package_name != "" and not clean_package_name.startswith('#'):
                             res = res and try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
 
                 pip_fixer.fix_broken()
