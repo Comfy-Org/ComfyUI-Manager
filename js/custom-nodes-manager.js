@@ -650,7 +650,17 @@ export class CustomNodesManager {
 			show_message(title+'The information is not available.')
 		}
 		else {
-			show_message(title+sanitizeHTML(res['msg']).replace(/ /g, '&nbsp;').replace(/\n/g, '<BR>'));
+			const errorReportOptions = {
+				msg: `Error importing '${rowItem.title}' module.`,
+				errorSubtype: "importError",
+				extraFields: [{
+					label: "Failed Import Info",
+					value: "FailedImportInfo",
+					getData: () => res['msg']
+				}],
+			}
+
+			show_message(title+sanitizeHTML(res['msg']).replace(/ /g, '&nbsp;').replace(/\n/g, '<BR>'), errorReportOptions);
 		}
 	}
 
@@ -1607,7 +1617,17 @@ export class CustomNodesManager {
 
 		if (errorMsg) {
 			self.showError(errorMsg);
-			show_message("Installation Error:\n"+errorMsg);
+			show_message("Installation Error:\n"+errorMsg, {
+				msg: `Installation Error: ${errorMsg}`,
+				errorSubtype: `node${label}Error`,
+				extraFields: [
+					{
+						label: `${label} Error Trace`,
+						value: `${label}ErrorsTrace`,
+						getData: () => errorMsg,
+					},
+				],
+			});
 		} else {
 			self.showStatus(`${label} ${result.length} custom node(s) successfully`);
 		}
