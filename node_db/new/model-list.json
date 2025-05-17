@@ -1,6 +1,107 @@
 {
   "models": [
     {
+      "name": "Latent Bridge Matching for Image Relighting",
+      "type": "diffusion_model",
+      "base": "LBM",
+      "save_path": "diffusion_models/LBM",
+      "description": "Latent Bridge Matching (LBM) Relighting model",
+      "reference": "https://huggingface.co/jasperai/LBM_relighting",
+      "filename": "LBM_relighting.safetensors",
+      "url": "https://huggingface.co/jasperai/LBM_relighting/resolve/main/model.safetensors",
+      "size": "5.02GB"
+    },
+
+    {
+      "name": "LTX-Video 13B Distilled v0.9.7",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "Distilled version of the LTX-Video 13B model, providing improved efficiency while maintaining high-resolution quality.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-13b-0.9.7-distilled.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.7-distilled.safetensors",
+      "size": "28.6GB"
+    },
+    {
+      "name": "LTX-Video 13B Distilled FP8 v0.9.7",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "Quantized distilled version of the LTX-Video 13B model, optimized for even lower VRAM usage while maintaining quality.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-13b-0.9.7-distilled-fp8.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.7-distilled-fp8.safetensors",
+      "size": "15.7GB"
+    },
+    {
+      "name": "LTX-Video 13B Distilled LoRA v0.9.7",
+      "type": "lora",
+      "base": "LTX-Video",
+      "save_path": "loras",
+      "description": "A LoRA adapter that transforms the standard LTX-Video 13B model into a distilled version when loaded.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-13b-0.9.7-distilled-lora128.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.7-distilled-lora128.safetensors",
+      "size": "1.33GB"
+    },
+    {
+      "name": "lllyasviel/FramePackI2V_HY",
+      "type": "FramePackI2V",
+      "base": "FramePackI2V",
+      "save_path": "diffusers/lllyasviel",
+      "description": "[SNAPSHOT] This is the f1k1_x_g9_f1k1f2k2f16k4_td FramePack for HY. [w/You cannot download this item on ComfyUI-Manager versions below V3.18]",
+      "reference": "https://huggingface.co/lllyasviel/FramePackI2V_HY",
+      "filename": "<huggingface>",
+      "url": "lllyasviel/FramePackI2V_HY",
+      "size": "25.75GB"
+    },
+
+    {
+      "name": "LTX-Video Spatial Upscaler v0.9.7",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "Spatial upscaler model for LTX-Video. This model enhances the spatial resolution of generated videos.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-spatial-upscaler-0.9.7.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-spatial-upscaler-0.9.7.safetensors",
+      "size": "505MB"
+    },
+    {
+      "name": "LTX-Video Temporal Upscaler v0.9.7",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "Temporal upscaler model for LTX-Video. This model enhances the temporal resolution and smoothness of generated videos.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-temporal-upscaler-0.9.7.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-temporal-upscaler-0.9.7.safetensors",
+      "size": "524MB"
+    },
+    {
+      "name": "LTX-Video 13B v0.9.7",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "High-resolution quality LTX-Video 13B model.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-13b-0.9.7-dev.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.7-dev.safetensors",
+      "size": "28.6GB"
+    },
+    {
+      "name": "LTX-Video 13B FP8 v0.9.7",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "Quantized version of the LTX-Video 13B model, optimized for lower VRAM usage while maintaining high quality.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-13b-0.9.7-dev-fp8.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.7-dev-fp8.safetensors",
+      "size": "15.7GB"
+    },
+    {
       "name": "Comfy-Org/Wan2.1 i2v 480p 14B (bf16)",
       "type": "diffusion_model",
       "base": "Wan2.1",
@@ -590,121 +691,6 @@
       "filename": "sigclip_vision_patch14_384.safetensors",
       "url": "https://huggingface.co/Comfy-Org/sigclip_vision_384/resolve/main/sigclip_vision_patch14_384.safetensors",
       "size": "857MB"
-    },
-
-    {
-      "name": "comfyanonymous/flux_text_encoders - t5xxl (fp16)",
-      "type": "clip",
-      "base": "t5",
-      "save_path": "text_encoders/t5",
-      "description": "Text Encoders for FLUX (fp16)",
-      "reference": "https://huggingface.co/comfyanonymous/flux_text_encoders",
-      "filename": "t5xxl_fp16.safetensors",
-      "url": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors",
-      "size": "9.79GB"
-    },
-    {
-      "name": "comfyanonymous/flux_text_encoders - t5xxl (fp8_e4m3fn)",
-      "type": "clip",
-      "base": "t5",
-      "save_path": "text_encoders/t5",
-      "description": "Text Encoders for FLUX (fp8_e4m3fn)",
-      "reference": "https://huggingface.co/comfyanonymous/flux_text_encoders",
-      "filename": "t5xxl_fp8_e4m3fn.safetensors",
-      "url": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn.safetensors",
-      "size": "4.89GB"
-    },
-    {
-      "name": "comfyanonymous/flux_text_encoders - t5xxl (fp8_e4m3fn_scaled)",
-      "type": "clip",
-      "base": "t5",
-      "save_path": "text_encoders/t5",
-      "description": "Text Encoders for FLUX (fp16)",
-      "reference": "https://huggingface.co/comfyanonymous/flux_text_encoders",
-      "filename": "t5xxl_fp8_e4m3fn_scaled.safetensors",
-      "url": "https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp8_e4m3fn_scaled.safetensors",
-      "size": "5.16GB"
-    },
-
-    {
-      "name": "FLUX.1 [Dev] Diffusion model (scaled fp8)",
-      "type": "diffusion_model",
-      "base": "FLUX.1",
-      "save_path": "diffusion_models/FLUX1",
-      "description": "FLUX.1 [Dev] Diffusion model (scaled fp8)[w/Due to the large size of the model, it is recommended to download it through a browser if possible.]",
-      "reference": "https://huggingface.co/comfyanonymous/flux_dev_scaled_fp8_test",
-      "filename": "flux_dev_fp8_scaled_diffusion_model.safetensors",
-      "url": "https://huggingface.co/comfyanonymous/flux_dev_scaled_fp8_test/resolve/main/flux_dev_fp8_scaled_diffusion_model.safetensors",
-      "size": "11.9GB"
-    },
-    
-    {
-      "name": "kijai/MoGe_ViT_L_fp16.safetensors",
-      "type": "MoGe",
-      "base": "MoGe",
-      "save_path": "MoGe",
-      "description": "Safetensors versions of [a/https://github.com/microsoft/MoGe](https://github.com/microsoft/MoGe)",
-      "reference": "https://huggingface.co/Kijai/MoGe_safetensors",
-      "filename": "MoGe_ViT_L_fp16.safetensors",
-      "url": "https://huggingface.co/Kijai/MoGe_safetensors/resolve/main/MoGe_ViT_L_fp16.safetensors",
-      "size": "628MB"
-    },
-    {
-      "name": "kijai/MoGe_ViT_L_fp16.safetensors",
-      "type": "MoGe",
-      "base": "MoGe",
-      "save_path": "MoGe",
-      "description": "Safetensors versions of [a/https://github.com/microsoft/MoGe](https://github.com/microsoft/MoGe)",
-      "reference": "https://huggingface.co/Kijai/MoGe_safetensors",
-      "filename": "MoGe_ViT_L_fp16.safetensors",
-      "url": "https://huggingface.co/Kijai/MoGe_safetensors/resolve/main/MoGe_ViT_L_fp16.safetensors",
-      "size": "1.26GB"
-    },
-
-    {
-      "name": "pulid_flux_v0.9.1.safetensors",
-      "type": "PuLID",
-      "base": "FLUX",
-      "save_path": "pulid",
-      "description": "This is required for PuLID (FLUX)",
-      "reference": "https://huggingface.co/guozinan/PuLID",
-      "filename": "pulid_flux_v0.9.1.safetensors",
-      "url": "https://huggingface.co/guozinan/PuLID/resolve/main/pulid_flux_v0.9.1.safetensors",
-      "size": "1.14GB"
-    },
-    {
-      "name": "pulid_v1.1.safetensors",
-      "type": "PuLID",
-      "base": "SDXL",
-      "save_path": "pulid",
-      "description": "This is required for PuLID (SDXL)",
-      "reference": "https://huggingface.co/guozinan/PuLID",
-      "filename": "pulid_v1.1.safetensors",
-      "url": "https://huggingface.co/guozinan/PuLID/resolve/main/pulid_v1.1.safetensors",
-      "size": "984MB"
-    },
-
-    {
-      "name": "Kolors-IP-Adapter-Plus.bin (Kwai-Kolors/Kolors-IP-Adapter-Plus)",
-      "type": "IP-Adapter",
-      "base": "Kolors",
-      "save_path": "ipadapter",
-      "description": "You can use this model in the [a/ComfyUI IPAdapter plus](https://github.com/cubiq/ComfyUI_IPAdapter_plus) extension.",
-      "reference": "https://huggingface.co/Kwai-Kolors/Kolors-IP-Adapter-Plus",
-      "filename": "Kolors-IP-Adapter-Plus.bin",
-      "url": "https://huggingface.co/Kwai-Kolors/Kolors-IP-Adapter-Plus/resolve/main/ip_adapter_plus_general.bin",
-      "size": "1.01GB"
-    },
-    {
-      "name": "Kolors-IP-Adapter-FaceID-Plus.bin (Kwai-Kolors/Kolors-IP-Adapter-Plus)",
-      "type": "IP-Adapter",
-      "base": "Kolors",
-      "save_path": "ipadapter",
-      "description": "You can use this model in the [a/ComfyUI IPAdapter plus](https://github.com/cubiq/ComfyUI_IPAdapter_plus) extension.",
-      "reference": "https://huggingface.co/Kwai-Kolors/Kolors-IP-Adapter-FaceID-Plus",
-      "filename": "Kolors-IP-Adapter-FaceID-Plus.bin",
-      "url": "https://huggingface.co/Kwai-Kolors/Kolors-IP-Adapter-FaceID-Plus/resolve/main/ipa-faceid-plus.bin",
-      "size": "2.39GB"
     }
   ]
 }

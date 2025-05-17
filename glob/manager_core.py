@@ -43,7 +43,7 @@ import manager_downloader
 from node_package import InstalledNodePackage
 
 
-version_code = [3, 31, 10]
+version_code = [3, 32, 2]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
@@ -868,8 +868,9 @@ class UnifiedManager:
                     package_name = remap_pip_package(line.strip())
                     if package_name and not package_name.startswith('#') and package_name not in self.processed_install:
                         self.processed_install.add(package_name)
-                        install_cmd = manager_util.make_pip_cmd(["install", package_name])
-                        if package_name.strip() != "" and not package_name.startswith('#'):
+                        clean_package_name = package_name.split('#')[0].strip()
+                        install_cmd = manager_util.make_pip_cmd(["install", clean_package_name])
+                        if clean_package_name != "" and not clean_package_name.startswith('#'):
                             res = res and try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
 
                 pip_fixer.fix_broken()
@@ -2072,6 +2073,13 @@ def is_valid_url(url):
     return False
 
 
+def extract_url_and_commit_id(s):
+    index = s.rfind('@')
+    if index == -1:
+        return (s, '')
+    else:
+        return (s[:index], s[index+1:])
+
 async def gitclone_install(url, instant_execution=False, msg_prefix='', no_deps=False):
     await unified_manager.reload('cache')
     await unified_manager.get_custom_nodes('default', 'cache')
@@ -2089,8 +2097,11 @@ async def gitclone_install(url, instant_execution=False, msg_prefix='', no_deps=
         cnr = unified_manager.get_cnr_by_repo(url)
         if cnr:
             cnr_id = cnr['id']
-            return await unified_manager.install_by_id(cnr_id, version_spec='nightly', channel='default', mode='cache')
+            return await unified_manager.install_by_id(cnr_id, version_spec=None, channel='default', mode='cache')
         else:
+            new_url, commit_id = extract_url_and_commit_id(url)
+            if commit_id != "":
+                url = new_url
             repo_name = os.path.splitext(os.path.basename(url))[0]
 
             # NOTE: Keep original name as possible if unknown node
@@ -2123,6 +2134,10 @@ async def gitclone_install(url, instant_execution=False, msg_prefix='', no_deps=
                     return result.fail(f"Failed to clone '{clone_url}' into  '{repo_path}'")
             else:
                 repo = git.Repo.clone_from(clone_url, repo_path, recursive=True, progress=GitProgress())
+                if commit_id!= "":
+                    repo.git.checkout(commit_id)
+                    repo.git.submodule('update', '--init', '--recursive')
+
                 repo.git.clear_cache()
                 repo.close()
 

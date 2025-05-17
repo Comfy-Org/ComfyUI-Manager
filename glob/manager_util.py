@@ -15,6 +15,7 @@ import re
 import logging
 import platform
 import shlex
+import cm_global
 
 
 cache_lock = threading.Lock()
@@ -256,7 +257,7 @@ def get_installed_packages(renew=False):
                     pip_map[normalized_name] = y[1]
         except subprocess.CalledProcessError:
             logging.error("[ComfyUI-Manager] Failed to retrieve the information of installed pip packages.")
-            return set()
+            return {}
 
     return pip_map
 
@@ -307,6 +308,7 @@ def parse_requirement_line(line):
 
 
 torch_torchvision_torchaudio_version_map = {
+    '2.7.0': ('0.22.0', '2.7.0'),
     '2.6.0': ('0.21.0', '2.6.0'),
     '2.5.1': ('0.20.0', '2.5.0'),
     '2.5.0': ('0.20.0', '2.5.0'),
@@ -421,12 +423,13 @@ class PIPFixer:
         # fix numpy
         try:
             np = new_pip_versions.get('numpy')
-            if np is not None:
-                if StrictVersion(np) >= StrictVersion('2'):
-                    cmd = make_pip_cmd(['install', "numpy<2"])
-                    subprocess.check_output(cmd , universal_newlines=True)
+            if cm_global.pip_overrides.get('numpy') == 'numpy<2':
+                if np is not None:
+                    if StrictVersion(np) >= StrictVersion('2'):
+                        cmd = make_pip_cmd(['install', "numpy<2"])
+                        subprocess.check_output(cmd , universal_newlines=True)
 
-                    logging.info("[ComfyUI-Manager] 'numpy' dependency were fixed")
+                        logging.info("[ComfyUI-Manager] 'numpy' dependency were fixed")
         except Exception as e:
             logging.error("[ComfyUI-Manager] Failed to restore numpy")
             logging.error(e)
