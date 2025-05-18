@@ -1061,13 +1061,22 @@
     ],
     "https://github.com/DonutsDelivery/ComfyUI-DonutDetailer": [
         [
+            "ApplyLBW //Inspire",
             "Donut Detailer",
             "Donut Detailer 2",
             "Donut Detailer 4",
             "Donut Detailer LoRA 5",
             "Donut Detailer XL Blocks",
+            "DonutApplyLoRAStack",
             "DonutClipEncode",
-            "DonutWidenMerge"
+            "DonutLoRAStack",
+            "DonutWidenMerge",
+            "LoadLBW //Inspire",
+            "LoraBlockInfo //Inspire",
+            "LoraLoaderBlockWeight //Inspire",
+            "MakeLBW //Inspire",
+            "SaveLBW //Inspire",
+            "XY Input: Lora Block Weight //Inspire"
         ],
         {
             "title_aux": "ComfyUI-DonutDetailer"
@@ -1803,6 +1812,7 @@
     "https://github.com/Maxed-Out-99/ComfyUI-MaxedOut": [
         [
             "Flux Empty Latent Image",
+            "Image Scale To Total Pixels (SDXL Safe)",
             "SDXL Resolutions",
             "Sd 1.5 Empty Latent Image",
             "Sdxl Empty Latent Image"
@@ -2748,6 +2758,7 @@
             "BlenderTonemap",
             "BlenderTransform",
             "BlenderTranslate",
+            "BlenderUV",
             "BlenderValue",
             "BlenderVectorMath",
             "BlenderWavelength",
@@ -3531,6 +3542,7 @@
             "IdeogramV1",
             "IdeogramV2",
             "IdeogramV3",
+            "ImageAddNoise",
             "ImageBatch",
             "ImageBlend",
             "ImageBlur",
@@ -3831,6 +3843,8 @@
             "VideoTriangleCFGGuidance",
             "VoxelToMesh",
             "VoxelToMeshBasic",
+            "WanCameraEmbedding",
+            "WanCameraImageToVideo",
             "WanFirstLastFrameToVideo",
             "WanFunControlToVideo",
             "WanFunInpaintToVideo",
@@ -4976,6 +4990,7 @@
     ],
     "https://github.com/jonnydolake/ComfyUI-AIR-Nodes": [
         [
+            "BatchListToFlatList",
             "BrightnessContrastSaturation",
             "CombinedInbetweenInputs",
             "CreateFilenameList",
@@ -4983,10 +4998,13 @@
             "DisplaceImageCPU",
             "DisplaceImageGPU",
             "ExtractBlackLines",
+            "FlatListToBatchList",
             "ForceMinimumBatchSize",
             "GPUTargetLocationCrop",
             "GPUTargetLocationPaste",
+            "GetImageFromList",
             "ImageCompositeChained",
+            "JoinImageLists",
             "JoinStringLists",
             "LTXVAddGuideAIR",
             "LineDetection",
@@ -4995,6 +5013,7 @@
             "MatchImageCountToMaskCount",
             "ParallaxTest",
             "RandomCharacterPrompts",
+            "RemoveElementFromList",
             "TargetLocationCrop",
             "TargetLocationPaste",
             "easy_parallax",
@@ -5434,6 +5453,7 @@
             "FlowLoraLoaderModelOnly",
             "FlowModelManager",
             "FlowSaveImage",
+            "QuadrupleCLIPLoaderGGUF",
             "TripleCLIPLoaderGGUF",
             "UnetLoaderGGUF",
             "UnetLoaderGGUFAdvanced"
@@ -5741,6 +5761,7 @@
     "https://github.com/lucafoscili/lf-nodes": [
         [
             "LF_Blend",
+            "LF_Bloom",
             "LF_BlurImages",
             "LF_Boolean",
             "LF_Brightness",
@@ -5815,6 +5836,7 @@
             "LF_Something2String",
             "LF_SortJSONKeys",
             "LF_SortTags",
+            "LF_SplitTone",
             "LF_String",
             "LF_StringReplace",
             "LF_StringTemplate",
@@ -5824,6 +5846,7 @@
             "LF_SwitchInteger",
             "LF_SwitchJSON",
             "LF_SwitchString",
+            "LF_TiltShift",
             "LF_UpdateUsageStatistics",
             "LF_UpscaleModelSelector",
             "LF_UrandomSeedGenerator",
@@ -5869,7 +5892,9 @@
             "BBoxDrawNode",
             "BBoxParseNode",
             "DummyNode",
+            "ImageBatchNode",
             "MaskEditorNode",
+            "OpenAIGPTImageNode",
             "OpenAIQueryNode"
         ],
         {
@@ -5982,22 +6007,6 @@
         ],
         {
             "title_aux": "ComfyUI-Lygia"
-        }
-    ],
-    "https://github.com/mfg637/ComfyUI-ScheduledGuider-Ext": [
-        [
-            "ConcatSigmas",
-            "CosineScheduler",
-            "GaussianScheduler",
-            "InvertSigmas",
-            "LogNormal Scheduler",
-            "OffsetSigmas",
-            "PerpNegScheduledCFGGuider",
-            "ScheduledCFGGuider",
-            "SplitSigmasByValue"
-        ],
-        {
-            "title_aux": "ComfyUI-ScheduledGuider-Ext"
         }
     ],
     "https://github.com/mikebilly/Transparent-background-comfyUI": [
@@ -6295,12 +6304,16 @@
     ],
     "https://github.com/nobandegani/comfyui_ino_nodes": [
         [
+            "Ino_BranchImage",
             "Ino_CountFiles",
+            "Ino_DateTimeAsString",
             "Ino_GetParentID",
+            "Ino_IntEqual",
             "Ino_NotBoolean",
             "Ino_ParseFilePath",
             "Ino_SaveFile",
-            "Ino_SaveImage"
+            "Ino_SaveImage",
+            "Ino_VideoConvert"
         ],
         {
             "title_aux": "Ino Custom Nodes"
@@ -6559,6 +6572,48 @@
             "title_aux": "comfyui-sd3-simple-simpletuner"
         }
     ],
+    "https://github.com/rakki194/ComfyUI_WolfSigmas": [
+        [
+            "GetImageSize",
+            "LatentVisualizeDirect",
+            "ListModelBlocks",
+            "ModifyActivationsSVD",
+            "VisualizeActivation",
+            "WolfDCTNoise",
+            "WolfDCTNoiseScriptableLatent",
+            "WolfPlotSamplerStatsNode",
+            "WolfProbeGetData",
+            "WolfProbeSetup",
+            "WolfSamplerScriptEvaluator",
+            "WolfScriptableEmptyLatent",
+            "WolfScriptableLatentAnalyzer",
+            "WolfScriptableNoise",
+            "WolfSigmaAddNoise",
+            "WolfSigmaClampT0",
+            "WolfSigmaClipValues",
+            "WolfSigmaGeometricProgression",
+            "WolfSigmaInsertValue",
+            "WolfSigmaNormalizeRange",
+            "WolfSigmaPolynomial",
+            "WolfSigmaPowerTransform",
+            "WolfSigmaQuantize",
+            "WolfSigmaRespaceLogCosine",
+            "WolfSigmaReverse",
+            "WolfSigmaReverseAndRescale",
+            "WolfSigmaScriptEvaluator",
+            "WolfSigmaShiftAndScale",
+            "WolfSigmaSlice",
+            "WolfSigmaTanhGenerator",
+            "WolfSigmasGet",
+            "WolfSigmasSet",
+            "WolfSigmasToJSON",
+            "WolfSimpleSamplerScriptEvaluator",
+            "WolfSimpleScriptableEmptyLatent"
+        ],
+        {
+            "title_aux": "ComfyUI_WolfSigmas [UNSAFE]"
+        }
+    ],
     "https://github.com/ralonsobeas/ComfyUI-HDRConversion": [
         [
             "HDRConversion"
@@ -6671,6 +6726,7 @@
             "Get Image Dimensions",
             "Pad Batch to 4n+1",
             "Resize Frame",
+            "Slot Frame",
             "Threshold Image",
             "Trim Padded Batch"
         ],
@@ -7342,6 +7398,14 @@
             "title_aux": "ComfyUI Simple Image Tools [WIP]"
         }
     ],
+    "https://github.com/wTechArtist/ComfyUI_WWL_Florence2SAM2": [
+        [
+            "WWL_Florence2SAM2"
+        ],
+        {
+            "title_aux": "ComfyUI_WWL_Florence2SAM2"
+        }
+    ],
     "https://github.com/walterFeng/ComfyUI-Image-Utils": [
         [
             "Calculate Image Brightness",
@@ -7462,6 +7526,23 @@
             "title_aux": "CombineMasksNode"
         }
     ],
+    "https://github.com/xl0/q_tools": [
+        [
+            "PreviewModelMetadata",
+            "QGaussianLatent",
+            "QKSampler",
+            "QLinearScheduler",
+            "QLoadLatent",
+            "QLoadLatentTimeline",
+            "QPreviewLatent",
+            "QSamplerCustom",
+            "QSamplerEulerAncestral",
+            "QUniformLatent"
+        ],
+        {
+            "title_aux": "q_tools"
+        }
+    ],
     "https://github.com/xmarked-ai/ComfyUI_misc": [
         [
             "BLIPMatcherX",
@@ -7479,6 +7560,7 @@
             "GaussianMaskBlurX",
             "IfConditionX",
             "ImageCompositionX",
+            "ImageResizeX",
             "ImageTileSquare",
             "ImageUntileSquare",
             "KSamplerComboX",
@@ -7621,6 +7703,14 @@
         ],
         {
             "title_aux": "ComfyUI_Lam"
+        }
+    ],
+    "https://github.com/yichengup/ComfyUI-YCNodes_Advance": [
+        [
+            "YC Color Match"
+        ],
+        {
+            "title_aux": "ComfyUI-YCNodes_Advance"
         }
     ],
     "https://github.com/yichengup/Comfyui-NodeSpark": [

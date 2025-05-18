@@ -6253,36 +6253,6 @@
             "description": "Improved AnimateAnyone implementation that allows you to use the opse image sequence and reference image to generate stylized video.\nThe current goal of this project is to achieve desired pose2video result with 1+FPS on GPUs that are equal to or better than RTX 3080!🚀\n[w/The torch environment may be compromised due to version issues as some torch-related packages are being reinstalled.]"
         },
         {
-            "author": "Hangover3832",
-            "title": "ComfyUI-Hangover-Nodes",
-            "reference": "https://github.com/Hangover3832/ComfyUI-Hangover-Nodes",
-            "files": [
-                "https://github.com/Hangover3832/ComfyUI-Hangover-Nodes"
-            ],
-            "install_type": "git-clone",
-            "description": "Nodes: MS kosmos-2 Interrogator, Save Image w/o Metadata, Image Scale Bounding Box. An implementation of Microsoft [a/kosmos-2](https://huggingface.co/microsoft/kosmos-2-patch14-224) image to text transformer."
-        },
-        {
-            "author": "Hangover3832",
-            "title": "ComfyUI-Hangover-Moondream",
-            "reference": "https://github.com/Hangover3832/ComfyUI-Hangover-Moondream",
-            "files": [
-                "https://github.com/Hangover3832/ComfyUI-Hangover-Moondream"
-            ],
-            "install_type": "git-clone",
-            "description": "Moondream is a lightweight multimodal large language model.\n[w/WARN:Additional python code will be downloaded from huggingface and executed. You have to trust this creator if you want to use this node!]"
-        },
-        {
-            "author": "Hangover3832",
-            "title": "Recognize Anything Model (RAM) for ComfyUI",
-            "reference": "https://github.com/Hangover3832/ComfyUI-Hangover-Recognize_Anything",
-            "files": [
-                "https://github.com/Hangover3832/ComfyUI-Hangover-Recognize_Anything"
-            ],
-            "install_type": "git-clone",
-            "description": "This is an image recognition node for ComfyUI based on the RAM++ model from [a/xinyu1205](https://huggingface.co/xinyu1205).\nThis node outputs a string of tags with all the recognized objects and elements in the image in English or Chinese language.\nFor image tagging and captioning."
-        },
-        {
             "author": "tzwm",
             "title": "ComfyUI Profiler",
             "reference": "https://github.com/tzwm/comfyui-profiler",
@@ -7801,6 +7771,16 @@
             "description": "An extension that's adds advanced audio processing capabilities to ComfyUI with professional-grade audio effects and AI-powered audio enhancement."
         },
         {
+            "author": "ShmuelRonen",
+            "title": "ComfyUI-FramePackWrapper_Plus",
+            "reference": "https://github.com/ShmuelRonen/ComfyUI-FramePackWrapper_Plus",
+            "files": [
+                "https://github.com/ShmuelRonen/ComfyUI-FramePackWrapper_Plus"
+            ],
+            "install_type": "git-clone",
+            "description": "An extension that's adds advanced audio processing capabilities to ComfyUI with professional-grade audio effects and AI-powered audio enhancement."
+        },
+        {
             "author": "redhottensors",
             "title": "ComfyUI-Prediction",
             "id": "prediction",
@@ -8772,6 +8752,16 @@
             ],
             "install_type": "git-clone",
             "description": "Custom ComfyUI Nodes for TTS with Kokoro, genenrate and merge speakers for new style generations."
+        },
+        {
+            "author": "cluny85",
+            "title": "comfyui-downloader",
+            "reference": "https://github.com/stavsap/comfyui-downloader",
+            "files": [
+                "https://github.com/stavsap/comfyui-downloader"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom ComfyUI Nodes for verifing needed files/models are present per workflow, can download if missing."
         },
         {
             "author": "dchatel",
@@ -15895,7 +15885,7 @@
         },
         {
             "author": "erosDiffusion",
-            "title": "Compositor Node",
+            "title": "ComfyUI-enricos-nodes",
             "reference": "https://github.com/erosDiffusion/ComfyUI-enricos-nodes",
             "files": [
                 "https://github.com/erosDiffusion/ComfyUI-enricos-nodes"
@@ -23426,7 +23416,7 @@
                 "https://github.com/Taithrah/ComfyUI_Fens_Simple_Nodes"
             ],
             "install_type": "git-clone",
-            "description": "Simple nodes for ComfyUI - Token Counter"
+            "description": "Simple nodes for ComfyUI - Token Counter - Optimal Empty Latent"
         },
         {
             "author": "Immac",
@@ -24626,6 +24616,16 @@
             "description": "Extract LoRA from the original Fine-Tuned model."
         },
         {
+            "author": "judian17",
+            "title": "ComfyUI JoyCaption-Beta-GGUF Node",
+            "reference": "https://github.com/judian17/ComfyUI-joycaption-beta-one-GGUF",
+            "files": [
+                "https://github.com/judian17/ComfyUI-joycaption-beta-one-GGUF"
+            ],
+            "install_type": "git-clone",
+            "description": "This project provides a node for ComfyUI to use the JoyCaption-Beta model in GGUF format for image captioning."
+        },
+        {
             "author": "AngelCookies",
             "title": "ComfyUI-Seed-Tracker",
             "reference": "https://github.com/AngelCookies/ComfyUI-Seed-Tracker",
@@ -25095,16 +25095,6 @@
             ],
             "install_type": "git-clone",
             "description": "ComfyUI_EasyKitHT_NodeAlignPro is a lightweight ComfyUI node alignment and node coloring tool for refactoring and rewriting the UI based on the open-source projects Comfyui-Align and Comfyui-Nodealigner."
-        },
-        {
-            "author": "SirLatore",
-            "title": "ComfyUI-IPAdapterWAN",
-            "reference": "https://github.com/SirLatore/ComfyUI-IPAdapterWAN",
-            "files": [
-                "https://github.com/SirLatore/ComfyUI-IPAdapterWAN"
-            ],
-            "install_type": "git-clone",
-            "description": "This extension adapts the [a/InstantX IP-Adapter for SD3.5-Large](https://huggingface.co/InstantX/SD3.5-Large-IP-Adapter) to work with Wan 2.1 and other UNet-based video/image models in ComfyUI.\nUnlike the original SD3 version (which depends on joint_blocks from MMDiT), this version performs sampling-time identity conditioning by dynamically injecting into attention layers — making it compatible with models like Wan 2.1, AnimateDiff, and other non-SD3 pipelines."
         },
         {
             "author": "matorzhin",
@@ -25751,15 +25741,27 @@
             "description": "X-FluxAgent turns ComfyUI into a smart, AI-powered agent capable of building software, automating tasks, and even managing your daily workflows — all with natural language prompts, no coding experience needed."
         },
         {
-            "author": "gordon123",
-            "title": "ComfyUI_DreamBoard",
-            "reference": "https://github.com/gordon123/ComfyUI_DreamBoard",
+            "author": "cluny85",
+            "title": "ComfyUI-Scripting-Tools",
+            "reference": "https://github.com/cluny85/ComfyUI-Scripting-Tools",
             "files": [
-                "https://github.com/gordon123/ComfyUI_DreamBoard"
+                "https://github.com/cluny85/ComfyUI-Scripting-Tools"
             ],
             "install_type": "git-clone",
-            "description": "a simple prompter for video"
+            "description": "A set of utility nodes for ComfyUI focused on scripting. Includes an enhanced UUID generator node."
         },
+        {
+            "author": "LamEmil",
+            "title": "ComfyUI ASCII Art Nodes",
+            "reference": "https://github.com/LamEmil/ComfyUI_ASCIIArtNode",
+            "files": [
+                "https://github.com/LamEmil/ComfyUI_ASCIIArtNode"
+            ],
+            "install_type": "git-clone",
+            "description": "A collection of custom nodes for ComfyUI that enable the creation of various ASCII art effects, from static images to complex, colorized typing animations and video conversions."
+        },
+        
+        
         
         
         

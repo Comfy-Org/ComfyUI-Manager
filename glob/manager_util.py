@@ -412,8 +412,9 @@ class PIPFixer:
 
                 if len(targets) > 0:
                     for x in targets:
-                        cmd = make_pip_cmd(['install', f"{x}=={versions[0].version_string}", "numpy<2"])
-                        subprocess.check_output(cmd, universal_newlines=True)
+                        if sys.version_info < (3, 13):
+                            cmd = make_pip_cmd(['install', f"{x}=={versions[0].version_string}", "numpy<2"])
+                            subprocess.check_output(cmd, universal_newlines=True)
 
                     logging.info(f"[ComfyUI-Manager] 'opencv' dependencies were fixed: {targets}")
         except Exception as e:
@@ -421,18 +422,21 @@ class PIPFixer:
             logging.error(e)
 
         # fix numpy
-        try:
-            np = new_pip_versions.get('numpy')
-            if cm_global.pip_overrides.get('numpy') == 'numpy<2':
-                if np is not None:
-                    if StrictVersion(np) >= StrictVersion('2'):
-                        cmd = make_pip_cmd(['install', "numpy<2"])
-                        subprocess.check_output(cmd , universal_newlines=True)
+        if sys.version_info >= (3, 13):
+            logging.info("[ComfyUI-Manager] In Python 3.13 and above, PIP Fixer does not downgrade `numpy` below version 2.0. If you need to force a downgrade of `numpy`, please use `pip_auto_fix.list`.")
+        else:
+            try:
+                np = new_pip_versions.get('numpy')
+                if cm_global.pip_overrides.get('numpy') == 'numpy<2':
+                    if np is not None:
+                        if StrictVersion(np) >= StrictVersion('2'):
+                            cmd = make_pip_cmd(['install', "numpy<2"])
+                            subprocess.check_output(cmd , universal_newlines=True)
 
-                        logging.info("[ComfyUI-Manager] 'numpy' dependency were fixed")
-        except Exception as e:
-            logging.error("[ComfyUI-Manager] Failed to restore numpy")
-            logging.error(e)
+                            logging.info("[ComfyUI-Manager] 'numpy' dependency were fixed")
+            except Exception as e:
+                logging.error("[ComfyUI-Manager] Failed to restore numpy")
+                logging.error(e)
 
         # fix missing frontend
         try:
