@@ -1,15 +1,65 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "comfyui-manager"
+license = { text = "GPL-3.0-only" }
+version = "4.0.0-beta.4"
+requires-python = ">= 3.9"
 description = "ComfyUI-Manager provides features to install and manage custom nodes for ComfyUI, as well as various functionalities to assist with ComfyUI."
-version = "3.32.3"
-license = { file = "LICENSE.txt" }
-dependencies = ["GitPython", "PyGithub", "matrix-client==0.4.0", "transformers", "huggingface-hub>0.20", "typer", "rich", "typing-extensions", "toml", "uv", "chardet"]
+readme = "README.md"
+keywords = ["comfyui", "comfyui-manager"]
+
+maintainers = [
+  { name = "Dr.Lt.Data", email = "dr.lt.data@gmail.com" },
+  { name = "Yoland Yan", email = "yoland@drip.art" },
+  { name = "James Kwon", email = "hongilkwon316@gmail.com" },
+  { name = "Robin Huang", email = "robin@drip.art" },
+]
+
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+]
+
+dependencies = [
+    "GitPython",
+    "PyGithub",
+    "matrix-client==0.4.0",
+    "transformers",
+    "huggingface-hub>0.20",
+    "typer",
+    "rich",
+    "typing-extensions",
+    "toml",
+    "uv",
+    "chardet"
+]
+
+[project.optional-dependencies]
+dev = ["pre-commit", "pytest", "ruff", "pytest-cov"]
 
 [project.urls]
 Repository = "https://github.com/ltdrdata/ComfyUI-Manager"
-#  Used by Comfy Registry https://comfyregistry.org
 
-[tool.comfy]
-PublisherId = "drltdata"
-DisplayName = "ComfyUI-Manager"
-Icon = ""
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["comfyui_manager*"]
+
+[project.scripts]
+cm-cli = "comfyui_manager.cm_cli.__main__:main"
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+  "E4", # default
+  "E7", # default
+  "E9", # default
+  "F",  # default
+  "I",  # isort-like behavior (import statement sorting)
+]
