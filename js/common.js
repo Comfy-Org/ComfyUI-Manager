@@ -95,8 +95,61 @@ function internalCustomConfirm(message, confirmMessage, cancelMessage) {
 	});
 }
 
-export function show_message(msg) {
+export function addReportButton(dialogEl, options = {}) {
+	const contentEl = dialogEl.querySelector(".comfy-modal-content");
+	const closeBtnEl = contentEl?.querySelector("button");
+	if (!contentEl || !closeBtnEl) return;
+
+	const { msg, errorSubtype, extraFields = [] } = options;
+
+	const button = document.createElement("button");
+	button.textContent = "Report Error";
+	button.style.marginBottom = "0.25rem";
+
+	const cleanText = (text) => (text ? text.replace(/[\r\n\t\s]/g, " ") : text);
+
+	button.addEventListener("click", () => {
+		window["app"].extensionManager.dialog.showIssueReportDialog({
+			title: "Report Manager Issue",
+			subtitle: "Please describe the issue you are experiencing",
+			panelProps: {
+				errorType: "ManagerError",
+				exceptionMessage: cleanText(msg),
+				tags: {
+					errorSubtype: cleanText(errorSubtype),
+					isElectron: "electronAPI" in window,
+				},
+				defaultFields: ["Logs", "SystemStats"],
+				extraFields: [
+					{
+						label: "ComfyUI-Manager Version",
+						value: "ManagerVersion", // unique ID for the field
+						getData: async () =>
+							(await api.fetchApi(`/manager/version`)).text(),
+					},
+					...extraFields,
+				],
+			},
+		});
+		button.remove();
+	});
+
+	closeBtnEl.addEventListener("click", () => button.remove(), {
+		once: true,
+		passive: true,
+	});
+	contentEl.insertBefore(button, closeBtnEl);
+}
+
+export function show_message(msg, errorReportOptions) {
 	app.ui.dialog.show(msg);
+	if (errorReportOptions) {
+		try {
+			addReportButton(app.ui.dialog.element, errorReportOptions);
+		} catch {
+			// do nothing
+		}
+	}
 	app.ui.dialog.element.style.zIndex = 1100;
 }
 
