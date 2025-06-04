@@ -8,7 +8,7 @@
 * V3.16: Support for `uv` has been added. Set `use_uv` in `config.ini`.
 * V3.10: `double-click feature` is removed
   * This feature has been moved to https://github.com/ltdrdata/comfyui-connection-helper
-* V3.3.2: Overhauled. Officially supports [https://comfyregistry.org/](https://comfyregistry.org/).
+* V3.3.2: Overhauled. Officially supports [https://registry.comfy.org/](https://registry.comfy.org/).
 * You can see whole nodes info on [ComfyUI Nodes Info](https://ltdrdata.github.io/) page.
 
 ## Installation

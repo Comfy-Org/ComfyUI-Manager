@@ -1410,14 +1410,15 @@ export class CustomNodesManager {
 			let version_cnt = 0;
 
 			if(!is_enable) {
+
+				if(rowItem.cnr_latest != rowItem.originalData.active_version && obj.length > 0) {
+					versions.push('latest');
+				}
+
 				if(rowItem.originalData.active_version != 'nightly') {
 					versions.push('nightly');
 					default_version = 'nightly';
 					version_cnt++;
-				}
-
-				if(rowItem.cnr_latest != rowItem.originalData.active_version && obj.length > 0) {
-					versions.push('latest');
 				}
 			}
 

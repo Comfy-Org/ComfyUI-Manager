@@ -437,7 +437,10 @@ async def task_worker():
 
             if res.ver == 'unknown':
                 url = core.unified_manager.unknown_active_nodes[node_name][0]
-                title = os.path.basename(url)
+                try:
+                    title = os.path.basename(url)
+                except Exception:
+                    title = node_name
             else:
                 url = core.unified_manager.cnr_map[node_name].get('repository')
                 title = core.unified_manager.cnr_map[node_name]['name']
