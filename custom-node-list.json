@@ -1,14 +1,6 @@
 {
     "custom_nodes": [
         {
-          "name": "LoRA-Safe TorchCompile",
-          "repo": "https://github.com/xmarre/TorchCompileModel_LoRASafe",
-          "description": "Drop-in TorchCompile node that preserves LoRA patches.",
-          "author": "xmarre",
-          "tags": ["optimisation", "torch.compile", "lora"],
-          "release": "v0.1.0"
-        },
-        {
             "author": "Dr.Lt.Data",
             "title": "ComfyUI-Manager",
             "id": "manager",
@@ -27210,6 +27202,16 @@
             ],
             "install_type": "unzip",
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
+        },
+        {
+            "author": "xmarre",
+            "title": "LoRA-Safe TorchCompile",
+            "reference": "https://github.com/xmarre/TorchCompileModel_LoRASafe",
+            "files": [
+                "https://github.com/xmarre/TorchCompileModel_LoRASafe"
+            ],
+            "install_type": "git-clone",
+            "description": "Drop-in TorchCompile node that preserves LoRA patches."
         }
     ]
 }
