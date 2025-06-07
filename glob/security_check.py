@@ -1,7 +1,6 @@
-import sys
 import subprocess
 import os
-
+from manager_util import make_pip_cmd
 
 def security_check():
     print("[START] Security scan")
@@ -32,9 +31,9 @@ Detailed information: https://old.reddit.com/r/comfyui/comments/1dbls5n/psa_if_y
     """,
     "ultralytics==8.3.41": f"""
 Execute following commands:
-    {sys.executable} -m pip uninstall ultralytics
-    {sys.executable} -m pip install ultralytics==8.3.40
-    
+    {make_pip_cmd(['uninstall', 'ultralytics'])}
+    {make_pip_cmd(['install', 'ultralytics==8.3.40'])}
+
 And kill and remove /tmp/ultralytics_runner
 
 
@@ -43,8 +42,8 @@ https://blog.comfy.org/comfyui-statement-on-the-ultralytics-crypto-miner-situati
     """,
     "ultralytics==8.3.42": f"""
 Execute following commands:
-    {sys.executable} -m pip uninstall ultralytics
-    {sys.executable} -m pip install ultralytics==8.3.40
+    {make_pip_cmd(['uninstall', 'ultralytics'])}
+    {make_pip_cmd(['install', 'ultralytics==8.3.40'])}
 
 And kill and remove /tmp/ultralytics_runner
 
@@ -66,11 +65,11 @@ https://blog.comfy.org/comfyui-statement-on-the-ultralytics-crypto-miner-situati
         "lolMiner": [os.path.join(comfyui_path, 'lolMiner')]
     }
 
-    installed_pips = subprocess.check_output([sys.executable, '-m', "pip", "freeze"], text=True)
+    installed_pips = subprocess.check_output(make_pip_cmd(["freeze"]), text=True)
 
     detected = set()
     try:
-        anthropic_info = subprocess.check_output([sys.executable, '-m', "pip", "show", "anthropic"], text=True, stderr=subprocess.DEVNULL)
+        anthropic_info = subprocess.check_output(make_pip_cmd(["show", "anthropic"]), text=True, stderr=subprocess.DEVNULL)
         anthropic_reqs = [x for x in anthropic_info.split('\n') if x.startswith("Requires")][0].split(': ')[1]
         if "pycrypto" in anthropic_reqs:
             location = [x for x in anthropic_info.split('\n') if x.startswith("Location")][0].split(': ')[1]
