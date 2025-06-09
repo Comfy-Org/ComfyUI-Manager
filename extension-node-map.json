@@ -332,8 +332,10 @@
     ],
     "https://github.com/2frames/ComfyUI-AQnodes": [
         [
+            "AQ_BatchAverageImage",
             "AQ_BlendImages",
             "AQ_CLIPSetLastLayer",
+            "AQ_ColorMatchImage",
             "AQ_Gemini",
             "AQ_ImageMaskSwitch",
             "AQ_Image_DetailTransfer",
@@ -7050,6 +7052,16 @@
             "title_aux": "ImagesGrid"
         }
     ],
+    "https://github.com/LKbaba/ComfyUI-TuZi-Flux-Kontext": [
+        [
+            "FluxKontext_ImageToImage",
+            "FluxKontext_MultiImageToImage",
+            "FluxKontext_TextToImage"
+        ],
+        {
+            "title_aux": "ComfyUI-TuZi-Flux-Kontext"
+        }
+    ],
     "https://github.com/LamEmil/ComfyUI_ASCIIArtNode": [
         [
             "ASCIIAnimationGenerator",
@@ -7162,6 +7174,7 @@
             "BoolToString|LP",
             "CLIP Text Encode Translate [LP]",
             "CLIPTextEncodeTranslate|LP",
+            "Calculate Target Size By Mask [LP]",
             "CalculateTargetSizeByMask|LP",
             "Convert Bool To Int [LP]",
             "Convert Bool To String [LP]",
@@ -7177,12 +7190,17 @@
             "Convert String To Number [LP]",
             "Count Objects [LP]",
             "CountObjects|LP",
+            "Cropped Aspect Size Parameters [LP]",
+            "Cropped Forsed Size Parameters [LP]",
+            "Cropped Free Size Parameters [LP]",
+            "Cropped Ranged Size Parameters [LP]",
             "CroppedAspectSizeParameters|LP",
             "CroppedForsedSizeParameters|LP",
             "CroppedFreeSizeParameters|LP",
             "CroppedRangedSizeParameters|LP",
             "Delay [LP]",
             "Delay|LP",
+            "Extend Factor Parameters [LP]",
             "ExtendFactorParameters|LP",
             "Fast Checker Pattern [LP]",
             "FastCheckerPattern|LP",
@@ -7199,6 +7217,8 @@
             "Image Overlay [LP]",
             "ImageLoaderFromPath|LP",
             "ImageOverlay|LP",
+            "Inpaint Crop [LP]",
+            "Inpaint Stitch [LP]",
             "InpaintCrop|LP",
             "InpaintStitch|LP",
             "IntToBool|LP",
@@ -7232,6 +7252,8 @@
             "RemoveBannedTagsFromTags|LP",
             "RemoveBannedTagsFromText|LP",
             "RemoveDuplicateTags|LP",
+            "Resize Image To Target Size [LP]",
+            "Resize Image and Masks [LP]",
             "ResizeImageAndMasks|LP",
             "ResizeImageToTargetSize|LP",
             "Resorting Tags [LP]",
@@ -11460,7 +11482,9 @@
             "StarGridImageBatcher",
             "StarImageSwitch",
             "StarImageSwitch2",
+            "StarInfiniteYouAdvancedPatchMaker",
             "StarInfiniteYouApply",
+            "StarInfiniteYouFaceSwapMod",
             "StarInfiniteYouPatch",
             "StarInfiniteYouPatchCombine",
             "StarInfiniteYouSaver",
@@ -11469,10 +11493,12 @@
             "StarNewsScraper",
             "StarPSDSaver",
             "StarPSDSaver2",
+            "StarPaletteExtractor",
             "StarSaveSamplerSettings",
             "StarTextFilter",
             "StarTextInput",
             "StarWildcardsAdvanced",
+            "Star_Image2Latent",
             "Starnodes_Aspect_Ratio",
             "Starnodes_Aspect_Ratio_Advanced",
             "Starupscale"
@@ -15242,6 +15268,17 @@
             "title_aux": "Avatar Graph"
         }
     ],
+    "https://github.com/avenstack/ComfyUI-AV-FunASR": [
+        [
+            "AVASRTimestamp",
+            "AVFormat2Subtitle",
+            "AVSaveSubtitles",
+            "AVSpeechTimestamp"
+        ],
+        {
+            "title_aux": "ComfyUI-AV-FunASR"
+        }
+    ],
     "https://github.com/avenstack/ComfyUI-AV-LatentSync": [
         [
             "AVLatentSync",
@@ -16388,6 +16425,15 @@
             "title_aux": "ComfyUI Sequential Image Loader"
         }
     ],
+    "https://github.com/budihartono/comfyui-aspect-ratio-presets": [
+        [
+            "CAS Empty Latent Aspect Ratio by Axis",
+            "CAS Empty Latent Aspect Ratio from Preset"
+        ],
+        {
+            "title_aux": "CAS Aspect Ratio Presets Node for ComfyUI"
+        }
+    ],
     "https://github.com/budihartono/comfyui_otonx_nodes": [
         [
             "OTX Integer Multiple Inputs 4",
@@ -16470,6 +16516,17 @@
         ],
         {
             "title_aux": "EBU PromptHelper"
+        }
+    ],
+    "https://github.com/burnsbert/ComfyUI-EBU-Workflow": [
+        [
+            "EbuGetImageAspectRatio",
+            "EbuScalingResolution",
+            "EbuScalingTile",
+            "EbuUniqueFileName"
+        ],
+        {
+            "title_aux": "EBU Workflow"
         }
     ],
     "https://github.com/bvhari/ComfyUI_CFGStar": [
@@ -21493,17 +21550,27 @@
     ],
     "https://github.com/gelasdev/ComfyUI-FLUX-BFL-API": [
         [
+            "FluxDeleteFinetune_BFL",
             "FluxDevRedux_BFL",
             "FluxDev_BFL",
+            "FluxFinetuneDetails_BFL",
+            "FluxFinetuneStatus_BFL",
+            "FluxFinetune_BFL",
             "FluxKontextMax_BFL",
             "FluxKontextPro_BFL",
+            "FluxMyFinetunes_BFL",
             "FluxPro11Redux_BFL",
+            "FluxPro11UltraFinetune_BFL",
             "FluxPro11UltraRedux_BFL",
             "FluxPro11Ultra_BFL",
             "FluxPro11_BFL",
+            "FluxProCannyFinetune_BFL",
             "FluxProCanny_BFL",
+            "FluxProDepthFinetune_BFL",
             "FluxProDepth_BFL",
+            "FluxProFillFinetune_BFL",
             "FluxProFill_BFL",
+            "FluxProFinetune_BFL",
             "FluxPro_BFL"
         ],
         {
@@ -23890,6 +23957,18 @@
             "title_aux": "Painting Coder Utils"
         }
     ],
+    "https://github.com/jasonjgardner/comfui-substance-designer-integration": [
+        [
+            "SubstanceBatchProcessor",
+            "SubstanceCooker",
+            "SubstanceInfoExtractor",
+            "SubstanceParameterController",
+            "SubstanceRenderer"
+        ],
+        {
+            "title_aux": "ComfyUI Substance Designer Integration Plugin"
+        }
+    ],
     "https://github.com/jax-explorer/ComfyUI-InstantCharacter": [
         [
             "InstantCharacterGenerate",
@@ -24513,6 +24592,7 @@
             "Bjornulf_ImageMaskCutter",
             "Bjornulf_ImageNote",
             "Bjornulf_ImageNoteLoadImage",
+            "Bjornulf_ImageUpscaleWithModelTransparency",
             "Bjornulf_ImagesListToVideo",
             "Bjornulf_JSONImagePromptExtractor",
             "Bjornulf_KokoroTTS",
@@ -24644,6 +24724,7 @@
             "Bjornulf_WriteTextPickMeGlobal",
             "Bjornulf_XTTSConfig",
             "Bjornulf_imagesToVideo",
+            "Bjornulf_loadImageBase64Transparency",
             "Bjornulf_ollamaLoader"
         ],
         {
@@ -27601,6 +27682,7 @@
             "ScheduledCFGGuider //Inspire",
             "ScheduledPerpNegCFGGuider //Inspire",
             "SeedExplorer //Inspire",
+            "SeedLogger //Inspire",
             "SelectNthMask //Inspire",
             "ShowCachedInfo //Inspire",
             "StableCascade_CheckpointLoader //Inspire",
@@ -28752,14 +28834,8 @@
     ],
     "https://github.com/mit-han-lab/ComfyUI-nunchaku": [
         [
-            "NunchakuDepthPreprocessor",
             "NunchakuFluxDiTLoader",
-            "NunchakuFluxLoraLoader",
-            "NunchakuModelMerger",
-            "NunchakuPulidApply",
-            "NunchakuPulidLoader",
-            "NunchakuTextEncoderLoader",
-            "NunchakuTextEncoderLoaderV2"
+            "NunchakuFluxLoraLoader"
         ],
         {
             "title_aux": "ComfyUI-nunchaku"
@@ -31274,7 +31350,8 @@
             "PrimitiveText",
             "UtilityExpression",
             "UtilityImageDimensions",
-            "UtilitySwitch"
+            "UtilitySwitch",
+            "rookiepsi_ConstructMask"
         ],
         {
             "title_aux": "ComfyUI Extended"
@@ -33269,6 +33346,23 @@
             "title_aux": "CUI-Lumina2-TeaCache"
         }
     ],
+    "https://github.com/spawner1145/comfyui-aichat": [
+        [
+            "GeminiApiLoader_Zho",
+            "GeminiChat_Zho",
+            "GeminiFileUploader_Zho",
+            "GeminiImageEncoder_Zho",
+            "GeminiTextBlock_Zho",
+            "OpenAIApiLoader_Zho",
+            "OpenAIChat_Zho",
+            "OpenAIFileUploader_Zho",
+            "OpenAIImageEncoder_Zho",
+            "OpenAITextBlock_Zho"
+        ],
+        {
+            "title_aux": "comfyui-aichat"
+        }
+    ],
     "https://github.com/spinagon/ComfyUI-seam-carving": [
         [
             "SeamCarving"
@@ -33920,7 +34014,7 @@
             "OllamaKiller"
         ],
         {
-            "title_aux": "OllamaKiller Node for ComfyUI"
+            "title_aux": "ComfyUI-ollama_killer"
         }
     ],
     "https://github.com/thezveroboy/ComfyUI-CSM-Nodes": [
@@ -34699,7 +34793,10 @@
         [
             "CreatePromptsWithTextFromFile",
             "EmptyLatentSizePicker",
-            "SimpleSizePicker"
+            "LoadDataFromFiles",
+            "SimpleSizePicker",
+            "WildcardReplace",
+            "WildcardReplaceFromFile"
         ],
         {
             "title_aux": "ComfyUI_BishaNodes"
@@ -35744,18 +35841,21 @@
             "MaskSmartValleySplit",
             "MaskSplitFilter",
             "MaskTopNFilter",
-            "TextBeforeKeyword",
+            "TextKeyword",
             "YC Extract Number",
             "YC Mask Condition Switch",
+            "YC Seed List",
             "YC Super Selector",
             "YC Text Condition Switch",
             "YC Text Index Switch",
             "YC Universal Gate",
             "YCMaskComposite",
-            "YCPromptReplace",
             "YCRemapMaskRange",
             "YCTextImageGenerator",
-            "YC_Image_Save"
+            "YC_FiveTextCombineNode",
+            "YC_Image_Save",
+            "YC_SingleTextNode",
+            "YC_textReplaceNode"
         ],
         {
             "title_aux": "ComfyUI-YCNodes"

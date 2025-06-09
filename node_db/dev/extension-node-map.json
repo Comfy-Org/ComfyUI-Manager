@@ -920,6 +920,14 @@
             "title_aux": "ComfyUI-BS_FalAi-API-Video [WIP]"
         }
     ],
+    "https://github.com/COcisuts/CObot-ComfyUI-WhisperToTranscription": [
+        [
+            "CobotWhisperToTransciption"
+        ],
+        {
+            "title_aux": "CObot-ComfyUI-WhisperToTranscription [WIP]"
+        }
+    ],
     "https://github.com/CY-CHENYUE/ComfyUI-FramePack-HY": [
         [
             "CreateKeyframes_HY",
@@ -942,6 +950,7 @@
     "https://github.com/Chargeuk/ComfyUI-vts-nodes": [
         [
             "VTS Clean Text",
+            "VTS Clean Text List",
             "VTS Clear Ram",
             "VTS Clip Text Encode",
             "VTS Color Mask To Mask",
@@ -952,8 +961,11 @@
             "VTS Images Scale",
             "VTS Images Scale To Min",
             "VTS Merge Delimited Text",
+            "VTS Merge Text Lists",
             "VTS Reduce Batch Size",
             "VTS Render People Kps",
+            "VTS Repeat Text As List",
+            "VTS Replace Text In List",
             "VTS To Text",
             "VTS_Load_Pose_Keypoints",
             "Vts Text To Batch Prompt"
@@ -2564,6 +2576,7 @@
             "FRED_AutoCropImage_Native_Ratio_v5",
             "FRED_AutoCropImage_SDXL_Ratio_V3",
             "FRED_AutoCropImage_SDXL_Ratio_V4",
+            "FRED_AutoImageTile_from_Mask_v1",
             "FRED_CropFace",
             "FRED_FolderSelector",
             "FRED_ImageBrowser_Dress",
@@ -3438,12 +3451,17 @@
     ],
     "https://github.com/aa-parky/pipemind-comfyui": [
         [
+            "BatchImageLoad",
             "BooleanSwitchAny",
             "KeywordPromptComposer",
+            "PipemindDisplayAny",
             "PipemindFlux2MAspectRatio",
+            "PipemindLoraLoader",
             "PipemindMultilineTextInput",
-            "PipemindRoomNode",
             "PipemindSDXL15AspectRatio",
+            "PipemindSaveImageWTxt",
+            "PipemindShowText",
+            "PipemindTokenCounter",
             "RandomLineFromDropdown",
             "SelectLineFromDropdown",
             "SimplePromptCombiner"
@@ -4095,6 +4113,15 @@
         ],
         {
             "title_aux": "cel_sampler [WIP]"
+        }
+    ],
+    "https://github.com/cesilk10/cesilk-comfyui-nodes": [
+        [
+            "SaveAndUploadToS3",
+            "SdxlImageSizes"
+        ],
+        {
+            "title_aux": "cesilk-comfyui-nodes"
         }
     ],
     "https://github.com/chaojie/ComfyUI-DynamiCrafter": [
@@ -5162,6 +5189,17 @@
             "title_aux": "ComfyUI-N_SwapInput [UNSAFE]"
         }
     ],
+    "https://github.com/gitadmini/comfyui_extractstoryboards": [
+        [
+            "Example",
+            "ExtractStoryboards_xuhuan1024",
+            "IntBatchSize_xuhuan1024",
+            "IntBatch_xuhuan1024"
+        ],
+        {
+            "title_aux": "ExtractStoryboards [WIP]"
+        }
+    ],
     "https://github.com/githubYiheng/comfyui_median_filter": [
         [
             "ImageMedianFilter"
@@ -5316,6 +5354,10 @@
             "HolafInstagramResize",
             "HolafInteractiveImageEditor",
             "HolafKSampler",
+            "HolafLutApplier",
+            "HolafLutGenerator",
+            "HolafLutLoader",
+            "HolafLutSaver",
             "HolafNeurogridOverload",
             "HolafOverlayNode",
             "HolafResolutionPreset",

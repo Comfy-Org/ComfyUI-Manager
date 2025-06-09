@@ -1,6 +1,88 @@
 {
     "custom_nodes": [
         {
+            "author": "avenstack",
+            "title": "ComfyUI-AV-FunASR",
+            "reference": "https://github.com/avenstack/ComfyUI-AV-FunASR",
+            "files": [
+                "https://github.com/avenstack/ComfyUI-AV-FunASR"
+            ],
+            "install_type": "git-clone",
+            "description": "FunASR wrapper for ComfyUI"
+        },
+        {
+            "author": "burnsbert",
+            "title": "EBU Workflow",
+            "id": "ebu-workflow",
+            "reference": "https://github.com/burnsbert/ComfyUI-EBU-Workflow",
+            "files": [
+                "https://github.com/burnsbert/ComfyUI-EBU-Workflow"
+             ],
+             "install_type": "git-clone",
+             "description": "Custom nodes for general workflow quality of life including resolutions sorted by aspect ratio, upscaling helps, and unique file names"
+        },
+        {
+            "author": "vladpro3",
+            "title": "ComfyUI_BishaNodes",
+            "reference": "https://github.com/vladpro3/ComfyUI_BishaNodes",
+            "files": [
+                "https://github.com/vladpro3/ComfyUI_BishaNodes"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom nodes for ComfyUI to improve promts and image settings"
+        },
+        {
+            "author": "jasonjgardner",
+            "title": "ComfyUI Substance Designer Integration Plugin",
+            "reference": "https://github.com/jasonjgardner/comfui-substance-designer-integration",
+            "files": [
+                "https://github.com/jasonjgardner/comfui-substance-designer-integration"
+            ],
+            "install_type": "git-clone",
+            "description": "A comprehensive ComfyUI plugin that enables seamless integration with Substance 3D Designer workflows through command line automation. This plugin provides custom nodes for cooking .sbs files, rendering .sbsar archives, controlling material parameters, and batch processing Substance materials within ComfyUI workflows."
+        },
+        {
+            "author": "budihartono",
+            "title": "CAS Aspect Ratio Presets Node for ComfyUI",
+            "id": "comfyui-aspect-ratio-presets",
+            "reference": "https://github.com/budihartono/comfyui-aspect-ratio-presets",
+            "files": [
+                "https://github.com/budihartono/comfyui-aspect-ratio-presets"
+            ],
+            "install_type": "git-clone",
+            "description": "Quickly create empty latents in common resolutions and aspect ratios for SD 1.5, SDXL, Flux, Chroma, and HiDream. Choose from curated presets or generate by axis and aspect ratio. Appears in the 'latent' node group."
+        },
+        {
+            "author": "spawner",
+            "title": "comfyui-aichat",
+            "reference": "https://github.com/spawner1145/comfyui-aichat",
+            "files": [
+                "https://github.com/spawner1145/comfyui-aichat"
+            ],
+            "install_type": "git-clone",
+            "description": "gemini and openai in comfyui"
+        },
+        {
+            "author": "swhsiang",
+            "title": "comfyui-3d-gs-renderer",
+            "reference": "https://github.com/swhsiang/comfyui-3d-gs-renderer",
+            "files": [
+                "https://github.com/swhsiang/comfyui-3d-gs-renderer"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI custom node to support 3D GS rendering"
+        },
+        {
+            "author": "sLKbabawhsiang",
+            "title": "ComfyUI-TuZi-Flux-Kontext",
+            "reference": "https://github.com/LKbaba/ComfyUI-TuZi-Flux-Kontext",
+            "files": [
+                "https://github.com/LKbaba/ComfyUI-TuZi-Flux-Kontext"
+            ],
+            "install_type": "git-clone",
+            "description": " Powerful Flux-Kontext image generation custom node for ComfyUI, using the official RabbitAI API. Supports text-to-image, image-to-image, and multi-image-to-image generation. Supports concurrent generation."
+        },
+        {
             "author": "MicheleGuidi",
             "title": "ComfyUI-Computer-Vision",
             "reference": "https://github.com/MicheleGuidi/ComfyUI-Contextual-SAM2",
@@ -608,86 +690,6 @@
             ],
             "description": "Merge up to 4 LoRA models with balanced, order-independent logic. Inspired by WebUI SuperMerger.",
             "install_type": "git-clone"
-        },
-        {
-            "author": "whmc76",
-            "title": "ComfyUI-RemoveBackgroundSuite",
-            "reference": "https://github.com/whmc76/ComfyUI-RemoveBackgroundSuite",
-            "files": [
-                "https://github.com/whmc76/ComfyUI-RemoveBackgroundSuite"
-            ],
-            "install_type": "git-clone",
-            "description": "A matting toolkit based on ComfyUI, supporting multiple matting models and detail processing methods."
-        },
-        {
-            "author": "mrcuddle",
-            "title": "Underage Filter",
-             "reference": "https://github.com/T-Ph525/ComfyUI-Underage-Filter",
-             "files": [
-                 "https://github.com/T-Ph525/ComfyUI-Underage-Filter"
-            ],
-            "description": "An implementation to detect underage subjects in images for ComfyUI.",
-            "install_type": "git-clone"
-        },
-        {
-            "author": "ToTheBeginning",
-            "title": "DreamO Comfyui",
-             "reference": "https://github.com/ToTheBeginning/ComfyUI-DreamO",
-             "files": [
-                 "https://github.com/ToTheBeginning/ComfyUI-DreamO"
-            ],
-            "description": "[a/DreamO](https://github.com/bytedance/DreamO) ComfyUI native implementation.",
-            "install_type": "git-clone"
-        },
-        {
-            "author": "SanDiegoDude",
-            "title": "ComfyUI-Kontext-API",
-            "reference": "https://github.com/SanDiegoDude/ComfyUI-Kontext-API",
-            "files": [
-                "https://github.com/SanDiegoDude/ComfyUI-Kontext-API"
-            ],
-            "install_type": "git-clone",
-            "description": "A custom ComfyUI node for integrating with the Fal Kontext API for advanced image editing and generation."
-        },
-        {
-            "author": "juntaosun",
-            "title": "ComfyUI_open_nodes",
-             "reference": "https://github.com/juntaosun/ComfyUI_open_nodes",
-             "files": [
-                 "https://github.com/juntaosun/ComfyUI_open_nodes"
-            ],
-            "install_type": "git-clone",
-            "description": "ComfyUI open nodes by juntaosun."
-        },
-        {
-            "author": "angree",
-            "title": "Q Find Mask Size",
-            "reference": "https://github.com/angree/ComfyUI-Q_find-mask-size",
-            "files": [
-                "https://github.com/angree/ComfyUI-Q_find-mask-size"
-            ],
-            "install_type": "git-clone",
-            "description": "ComfyUI custom node for finding and analyzing mask sizes in images"
-        },
-        {
-            "author": "Yuan-ManX",
-            "title": "ComfyUI-HunyuanVideo-Avatar",
-            "reference": "https://github.com/Yuan-ManX/ComfyUI-HunyuanVideo-Avatar",
-            "files": [
-                "https://github.com/Yuan-ManX/ComfyUI-HunyuanVideo-Avatar"
-            ],
-            "install_type": "git-clone",
-            "description": "ComfyUI-HunyuanVideo-Avatar is now available in ComfyUI, HunyuanVideo-Avatar is a multimodal diffusion transformer (MM-DiT)-based model capable of simultaneously generating dynamic, emotion-controllable, and multi-character dialogue videos."
-        },
-        {
-            "author": "DragonDiffusionbyBoyo",
-            "title": "BoyoSupercoolWrapper",
-            "reference": "https://github.com/DragonDiffusionbyBoyo/BoyoSupercoolWrapper",
-            "files": [
-                "https://github.com/DragonDiffusionbyBoyo/BoyoSupercoolWrapper"
-            ],
-            "install_type": "git-clone",
-            "description": "This is a ComfyUI wrapper for Andrew DalPino's SuperCool upscaler, enabling its use directly within ComfyUI's node workflow. No extra dependencies required—just drop in the models and go."
         }
     ]
 }
