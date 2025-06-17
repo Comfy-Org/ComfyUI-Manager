@@ -378,6 +378,46 @@ components:
           type: string
           description: ComfyUI Node Registry ID of the package to enable
       required: [cnr_id]
+    # Query Parameter Models
+    UpdateAllQueryParams:
+      type: object
+      properties:
+        client_id:
+          type: string
+          description: Client identifier that initiated the request
+        ui_id:
+          type: string
+          description: Base UI identifier for task tracking
+        mode:
+          $ref: '#/components/schemas/ManagerDatabaseSource'
+      required: [client_id, ui_id]
+    UpdateComfyUIQueryParams:
+      type: object
+      properties:
+        client_id:
+          type: string
+          description: Client identifier that initiated the request
+        ui_id:
+          type: string
+          description: UI identifier for task tracking
+        stable:
+          type: boolean
+          default: true
+          description: Whether to update to stable version (true) or nightly (false)
+      required: [client_id, ui_id]
+    ComfyUISwitchVersionQueryParams:
+      type: object
+      properties:
+        ver:
+          type: string
+          description: Version to switch to
+        client_id:
+          type: string
+          description: Client identifier that initiated the request
+        ui_id:
+          type: string
+          description: UI identifier for task tracking
+      required: [ver, client_id, ui_id]
     # Queue Status Models
     QueueStatus:
       type: object
