@@ -59,6 +59,8 @@ from .generated_models import (
     HistoryResponse,
     HistoryListResponse,
     InstallType,
+    SecurityLevel,
+    RiskLevel,
 )
 
 __all__ = [
@@ -112,4 +114,6 @@ __all__ = [
     "HistoryResponse",
     "HistoryListResponse",
     "InstallType",
+    "SecurityLevel",
+    "RiskLevel",
 ]
