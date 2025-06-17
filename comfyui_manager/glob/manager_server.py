@@ -66,7 +66,6 @@ from ..data_models import (
     ComfyUIVersionInfo,
     InstallPackParams,
     UpdatePackParams,
-    UpdateAllPacksParams,
     UpdateComfyUIParams,
     FixPackParams,
     UninstallPackParams,
@@ -268,7 +267,13 @@ class TaskQueue:
             if isinstance(item, dict):
                 item = QueueTaskItem(**item)
 
-            heapq.heappush(self.pending_tasks, item)
+            # Use current_index as priority (earlier tasks have lower numbers)
+            priority = self.current_index
+            self.current_index += 1
+            
+            # Push tuple: (priority, task_counter, item)
+            # task_counter ensures stable sort for items with same priority
+            heapq.heappush(self.pending_tasks, (priority, self.task_counter, item))
             logging.debug(
                 "[ComfyUI-Manager] Task added to queue: kind=%s, ui_id=%s, client_id=%s, pending_count=%d",
                 item.kind, item.ui_id, item.client_id, len(self.pending_tasks)
@@ -293,7 +298,8 @@ class TaskQueue:
                 if timeout is not None and len(self.pending_tasks) == 0:
                     logging.debug("[ComfyUI-Manager] Task queue get timed out")
                     return None
-            item = heapq.heappop(self.pending_tasks)
+            # Pop tuple and extract the item
+            priority, counter, item = heapq.heappop(self.pending_tasks)
             task_index = self.task_counter
             self.running_tasks[task_index] = copy.deepcopy(item)
             self.task_counter += 1
@@ -381,7 +387,8 @@ class TaskQueue:
         """Get current running and remaining tasks"""
         with self.mutex:
             running = list(self.running_tasks.values())
-            remaining = copy.copy(self.pending_tasks)
+            # Extract items from tuples, maintaining heap order
+            remaining = [item for priority, counter, item in sorted(self.pending_tasks)]
             return running, remaining
 
     def get_tasks_remaining(self) -> int:
