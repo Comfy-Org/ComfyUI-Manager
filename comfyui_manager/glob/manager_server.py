@@ -1610,9 +1610,9 @@ async def queue_count(request):
             if task.client_id == client_id
         ]
         pending_client_tasks = [
-            task
-            for task in task_queue.pending_tasks
-            if task.client_id == client_id
+            item
+            for priority, counter, item in task_queue.pending_tasks
+            if item.client_id == client_id
         ]
         history_client_tasks = {
             ui_id: task
