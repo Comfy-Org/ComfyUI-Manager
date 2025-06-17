@@ -992,12 +992,6 @@ async def task_worker():
 
         return f"Model installation error: {model_url}"
 
-
-    async def do_update_all(params: UpdateAllPacksParams):
-        # For update-all tasks, we need client info from the original task
-        # This should not be called anymore since update_all now creates individual tasks
-        return "error: update_all should create individual tasks, not use task worker"
-
     while True:
         timeout = 4096
         task = task_queue.get(timeout)
