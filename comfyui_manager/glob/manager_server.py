@@ -1549,7 +1549,6 @@ async def queue_count(request):
 
 @routes.get("/v2/manager/queue/start")
 async def queue_start(request):
-    # finalize_temp_queue_batch()
     logging.debug("[ComfyUI-Manager] Queue start requested")
     started = task_queue.start_worker()
     
