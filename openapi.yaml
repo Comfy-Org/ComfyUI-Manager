@@ -18,6 +18,14 @@ security: []
 # Common API components
 components:
   schemas:
+    OperationType:
+      type: string
+      enum: [install, uninstall, update, update-all, update-comfyui, fix, disable, enable, install-model]
+      description: Type of operation or task being performed
+    OperationResult:
+      type: string
+      enum: [success, failed, skipped, error, skip]
+      description: Result status of an operation (failed/error and skipped/skip are aliases)
     # Core Task Queue Models
     QueueTaskItem:
       type: object
@@ -29,9 +37,7 @@ components:
           type: string
           description: Client identifier that initiated the task
         kind:
-          type: string
-          description: Type of task being performed
-          enum: [install, uninstall, update, update-all, update-comfyui, fix, disable, enable, install-model]
+          $ref: '#/components/schemas/OperationType'
         params:
           oneOf:
             - $ref: '#/components/schemas/InstallPackParams'
@@ -70,9 +76,7 @@ components:
       type: object
       properties:
         status_str:
-          type: string
-          enum: [success, error, skip]
-          description: Overall task execution status
+          $ref: '#/components/schemas/OperationResult'
         completed:
           type: boolean
           description: Whether the task completed
@@ -235,7 +239,7 @@ components:
               type: array
               items:
                 type: string
-              description: Files included in the pack
+              description: Repository URLs for installation (typically contains one GitHub URL)
             reference:
               type: string
               description: The type of installation reference
@@ -580,9 +584,7 @@ components:
           type: string
           description: Unique operation identifier
         operation_type:
-          type: string
-          description: Type of operation
-          enum: [install, update, uninstall, fix, disable, enable, install-model]
+          $ref: '#/components/schemas/OperationType'
         target:
           type: string
           description: Target of the operation (node name, model name, etc.)
@@ -590,9 +592,7 @@ components:
           type: [string, 'null']
           description: Target version for the operation
         result:
-          type: string
-          description: Operation result
-          enum: [success, failed, skipped]
+          $ref: '#/components/schemas/OperationResult'
         error_message:
           type: [string, 'null']
           description: Error message if operation failed
