@@ -981,12 +981,12 @@ async def task_worker():
         timeout = 4096
         task = task_queue.get(timeout)
         if task is None:
-            # Check if queue is truly empty (no pending or running tasks)
-            if task_queue.total_count() == 0 and len(task_queue.running_tasks) == 0:
+            is_empty_queue = task_queue.total_count() == 0 and len(task_queue.running_tasks) == 0
+            if is_empty_queue:
                 logging.debug("[ComfyUI-Manager] Queue empty - all tasks completed")
 
-                # Trigger batch history serialization if there are completed tasks
-                if task_queue.done_count() > 0:
+                did_complete_tasks = task_queue.done_count() > 0
+                if did_complete_tasks:
                     logging.debug("[ComfyUI-Manager] Finalizing batch history with %d completed tasks", task_queue.done_count())
                     task_queue.finalize()
                     logging.debug("[ComfyUI-Manager] Batch finalization complete")
