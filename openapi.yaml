@@ -227,6 +227,14 @@ components:
       type: string
       enum: [git-clone, copy, cnr]
       description: Type of installation used for the pack
+    SecurityLevel:
+      type: string
+      enum: [strong, normal, normal-, weak]
+      description: Security level configuration (from most to least restrictive)
+    RiskLevel:
+      type: string
+      enum: [block, high, middle]
+      description: Risk classification for operations
     ManagerPack:
       allOf:
         - $ref: '#/components/schemas/ManagerPackInfo'
@@ -640,6 +648,42 @@ components:
           type: object
           additionalProperties: true
           description: ComfyUI Manager configuration settings
+        comfyui_root_path:
+          type: [string, 'null']
+          description: ComfyUI root installation directory
+        model_paths:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Map of model types to their configured paths
+        manager_version:
+          type: [string, 'null']
+          description: ComfyUI Manager version
+        security_level:
+          $ref: '#/components/schemas/SecurityLevel'
+        network_mode:
+          type: [string, 'null']
+          description: Network mode (online, offline, private)
+        cli_args:
+          type: object
+          additionalProperties: true
+          description: Selected ComfyUI CLI arguments
+        custom_nodes_count:
+          type: [integer, 'null']
+          description: Total number of custom node packages
+          minimum: 0
+        failed_imports:
+          type: array
+          items:
+            type: string
+          description: List of custom nodes that failed to import
+        pip_packages:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of installed pip packages to their versions
       required: [snapshot_time, comfyui_version, python_version, platform_info]
     BatchExecutionRecord:
       type: object
