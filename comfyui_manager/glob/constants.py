@@ -33,3 +33,22 @@ model_dir_name_map = {
     "unet": "diffusion_models",
     "diffusion_model": "diffusion_models",
 }
+
+# List of all model directory names used for checking installed models
+MODEL_DIR_NAMES = [
+    "checkpoints",
+    "loras",
+    "vae",
+    "text_encoders",
+    "diffusion_models",
+    "clip_vision",
+    "embeddings",
+    "diffusers",
+    "vae_approx",
+    "controlnet",
+    "gligen",
+    "upscale_models",
+    "hypernetworks",
+    "photomaker",
+    "classifiers",
+]
