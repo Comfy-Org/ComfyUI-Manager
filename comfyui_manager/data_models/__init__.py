@@ -31,8 +31,8 @@ from .generated_models import (
     ComfyUIVersionInfo,
     
     # Other models
-    Kind,
-    StatusStr,
+    OperationType,
+    OperationResult,
     ManagerPackInfo,
     ManagerPackInstalled,
     SelectedVersion,
@@ -59,8 +59,6 @@ from .generated_models import (
     HistoryResponse,
     HistoryListResponse,
     InstallType,
-    OperationType,
-    Result,
 )
 
 __all__ = [
@@ -86,8 +84,8 @@ __all__ = [
     "ComfyUIVersionInfo",
     
     # Other models
-    "Kind",
-    "StatusStr",
+    "OperationType",
+    "OperationResult",
     "ManagerPackInfo",
     "ManagerPackInstalled",
     "SelectedVersion",
@@ -114,6 +112,4 @@ __all__ = [
     "HistoryResponse",
     "HistoryListResponse",
     "InstallType",
-    "OperationType",
-    "Result",
 ]
