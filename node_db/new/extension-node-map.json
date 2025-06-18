@@ -18,6 +18,14 @@
             "title_aux": "mmaker/Color Enhance"
         }
     ],
+    "https://gitee.com/yyh915/jkha-load-img": [
+        [
+            "JkhaLoadImage"
+        ],
+        {
+            "title_aux": "ImageLoadFromLocalOrUrl Node for ComfyUI"
+        }
+    ],
     "https://github.com/0x-jerry/comfyui-rembg": [
         [
             "Load Rembg Model",
@@ -4081,9 +4089,13 @@
     "https://github.com/DrStone71/ComfyUI-Prompt-Translator": [
         [
             "CLIP Text Encode (Translate)",
+            "CLIP Text Translate Advanced",
+            "Combine Conditioning",
+            "Conditional Translate",
             "Language Package Manager",
             "Prompt Text (Translate)",
-            "Text Translate"
+            "Text Translate",
+            "Universal Text Translate"
         ],
         {
             "title_aux": "ComfyUI-Prompt-Translator"
@@ -4102,6 +4114,7 @@
             "Ryuu_FloatPlainLarger",
             "Ryuu_FloatSlider",
             "Ryuu_IntSlider",
+            "Ryuu_ScaleToMultipleAdvanced",
             "Ryuu_TextEncoderDiffCheck",
             "Ryuu_TokenCountTextBox"
         ],
@@ -13554,11 +13567,16 @@
     ],
     "https://github.com/Yanick112/ComfyUI-ToSVG": [
         [
-            "ConvertRasterToVectorBW",
-            "ConvertRasterToVectorColor",
-            "ConvertVectorToRaster",
-            "SVGPreview",
-            "SaveSVG"
+            "TS_ImageQuantize",
+            "TS_ImageToSVGStringBW_Potracer",
+            "TS_ImageToSVGStringBW_Vtracer",
+            "TS_ImageToSVGStringColor_Vtracer",
+            "TS_SVGBytesIOToString",
+            "TS_SVGPathSimplify",
+            "TS_SVGStringPreview",
+            "TS_SVGStringToImage",
+            "TS_SVGStringToSVGBytesIO",
+            "TS_SaveSVGString"
         ],
         {
             "title_aux": "ComfyUI-ToSVG"
@@ -14511,9 +14529,10 @@
         [
             "ColorGradingNode",
             "CurvePresetNode",
+            "HistogramAnalysisNode",
             "PhotoshopCurveNode",
             "PhotoshopHSLNode",
-            "PhotoshopHistogramNode"
+            "PhotoshopLevelsNode"
         ],
         {
             "title_aux": "ComfyUI-Curve"
@@ -16006,7 +16025,8 @@
             "CPackOutputFile",
             "CPackOutputImage",
             "CPackOutputVideo",
-            "CPackOutputZip"
+            "CPackOutputZip",
+            "CPackOutputZipSwitch"
         ],
         {
             "title_aux": "Comfy-Pack"
@@ -18453,7 +18473,8 @@
             "ClaudeCodeMCP",
             "ClaudeCodeMemory",
             "ClaudeCodeReader",
-            "ClaudeCodeTools"
+            "ClaudeCodeTools",
+            "ClaudeRedditScraper"
         ],
         {
             "title_aux": "Claude Code ComfyUI Nodes"
@@ -20625,6 +20646,7 @@
         [
             "PublishThread",
             "StartWithLongLiveToken",
+            "ThreadPublishVideo",
             "ThreadsHistory"
         ],
         {
@@ -24539,6 +24561,20 @@
             "title_aux": "ComfyUI Prompt Expander Node"
         }
     ],
+    "https://github.com/jinchanz/ComfyUI-ADIC": [
+        [
+            "ADIC_COMMON_API",
+            "ImageTranslateAPI",
+            "ImageTranslateParamsBuilder",
+            "ImageTranslateResultExtractor",
+            "LoadImagesFromUrls",
+            "PythonCodeExecutor",
+            "StringToJsonArray"
+        ],
+        {
+            "title_aux": "ComfyUI-ADIC"
+        }
+    ],
     "https://github.com/jitcoder/lora-info": [
         [
             "ImageFromURL",
@@ -26314,6 +26350,19 @@
             "title_aux": "ComfyUI-Image-Tools"
         }
     ],
+    "https://github.com/kohs100/comfyui-ppwc": [
+        [
+            "PPWCBlock",
+            "PPWCReplace"
+        ],
+        {
+            "author": "Phospholipids",
+            "description": "This extension offers wildcard prompting works solely in workflow.",
+            "nickname": "PPWC",
+            "title": "PPWildCard",
+            "title_aux": "PPWildCard"
+        }
+    ],
     "https://github.com/kohya-ss/ControlNet-LLLite-ComfyUI": [
         [
             "LLLiteLoader"
@@ -27012,6 +27061,14 @@
             "title_aux": "comfyui_kj"
         }
     ],
+    "https://github.com/linjian-ufo/comfyui_deepseek_lj257_update": [
+        [
+            "DeepSeekChatNode"
+        ],
+        {
+            "title_aux": "DeepSeek Chat Node for ComfyUI"
+        }
+    ],
     "https://github.com/linksluckytime/comfyui_snacknodes": [
         [
             "ImageInfo",
@@ -27683,6 +27740,18 @@
             "title_aux": "comfyui-mask-util"
         }
     ],
+    "https://github.com/lord-lethris/ComfyUI-RPG-Characters": [
+        [
+            "PromptConcatenatorNode",
+            "PromptConditioningConverter",
+            "PromptSelectorNode",
+            "RPGArtStyleSelector",
+            "RPGCharacterSelector"
+        ],
+        {
+            "title_aux": "ComfyUI-RPG-Characters"
+        }
+    ],
     "https://github.com/lordgasmic/comfyui_save_image_with_options": [
         [
             "SaveImageWithOptions"
@@ -27910,6 +27979,7 @@
             "IterativeLatentUpscale",
             "KSamplerAdvancedProvider",
             "KSamplerProvider",
+            "LamaRemoverDetailerHookProvider",
             "LatentPixelScale",
             "LatentReceiver",
             "LatentSender",
@@ -30135,6 +30205,7 @@
     "https://github.com/nofunstudio/Node_Fun_ComfyUI": [
         [
             "DynamicQueueCounter",
+            "FalAPI_kling_video",
             "FalAPI_recraft_upscale",
             "Fun KSampler",
             "IframeView",
@@ -36543,6 +36614,7 @@
             "easy lengthAnything",
             "easy loadImageBase64",
             "easy loadImagesForLoop",
+            "easy loraNames",
             "easy loraStack",
             "easy loraStackApply",
             "easy makeImageForICLora",
