@@ -698,9 +698,6 @@ else:
     logging.warning("[ComfyUI-Manager] Since --preview-method is set, ComfyUI-Manager's preview method feature will be ignored.")
 
 
-# Note: Model path utilities moved to model_utils.py to avoid duplication
-
-
 async def task_worker():
     logging.debug("[ComfyUI-Manager] Task worker started")
     await core.unified_manager.reload(ManagerDatabaseSource.cache.value)
@@ -1342,9 +1339,6 @@ async def installed_list(request):
     return web.json_response(res, content_type="application/json")
 
 
-# Function moved to model_utils.py
-
-
 @routes.get("/v2/snapshot/getlist")
 async def get_snapshot_list(request):
     items = [
@@ -1490,8 +1484,6 @@ async def reset_queue(request):
     return web.Response(status=200)
 
 
-
-
 @routes.get("/v2/manager/queue/status")
 async def queue_count(request):
     """Get current queue status with optional client filtering.
@@ -1630,9 +1622,6 @@ async def comfyui_switch_version(request):
     except Exception as e:
         logging.error(f"ComfyUI version switch fail: {e}", file=sys.stderr)
         return web.Response(status=400)
-
-
-# Function moved to model_utils.py
 
 
 @routes.post("/v2/manager/queue/install_model")
