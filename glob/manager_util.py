@@ -476,7 +476,7 @@ class PIPFixer:
                         normalized_name = parsed['package'].lower().replace('-', '_')
                         if normalized_name in new_pip_versions:
                             if 'version' in parsed and 'operator' in parsed:
-                                cur = StrictVersion(new_pip_versions[parsed['package']])
+                                cur = StrictVersion(new_pip_versions[normalized_name])
                                 dest = parsed['version']
                                 op = parsed['operator']
                                 if cur == dest:

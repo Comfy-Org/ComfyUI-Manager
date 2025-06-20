@@ -181,7 +181,10 @@ def set_preview_method(method):
     core.get_config()['preview_method'] = method
 
 
-set_preview_method(core.get_config()['preview_method'])
+if args.preview_method == latent_preview.LatentPreviewMethod.NoPreviews:
+    set_preview_method(core.get_config()['preview_method'])
+else:
+    logging.warning("[ComfyUI-Manager] Since --preview-method is set, ComfyUI-Manager's preview method feature will be ignored.")
 
 
 def set_component_policy(mode):
@@ -437,7 +440,10 @@ async def task_worker():
 
             if res.ver == 'unknown':
                 url = core.unified_manager.unknown_active_nodes[node_name][0]
-                title = os.path.basename(url)
+                try:
+                    title = os.path.basename(url)
+                except Exception:
+                    title = node_name
             else:
                 url = core.unified_manager.cnr_map[node_name].get('repository')
                 title = core.unified_manager.cnr_map[node_name]['name']

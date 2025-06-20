@@ -344,7 +344,12 @@ try:
                     log_file.write(message)
                 else:
                     log_file.write(f"[{timestamp}] {message}")
-                log_file.flush()
+
+                try:
+                    log_file.flush()
+                except Exception:
+                    pass
+
                 self.last_char = message if message == '' else message[-1]
 
             if not file_only:
@@ -357,7 +362,10 @@ try:
                         original_stderr.flush()
 
         def flush(self):
-            log_file.flush()
+            try:
+                log_file.flush()
+            except Exception:
+                pass
 
             with std_log_lock:
                 if self.is_stdout:

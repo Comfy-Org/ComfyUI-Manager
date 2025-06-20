@@ -43,7 +43,7 @@ import manager_downloader
 from node_package import InstalledNodePackage
 
 
-version_code = [3, 32, 3]
+version_code = [3, 33, 1]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
@@ -400,18 +400,46 @@ class ManagedResult:
         return self
 
 
+class NormalizedKeyDict(dict):
+    def _normalize_key(self, key):
+        if isinstance(key, str):
+            return key.strip().lower()
+        return key
+
+    def __setitem__(self, key, value):
+        super().__setitem__(self._normalize_key(key), value)
+
+    def __getitem__(self, key):
+        return super().__getitem__(self._normalize_key(key))
+
+    def __delitem__(self, key):
+        return super().__delitem__(self._normalize_key(key))
+
+    def __contains__(self, key):
+        return super().__contains__(self._normalize_key(key))
+
+    def get(self, key, default=None):
+        return super().get(self._normalize_key(key), default)
+
+    def setdefault(self, key, default=None):
+        return super().setdefault(self._normalize_key(key), default)
+
+    def pop(self, key, default=None):
+        return super().pop(self._normalize_key(key), default)
+
+
 class UnifiedManager:
     def __init__(self):
         self.installed_node_packages: dict[str, InstalledNodePackage] = {}
 
-        self.cnr_inactive_nodes = {}       # node_id -> node_version -> fullpath
-        self.nightly_inactive_nodes = {}   # node_id -> fullpath
-        self.unknown_inactive_nodes = {}   # node_id -> repo url * fullpath
-        self.active_nodes = {}             # node_id -> node_version * fullpath
-        self.unknown_active_nodes = {}     # node_id -> repo url * fullpath
-        self.cnr_map = {}                  # node_id -> cnr info
-        self.repo_cnr_map = {}             # repo_url -> cnr info
-        self.custom_node_map_cache = {}    # (channel, mode) -> augmented custom node list json
+        self.cnr_inactive_nodes = NormalizedKeyDict()       # node_id -> node_version -> fullpath
+        self.nightly_inactive_nodes = NormalizedKeyDict()   # node_id -> fullpath
+        self.unknown_inactive_nodes = {}                    # node_id -> repo url * fullpath
+        self.active_nodes = NormalizedKeyDict()             # node_id -> node_version * fullpath
+        self.unknown_active_nodes = {}                      # node_id -> repo url * fullpath
+        self.cnr_map = NormalizedKeyDict()                  # node_id -> cnr info
+        self.repo_cnr_map = {}                              # repo_url -> cnr info
+        self.custom_node_map_cache = {}                     # (channel, mode) -> augmented custom node list json
         self.processed_install = set()
 
     def get_module_name(self, x):
@@ -2876,7 +2904,7 @@ async def get_unified_total_nodes(channel, mode, regsitry_cache_mode='cache'):
 
         if cnr_id is not None:
             # cnr or nightly version
-            cnr_ids.remove(cnr_id)
+            cnr_ids.discard(cnr_id)
             updatable = False
             cnr = unified_manager.cnr_map[cnr_id]
 
