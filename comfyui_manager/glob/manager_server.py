@@ -313,7 +313,8 @@ class TaskQueue:
         """Mark task as completed and add to history"""
 
         with self.mutex:
-            timestamp = datetime.now().isoformat()
+            now = datetime.now()
+            timestamp = now.isoformat()
 
             # Remove task from running_tasks using the task_index
             self.running_tasks.pop(task_index, None)
@@ -334,10 +335,12 @@ class TaskQueue:
             self.history_tasks[item.ui_id] = TaskHistoryItem(
                 ui_id=item.ui_id,
                 client_id=item.client_id,
-                timestamp=datetime.fromisoformat(timestamp),
+                timestamp=now,
                 result=result_msg,
                 kind=item.kind,
                 status=status,
+                batch_id=self.batch_id,
+                end_time=now,
             )
 
         # Force cache refresh for successful pack-modifying operations
@@ -735,6 +738,10 @@ class TaskQueue:
 
         try:
             for ui_id, task in self.history_tasks.items():
+                # Only include operations from the current batch
+                if task.batch_id != self.batch_id:
+                    continue
+                    
                 result_status = OperationResult.success
                 if task.status:
                     status_str = (
@@ -755,6 +762,7 @@ class TaskQueue:
                     target=f"task_{ui_id}",
                     result=result_status.value,
                     start_time=task.timestamp,
+                    end_time=task.end_time,
                     client_id=task.client_id,
                 )
                 operations.append(operation)

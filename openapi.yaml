@@ -71,6 +71,13 @@ components:
           description: Task result message or details
         status:
           $ref: '#/components/schemas/TaskExecutionStatus'
+        batch_id:
+          type: [string, 'null']
+          description: ID of the batch this task belongs to
+        end_time:
+          type: [string, 'null']
+          format: date-time
+          description: ISO timestamp when task execution ended
       required: [ui_id, client_id, kind, timestamp, result]
     TaskExecutionStatus:
       type: object
