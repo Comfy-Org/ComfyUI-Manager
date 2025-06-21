@@ -565,6 +565,8 @@ class TaskQueue:
             custom_nodes_count=self._get_custom_nodes_count(),
             failed_imports=self._get_failed_imports(),
             pip_packages=self._get_pip_packages(),
+            manager_config=core.get_config(),
+            embedded_python=os.path.split(os.path.split(sys.executable)[0])[1] == "python_embeded",
         )
 
     def _get_comfyui_version_info(self) -> ComfyUIVersionInfo:
@@ -693,6 +695,10 @@ class TaskQueue:
                 cli_args["preview_method"] = str(args.preview_method)
             if hasattr(args, "enable_manager_legacy_ui"):
                 cli_args["enable_manager_legacy_ui"] = args.enable_manager_legacy_ui
+            if hasattr(args, "front_end_version"):
+                cli_args["front_end_version"] = args.front_end_version
+            if hasattr(args, "front_end_root"):
+                cli_args["front_end_root"] = args.front_end_root
             return cli_args
         except Exception:
             return {}
@@ -1051,7 +1057,7 @@ async def task_worker():
         return f"Model installation error: {model_url}"
 
     while True:
-        timeout = 4096
+        timeout = 4.0
         task = task_queue.get(timeout)
         if task is None:
             is_empty_queue = (
@@ -1066,7 +1072,7 @@ async def task_worker():
                         "[ComfyUI-Manager] Finalizing batch history with %d completed tasks",
                         task_queue.done_count(),
                     )
-                    await task_queue.finalize()
+                    task_queue.finalize()
                     logging.debug("[ComfyUI-Manager] Batch finalization complete")
 
                 logging.info("\nAfter restarting ComfyUI, please refresh the browser.")

@@ -724,6 +724,9 @@ components:
           additionalProperties:
             type: string
           description: Map of installed pip packages to their versions
+        embedded_python:
+          type: [boolean, 'null']
+          description: Whether ComfyUI is running from an embedded Python distribution
       required: [snapshot_time, comfyui_version, python_version, platform_info]
     BatchExecutionRecord:
       type: object
