@@ -552,6 +552,7 @@ class TaskQueue:
         return ComfyUISystemState(
             snapshot_time=datetime.now().isoformat(),
             comfyui_version=self._get_comfyui_version_info(),
+            frontend_version=self._get_frontend_version(),
             python_version=platform.python_version(),
             platform_info=f"{platform.system()} {platform.release()} ({platform.machine()})",
             installed_nodes=self._get_installed_nodes(),
@@ -574,6 +575,30 @@ class TaskQueue:
             return ComfyUIVersionInfo(version=current_version)
         except Exception:
             return ComfyUIVersionInfo(version="unknown")
+
+    def _get_frontend_version(self) -> Optional[str]:
+        """Get ComfyUI frontend version."""
+        try:
+            # Check if front-end-root is specified (overrides version)
+            if hasattr(args, "front_end_root") and args.front_end_root:
+                return f"custom-root: {args.front_end_root}"
+            
+            # Check if front-end-version is specified
+            if hasattr(args, "front_end_version") and args.front_end_version:
+                if "@" in args.front_end_version:
+                    return args.front_end_version.split("@")[1]
+                else:
+                    return args.front_end_version
+            
+            # Otherwise, check for installed package
+            pip_packages = self._get_pip_packages()
+            for package_name in ["comfyui-frontend", "comfyui_frontend"]:
+                if package_name in pip_packages:
+                    return pip_packages[package_name]
+            
+            return None
+        except Exception:
+            return None
 
     def _get_installed_nodes(self) -> dict[str, InstalledNodeInfo]:
         """Get information about installed node packages."""
