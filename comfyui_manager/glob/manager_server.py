@@ -21,7 +21,7 @@ import traceback
 import urllib.request
 import uuid
 import zipfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 import folder_paths
@@ -191,6 +191,7 @@ class TaskQueue:
         self.batch_start_time = None
         self.batch_state_before = None
         self._worker_task = None
+        self._cleanup_performed = False
 
     def is_processing(self) -> bool:
         """Check if the queue is currently processing tasks"""
@@ -546,6 +547,11 @@ class TaskQueue:
                 self.batch_start_time = None
                 self.batch_state_before = None
 
+                # Cleanup old batch files once per session
+                if not self._cleanup_performed:
+                    self._cleanup_old_batches()
+                    self._cleanup_performed = True
+
             except Exception as e:
                 logging.error(f"[ComfyUI-Manager] Failed to save batch history: {e}")
 
@@ -587,20 +593,20 @@ class TaskQueue:
             # Check if front-end-root is specified (overrides version)
             if hasattr(args, "front_end_root") and args.front_end_root:
                 return f"custom-root: {args.front_end_root}"
-            
+
             # Check if front-end-version is specified
             if hasattr(args, "front_end_version") and args.front_end_version:
                 if "@" in args.front_end_version:
                     return args.front_end_version.split("@")[1]
                 else:
                     return args.front_end_version
-            
+
             # Otherwise, check for installed package
             pip_packages = self._get_pip_packages()
             for package_name in ["comfyui-frontend", "comfyui_frontend"]:
                 if package_name in pip_packages:
                     return pip_packages[package_name]
-            
+
             return None
         except Exception:
             return None
@@ -741,7 +747,7 @@ class TaskQueue:
                 # Only include operations from the current batch
                 if task.batch_id != self.batch_id:
                     continue
-                    
+
                 result_status = OperationResult.success
                 if task.status:
                     status_str = (
@@ -772,6 +778,39 @@ class TaskQueue:
             )
 
         return operations
+
+    def _cleanup_old_batches(self) -> None:
+        """Clean up batch history files older than 90 days.
+
+        This is a best-effort cleanup that silently ignores any errors
+        to avoid disrupting normal operations.
+        """
+        try:
+            cutoff = datetime.now() - timedelta(days=16)
+            cutoff_timestamp = cutoff.timestamp()
+
+            pattern = os.path.join(context.manager_batch_history_path, "batch_*.json")
+            removed_count = 0
+
+            import glob
+
+            for file_path in glob.glob(pattern):
+                try:
+                    if os.path.getmtime(file_path) < cutoff_timestamp:
+                        os.remove(file_path)
+                        removed_count += 1
+                except Exception:
+                    pass
+
+            if removed_count > 0:
+                logging.debug(
+                    "[ComfyUI-Manager] Cleaned up %d old batch history files",
+                    removed_count,
+                )
+
+        except Exception:
+            # Silently ignore all errors - this is non-critical functionality
+            pass
 
 
 task_queue = TaskQueue()
