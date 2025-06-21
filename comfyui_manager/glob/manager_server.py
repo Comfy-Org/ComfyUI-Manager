@@ -200,7 +200,7 @@ class TaskQueue:
         """Start the task worker if not already running. Returns True if started, False if already running."""
         if self._worker_task is not None and self._worker_task.is_alive():
             logging.debug("[ComfyUI-Manager] Worker already running, skipping start")
-            return False  # Already running
+            return False
 
         logging.debug("[ComfyUI-Manager] Starting task worker thread")
         self._worker_task = threading.Thread(target=lambda: asyncio.run(task_worker()))
@@ -1041,7 +1041,7 @@ async def task_worker():
                         "[ComfyUI-Manager] Finalizing batch history with %d completed tasks",
                         task_queue.done_count(),
                     )
-                    task_queue.finalize()
+                    await task_queue.finalize()
                     logging.debug("[ComfyUI-Manager] Batch finalization complete")
 
                 logging.info("\nAfter restarting ComfyUI, please refresh the browser.")
@@ -1052,8 +1052,8 @@ async def task_worker():
                 logging.debug("[ComfyUI-Manager] Broadcasting queue all-done status")
                 PromptServer.instance.send_sync("cm-queue-status", res)
 
-            logging.debug("[ComfyUI-Manager] Task worker exiting")
-            return
+                logging.debug("[ComfyUI-Manager] Task worker exiting")
+                return
 
         item, task_index = task
         kind = item.kind
