@@ -304,32 +304,72 @@ class ManagedResult:
         return self
 
 
-class NormalizedKeyDict(dict):
+class NormalizedKeyDict:
+    def __init__(self):
+        self._store = {}
+        self._key_map = {}
+
     def _normalize_key(self, key):
         if isinstance(key, str):
             return key.strip().lower()
         return key
 
     def __setitem__(self, key, value):
-        super().__setitem__(self._normalize_key(key), value)
+        norm_key = self._normalize_key(key)
+        self._key_map[norm_key] = key
+        self._store[key] = value
 
     def __getitem__(self, key):
-        return super().__getitem__(self._normalize_key(key))
+        norm_key = self._normalize_key(key)
+        original_key = self._key_map[norm_key]
+        return self._store[original_key]
 
     def __delitem__(self, key):
-        return super().__delitem__(self._normalize_key(key))
+        norm_key = self._normalize_key(key)
+        original_key = self._key_map.pop(norm_key)
+        del self._store[original_key]
 
     def __contains__(self, key):
-        return super().__contains__(self._normalize_key(key))
+        return self._normalize_key(key) in self._key_map
 
     def get(self, key, default=None):
-        return super().get(self._normalize_key(key), default)
+        return self[key] if key in self else default
 
     def setdefault(self, key, default=None):
-        return super().setdefault(self._normalize_key(key), default)
+        if key in self:
+            return self[key]
+        self[key] = default
+        return default
 
     def pop(self, key, default=None):
-        return super().pop(self._normalize_key(key), default)
+        if key in self:
+            val = self[key]
+            del self[key]
+            return val
+        if default is not None:
+            return default
+        raise KeyError(key)
+
+    def keys(self):
+        return self._store.keys()
+
+    def values(self):
+        return self._store.values()
+
+    def items(self):
+        return self._store.items()
+
+    def __iter__(self):
+        return iter(self._store)
+
+    def __len__(self):
+        return len(self._store)
+
+    def __repr__(self):
+        return repr(self._store)
+
+    def to_dict(self):
+        return dict(self._store)
 
 
 class UnifiedManager:
@@ -749,7 +789,7 @@ class UnifiedManager:
         channel = normalize_channel(channel)
         nodes = await self.load_nightly(channel, mode)
 
-        res = {}
+        res = NormalizedKeyDict()
         added_cnr = set()
         for v in nodes.values():
             v = v[0]

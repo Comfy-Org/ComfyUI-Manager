@@ -714,6 +714,7 @@ export class CustomNodesManager {
 					link.href = rowItem.reference;
 				link.target = '_blank';
 				link.innerHTML = `<b>${title}</b>`;
+				link.title = rowItem.originalData.id;
 				container.appendChild(link);
 
 				return container;
