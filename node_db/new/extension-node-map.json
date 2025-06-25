@@ -1381,12 +1381,13 @@
     ],
     "https://github.com/AIWarper/ComfyUI-WarperNodes": [
         [
-            "ConditionalLoopInputSwitch_Warper",
             "DWPoseScalerNode_Warper",
             "FacialPartMaskFromPose_Warper",
+            "FlowConfig_Warper",
+            "FlowGetFlow_Warper",
+            "FlowVisualizerNode_Warper",
             "GetBatchByIndex_Warper",
-            "IterativeLoopFeedback_Warper",
-            "IterativeLoopSetup_Warper",
+            "GetRaftFlow_Warper",
             "MouthMaskFromPose_Warper",
             "SmartOverlappingBatcher_Warper",
             "SmartVideoBatcher_Warper"
@@ -3126,6 +3127,7 @@
     ],
     "https://github.com/ChenDarYen/ComfyUI-NAG": [
         [
+            "KSamplerWithNAG",
             "NAGCFGGuider"
         ],
         {
@@ -14517,7 +14519,6 @@
         [
             "CameraRawEnhanceNode",
             "ColorGradingNode",
-            "CurvePresetNode",
             "GaussianBlurNode",
             "HistogramAnalysisNode",
             "PhotoshopCurveNode",
@@ -31561,7 +31562,8 @@
     "https://github.com/ptmaster/comfyui-audio-speed": [
         [
             "PT48KHZ",
-            "PTAudioSpeed"
+            "PTAudioSpeed",
+            "PTEnsureStereo"
         ],
         {
             "title_aux": "ComfyUI-audio-speed"
@@ -31933,6 +31935,14 @@
             "nickname": "ComfyUI-Prediction",
             "title": "ComfyUI-Prediction",
             "title_aux": "ComfyUI-Prediction"
+        }
+    ],
+    "https://github.com/regiellis/ComfyUI-EasyColorCorrector": [
+        [
+            "EasyColorCorrection"
+        ],
+        {
+            "title_aux": "Easy Color Correction"
         }
     ],
     "https://github.com/regiellis/ComfyUI-EasyNoobai": [

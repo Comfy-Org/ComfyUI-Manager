@@ -35,7 +35,6 @@ else:
     def current_timestamp():
         return str(time.time()).split('.')[0]
 
-security_check.security_check()
 
 cm_global.pip_blacklist = {'torch', 'torchaudio', 'torchsde', 'torchvision'}
 cm_global.pip_downgrade_blacklist = ['torch', 'torchaudio', 'torchsde', 'torchvision', 'transformers', 'safetensors', 'kornia']
@@ -111,6 +110,7 @@ def check_file_logging():
 
 read_config()
 read_uv_mode()
+security_check.security_check()
 check_file_logging()
 
 if sys.version_info < (3, 13):
