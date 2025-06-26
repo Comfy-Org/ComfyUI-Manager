@@ -109,7 +109,9 @@ class SecurityLevel(str, Enum):
 
 class RiskLevel(str, Enum):
     block = "block"
+    high_p = "high+"
     high = "high"
+    middle_p = "middle+"
     middle = "middle"
 
 

@@ -82,7 +82,8 @@ from ..data_models import (
 
 from .constants import (
     model_dir_name_map,
-    SECURITY_MESSAGE_MIDDLE_OR_BELOW,
+    SECURITY_MESSAGE_MIDDLE,
+    SECURITY_MESSAGE_MIDDLE_P,
 )
 
 if not manager_util.is_manager_pip_package():
@@ -829,6 +830,10 @@ async def task_worker():
     await core.unified_manager.reload(ManagerDatabaseSource.cache.value)
 
     async def do_install(params: InstallPackParams) -> str:
+        if not security_utils.is_allowed_security_level('middle+'):
+            logging.error(SECURITY_MESSAGE_MIDDLE_P)
+            return OperationResult.failed.value
+
         node_id = params.id
         node_version = params.selected_version
         channel = params.channel
@@ -887,7 +892,7 @@ async def task_worker():
         core.unified_manager.unified_enable(cnr_id)
         return OperationResult.success.value
 
-    async def do_update(params: UpdatePackParams) -> str:
+    async def do_update(params: UpdatePackParams) -> dict[str, str]:
         node_name = params.node_name
         node_ver = params.node_ver
 
@@ -977,6 +982,10 @@ async def task_worker():
         return "An error occurred while updating 'comfyui'."
 
     async def do_fix(params: FixPackParams) -> str:
+        if not security_utils.is_allowed_security_level('middle'):
+            logging.error(SECURITY_MESSAGE_MIDDLE)
+            return OperationResult.failed.value
+
         node_name = params.node_name
         node_ver = params.node_ver
 
@@ -997,6 +1006,10 @@ async def task_worker():
         return f"An error occurred while fixing '{node_name}@{node_ver}'."
 
     async def do_uninstall(params: UninstallPackParams) -> str:
+        if not security_utils.is_allowed_security_level('middle'):
+            logging.error(SECURITY_MESSAGE_MIDDLE)
+            return OperationResult.failed.value
+
         node_name = params.node_name
         is_unknown = params.is_unknown
 
@@ -1041,6 +1054,10 @@ async def task_worker():
         return f"Failed to disable: '{node_name}'"
 
     async def do_install_model(params: ModelMetadata) -> str:
+        if not security_utils.is_allowed_security_level('middle+'):
+            logging.error(SECURITY_MESSAGE_MIDDLE_P)
+            return OperationResult.failed.value
+
         json_data = params.model_dump()
 
         model_path = model_utils.get_model_path(json_data)
@@ -1099,7 +1116,7 @@ async def task_worker():
                 return OperationResult.success.value
 
         except Exception as e:
-            logging.error(f"[ComfyUI-Manager] ERROR: {e}", file=sys.stderr)
+            logging.error(f"[ComfyUI-Manager] ERROR: {e}")
 
         return f"Model installation error: {model_url}"
 
@@ -1413,8 +1430,8 @@ async def update_all(request: web.Request) -> web.Response:
 
 
 async def _update_all(params: UpdateAllQueryParams) -> web.Response:
-    if not security_utils.is_allowed_security_level("middle"):
-        logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+    if not security_utils.is_allowed_security_level("middle+"):
+        logging.error(SECURITY_MESSAGE_MIDDLE_P)
         return web.Response(status=403)
 
     # Extract client info from validated params
@@ -1513,7 +1530,7 @@ async def get_snapshot_list(request):
 @routes.get("/v2/snapshot/remove")
 async def remove_snapshot(request):
     if not security_utils.is_allowed_security_level("middle"):
-        logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+        logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403)
 
     try:
@@ -1530,8 +1547,8 @@ async def remove_snapshot(request):
 
 @routes.get("/v2/snapshot/restore")
 async def restore_snapshot(request):
-    if not security_utils.is_allowed_security_level("middle"):
-        logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+    if not security_utils.is_allowed_security_level("middle+"):
+        logging.error(SECURITY_MESSAGE_MIDDLE_P)
         return web.Response(status=403)
 
     try:
@@ -1597,7 +1614,7 @@ def unzip_install(files):
 
             os.remove(temp_filename)
         except Exception as e:
-            logging.error(f"Install(unzip) error: {url} / {e}", file=sys.stderr)
+            logging.error(f"Install(unzip) error: {url} / {e}")
             return False
 
     logging.info("Installation was successful.")
@@ -1755,7 +1772,7 @@ async def comfyui_versions(request):
             content_type="application/json",
         )
     except Exception as e:
-        logging.error(f"ComfyUI update fail: {e}", file=sys.stderr)
+        logging.error(f"ComfyUI update fail: {e}")
 
     return web.Response(status=400)
 
@@ -1787,7 +1804,7 @@ async def comfyui_switch_version(request):
             {"error": "Validation error", "details": e.errors()}, status=400
         )
     except Exception as e:
-        logging.error(f"ComfyUI version switch fail: {e}", file=sys.stderr)
+        logging.error(f"ComfyUI version switch fail: {e}")
         return web.Response(status=400)
 
 
@@ -1871,7 +1888,7 @@ async def channel_url_list(request):
 @routes.get("/v2/manager/reboot")
 def restart(self):
     if not security_utils.is_allowed_security_level("middle"):
-        logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+        logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403)
 
     try:

@@ -36,7 +36,8 @@ logging.info("[ComfyUI-Manager] network_mode: " + network_mode_description)
 comfy_ui_hash = "-"
 comfyui_tag = None
 
-SECURITY_MESSAGE_MIDDLE_OR_BELOW = "ERROR: To use this action, a security_level of `middle or below` is required. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_MIDDLE = "ERROR: To use this action, a security_level of `normal or below` is required. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_MIDDLE_P = "ERROR: To use this action, security_level must be `normal or below`, and network_mode must be set to `personal_cloud`. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_NORMAL_MINUS = "ERROR: To use this feature, you must either set '--listen' to a local IP and set the security level to 'normal-' or lower, or set the security level to 'middle' or 'weak'. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_GENERAL = "ERROR: This installation is not allowed in this security_level. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_NORMAL_MINUS_MODEL = "ERROR: Downloading models that are not in '.safetensors' format is only allowed for models registered in the 'default' channel at this security level. If you want to download this model, set the security level to 'normal-' or lower."
@@ -93,13 +94,27 @@ model_dir_name_map = {
 
 
 def is_allowed_security_level(level):
+    is_personal_cloud = core.get_config()['network_mode'].lower() == 'personal_cloud'
+
     if level == 'block':
         return False
+    elif level == 'high+':
+        if is_local_mode:
+            return core.get_config()['security_level'] in ['weak', 'normal-']
+        elif is_personal_cloud:
+            return core.get_config()['security_level'] == 'weak'
+        else:
+            return False
     elif level == 'high':
         if is_local_mode:
             return core.get_config()['security_level'] in ['weak', 'normal-']
         else:
             return core.get_config()['security_level'] == 'weak'
+    elif level == 'middle+':
+        if is_local_mode or is_personal_cloud:
+            return core.get_config()['security_level'] in ['weak', 'normal', 'normal-']
+        else:
+            return False
     elif level == 'middle':
         return core.get_config()['security_level'] in ['weak', 'normal', 'normal-']
     else:
@@ -116,7 +131,7 @@ async def get_risky_level(files, pip_packages):
 
     for x in files:
         if x not in all_urls:
-            return "high"
+            return "high+"
 
     all_pip_packages = set()
     for x in json_data1['custom_nodes'] + json_data2['custom_nodes']:
@@ -126,7 +141,7 @@ async def get_risky_level(files, pip_packages):
         if p not in all_pip_packages:
             return "block"
 
-    return "middle"
+    return "middle+"
 
 
 class ManagerFuncsInComfyUI(core.ManagerFuncs):
@@ -758,29 +773,29 @@ async def queue_batch(request):
             for x in v:
                 res = await _uninstall_custom_node(x)
                 if res.status != 200:
-                    failed.add(x[0])
+                    failed.add(x['id'])
                 else:
                     res = await _install_custom_node(x)
                     if res.status != 200:
-                        failed.add(x[0])
+                        failed.add(x['id'])
 
         elif k == 'install':
             for x in v:
                 res = await _install_custom_node(x)
                 if res.status != 200:
-                    failed.add(x[0])
+                    failed.add(x['id'])
 
         elif k == 'uninstall':
             for x in v:
                 res = await _uninstall_custom_node(x)
                 if res.status != 200:
-                    failed.add(x[0])
+                    failed.add(x['id'])
 
         elif k == 'update':
             for x in v:
                 res = await _update_custom_node(x)
                 if res.status != 200:
-                    failed.add(x[0])
+                    failed.add(x['id'])
 
         elif k == 'update_comfyui':
             await update_comfyui(None)
@@ -793,13 +808,13 @@ async def queue_batch(request):
             for x in v:
                 res = await _install_model(x)
                 if res.status != 200:
-                    failed.add(x[0])
+                    failed.add(x['id'])
 
         elif k == 'fix':
             for x in v:
                 res = await _fix_custom_node(x)
                 if res.status != 200:
-                    failed.add(x[0])
+                    failed.add(x['id'])
 
     with task_worker_lock:
         finalize_temp_queue_batch(json_data, failed)
@@ -910,8 +925,8 @@ async def update_all(request):
 
 
 async def _update_all(json_data):
-    if not is_allowed_security_level('middle'):
-        logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+    if not is_allowed_security_level('middle+'):
+        logging.error(SECURITY_MESSAGE_MIDDLE_P)
         return web.Response(status=403)
 
     with task_worker_lock:
@@ -1162,7 +1177,7 @@ async def get_snapshot_list(request):
 @routes.get("/v2/snapshot/remove")
 async def remove_snapshot(request):
     if not is_allowed_security_level('middle'):
-        logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+        logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403)
 
     try:
@@ -1179,8 +1194,8 @@ async def remove_snapshot(request):
 
 @routes.get("/v2/snapshot/restore")
 async def restore_snapshot(request):
-    if not is_allowed_security_level('middle'):
-        logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+    if not is_allowed_security_level('middle+'):
+        logging.error(SECURITY_MESSAGE_MIDDLE_P)
         return web.Response(status=403)
 
     try:
@@ -1356,8 +1371,8 @@ async def install_custom_node(request):
 
 
 async def _install_custom_node(json_data):
-    if not is_allowed_security_level('middle'):
-        logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+    if not is_allowed_security_level('middle+'):
+        logging.error(SECURITY_MESSAGE_MIDDLE_P)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
 
     # non-nightly cnr is safe
@@ -1462,7 +1477,7 @@ async def _fix_custom_node(json_data):
 
 @routes.post("/v2/customnode/install/git_url")
 async def install_custom_node_git_url(request):
-    if not is_allowed_security_level('high'):
+    if not is_allowed_security_level('high+'):
         logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
         return web.Response(status=403)
 
@@ -1482,7 +1497,7 @@ async def install_custom_node_git_url(request):
 
 @routes.post("/v2/customnode/install/pip")
 async def install_custom_node_pip(request):
-    if not is_allowed_security_level('high'):
+    if not is_allowed_security_level('high+'):
         logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
         return web.Response(status=403)
 
@@ -1500,7 +1515,7 @@ async def uninstall_custom_node(request):
 
 async def _uninstall_custom_node(json_data):
     if not is_allowed_security_level('middle'):
-        logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+        logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
 
     node_id = json_data.get('id')
@@ -1526,7 +1541,7 @@ async def update_custom_node(request):
 
 async def _update_custom_node(json_data):
     if not is_allowed_security_level('middle'):
-        logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+        logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
 
     node_id = json_data.get('id')
@@ -1617,8 +1632,8 @@ async def install_model(request):
 
 
 async def _install_model(json_data):
-    if not is_allowed_security_level('middle'):
-        logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+    if not is_allowed_security_level('middle+'):
+        logging.error(SECURITY_MESSAGE_MIDDLE_P)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
 
     # validate request
@@ -1626,7 +1641,7 @@ async def _install_model(json_data):
         logging.error(f"[ComfyUI-Manager] Invalid model install request is detected: {json_data}")
         return web.Response(status=400, text="Invalid model install request is detected")
 
-    if not json_data['filename'].endswith('.safetensors') and not is_allowed_security_level('high'):
+    if not json_data['filename'].endswith('.safetensors') and not is_allowed_security_level('high+'):
         models_json = await core.get_data_by_mode('cache', 'model-list.json', 'default')
 
         is_belongs_to_whitelist = False
@@ -1783,7 +1798,7 @@ async def get_notice_legacy(request):
 @routes.get("/v2/manager/reboot")
 def restart(self):
     if not is_allowed_security_level('middle'):
-        logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+        logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403)
 
     try:

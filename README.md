@@ -215,13 +215,14 @@ The following settings are applied based on the section marked as `is_default`.
     downgrade_blacklist = <Set a list of packages to prevent downgrades. List them separated by commas.>
     security_level = <Set the security level => strong|normal|normal-|weak>
     always_lazy_install = <Whether to perform dependency installation on restart even in environments other than Windows.>
-    network_mode = <Set the network mode => public|private|offline>
+    network_mode = <Set the network mode => public|private|offline|personal_cloud>
     ```
 
     * network_mode:
       - public: An environment that uses a typical public network.
       - private: An environment that uses a closed network, where a private node DB is configured via `channel_url`. (Uses cache if available)
       - offline: An environment that does not use any external connections when using an offline network. (Uses cache if available)
+      - personal_cloud: Applies relaxed security features in cloud environments such as Google Colab or Runpod, where strong security is not required. 
 
 
 ## Additional Feature
@@ -312,31 +313,33 @@ When you run the `scan.sh` script:
 
 
 ## Security policy
-  * Edit `config.ini` file: add `security_level = <LEVEL>`
-    * `strong`
-      * doesn't allow `high` and `middle` level risky feature
-    * `normal`
-      * doesn't allow `high` level risky feature
-      * `middle` level risky feature is available
-    * `normal-`
-      * doesn't allow `high` level risky feature if `--listen` is specified and not starts with `127.`
-      * `middle` level risky feature is available
-    * `weak`
-      * all feature is available
-    
-  * `high` level risky features
-    * `Install via git url`, `pip install`
-    * Installation of custom nodes registered not in the `default channel`.
-    * Fix custom nodes
-  
-  * `middle` level risky features
-    * Uninstall/Update
-    * Installation of custom nodes registered in the `default channel`.
-    * Restore/Remove Snapshot
-    * Restart
-  
-  * `low` level risky features
-    * Update ComfyUI
+
+The security settings are applied based on whether the ComfyUI server's listener is non-local and whether the network mode is set to `personal_cloud`.
+
+* **non-local**: When the server is launched with `--listen` and is bound to a network range other than the local `127.` range, allowing remote IP access.
+* **personal\_cloud**: When the `network_mode` is set to `personal_cloud`.
+
+
+### Risky Level Table
+
+| Risky Level | features                                                                                                                              |
+|-------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| high+       | * `Install via git url`, `pip install`<BR>* Installation of nodepack registered not in the `default channel`.                         |
+| high        | * Fix nodepack                                                                                                                        |
+| middle+     | * Uninstall/Update<BR>* Installation of nodepack registered in the `default channel`.<BR>* Restore/Remove Snapshot<BR>* Install model |
+| middle      | * Restart                                                                                                                             |
+| low         | * Update ComfyUI                                                                                                                      |
+
+
+### Security Level Table
+
+| Security Level | local                                                                                                                    | non-local (personal_cloud)                                                                                               | non-local (not personal_cloud) |
+|----------------|--------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------|--------------------------------|
+| strong         | * Only `weak` level risky features are allowed                                                                           | * Only `weak` level risky features are allowed                                                                           | * Only `weak` level risky features are allowed                               |
+| normal         | * `high+` and `high` level risky features are not allowed<BR>* `middle+` and `middle` level risky features are available | * `high+` and `high` level risky features are not allowed<BR>* `middle+` and `middle` level risky features are available | * `high+`, `high` and `middle+` level risky features are not allowed<BR>* `middle` level risky features are available
+| normal-        | * All features are available                                                                                             | * `high+` and `high` level risky features are not allowed<BR>* `middle+` and `middle` level risky features are available | * `high+`, `high` and `middle+` level risky features are not allowed<BR>* `middle` level risky features are available 
+| weak           | * All features are available                                                                                             | * All features are available                                                                                             | * `high+` and `middle+` level risky features are not allowed<BR>* `high`, `middle` and `low` level risky features are available
+
 
 
 # Disclaimer

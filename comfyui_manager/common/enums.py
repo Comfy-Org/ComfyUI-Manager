@@ -4,6 +4,7 @@ class NetworkMode(enum.Enum):
     PUBLIC = "public"
     PRIVATE = "private"
     OFFLINE = "offline"
+    PERSONAL_CLOUD = "personal_cloud"
 
 class SecurityLevel(enum.Enum):
     STRONG = "strong"
