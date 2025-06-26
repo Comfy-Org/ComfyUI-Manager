@@ -1,6 +1,29 @@
 {
   "models": [
     {
+      "name": "Comfy-Org/omnigen2_fp16.safetensors",
+      "type": "diffusion_model",
+      "base": "OmniGen2",
+      "save_path": "default",
+      "description": "OmniGen2 diffusion model. This is required for using OmniGen2.",
+      "reference": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged",
+      "filename": "omnigen2_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/omnigen2_fp16.safetensors",
+      "size": "7.93GB"
+    },
+    {
+      "name": "Comfy-Org/qwen_2.5_vl_fp16.safetensors",
+      "type": "clip",
+      "base": "qwen-2.5",
+      "save_path": "default",
+      "description": "text encoder for OmniGen2",
+      "reference": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged",
+      "filename": "qwen_2.5_vl_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged/resolve/main/split_files/text_encoders/qwen_2.5_vl_fp16.safetensors",
+      "size": "7.51GB"
+    },
+
+    {
       "name": "Latent Bridge Matching for Image Relighting",
       "type": "diffusion_model",
       "base": "LBM",
@@ -656,41 +679,6 @@
       "filename": "sd3.5_large_controlnet_depth.safetensors",
       "url": "https://huggingface.co/stabilityai/stable-diffusion-3.5-controlnets/resolve/main/sd3.5_large_controlnet_depth.safetensors",
       "size": "8.65GB"
-    },
-
-    {
-      "name": "LTX-Video 2B v0.9 Checkpoint",
-      "type": "checkpoint",
-      "base": "LTX-Video",
-      "save_path": "checkpoints/LTXV",
-      "description": "LTX-Video is the first DiT-based video generation model capable of generating high-quality videos in real-time. It produces 24 FPS videos at a 768x512 resolution faster than they can be watched. Trained on a large-scale dataset of diverse videos, the model generates high-resolution videos with realistic and varied content.",
-      "reference": "https://huggingface.co/Lightricks/LTX-Video",
-      "filename": "ltx-video-2b-v0.9.safetensors",
-      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltx-video-2b-v0.9.safetensors",
-      "size": "9.37GB"
-    },
-    {
-      "name": "InstantX/FLUX.1-dev-IP-Adapter",
-      "type": "IP-Adapter",
-      "base": "FLUX.1",
-      "save_path": "ipadapter-flux",
-      "description": "FLUX.1-dev-IP-Adapter",
-      "reference": "https://huggingface.co/InstantX/FLUX.1-dev-IP-Adapter",
-      "filename": "ip-adapter.bin",
-      "url": "https://huggingface.co/InstantX/FLUX.1-dev-IP-Adapter/resolve/main/ip-adapter.bin",
-      "size": "5.29GB"
-    },
-    
-    {
-      "name": "Comfy-Org/sigclip_vision_384 (patch14_384)",
-      "type": "clip_vision",
-      "base": "sigclip",
-      "save_path": "clip_vision",
-      "description": "This clip vision model is required for FLUX.1 Redux.",
-      "reference": "https://huggingface.co/Comfy-Org/sigclip_vision_384/tree/main",
-      "filename": "sigclip_vision_patch14_384.safetensors",
-      "url": "https://huggingface.co/Comfy-Org/sigclip_vision_384/resolve/main/sigclip_vision_patch14_384.safetensors",
-      "size": "857MB"
     }
   ]
 }

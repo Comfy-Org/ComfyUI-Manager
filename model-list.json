@@ -4007,6 +4007,29 @@
     },
 
     {
+      "name": "Comfy-Org/omnigen2_fp16.safetensors",
+      "type": "diffusion_model",
+      "base": "OmniGen2",
+      "save_path": "default",
+      "description": "OmniGen2 diffusion model. This is required for using OmniGen2.",
+      "reference": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged",
+      "filename": "omnigen2_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/omnigen2_fp16.safetensors",
+      "size": "7.93GB"
+    },
+    {
+      "name": "Comfy-Org/qwen_2.5_vl_fp16.safetensors",
+      "type": "clip",
+      "base": "qwen-2.5",
+      "save_path": "default",
+      "description": "text encoder for OmniGen2",
+      "reference": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged",
+      "filename": "qwen_2.5_vl_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged/resolve/main/split_files/text_encoders/qwen_2.5_vl_fp16.safetensors",
+      "size": "7.51GB"
+    },
+
+    {
       "name": "FLUX.1 [Schnell] Diffusion model",
       "type": "diffusion_model",
       "base": "FLUX.1",
@@ -4023,7 +4046,7 @@
       "type": "VAE",
       "base": "FLUX.1",
       "save_path": "vae/FLUX1",
-      "description": "FLUX.1 VAE model",
+      "description": "FLUX.1 VAE model\nNOTE: This VAE model can also be used for image generation with OmniGen2.",
       "reference": "https://huggingface.co/black-forest-labs/FLUX.1-schnell",
       "filename": "ae.safetensors",
       "url": "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors",
