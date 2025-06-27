@@ -240,7 +240,7 @@ components:
       description: Security level configuration (from most to least restrictive)
     RiskLevel:
       type: string
-      enum: [block, high, middle]
+      enum: [block, high+, high, middle+, middle]
       description: Risk classification for operations
     ManagerPack:
       allOf:

@@ -29,6 +29,7 @@ datamodel-codegen \
   --use-subclass-enum \
   --field-constraints \
   --strict-types bytes \
+  --use-double-quotes \
   --input openapi.yaml \
   --output comfyui_manager/data_models/generated_models.py \
   --output-model-type pydantic_v2.BaseModel

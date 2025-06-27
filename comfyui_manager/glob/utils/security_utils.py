@@ -17,7 +17,7 @@ def is_allowed_security_level(level):
 
     if level == RiskLevel.block.value:
         return False
-    elif level == RiskLevel.high_p.value:
+    elif level == RiskLevel.high_.value:
         if is_local_mode:
             return core.get_config()['security_level'] in [SecurityLevel.weak.value, SecurityLevel.normal_.value]
         elif is_personal_cloud:
@@ -29,7 +29,7 @@ def is_allowed_security_level(level):
             return core.get_config()['security_level'] in [SecurityLevel.weak.value, SecurityLevel.normal_.value]
         else:
             return core.get_config()['security_level'] == SecurityLevel.weak.value
-    elif level == RiskLevel.middle_p.value:
+    elif level == RiskLevel.middle_.value:
         if is_local_mode or is_personal_cloud:
             return core.get_config()['security_level'] in [SecurityLevel.weak.value, SecurityLevel.normal.value, SecurityLevel.normal_.value]
         else:
@@ -54,7 +54,7 @@ async def get_risky_level(files, pip_packages):
 
     for x in files:
         if x not in all_urls:
-            return RiskLevel.high_p.value
+            return RiskLevel.high_.value
 
     all_pip_packages = set()
     for x in json_data1["custom_nodes"] + json_data2["custom_nodes"]:
@@ -64,4 +64,4 @@ async def get_risky_level(files, pip_packages):
         if p not in all_pip_packages:
             return RiskLevel.block.value
 
-    return RiskLevel.middle_p.value
+    return RiskLevel.middle_.value
