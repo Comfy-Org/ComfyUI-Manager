@@ -4425,17 +4425,6 @@
         },
         {
             "author": "ZHO-ZHO-ZHO",
-            "title": "ComfyUI-Gemini",
-            "id": "gemini",
-            "reference": "https://github.com/ZHO-ZHO-ZHO/ComfyUI-Gemini",
-            "files": [
-                "https://github.com/ZHO-ZHO-ZHO/ComfyUI-Gemini"
-            ],
-            "install_type": "git-clone",
-            "description": "Using Gemini-pro & Gemini-pro-vision in ComfyUI."
-        },
-        {
-            "author": "ZHO-ZHO-ZHO",
             "title": "comfyui-portrait-master-zh-cn",
             "id": "portrait-master-zho",
             "reference": "https://github.com/ZHO-ZHO-ZHO/comfyui-portrait-master-zh-cn",
@@ -8045,6 +8034,16 @@
             ],
             "install_type": "git-clone",
             "description": "Joy Caption is a ComfyUI custom node powered by the LLaVA model for efficient, stylized image captioning. Caption Tools nodes handle batch image processing and automatic separation of caption text."
+        },
+        {
+            "author": "1038lab",
+            "title": "ComfyUI-MiniMax-Remover",
+            "reference": "https://github.com/1038lab/ComfyUI-MiniMax-Remover",
+            "files": [
+                "https://github.com/1038lab/ComfyUI-MiniMax-Remover"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI-MiniMax-Remover is a custom node for ComfyUI that enables fast and efficient object removal using minimax optimization. It works in two stages: first, it trains a remover with a simplified DiT model; then it distills a robust version using CFG guidance and fewer inference steps."
         },
         {
             "author": "Klinter",
@@ -14746,6 +14745,16 @@
             ],
             "install_type": "git-clone",
             "description": "ComfyUI Nodes for Remote VAE Decoding."
+        },
+        {
+            "author": "Visionatrix",
+            "title": "ComfyUI-Gemini",
+            "reference": "https://github.com/Visionatrix/ComfyUI-Gemini",
+            "files": [
+                "https://github.com/Visionatrix/ComfyUI-Gemini"
+            ],
+            "install_type": "git-clone",
+            "description": "Nodes for Google Gemini API, focusing on backward compatibility and stability within ComfyUI."
         },
         {
             "author": "liangt",
@@ -23561,39 +23570,6 @@
         },
         {
             "author": "S4MUEL-404",
-            "title": "Image Position Blend",
-            "id": "ComfyUI-Image-Position-Blend",
-            "version": "1.1",
-            "reference": "https://github.com/S4MUEL-404/ComfyUI-Image-Position-Blend",
-            "files": [
-                "https://github.com/S4MUEL-404/ComfyUI-Image-Position-Blend"
-            ],
-            "install_type": "git-clone",
-            "description": "A custom node for conveniently adjusting the overlay position of two images."
-        },
-        {
-            "author": "S4MUEL-404",
-            "title": "ComfyUI-Text-On-Image",
-            "id": "ComfyUI-Text-On-Image",
-            "reference": "https://github.com/S4MUEL-404/ComfyUI-Text-On-Image",
-            "files": [
-                "https://github.com/S4MUEL-404/ComfyUI-Text-On-Image"
-            ],
-            "install_type": "git-clone",
-            "description": "A custom node for ComfyUI that allows users to add text overlays to images with customizable size, font, position, and shadow."
-        },
-        {
-            "author": "S4MUEL-404",
-            "title": "ComfyUI-Prompts-Selector",
-            "reference": "https://github.com/S4MUEL-404/ComfyUI-Prompts-Selector",
-            "files": [
-                "https://github.com/S4MUEL-404/ComfyUI-Prompts-Selector"
-            ],
-            "install_type": "git-clone",
-            "description": "Quickly select preset prompts and merge them"
-        },
-        {
-            "author": "S4MUEL-404",
             "title": "ComfyUI-S4Tool-Image-Overlay",
             "reference": "https://github.com/S4MUEL-404/ComfyUI-S4Tool-Image-Overlay",
             "files": [
@@ -26145,6 +26121,16 @@
             "description": "String random picker for ComfyUI"
         },
         {
+            "author": "lihaoyun6",
+            "title": "ComfyUI-BlindWatermark",
+            "reference": "https://github.com/lihaoyun6/ComfyUI-BlindWatermark",
+            "files": [
+                "https://github.com/lihaoyun6/ComfyUI-BlindWatermark"
+            ],
+            "install_type": "git-clone",
+            "description": "Embeds an invisible watermark in the input image"
+        },
+        {
             "author": "northumber",
             "title": "ComfyUI-northTools",
             "reference": "https://github.com/northumber/ComfyUI-northTools",
@@ -28038,6 +28024,16 @@
             "description": "The 'Eses Image Offset' node offers basic image offsetting capabilities within ComfyUI. It allows shifting image and mask content horizontally and/or vertically, with an option to wrap content around the canvas edges for a tiling effect."
         },
         {
+            "author": "quasiblob",
+            "title": "ComfyUI-EsesImageLensEffects",
+            "reference": "https://github.com/quasiblob/ComfyUI-EsesImageLensEffects",
+            "files": [
+                "https://github.com/quasiblob/ComfyUI-EsesImageLensEffects"
+            ],
+            "install_type": "git-clone",
+            "description": "The 'Eses Image Lens Effects' node is a multipurpose node for ComfyUI designed to simulate a variety of lens characteristics. It combines several typical effects into a single, convenient node, allowing to add realistic or stylistic lens distortion, chromatic aberration, post-process scaling, and a highly configurable vignette."
+        },
+        {
             "author": "TheLustriVA",
             "title": "ComfyUI Image Size Tool",
             "reference": "https://github.com/TheLustriVA/ComfyUI-Image-Size-Tools",
@@ -28229,23 +28225,86 @@
             "install_type": "git-clone",
             "description": "Simple REST API interfaces for ComfyUI with dynamic parameter replacement and output management"
         },
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        
-        
+        {
+            "author": "bobsblazed",
+            "title": "Bobs_Latent_Optimizer",
+            "reference": "https://github.com/BobsBlazed/Bobs_Latent_Optimizer",
+            "files": [
+                "https://github.com/BobsBlazed/Bobs_Latent_Optimizer"
+            ],
+            "install_type": "git-clone",
+            "description": "This custom node for ComfyUI is designed to optimize latent generation for use with FLUX, SDXL and SD3. It provides flexible control over aspect ratios, megapixel sizes, and upscale factors, allowing users to dynamically create latents that fit specific tiling and resolution needs."
+        },
+        {
+            "author": "bobsblazed",
+            "title": "Bobs_LoRA_Loader",
+            "reference": "https://github.com/BobsBlazed/Bobs-Lora-Loader",
+            "files": [
+                "https://github.com/BobsBlazed/Bobs-Lora-Loader"
+            ],
+            "install_type": "git-clone",
+            "description": "A custom LoRA loader node for ComfyUI with advanced block-weighting controls for both SDXL and FLUX models. Features presets for common use-cases like 'Character' and 'Style', and a 'Custom' mode for fine-grained control over individual model blocks."
+        },
+        {
+            "author": "sdtana",
+            "title": "ComfyUI-FDG",
+            "reference": "https://github.com/sdtana/ComfyUI-FDG",
+            "files": [
+                "https://github.com/sdtana/ComfyUI-FDG"
+            ],
+            "install_type": "git-clone",
+            "description": "Implementation of [a/Guidance in the Frequency Domain Enables High-Fidelity Sampling at Low CFG Scales](https://arxiv.org/abs/2506.19713) for ComfyUI."
+        },
+        {
+            "author": "AbstractEyes",
+            "title": "comfyui-lycoris",
+            "reference": "https://github.com/AbstractEyes/comfyui-lycoris",
+            "files": [
+                "https://github.com/AbstractEyes/comfyui-lycoris"
+            ],
+            "install_type": "git-clone",
+            "description": "A properly implemented lycoris loader for comfyui."
+        },
+        {
+            "author": "aassas2",
+            "title": "ComfyUI-EsesImageEffectBloom",
+            "reference": "https://github.com/aassas2/ComfyUI-EsesImageEffectBloom",
+            "files": [
+                "https://github.com/aassas2/ComfyUI-EsesImageEffectBloom"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI-EsesImageEffectBloom provides a powerful bloom image post-processing effect for Comfy. This tool leverages GPU capabilities to deliver optimized blur effect calculations, enhancing your images with a stunning glow. Whether you’re a developer or a digital artist, this effect can elevate your visuals effortlessly."
+        },
+        {
+            "author": "alchemine",
+            "title": "ComfyUI-Alchemine-Pack",
+            "reference": "https://github.com/alchemine/comfyui-alchemine-pack",
+            "files": [
+                "https://github.com/alchemine/comfyui-alchemine-pack"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom nodes pack for ComfyUI"
+        },
+        {
+            "author": "HMG-Fiverr",
+            "title": "Random Number Button",
+            "reference": "https://github.com/HMG-Fiverr/ComfyUI-RandomNumberButton",
+            "files": [
+                "https://github.com/HMG-Fiverr/ComfyUI-RandomNumberButton"
+            ],
+            "install_type": "git-clone",
+            "description": "This node provides a button that, when clicked, triggers the execution of the node and generates a new random integer between 0 and 1000. The generated number is available as an output."
+        },
+        {
+            "author": "Good-Dream-Studio",
+            "title": "ComfyUI-Connect",
+            "reference": "https://github.com/Good-Dream-Studio/ComfyUI-Connect",
+            "files": [
+                "https://github.com/Good-Dream-Studio/ComfyUI-Connect"
+            ],
+            "install_type": "git-clone",
+            "description": "Expose your workflows into HTTP endpoints directly from ComfyUI itself."
+        },
         
         
 
@@ -28573,16 +28632,6 @@
             ],
             "install_type": "copy",
             "description": "This repository contains a custom node for ComfyUI that allows searching for a keyword in the first column of a CSV file and returning a value from a specified column in that row. The node is designed to be modular and fit within the node-based workflow of ComfyUI."
-        },
-        {
-            "author": "bobsblazed",
-            "title": "Bobs_Latent_Optimizer",
-            "reference": "https://github.com/BobsBlazed/Bobs_Latent_Optimizer",
-            "files": [
-                "https://github.com/BobsBlazed/Bobs_Latent_Optimizer/raw/refs/heads/main/Bobs_Latent_Optimizer.py"
-            ],
-            "install_type": "copy",
-            "description": "This custom node for ComfyUI is designed to optimize latent generation for use with FLUX, SDXL and SD3. It provides flexible control over aspect ratios, megapixel sizes, and upscale factors, allowing users to dynamically create latents that fit specific tiling and resolution needs."
         },
         {
             "author": "SimonHeese",
