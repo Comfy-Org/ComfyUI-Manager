@@ -685,6 +685,8 @@
             "TSWhisper",
             "TS_DeflickerNode",
             "TS_FilePathLoader",
+            "TS_FilmEmulation",
+            "TS_FilmGrain",
             "TS_Free_Video_Memory",
             "TS_ImageResize",
             "TS_MarianTranslator",
@@ -1172,6 +1174,26 @@
         ],
         {
             "title_aux": "ComfyUI Node Switcher"
+        }
+    ],
+    "https://github.com/DiffusionWave-YT/DiffusionWave_PickResolution": [
+        [
+            "Blacklist_String_DiffusionWave \ud83c\udf0a",
+            "ImageBatchMulti_DiffusionWave",
+            "ImageSimpleSaver_DiffusionWave",
+            "Int_PickResolution_DiffusionWave \ud83c\udf0a",
+            "LoadImagesFromFolder_DiffusionWave",
+            "MergeImages_DiffusionWave",
+            "Order_String_Tags_DiffusionWave \ud83c\udf0a",
+            "OverlayImages_DiffusionWave",
+            "PickResolution_DiffusionWave \ud83c\udf0a",
+            "PromptExpression_DiffusionWave \ud83c\udf0a",
+            "RemoveBackgroundByColor_DiffusionWave",
+            "ResizeLongestSide_DiffusionWave",
+            "Seed__DiffusionWave \ud83c\udf0a"
+        ],
+        {
+            "title_aux": "DiffusionWave_PickResolution [WIP]"
         }
     ],
     "https://github.com/DoctorDiffusion/ComfyUI-Flashback": [
@@ -2405,6 +2427,7 @@
             "ImageWidthStitch",
             "MergeImageChannels",
             "random_any",
+            "show_type",
             "translator_m2m100",
             "translators"
         ],
@@ -2695,7 +2718,8 @@
         [
             "DoomFluxInpaintSampler",
             "DoomFluxLoader",
-            "DoomFluxSampler"
+            "DoomFluxSampler",
+            "DoomFluxSamplerAdvanced"
         ],
         {
             "title_aux": "DoomFLUX Nodes [WIP]"
@@ -2776,6 +2800,14 @@
             "title_aux": "ComfyUI-QuasimondoNodes [WIP]"
         }
     ],
+    "https://github.com/QuietNoise/ComfyUI-Queue-Manager": [
+        [
+            "Workflow Name"
+        ],
+        {
+            "title_aux": "ComfyUI Queue Manager [WIP]"
+        }
+    ],
     "https://github.com/RLW-Chars/comfyui-promptbymood": [
         [
             "Prompt By Mood"
@@ -2799,14 +2831,6 @@
         ],
         {
             "title_aux": "Kuniklo Collection"
-        }
-    ],
-    "https://github.com/RedmondAI/comfyui-tools": [
-        [
-            "AutoName"
-        ],
-        {
-            "title_aux": "comfyui-tools [UNSAFE/NAME CONFLICT]"
         }
     ],
     "https://github.com/RicherdLee/comfyui-oss-image-save": [
@@ -3107,6 +3131,7 @@
             "SDVN Any Repeat",
             "SDVN Any Show",
             "SDVN AnyDownload List",
+            "SDVN Apply Kontext Reference",
             "SDVN Apply Style Model",
             "SDVN Auto Generate",
             "SDVN AutoSwitch",
@@ -3124,6 +3149,7 @@
             "SDVN Dic Convert",
             "SDVN DualCLIP Download",
             "SDVN Easy IPAdapter weight",
+            "SDVN Empty Latent Ratio",
             "SDVN Exif check",
             "SDVN Fill Background",
             "SDVN Filter List",
@@ -3474,6 +3500,15 @@
         ],
         {
             "title_aux": "ComfyUI-WozNodes"
+        }
+    ],
+    "https://github.com/XiaoHeiziGGG/ComfyUI-GeminiTranslator": [
+        [
+            "GeminiBatchTranslator",
+            "GeminiTranslator"
+        ],
+        {
+            "title_aux": "ComfyUI Gemini Translator [WIP]"
         }
     ],
     "https://github.com/Yeonri/ComfyUI_LLM_Are_You_Listening": [
@@ -4465,15 +4500,6 @@
             "title_aux": "ComfyUI-AppGen [UNSAFE]"
         }
     ],
-    "https://github.com/coVISIONSld/ComfyUI-OmniGen2": [
-        [
-            "OmniGen2ModelLoader",
-            "OmniGen2Sampler"
-        ],
-        {
-            "title_aux": "ComfyUI-OmniGen2 [NAME CONFLICT]"
-        }
-    ],
     "https://github.com/comfyanonymous/ComfyUI": [
         [
             "APG",
@@ -4986,8 +5012,10 @@
     ],
     "https://github.com/cyberhirsch/seb_nodes": [
         [
+            "AspectRatioSeb",
             "SaveImageSeb",
-            "SwitchMasksSeb"
+            "SwitchMasksSeb",
+            "UnifiedPrompterSeb"
         ],
         {
             "title_aux": "seb_nodes [WIP]"
@@ -5389,6 +5417,14 @@
             "title_aux": "ComfyUI-Lucian [WIP]"
         }
     ],
+    "https://github.com/fylrid2/comfyui_lock_previous_value": [
+        [
+            "Lock"
+        ],
+        {
+            "title_aux": "lockValue"
+        }
+    ],
     "https://github.com/gabe-init/ComfyUI-LM-Studio": [
         [
             "LMStudioNode"
@@ -5641,13 +5677,14 @@
             "HolafBenchmarkRunner",
             "HolafImageComparer",
             "HolafInstagramResize",
+            "HolafInternalSampler",
             "HolafKSampler",
-            "HolafLutApplier",
             "HolafLutGenerator",
-            "HolafLutLoader",
             "HolafLutSaver",
             "HolafMaskToBoolean",
+            "HolafOrchestratorConfig",
             "HolafOverlayNode",
+            "HolafRatioCalculator",
             "HolafResolutionPreset",
             "HolafSaveImage",
             "HolafSliceCalculator",
@@ -6152,7 +6189,8 @@
             "BailianAPIPoll",
             "BailianAPISubmit",
             "MaletteJSONExtractor",
-            "MaletteJSONModifier"
+            "MaletteJSONModifier",
+            "MaletteVirtualTryOn"
         ],
         {
             "title_aux": "ComfyUI-AliCloud-Bailian [WIP]"
@@ -6502,7 +6540,7 @@
             "MMAudioVoCoderLoader"
         ],
         {
-            "title_aux": "ComfyUI-MMAudio"
+            "title_aux": "ComfyUI-MMAudio [WIP]"
         }
     ],
     "https://github.com/kijai/ComfyUI-MochiWrapper": [
@@ -8159,7 +8197,8 @@
     ],
     "https://github.com/robertvoy/ComfyUI-Distributed": [
         [
-            "MultiGPUCollector"
+            "MultiGPUCollector",
+            "MultiGPUDistributor"
         ],
         {
             "title_aux": "ComfyUI-Distributed [WIP]"
@@ -8875,7 +8914,8 @@
     "https://github.com/usrname0/ComfyUI-AllergicPack": [
         [
             "FolderFileCounter_Allergic",
-            "IncrementorPlus"
+            "IncrementorPlus",
+            "WanVideoVACEContextManager"
         ],
         {
             "title_aux": "ComfyUI-AllergicPack [WIP]"
