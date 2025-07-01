@@ -1,5 +1,6 @@
 import os
 import logging
+from aiohttp import web
 
 def prestartup():
     from . import prestartup_script  # noqa: F401
@@ -43,3 +44,30 @@ def should_be_disabled(fullpath:str) -> bool:
             return True
 
     return False
+
+
+def get_client_ip(request):
+    peername = request.transport.get_extra_info("peername")
+    if peername is not None:
+        host, port = peername
+        return host
+    
+    return "unknown"
+
+
+def create_middleware():
+    connected_clients = set()
+
+    @web.middleware
+    async def manager_middleware(request: web.Request, handler):
+        nonlocal connected_clients
+        client_ip = get_client_ip(request)
+        connected_clients.add(client_ip)
+
+        handler_path = f"{handler.__module__}.{handler.__name__}"
+
+        response: web.Response = await handler(request)
+        return response
+
+    return manager_middleware
+    
