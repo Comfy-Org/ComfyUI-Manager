@@ -1745,7 +1745,7 @@ def read_config():
             'http_channel_enabled': False,
             'preview_method': manager_funcs.get_current_preview_method(),
             'git_exe': '',
-            'use_uv': manager_util.use_uv,
+            'use_uv': manager_util.use_uv and platform.system() != "Windows",  # temporary disable on Windows by default
             'channel_url': DEFAULT_CHANNEL,
             'default_cache_as_channel_url': False,
             'share_option': 'all',
