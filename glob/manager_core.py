@@ -1739,13 +1739,14 @@ def read_config():
 
     except Exception:
         import importlib.util
-        manager_util.use_uv = importlib.util.find_spec("uv") is not None
+        # temporary disable `uv` on Windows by default (https://github.com/Comfy-Org/ComfyUI-Manager/issues/1969)
+        manager_util.use_uv = importlib.util.find_spec("uv") is not None and platform.system() != "Windows"
         
         return {
             'http_channel_enabled': False,
             'preview_method': manager_funcs.get_current_preview_method(),
             'git_exe': '',
-            'use_uv': manager_util.use_uv and platform.system() != "Windows",  # temporary disable on Windows by default
+            'use_uv': manager_util.use_uv,
             'channel_url': DEFAULT_CHANNEL,
             'default_cache_as_channel_url': False,
             'share_option': 'all',
