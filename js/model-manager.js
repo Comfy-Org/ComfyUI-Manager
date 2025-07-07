@@ -249,14 +249,14 @@ export class ModelManager {
 			bindContainerResize: true,
 
 			cellResizeObserver: (rowItem, columnItem) => {
-				const autoHeightColumns = ['name', 'description'];
+				const autoHeightColumns = ['name', 'description', 'full_paths'];
 				return autoHeightColumns.includes(columnItem.id)
 			},
 
 			// updateGrid handler for filter and keywords
 			rowFilter: (rowItem) => {
 
-				const searchableColumns = ["name", "type", "base", "description", "filename", "save_path"];
+				const searchableColumns = ["name", "type", "base", "description", "filename", "save_path", "full_paths"];
 				const models_extensions = ['.ckpt', '.pt', '.pt2', '.bin', '.pth', '.safetensors', '.pkl', '.sft'];
 
 				let shouldShown = grid.highlightKeywordsFilter(rowItem, searchableColumns, this.keywords);
@@ -389,6 +389,21 @@ export class ModelManager {
 			id: 'filename',
 			name: 'Filename',
 			width: 200
+		}, {
+			id: 'full_paths',
+			name: 'Full Paths',
+			width: 200,
+			maxWidth: 2000,
+			classMap: 'cmm-node-full-paths',
+			formatter: (full_paths) => {
+				if (typeof full_paths === "object" && Array.isArray(full_paths)) {
+					const styled_full_paths = full_paths.map(path => '<li>' + path + '</li>').join("");
+
+					return `<ul>${styled_full_paths}</ul>`;
+				} else {
+					return full_paths;
+				}
+			}
 		}];
 
 		restoreColumnWidth(gridId, columns);
