@@ -64,7 +64,7 @@ def create_middleware():
         client_ip = get_client_ip(request)
         connected_clients.add(client_ip)
 
-        handler_path = f"{handler.__module__}.{handler.__name__}"
+        # handler_path = f"{handler.__module__}.{handler.__name__}"
 
         response: web.Response = await handler(request)
         return response
