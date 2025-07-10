@@ -14,7 +14,7 @@ jobs:
   publish-node:
     name: Publish Custom Node to registry
     runs-on: ubuntu-latest
-    if: ${{ github.repository_owner == 'ltdrdata' }}
+    if: ${{ github.repository_owner == 'ltdrdata' || github.repository_owner == 'Comfy-Org' }}
     steps:
       - name: Check out code
         uses: actions/checkout@v4
