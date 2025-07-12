@@ -23,6 +23,7 @@ from ..common import manager_util
 from ..common import cm_global
 from ..common import manager_downloader
 from ..common import context
+from ..common import manager_security
 
 
 logging.info(f"### Loading: ComfyUI-Manager ({core.version_str})")
@@ -1964,9 +1965,10 @@ if not os.path.exists(context.manager_config_path):
     core.write_config()
 
 
-cm_global.register_extension('ComfyUI-Manager',
-                             {'version': core.version,
-                                 'name': 'ComfyUI Manager',
-                                 'nodes': {},
-                                 'description': 'This extension provides the ability to manage custom nodes in ComfyUI.', })
-
+# policy setup
+manager_security.add_handler_policy(reinstall_custom_node, manager_security.HANDLER_POLICY.MULTIPLE_REMOTE_BAN_NOT_PERSONAL_CLOUD)
+manager_security.add_handler_policy(install_custom_node, manager_security.HANDLER_POLICY.MULTIPLE_REMOTE_BAN_NOT_PERSONAL_CLOUD)
+manager_security.add_handler_policy(fix_custom_node, manager_security.HANDLER_POLICY.MULTIPLE_REMOTE_BAN_NOT_PERSONAL_CLOUD)
+manager_security.add_handler_policy(install_custom_node_git_url, manager_security.HANDLER_POLICY.MULTIPLE_REMOTE_BAN_NOT_PERSONAL_CLOUD)
+manager_security.add_handler_policy(install_custom_node_pip, manager_security.HANDLER_POLICY.MULTIPLE_REMOTE_BAN_NOT_PERSONAL_CLOUD)
+manager_security.add_handler_policy(install_model, manager_security.HANDLER_POLICY.MULTIPLE_REMOTE_BAN_NOT_PERSONAL_CLOUD)

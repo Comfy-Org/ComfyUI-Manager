@@ -47,6 +47,7 @@ from ..common import manager_util
 from ..common import cm_global
 from ..common import manager_downloader
 from ..common import context
+from ..common import manager_security
 
 
 from ..data_models import (
@@ -2020,13 +2021,3 @@ if not os.path.exists(context.manager_config_path):
     core.get_config()
     core.write_config()
 
-
-cm_global.register_extension(
-    "ComfyUI-Manager",
-    {
-        "version": core.version,
-        "name": "ComfyUI Manager",
-        "nodes": {},
-        "description": "This extension provides the ability to manage custom nodes in ComfyUI.",
-    },
-)
