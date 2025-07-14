@@ -1,3 +1,7 @@
+"""
+This file is the entry point for the ComfyUI-Manager package, handling CLI-only mode and initial setup.
+"""
+
 import os
 import sys
 

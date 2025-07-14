@@ -256,7 +256,7 @@ def get_installed_packages(renew=False):
                     pip_map[normalized_name] = y[1]
         except subprocess.CalledProcessError:
             logging.error("[ComfyUI-Manager] Failed to retrieve the information of installed pip packages.")
-            return set()
+            return {}
 
     return pip_map
 
@@ -307,6 +307,7 @@ def parse_requirement_line(line):
 
 
 torch_torchvision_torchaudio_version_map = {
+    '2.7.0': ('0.22.0', '2.7.0'),
     '2.6.0': ('0.21.0', '2.6.0'),
     '2.5.1': ('0.20.0', '2.5.0'),
     '2.5.0': ('0.20.0', '2.5.0'),
@@ -410,25 +411,12 @@ class PIPFixer:
 
                 if len(targets) > 0:
                     for x in targets:
-                        cmd = make_pip_cmd(['install', f"{x}=={versions[0].version_string}", "numpy<2"])
+                        cmd = make_pip_cmd(['install', f"{x}=={versions[0].version_string}"])
                         subprocess.check_output(cmd, universal_newlines=True)
 
                     logging.info(f"[ComfyUI-Manager] 'opencv' dependencies were fixed: {targets}")
         except Exception as e:
             logging.error("[ComfyUI-Manager] Failed to restore opencv")
-            logging.error(e)
-
-        # fix numpy
-        try:
-            np = new_pip_versions.get('numpy')
-            if np is not None:
-                if StrictVersion(np) >= StrictVersion('2'):
-                    cmd = make_pip_cmd(['install', "numpy<2"])
-                    subprocess.check_output(cmd , universal_newlines=True)
-
-                    logging.info("[ComfyUI-Manager] 'numpy' dependency were fixed")
-        except Exception as e:
-            logging.error("[ComfyUI-Manager] Failed to restore numpy")
             logging.error(e)
 
         # fix missing frontend
@@ -469,7 +457,7 @@ class PIPFixer:
                         normalized_name = parsed['package'].lower().replace('-', '_')
                         if normalized_name in new_pip_versions:
                             if 'version' in parsed and 'operator' in parsed:
-                                cur = StrictVersion(new_pip_versions[parsed['package']])
+                                cur = StrictVersion(new_pip_versions[normalized_name])
                                 dest = parsed['version']
                                 op = parsed['operator']
                                 if cur == dest:

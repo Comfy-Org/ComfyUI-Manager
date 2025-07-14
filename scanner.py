@@ -102,12 +102,8 @@ def extract_nodes(code_text):
 def scan_in_file(filename, is_builtin=False):
     global builtin_nodes
 
-    try:
-        with open(filename, encoding='utf-8') as file:
-            code = file.read()
-    except UnicodeDecodeError:
-        with open(filename, encoding='cp949') as file:
-            code = file.read()
+    with open(filename, encoding='utf-8', errors='ignore') as file:
+        code = file.read()
 
     pattern = r"_CLASS_MAPPINGS\s*=\s*{([^}]*)}"
     regex = re.compile(pattern, re.MULTILINE | re.DOTALL)
@@ -297,7 +293,7 @@ def update_custom_nodes():
             pass
 
         def is_rate_limit_exceeded():
-            return g.rate_limiting[0] == 0
+            return g.rate_limiting[0] <= 20
 
         if is_rate_limit_exceeded():
             print(f"GitHub API Rate Limit Exceeded: remained - {(g.rate_limiting_resettime - datetime.datetime.now().timestamp())/60:.2f} min")

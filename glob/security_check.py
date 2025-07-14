@@ -2,6 +2,8 @@ import sys
 import subprocess
 import os
 
+import manager_util
+
 
 def security_check():
     print("[START] Security scan")
@@ -66,11 +68,11 @@ https://blog.comfy.org/comfyui-statement-on-the-ultralytics-crypto-miner-situati
         "lolMiner": [os.path.join(comfyui_path, 'lolMiner')]
     }
 
-    installed_pips = subprocess.check_output([sys.executable, '-m', "pip", "freeze"], text=True)
+    installed_pips = subprocess.check_output(manager_util.make_pip_cmd(["freeze"]), text=True)
 
     detected = set()
     try:
-        anthropic_info = subprocess.check_output([sys.executable, '-m', "pip", "show", "anthropic"], text=True, stderr=subprocess.DEVNULL)
+        anthropic_info = subprocess.check_output(manager_util.make_pip_cmd(["show", "anthropic"]), text=True, stderr=subprocess.DEVNULL)
         anthropic_reqs = [x for x in anthropic_info.split('\n') if x.startswith("Requires")][0].split(': ')[1]
         if "pycrypto" in anthropic_reqs:
             location = [x for x in anthropic_info.split('\n') if x.startswith("Location")][0].split(': ')[1]

@@ -43,9 +43,10 @@ import cnr_utils
 
 comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
 
-cm_global.pip_blacklist = {'torch', 'torchsde', 'torchvision'}
-cm_global.pip_downgrade_blacklist = ['torch', 'torchsde', 'torchvision', 'transformers', 'safetensors', 'kornia']
-cm_global.pip_overrides = {'numpy': 'numpy<2'}
+cm_global.pip_blacklist = {'torch', 'torchaudio', 'torchsde', 'torchvision'}
+cm_global.pip_downgrade_blacklist = ['torch', 'torchaudio', 'torchsde', 'torchvision', 'transformers', 'safetensors', 'kornia']
+
+cm_global.pip_overrides = {}
 
 if os.path.exists(os.path.join(manager_util.comfyui_manager_path, "pip_overrides.json")):
     with open(os.path.join(manager_util.comfyui_manager_path, "pip_overrides.json"), 'r', encoding="UTF-8", errors="ignore") as json_file:
@@ -147,7 +148,6 @@ class Ctx:
         if os.path.exists(core.manager_pip_overrides_path):
             with open(core.manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
                 cm_global.pip_overrides = json.load(json_file)
-                cm_global.pip_overrides = {'numpy': 'numpy<2'}
 
         if os.path.exists(core.manager_pip_blacklist_path):
             with open(core.manager_pip_blacklist_path, 'r', encoding="UTF-8", errors="ignore") as f:
@@ -184,13 +184,18 @@ class Ctx:
 cmd_ctx = Ctx()
 
 
-def install_node(node_spec_str, is_all=False, cnt_msg=''):
+def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
+    exit_on_fail = kwargs.get('exit_on_fail', False)
+    print(f"install_node exit on fail:{exit_on_fail}...")
+    
     if core.is_valid_url(node_spec_str):
         # install via urls
         res = asyncio.run(core.gitclone_install(node_spec_str, no_deps=cmd_ctx.no_deps))
         if not res.result:
             print(res.msg)
             print(f"[bold red]ERROR: An error occurred while installing '{node_spec_str}'.[/bold red]")
+            if exit_on_fail:
+                sys.exit(1)
         else:
             print(f"{cnt_msg} [INSTALLED] {node_spec_str:50}")
     else:
@@ -225,6 +230,8 @@ def install_node(node_spec_str, is_all=False, cnt_msg=''):
             print("")
         else:
             print(f"[bold red]ERROR: An error occurred while installing '{node_name}'.\n{res.msg}[/bold red]")
+            if exit_on_fail:
+                sys.exit(1)
 
 
 def reinstall_node(node_spec_str, is_all=False, cnt_msg=''):
@@ -586,7 +593,7 @@ def get_all_installed_node_specs():
     return res
 
 
-def for_each_nodes(nodes, act, allow_all=True):
+def for_each_nodes(nodes, act, allow_all=True, **kwargs):
     is_all = False
     if allow_all and 'all' in nodes:
         is_all = True
@@ -598,7 +605,7 @@ def for_each_nodes(nodes, act, allow_all=True):
     i = 1
     for x in nodes:
         try:
-            act(x, is_all=is_all, cnt_msg=f'{i}/{total}')
+            act(x, is_all=is_all, cnt_msg=f'{i}/{total}', **kwargs)
         except Exception as e:
             print(f"ERROR: {e}")
             traceback.print_exc()
@@ -642,13 +649,17 @@ def install(
             None,
             help="user directory"
         ),
+        exit_on_fail: bool = typer.Option(
+            False,
+            help="Exit on failure"
+        )
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
     cmd_ctx.set_no_deps(no_deps)
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, core.manager_files_path)
-    for_each_nodes(nodes, act=install_node)
+    for_each_nodes(nodes, act=install_node, exit_on_fail=exit_on_fail)
     pip_fixer.fix_broken()
 
 
@@ -1047,18 +1058,16 @@ def save_snapshot(
 ):
     cmd_ctx.set_user_directory(user_directory)
 
-    if output is None:
-        print("[bold red]ERROR: missing output path[/bold red]")
-        raise typer.Exit(code=1)
-        
-    if(not output.endswith('.json') and not output.endswith('.yaml')):
-        print("[bold red]ERROR: output path should be either '.json' or '.yaml' file.[/bold red]")
-        raise typer.Exit(code=1)
+    if output is not None:
+        if(not output.endswith('.json') and not output.endswith('.yaml')):
+            print("[bold red]ERROR: output path should be either '.json' or '.yaml' file.[/bold red]")
+            raise typer.Exit(code=1)
     
-    dir_path = os.path.dirname(output)
-    if(dir_path != '' and not os.path.exists(dir_path)):
-        print(f"[bold red]ERROR: {output} path not exists.[/bold red]")
-        raise typer.Exit(code=1)
+        dir_path = os.path.dirname(output)
+        
+        if(dir_path != '' and not os.path.exists(dir_path)):
+            print(f"[bold red]ERROR: {output} path not exists.[/bold red]")
+            raise typer.Exit(code=1)
         
     path = asyncio.run(core.save_snapshot_with_postfix('snapshot', output, not full_snapshot))
     print(f"Current snapshot is saved as `{path}`")
