@@ -29854,4 +29854,18 @@
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
         }
     ]
+},
+{
+  "author": "StrawberryFist",
+  "title": "StrawberryFist VRAM Optimizer",
+  "reference": "https://github.com/strawberryPunch/vram_optimizer",
+  "files": ["https://github.com/strawberryPunch/vram_optimizer"],
+  "install_type": "git-clone",
+  "description": "A comprehensive VRAM management tool for ComfyUI. Includes automatic cleanup and GPU monitoring.",
+  "nodename_pattern": "StFist",
+  "pip": ["GPUtil>=1.4.0"],
+  "tags": ["vram", "gpu", "optimizer", "monitoring"],
+  "js_path": "strawberry_vram_optimizer",
+  "preemptions": "AUTO"
 }
+
