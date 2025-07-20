@@ -113,17 +113,11 @@ read_uv_mode()
 security_check.security_check()
 check_file_logging()
 
-if sys.version_info < (3, 13):
-    cm_global.pip_overrides = {'numpy': 'numpy<2'}
-else:
-    cm_global.pip_overrides = {}
+cm_global.pip_overrides = {}
 
 if os.path.exists(manager_pip_overrides_path):
     with open(manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
         cm_global.pip_overrides = json.load(json_file)
-        
-        if sys.version_info < (3, 13):
-            cm_global.pip_overrides['numpy'] = 'numpy<2'
 
 
 if os.path.exists(manager_pip_blacklist_path):

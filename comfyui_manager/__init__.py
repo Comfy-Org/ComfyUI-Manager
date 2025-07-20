@@ -81,8 +81,6 @@ def create_middleware():
         policy = manager_security.get_handler_policy(handler)
         is_banned = False
 
-        print(f"{handler} => {policy}")
-
         # policy check
         if len(connected_clients) > 1:
             if is_local_mode:

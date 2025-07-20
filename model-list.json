@@ -5148,6 +5148,50 @@
       "size": "15.7GB"
     },
     {
+      "name": "LTX-Video 2B Distilled v0.9.8",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "LTX-Video 2B distilled model v0.9.8 with improved prompt understanding and detail generation.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-2b-0.9.8-distilled.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-2b-0.9.8-distilled.safetensors",
+      "size": "6.34GB"
+    },
+    {
+      "name": "LTX-Video 2B Distilled FP8 v0.9.8",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "Quantized LTX-Video 2B distilled model v0.9.8 with improved prompt understanding and detail generation, optimized for lower VRAM usage.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-2b-0.9.8-distilled-fp8.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-2b-0.9.8-distilled-fp8.safetensors",
+      "size": "4.46GB"
+    },
+    {
+      "name": "LTX-Video 13B Distilled v0.9.8",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "LTX-Video 13B distilled model v0.9.8 with improved prompt understanding and detail generation.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-13b-0.9.8-distilled.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.8-distilled.safetensors",
+      "size": "28.6GB"
+    },
+    {
+      "name": "LTX-Video 13B Distilled FP8 v0.9.8",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "Quantized LTX-Video 13B distilled model v0.9.8 with improved prompt understanding and detail generation, optimized for lower VRAM usage.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-13b-0.9.8-distilled-fp8.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.8-distilled-fp8.safetensors",
+      "size": "15.7GB"
+    },
+    {
       "name": "LTX-Video 13B Distilled LoRA v0.9.7",
       "type": "lora",
       "base": "LTX-Video",
@@ -5157,6 +5201,50 @@
       "filename": "ltxv-13b-0.9.7-distilled-lora128.safetensors",
       "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.7-distilled-lora128.safetensors",
       "size": "1.33GB"
+    },
+    {
+      "name": "LTX-Video ICLoRA Depth 13B v0.9.7",
+      "type": "lora",
+      "base": "LTX-Video",
+      "save_path": "loras",
+      "description": "In-Context LoRA (IC LoRA) for depth-controlled video-to-video generation with precise depth conditioning.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-depth-13b-0.9.7",
+      "filename": "ltxv-097-ic-lora-depth-control-comfyui.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-depth-13b-0.9.7/resolve/main/ltxv-097-ic-lora-depth-control-comfyui.safetensors",
+      "size": "81.9MB"
+    },
+    {
+      "name": "LTX-Video ICLoRA Pose 13B v0.9.7",
+      "type": "lora",
+      "base": "LTX-Video",
+      "save_path": "loras",
+      "description": "In-Context LoRA (IC LoRA) for pose-controlled video-to-video generation with precise pose conditioning.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-pose-13b-0.9.7",
+      "filename": "ltxv-097-ic-lora-pose-control-comfyui.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-pose-13b-0.9.7/resolve/main/ltxv-097-ic-lora-pose-control-comfyui.safetensors",
+      "size": "151MB"
+    },
+    {
+      "name": "LTX-Video ICLoRA Canny 13B v0.9.7",
+      "type": "lora",
+      "base": "LTX-Video",
+      "save_path": "loras",
+      "description": "In-Context LoRA (IC LoRA) for canny edge-controlled video-to-video generation with precise edge conditioning.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-canny-13b-0.9.7",
+      "filename": "ltxv-097-ic-lora-canny-control-comfyui.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-canny-13b-0.9.7/resolve/main/ltxv-097-ic-lora-canny-control-comfyui.safetensors",
+      "size": "81.9MB"
+    },
+    {
+      "name": "LTX-Video ICLoRA Detailer 13B v0.9.8",
+      "type": "lora",
+      "base": "LTX-Video",
+      "save_path": "loras",
+      "description": "A video detailer model on top of LTXV_13B_098_DEV trained on custom data using In-Context LoRA (IC LoRA) method.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-detailer-13b-0.9.8",
+      "filename": "ltxv-098-ic-lora-detailer-comfyui.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-detailer-13b-0.9.8/resolve/main/ltxv-098-ic-lora-detailer-comfyui.safetensors",
+      "size": "1.31GB"
     },
     {
       "name": "Latent Bridge Matching for Image Relighting",

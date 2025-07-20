@@ -47,7 +47,7 @@ from ..common import manager_util
 from ..common import cm_global
 from ..common import manager_downloader
 from ..common import context
-from ..common import manager_security
+
 
 
 from ..data_models import (

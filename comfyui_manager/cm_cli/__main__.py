@@ -46,10 +46,7 @@ comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
 cm_global.pip_blacklist = {'torch', 'torchaudio', 'torchsde', 'torchvision'}
 cm_global.pip_downgrade_blacklist = ['torch', 'torchaudio', 'torchsde', 'torchvision', 'transformers', 'safetensors', 'kornia']
 
-if sys.version_info < (3, 13):
-    cm_global.pip_overrides = {'numpy': 'numpy<2'}
-else:
-    cm_global.pip_overrides = {}
+cm_global.pip_overrides = {}
 
 if os.path.exists(os.path.join(manager_util.comfyui_manager_path, "pip_overrides.json")):
     with open(os.path.join(manager_util.comfyui_manager_path, "pip_overrides.json"), 'r', encoding="UTF-8", errors="ignore") as json_file:
@@ -151,9 +148,6 @@ class Ctx:
         if os.path.exists(context.manager_pip_overrides_path):
             with open(context.manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
                 cm_global.pip_overrides = json.load(json_file)
-
-                if sys.version_info < (3, 13):
-                    cm_global.pip_overrides = {'numpy': 'numpy<2'}
 
         if os.path.exists(context.manager_pip_blacklist_path):
             with open(context.manager_pip_blacklist_path, 'r', encoding="UTF-8", errors="ignore") as f:
