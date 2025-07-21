@@ -15,7 +15,6 @@ import re
 import logging
 import platform
 import shlex
-import cm_global
 
 
 cache_lock = threading.Lock()
@@ -327,38 +326,38 @@ torch_torchvision_torchaudio_version_map = {
 }
 
 
+def torch_rollback(prev):
+    spec = prev.split('+')
+    if len(spec) > 1:
+        platform = spec[1]
+    else:
+        cmd = make_pip_cmd(['install', '--force', 'torch', 'torchvision', 'torchaudio'])
+        subprocess.check_output(cmd, universal_newlines=True)
+        logging.error(cmd)
+        return
+
+    torch_ver = StrictVersion(spec[0])
+    torch_ver = f"{torch_ver.major}.{torch_ver.minor}.{torch_ver.patch}"
+    torch_torchvision_torchaudio_ver = torch_torchvision_torchaudio_version_map.get(torch_ver)
+
+    if torch_torchvision_torchaudio_ver is None:
+        cmd = make_pip_cmd(['install', '--pre', 'torch', 'torchvision', 'torchaudio',
+                            '--index-url', f"https://download.pytorch.org/whl/nightly/{platform}"])
+        logging.info("[ComfyUI-Manager] restore PyTorch to nightly version")
+    else:
+        torchvision_ver, torchaudio_ver = torch_torchvision_torchaudio_ver
+        cmd = make_pip_cmd(['install', f'torch=={torch_ver}', f'torchvision=={torchvision_ver}', f"torchaudio=={torchaudio_ver}",
+                            '--index-url', f"https://download.pytorch.org/whl/{platform}"])
+        logging.info(f"[ComfyUI-Manager] restore PyTorch to {torch_ver}+{platform}")
+
+    subprocess.check_output(cmd, universal_newlines=True)
+
 
 class PIPFixer:
     def __init__(self, prev_pip_versions, comfyui_path, manager_files_path):
         self.prev_pip_versions = { **prev_pip_versions }
         self.comfyui_path = comfyui_path
         self.manager_files_path = manager_files_path
-
-    def torch_rollback(self):
-        spec = self.prev_pip_versions['torch'].split('+')
-        if len(spec) > 0:
-            platform = spec[1]
-        else:
-            cmd = make_pip_cmd(['install', '--force', 'torch', 'torchvision', 'torchaudio'])
-            subprocess.check_output(cmd, universal_newlines=True)
-            logging.error(cmd)
-            return
-
-        torch_ver = StrictVersion(spec[0])
-        torch_ver = f"{torch_ver.major}.{torch_ver.minor}.{torch_ver.patch}"
-        torch_torchvision_torchaudio_ver = torch_torchvision_torchaudio_version_map.get(torch_ver)
-
-        if torch_torchvision_torchaudio_ver is None:
-            cmd = make_pip_cmd(['install', '--pre', 'torch', 'torchvision', 'torchaudio',
-                                '--index-url', f"https://download.pytorch.org/whl/nightly/{platform}"])
-            logging.info("[ComfyUI-Manager] restore PyTorch to nightly version")
-        else:
-            torchvision_ver, torchaudio_ver = torch_torchvision_torchaudio_ver
-            cmd = make_pip_cmd(['install', f'torch=={torch_ver}', f'torchvision=={torchvision_ver}', f"torchaudio=={torchaudio_ver}",
-                                '--index-url', f"https://download.pytorch.org/whl/{platform}"])
-            logging.info(f"[ComfyUI-Manager] restore PyTorch to {torch_ver}+{platform}")
-
-        subprocess.check_output(cmd, universal_newlines=True)
 
     def fix_broken(self):
         new_pip_versions = get_installed_packages(True)
@@ -381,7 +380,7 @@ class PIPFixer:
             elif self.prev_pip_versions['torch'] != new_pip_versions['torch'] \
                 or self.prev_pip_versions['torchvision'] != new_pip_versions['torchvision'] \
                 or self.prev_pip_versions['torchaudio'] != new_pip_versions['torchaudio']:
-                    self.torch_rollback()
+                    torch_rollback(self.prev_pip_versions['torch'])
         except Exception as e:
             logging.error("[ComfyUI-Manager] Failed to restore PyTorch")
             logging.error(e)
@@ -412,31 +411,13 @@ class PIPFixer:
 
                 if len(targets) > 0:
                     for x in targets:
-                        if sys.version_info < (3, 13):
-                            cmd = make_pip_cmd(['install', f"{x}=={versions[0].version_string}", "numpy<2"])
-                            subprocess.check_output(cmd, universal_newlines=True)
+                        cmd = make_pip_cmd(['install', f"{x}=={versions[0].version_string}"])
+                        subprocess.check_output(cmd, universal_newlines=True)
 
                     logging.info(f"[ComfyUI-Manager] 'opencv' dependencies were fixed: {targets}")
         except Exception as e:
             logging.error("[ComfyUI-Manager] Failed to restore opencv")
             logging.error(e)
-
-        # fix numpy
-        if sys.version_info >= (3, 13):
-            logging.info("[ComfyUI-Manager] In Python 3.13 and above, PIP Fixer does not downgrade `numpy` below version 2.0. If you need to force a downgrade of `numpy`, please use `pip_auto_fix.list`.")
-        else:
-            try:
-                np = new_pip_versions.get('numpy')
-                if cm_global.pip_overrides.get('numpy') == 'numpy<2':
-                    if np is not None:
-                        if StrictVersion(np) >= StrictVersion('2'):
-                            cmd = make_pip_cmd(['install', "numpy<2"])
-                            subprocess.check_output(cmd , universal_newlines=True)
-
-                            logging.info("[ComfyUI-Manager] 'numpy' dependency were fixed")
-            except Exception as e:
-                logging.error("[ComfyUI-Manager] Failed to restore numpy")
-                logging.error(e)
 
         # fix missing frontend
         try:
@@ -537,3 +518,69 @@ def robust_readlines(fullpath):
 
         print(f"[ComfyUI-Manager] Failed to recognize encoding for: {fullpath}")
         return []
+
+
+def restore_pip_snapshot(pips, options):
+    non_url = []
+    local_url = []
+    non_local_url = []
+
+    for k, v in pips.items():
+        # NOTE: skip torch related packages
+        if k.startswith("torch==") or k.startswith("torchvision==") or k.startswith("torchaudio==") or k.startswith("nvidia-"):
+            continue
+
+        if v == "":
+            non_url.append(k)
+        else:
+            if v.startswith('file:'):
+                local_url.append(v)
+            else:
+                non_local_url.append(v)
+
+
+    # restore other pips
+    failed = []
+    if '--pip-non-url' in options:
+        # try all at once
+        res = 1
+        try:
+            res = subprocess.check_output(make_pip_cmd(['install'] + non_url))
+        except Exception:
+            pass
+
+        # fallback
+        if res != 0:
+            for x in non_url:
+                res = 1
+                try:
+                    res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+                except Exception:
+                    pass
+
+                if res != 0:
+                    failed.append(x)
+
+    if '--pip-non-local-url' in options:
+        for x in non_local_url:
+            res = 1
+            try:
+                res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+            except Exception:
+                pass
+
+            if res != 0:
+                failed.append(x)
+
+    if '--pip-local-url' in options:
+        for x in local_url:
+            res = 1
+            try:
+                res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+            except Exception:
+                pass
+
+            if res != 0:
+                failed.append(x)
+
+    print(f"Installation failed for pip packages: {failed}")

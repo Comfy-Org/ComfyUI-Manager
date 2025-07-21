@@ -1973,6 +1973,97 @@
       "url": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth",
       "size": "375.0MB"
     },
+
+    {
+      "name": "sam2.1_hiera_tiny.pt",
+      "type": "sam2.1",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2.1 hiera model (tiny)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2.1_hiera_tiny.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_tiny.pt",
+      "size": "149.0MB"
+    },
+    {
+      "name": "sam2.1_hiera_small.pt",
+      "type": "sam2.1",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2.1 hiera model (small)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2.1_hiera_small.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_small.pt",
+      "size": "176.0MB"
+    },
+    {
+      "name": "sam2.1_hiera_base_plus.pt",
+      "type": "sam2.1",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2.1 hiera model (base+)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2.1_hiera_base_plus.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_base_plus.pt",
+      "size": "309.0MB"
+    },
+    {
+      "name": "sam2.1_hiera_large.pt",
+      "type": "sam2.1",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2.1 hiera model (large)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2.1_hiera_large.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt",
+      "size": "857.0MB"
+    },
+
+    {
+      "name": "sam2_hiera_tiny.pt",
+      "type": "sam2",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2 hiera model (tiny)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2_hiera_tiny.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_tiny.pt",
+      "size": "149.0MB"
+    },
+    {
+      "name": "sam2_hiera_small.pt",
+      "type": "sam2",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2 hiera model (small)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2_hiera_small.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_small.pt",
+      "size": "176.0MB"
+    },
+    {
+      "name": "sam2_hiera_base_plus.pt",
+      "type": "sam2",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2 hiera model (base+)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2_hiera_base_plus.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_base_plus.pt",
+      "size": "309.0MB"
+    },
+    {
+      "name": "sam2_hiera_large.pt",
+      "type": "sam2",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2 hiera model (large)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2_hiera_large.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt",
+      "size": "857.0MB"
+    },
+
     {
       "name": "seecoder v1.0",
       "type": "seecoder",
@@ -4007,6 +4098,29 @@
     },
 
     {
+      "name": "Comfy-Org/omnigen2_fp16.safetensors",
+      "type": "diffusion_model",
+      "base": "OmniGen2",
+      "save_path": "default",
+      "description": "OmniGen2 diffusion model. This is required for using OmniGen2.",
+      "reference": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged",
+      "filename": "omnigen2_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/omnigen2_fp16.safetensors",
+      "size": "7.93GB"
+    },
+    {
+      "name": "Comfy-Org/qwen_2.5_vl_fp16.safetensors",
+      "type": "clip",
+      "base": "qwen-2.5",
+      "save_path": "default",
+      "description": "text encoder for OmniGen2",
+      "reference": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged",
+      "filename": "qwen_2.5_vl_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged/resolve/main/split_files/text_encoders/qwen_2.5_vl_fp16.safetensors",
+      "size": "7.51GB"
+    },
+
+    {
       "name": "FLUX.1 [Schnell] Diffusion model",
       "type": "diffusion_model",
       "base": "FLUX.1",
@@ -4023,7 +4137,7 @@
       "type": "VAE",
       "base": "FLUX.1",
       "save_path": "vae/FLUX1",
-      "description": "FLUX.1 VAE model",
+      "description": "FLUX.1 VAE model\nNOTE: This VAE model can also be used for image generation with OmniGen2.",
       "reference": "https://huggingface.co/black-forest-labs/FLUX.1-schnell",
       "filename": "ae.safetensors",
       "url": "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors",
@@ -5034,6 +5148,50 @@
       "size": "15.7GB"
     },
     {
+      "name": "LTX-Video 2B Distilled v0.9.8",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "LTX-Video 2B distilled model v0.9.8 with improved prompt understanding and detail generation.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-2b-0.9.8-distilled.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-2b-0.9.8-distilled.safetensors",
+      "size": "6.34GB"
+    },
+    {
+      "name": "LTX-Video 2B Distilled FP8 v0.9.8",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "Quantized LTX-Video 2B distilled model v0.9.8 with improved prompt understanding and detail generation, optimized for lower VRAM usage.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-2b-0.9.8-distilled-fp8.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-2b-0.9.8-distilled-fp8.safetensors",
+      "size": "4.46GB"
+    },
+    {
+      "name": "LTX-Video 13B Distilled v0.9.8",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "LTX-Video 13B distilled model v0.9.8 with improved prompt understanding and detail generation.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-13b-0.9.8-distilled.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.8-distilled.safetensors",
+      "size": "28.6GB"
+    },
+    {
+      "name": "LTX-Video 13B Distilled FP8 v0.9.8",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "Quantized LTX-Video 13B distilled model v0.9.8 with improved prompt understanding and detail generation, optimized for lower VRAM usage.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-13b-0.9.8-distilled-fp8.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.8-distilled-fp8.safetensors",
+      "size": "15.7GB"
+    },
+    {
       "name": "LTX-Video 13B Distilled LoRA v0.9.7",
       "type": "lora",
       "base": "LTX-Video",
@@ -5043,6 +5201,50 @@
       "filename": "ltxv-13b-0.9.7-distilled-lora128.safetensors",
       "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.7-distilled-lora128.safetensors",
       "size": "1.33GB"
+    },
+    {
+      "name": "LTX-Video ICLoRA Depth 13B v0.9.7",
+      "type": "lora",
+      "base": "LTX-Video",
+      "save_path": "loras",
+      "description": "In-Context LoRA (IC LoRA) for depth-controlled video-to-video generation with precise depth conditioning.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-depth-13b-0.9.7",
+      "filename": "ltxv-097-ic-lora-depth-control-comfyui.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-depth-13b-0.9.7/resolve/main/ltxv-097-ic-lora-depth-control-comfyui.safetensors",
+      "size": "81.9MB"
+    },
+    {
+      "name": "LTX-Video ICLoRA Pose 13B v0.9.7",
+      "type": "lora",
+      "base": "LTX-Video",
+      "save_path": "loras",
+      "description": "In-Context LoRA (IC LoRA) for pose-controlled video-to-video generation with precise pose conditioning.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-pose-13b-0.9.7",
+      "filename": "ltxv-097-ic-lora-pose-control-comfyui.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-pose-13b-0.9.7/resolve/main/ltxv-097-ic-lora-pose-control-comfyui.safetensors",
+      "size": "151MB"
+    },
+    {
+      "name": "LTX-Video ICLoRA Canny 13B v0.9.7",
+      "type": "lora",
+      "base": "LTX-Video",
+      "save_path": "loras",
+      "description": "In-Context LoRA (IC LoRA) for canny edge-controlled video-to-video generation with precise edge conditioning.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-canny-13b-0.9.7",
+      "filename": "ltxv-097-ic-lora-canny-control-comfyui.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-canny-13b-0.9.7/resolve/main/ltxv-097-ic-lora-canny-control-comfyui.safetensors",
+      "size": "81.9MB"
+    },
+    {
+      "name": "LTX-Video ICLoRA Detailer 13B v0.9.8",
+      "type": "lora",
+      "base": "LTX-Video",
+      "save_path": "loras",
+      "description": "A video detailer model on top of LTXV_13B_098_DEV trained on custom data using In-Context LoRA (IC LoRA) method.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-detailer-13b-0.9.8",
+      "filename": "ltxv-098-ic-lora-detailer-comfyui.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-detailer-13b-0.9.8/resolve/main/ltxv-098-ic-lora-detailer-comfyui.safetensors",
+      "size": "1.31GB"
     },
     {
       "name": "Latent Bridge Matching for Image Relighting",

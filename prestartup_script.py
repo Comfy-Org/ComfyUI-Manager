@@ -38,7 +38,6 @@ else:
     def current_timestamp():
         return str(time.time()).split('.')[0]
 
-security_check.security_check()
 
 cm_global.pip_blacklist = {'torch', 'torchaudio', 'torchsde', 'torchvision'}
 cm_global.pip_downgrade_blacklist = ['torch', 'torchaudio', 'torchsde', 'torchvision', 'transformers', 'safetensors', 'kornia']
@@ -119,19 +118,14 @@ def check_file_logging():
 
 read_config()
 read_uv_mode()
+security_check.security_check()
 check_file_logging()
 
-if sys.version_info < (3, 13):
-    cm_global.pip_overrides = {'numpy': 'numpy<2'}
-else:
-    cm_global.pip_overrides = {}
+cm_global.pip_overrides = {}
 
 if os.path.exists(manager_pip_overrides_path):
     with open(manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
         cm_global.pip_overrides = json.load(json_file)
-        
-        if sys.version_info < (3, 13):
-            cm_global.pip_overrides['numpy'] = 'numpy<2'
 
 
 if os.path.exists(manager_pip_blacklist_path):

@@ -255,13 +255,13 @@ def clone_or_pull_git_repository(git_url):
             repo.git.submodule('update', '--init', '--recursive')
             print(f"Pulling {repo_name}...")
         except Exception as e:
-            print(f"Pulling {repo_name} failed: {e}")
+            print(f"Failed to pull '{repo_name}': {e}")
     else:
         try:
             Repo.clone_from(git_url, repo_dir, recursive=True)
             print(f"Cloning {repo_name}...")
         except Exception as e:
-            print(f"Cloning {repo_name} failed: {e}")
+            print(f"Failed to clone '{repo_name}': {e}")
 
 
 def update_custom_nodes():
