@@ -5248,6 +5248,17 @@
             "description": "Unofficial implementation of siliconflow API for ComfyUI\nHow to use:apply api key in ：https://cloud.siliconflow.cn/\nadd api key in config.json"
         },
         {
+            "author": "SpaceKendo",
+            "title": "Text to video for Stable Video Diffusion in ComfyUI",
+            "id": "svd-txt2vid",
+            "reference": "https://github.com/SpaceKendo/ComfyUI-svd_txt2vid",
+            "files": [
+                "https://github.com/SpaceKendo/ComfyUI-svd_txt2vid"
+            ],
+            "install_type": "git-clone",
+            "description": "This is node replaces the init_image conditioning for the [a/Stable Video Diffusion](https://github.com/Stability-AI/generative-models) image to video model with text embeds, together with a conditioning frame. The conditioning frame is a set of latents."
+        },
+        {
             "author": "NimaNzrii",
             "title": "comfyui-popup_preview",
             "id": "popup-preview",
@@ -11317,16 +11328,6 @@
             ],
             "install_type": "git-clone",
             "description": "Nodes for calling LLMs, enabled by LiteLLM"
-        },
-        {
-            "author": "TashaSkyUp",
-            "title": "EternalKernel PyTorch Nodes",
-            "reference": "https://github.com/TashaSkyUp/EternalKernelPytorchNodes",
-            "files": [
-                "https://github.com/TashaSkyUp/EternalKernelPytorchNodes"
-            ],
-            "install_type": "git-clone",
-            "description": "Comprehensive PyTorch nodes for ComfyUI - Neural network training, inference, and ML workflows"
         },
         {
             "author": "AonekoSS",
@@ -26764,18 +26765,6 @@
             "description": "A robust custom depth estimation node for ComfyUI using Depth-Anything models. It integrates depth estimation with configurable post-processing options including blur, median filtering, contrast enhancement, and gamma correction."
         },
         {
-            "author": "Limbicnation", 
-            "title": "ComfyUI Face Detection Node",
-            "id": "comfyui-face-detection-node",
-            "reference": "https://github.com/Limbicnation/ComfyUI_FaceDetectionNode",
-            "files": [
-                "https://github.com/Limbicnation/ComfyUI_FaceDetectionNode"
-            ],
-            "install_type": "git-clone",
-            "description": "A ComfyUI custom node for face detection and cropping using OpenCV Haar cascades, with full ComfyUI v3 schema support and backward compatibility. Features adjustable detection threshold, minimum face size, padding, and multiple classifier options.",
-            "nodename_pattern": "FaceDetectionNode"
-        },
-        {
             "author": "Limbicnation",
             "title": "Transparency Background Remover",
             "reference": "https://github.com/Limbicnation/ComfyUI-TransparencyBackgroundRemover",
@@ -27667,6 +27656,8 @@
             "description": "The Olm LUT is a custom node for ComfyUI that allows you to apply .cube LUT (Look-Up Table) files to images within your generative workflows. It supports creative workflows including film emulation, color grading, and aesthetic stylization using LUTs."
         },
         {
+<<<<<<< HEAD
+=======
             "author": "o-l-l-i",
             "title": "Olm Curve Editor for ComfyUI",
             "reference": "https://github.com/o-l-l-i/ComfyUI-Olm-CurveEditor",
@@ -27707,6 +27698,7 @@
             "description": "An interactive image adjustment node for ComfyUI, with an easy-to-use graphical interface and realtime preview."
         },
         {
+>>>>>>> ff0604e3b654c4b032997aeab4458f07513816dd
             "author": "xiaogui8dangjia",
             "title": "Comfyui-imagetoSTL",
             "reference": "https://github.com/xiaogui8dangjia/Comfyui-imagetoSTL",
@@ -28155,16 +28147,6 @@
             "description": "A collection of ComfyUI nodes that sculpt diffusion models by applying gradient-based modifications to different layers and blocks."
         },
         {
-            "author": "jurdnf",
-            "title": "ComfyUI-JurdnsIterativeNoiseKsampler",
-            "reference": "https://github.com/jurdnf/ComfyUI-JurdnsIterativeNoiseKSampler",
-            "files": [
-                "https://github.com/jurdnf/ComfyUI-JurdnsIterativeNoiseKSampler"
-            ],
-            "install_type": "git-clone",
-            "description": "A ComfyUI custom node that adds controlled noise injection during the sampling process for enhanced image generation quality and detail."
-        },
-        {
             "author": "DrStone71",
             "title": "ComfyUI-Prompt-Translator",
             "reference": "https://github.com/DrStone71/ComfyUI-Prompt-Translator",
@@ -28173,6 +28155,26 @@
             ],
             "install_type": "git-clone",
             "description": "This custom node for ComfyUI allows you to translate your prompt directly into the language used by your LLM"
+        },
+        {
+            "author": "Eikwang",
+            "title": "ComfyUI-ImageAreaCrop",
+            "reference": "https://github.com/Eikwang/ComfyUI-ImageAreaCrop",
+            "files": [
+                "https://github.com/Eikwang/ComfyUI-ImageAreaCrop"
+            ],
+            "install_type": "git-clone",
+            "description": "Process the cropping area of the image, and after completion, paste it back into the original image. It allows you to crop a part of the image for processing and then paste it back into the original image."
+        },
+        {
+            "author": "Eikwang",
+            "title": "ComfyUI-RDC",
+            "reference": "https://github.com/Eikwang/comfyui-RDC",
+            "files": [
+                "https://github.com/Eikwang/comfyui-RDC"
+            ],
+            "install_type": "git-clone",
+            "description": "This is the node that converts the document into a RAG knowledge base in JSON format"
         },
         {
             "author": "Phospholipids",
@@ -28341,6 +28343,8 @@
             "description": "Image Adjustments node for ComfyUI with minimal requirements, uses PyTorch for image manipulation operations."
         },
         {
+<<<<<<< HEAD
+=======
             "author": "quasiblob",
             "title": "ComfyUI-EsesCompositionGuides",
             "reference": "https://github.com/quasiblob/ComfyUI-EsesCompositionGuides",
@@ -28441,6 +28445,7 @@
             "description": "Interactive A/B image comparison node with a draggable slider to reveal one image over another. Includes difference and other blend modes for more detailed analysis, allowing one to spot changes in similar images. Node also outputs a passthrough image of input A, and a grayscale difference mask."
         },
         {
+>>>>>>> ff0604e3b654c4b032997aeab4458f07513816dd
             "author": "TheLustriVA",
             "title": "ComfyUI Image Size Tool",
             "reference": "https://github.com/TheLustriVA/ComfyUI-Image-Size-Tools",
