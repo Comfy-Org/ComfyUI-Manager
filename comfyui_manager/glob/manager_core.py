@@ -1626,10 +1626,12 @@ def read_config():
         config = configparser.ConfigParser(strict=False)
         config.read(context.manager_config_path)
         default_conf = config['default']
-        manager_util.use_uv = default_conf['use_uv'].lower() == 'true' if 'use_uv' in default_conf else False
 
         def get_bool(key, default_value):
             return default_conf[key].lower() == 'true' if key in default_conf else False
+
+        manager_util.use_uv = default_conf['use_uv'].lower() == 'true' if 'use_uv' in default_conf else False
+        manager_util.bypass_ssl = get_bool('bypass_ssl', False)
 
         return {
                     'http_channel_enabled': get_bool('http_channel_enabled', False),
@@ -1656,7 +1658,8 @@ def read_config():
         import importlib.util
         # temporary disable `uv` on Windows by default (https://github.com/Comfy-Org/ComfyUI-Manager/issues/1969)
         manager_util.use_uv = importlib.util.find_spec("uv") is not None and platform.system() != "Windows"
-        
+        manager_util.bypass_ssl = False
+
         return {
             'http_channel_enabled': False,
             'preview_method': manager_funcs.get_current_preview_method(),
@@ -1665,7 +1668,7 @@ def read_config():
             'channel_url': DEFAULT_CHANNEL,
             'default_cache_as_channel_url': False,
             'share_option': 'all',
-            'bypass_ssl': False,
+            'bypass_ssl': manager_util.bypass_ssl,
             'file_logging': True,
             'component_policy': 'workflow',
             'update_policy': 'stable-comfyui',

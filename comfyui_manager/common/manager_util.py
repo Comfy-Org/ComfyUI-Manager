@@ -24,6 +24,7 @@ comfyui_manager_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '
 cache_dir = os.path.join(comfyui_manager_path, '.cache')  # This path is also updated together in **manager_core.update_user_directory**.
 
 use_uv = False
+bypass_ssl = False
 
 def is_manager_pip_package():
     return not os.path.exists(os.path.join(comfyui_manager_path, '..', 'custom_nodes'))
@@ -139,7 +140,7 @@ async def get_data(uri, silent=False):
         print(f"FETCH DATA from: {uri}", end="")
 
     if uri.startswith("http"):
-        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=not bypass_ssl)) as session:
             headers = {
                 'Cache-Control': 'no-cache',
                 'Pragma': 'no-cache',

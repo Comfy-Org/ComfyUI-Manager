@@ -222,9 +222,6 @@ function isBeforeFrontendVersion(compareVersion) {
     }
 }
 
-const is_legacy_front = () => isBeforeFrontendVersion('1.2.49');
-const isNotNewManagerUI = () => isBeforeFrontendVersion('1.16.4');
-
 document.head.appendChild(docStyle);
 
 var update_comfyui_button = null;
@@ -1518,10 +1515,7 @@ app.registerExtension({
 				}).element
 			);
 
-			const shouldShowLegacyMenuItems = isNotNewManagerUI();
-			if (shouldShowLegacyMenuItems) {
-				app.menu?.settingsGroup.element.before(cmGroup.element);
-			}
+			app.menu?.settingsGroup.element.before(cmGroup.element);
 		}
 		catch(exception) {
 			console.log('ComfyUI is outdated. New style menu based features are disabled.');
