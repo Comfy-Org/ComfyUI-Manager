@@ -363,20 +363,22 @@
     ],
     "https://github.com/A719689614/ComfyUI_AC_FUNV8Beta1": [
         [
-            "\u2b1b(TODO)AC_Super_Come_Ckpt",
-            "\u2b1c(TODO)AC_Super_Come_Lora",
-            "\u2b55AC_FUN_SUPER_LARGE",
-            "\ud83c\ude35AC_Super_Checkpoint",
-            "\ud83c\ude35AC_Super_Loras",
-            "\ud83c\udfabAC_Super_PreviewImage",
-            "\ud83c\udfb0AC_Super_Controlnet",
-            "\ud83d\udcb6AC_Super_EmptLatent",
-            "\ud83d\udcbcAC_Super_Lora&LCM",
-            "\ud83d\udcbeAC_Super_SaveImage",
-            "\ud83d\udcc4AC_Super_CLIPEN",
-            "\ud83d\udcc8AC_Super_UpKSampler",
-            "\ud83d\udcdfAC_Super_CKPT&LCM",
-            "\ud83d\ude80AC_Super_KSampler"
+            "AC_FUN_SUPER_DESIGN_LARGE",
+            "AC_FUN_SUPER_LARGE",
+            "AC_Super_CKPT&LCM",
+            "AC_Super_CLIPEN",
+            "AC_Super_Checkpoint",
+            "AC_Super_Controlnet",
+            "AC_Super_EmptLatent",
+            "AC_Super_KSampler",
+            "AC_Super_Lora&LCM",
+            "AC_Super_Loras",
+            "AC_Super_MaskScale",
+            "AC_Super_MaskScaleBy",
+            "AC_Super_PreviewImage",
+            "AC_Super_PreviewMask",
+            "AC_Super_SaveImage",
+            "AC_Super_UpKSampler"
         ],
         {
             "title_aux": "ComfyUI_AC_FUNV8Beta1"
@@ -464,6 +466,16 @@
         ],
         {
             "title_aux": "UtilNodes-ComfyUI [WIP]"
+        }
+    ],
+    "https://github.com/AIWarper/ComfyUI-DAViD": [
+        [
+            "DAViDDepthVisualizer",
+            "DAViDMultiTask",
+            "DAViDNormalToLight"
+        ],
+        {
+            "title_aux": "ComfyUI-DAViD [WIP]"
         }
     ],
     "https://github.com/ALatentPlace/ComfyUI_yanc": [
@@ -1058,6 +1070,7 @@
             "VTS Clear Ram",
             "VTS Clip Text Encode",
             "VTS Color Mask To Mask",
+            "VTS Colour Match",
             "VTS Conditioning Set Batch Mask",
             "VTS Count Characters",
             "VTS Create Character Mask",
@@ -1159,14 +1172,6 @@
         ],
         {
             "title_aux": "ComfyUI_devtools [WIP]"
-        }
-    ],
-    "https://github.com/ComfyUI-Workflow/ComfyUI-OpenAI": [
-        [
-            "OpenAI.CaptionImage"
-        ],
-        {
-            "title_aux": "ComfyUI OpenAI Nodes"
         }
     ],
     "https://github.com/D1-3105/ComfyUI-VideoStream": [
@@ -4921,6 +4926,7 @@
             "WanFunInpaintToVideo",
             "WanImageToVideo",
             "WanPhantomSubjectToVideo",
+            "WanTrackToVideo",
             "WanVaceToVideo",
             "WebcamCapture",
             "unCLIPCheckpointLoader",
@@ -4968,19 +4974,6 @@
         ],
         {
             "title_aux": "deepseek_prompt_generator_comfyui [WIP]"
-        }
-    ],
-    "https://github.com/concarne000/ComfyUI-Stacker": [
-        [
-            "StackPopImage",
-            "StackPopInt",
-            "StackPopString",
-            "StackPushImage",
-            "StackPushInt",
-            "StackPushString"
-        ],
-        {
-            "title_aux": "ComfyUI-Stacker [WIP]"
         }
     ],
     "https://github.com/corbin-hayden13/ComfyUI-Better-Dimensions": [
@@ -9480,12 +9473,16 @@
             "IntNode",
             "LoadImageFromDirectoryNode",
             "LoadImageFromURLNode",
+            "LoadStringFromDirectoryNode",
+            "OutputIsListNode",
+            "OutputIsNonListNode",
             "PrependTagsNode",
             "PrintAnyNode",
             "PrintImageNode",
             "SaveImageToDirectoryNode",
             "SaveStringToDirectoryNode",
             "SequenceStringListNode",
+            "ShowStringNode",
             "StringCombineNode",
             "StringNode",
             "TranslateStringNode",
