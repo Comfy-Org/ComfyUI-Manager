@@ -1,6 +1,119 @@
 {
     "custom_nodes": [
         {
+            "author": "ShmuelRonen",
+            "title": "ComfyUI-HiggsAudio_Wrapper",
+            "id": "higgs-audio-wrapper",
+            "reference": "https://github.com/ShmuelRonen/ComfyUI-HiggsAudio_Wrapper",
+            "files": [
+                "https://github.com/ShmuelRonen/ComfyUI-HiggsAudio_Wrapper"
+            ],
+            "install_type": "git-clone",
+            "description": "A comprehensive ComfyUI wrapper for HiggsAudio v2, enabling high-quality text-to-speech generation with advanced voice cloning capabilities. Supports multiple voice presets and custom reference audio for voice cloning. Requires transformers==4.45.2 for compatibility."
+        },
+        {
+            "author": "RndNanthu",
+            "title": "ComfyUI-RndNanthu",
+            "id": "ComfyUI-RndNanthu",
+            "reference": "https://github.com/rndnanthu/ComfyUI-RndNanthu",
+            "files": [
+                "https://github.com/rndnanthu/ComfyUI-RndNanthu"
+            ],
+            "install_type": "git-clone",
+            "description": "Film Grain simulation, Log Color Conversions, Color Scopes (RGB Parade, Vectorscope, Gamut Warnings), False Color, and more."
+        },
+        {
+            "author": "keit",
+            "title": "ComfyUI-musubi-tuner",
+            "reference": "https://github.com/keit0728/ComfyUI-musubi-tuner",
+            "files": [
+                "https://github.com/keit0728/ComfyUI-musubi-tuner"
+            ],
+            "install_type": "git-clone",
+            "description": "This is a custom node that allows you to run musubi-tuner from ComfyUI."
+        },
+        {
+            "author": "guill",
+            "title": "ComfyUI Droopy Noodles",
+            "reference": "https://github.com/guill/comfyui-droopy-noodles",
+            "files": [
+                "https://github.com/guill/comfyui-droopy-noodles"
+            ],
+            "install_type": "git-clone",
+            "description": "A ComfyUI extension that makes your node connections delightfully droopy. (Disclaimer: despite what it may look like, this extension will not make your monitor taste like spaghetti.)"
+        },
+        {
+            "author": "AIWarper",
+            "title": "ComfyUI-DAViD",
+            "reference": "https://github.com/AIWarper/ComfyUI-DAViD",
+            "files": [
+                "https://github.com/AIWarper/ComfyUI-DAViD"
+            ],
+            "install_type": "git-clone",
+            "description": "An implementation of the DAViD tooling, a method for extracting depth, normals, and masks from an input image."
+        },
+        {
+            "author": "ComfyUI Studio",
+            "title": "ComfyUI-Studio-nodes",
+            "reference": "https://github.com/comfyuistudio/ComfyUI-Studio-nodes",
+            "files": [
+                "https://github.com/comfyuistudio/ComfyUI-Studio-nodes"
+            ],
+            "install_type": "git-clone",
+            "description": "🧩 Aspect Ratio Image Size Calculator, 🖼️ Aspect Ratio Resizer, and 📄 Markdown Link Generator for ComfyUI.",
+            "tags": ["image", "resize", "aspect-ratio", "markdown", "utils"]
+        },
+        {
+            "author": "HJH-AILab",
+            "title": "ComfyUI_Facefusion",
+            "reference": "https://github.com/HJH-AILab/ComfyUI_Facefusion",
+            "files": [
+                "https://github.com/HJH-AILab/ComfyUI_Facefusion"
+            ],
+            "install_type": "git-clone",
+            "description": "a [a/Facefusion](https://github.com/facefusion/facefusion)'s wrapper for ComfyUI custom node."
+        },
+        {
+            "author": "visualbruno",
+            "title": "ComfyUI-Hunyuan3d-2-1",
+            "reference": "https://github.com/visualbruno/ComfyUI-Hunyuan3d-2-1",
+            "files": [
+                "https://github.com/visualbruno/ComfyUI-Hunyuan3d-2-1"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI Wrapper for [a/Hunyuan3D v2.1](https://github.com/Tencent-Hunyuan/Hunyuan3D-2.1) - From Images to High-Fidelity 3D Assets with Production-Ready PBR Material"
+        },
+        {
+            "author": "synchronicity-labs",
+            "title": "ComfyUI Sync Lipsync Node",
+            "reference": "https://github.com/synchronicity-labs/sync-comfyui",
+            "files": [
+                "https://github.com/synchronicity-labs/sync-comfyui"
+            ],
+            "install_type": "git-clone",
+            "description": "This custom node allows you to perform audio-video lip synchronization inside ComfyUI using a simple interface."
+        },
+        {
+            "author": "brayevalerien",
+            "title": "ComfyUI-splitstring",
+            "reference": "https://github.com/brayevalerien/ComfyUI-SplitString",
+            "files": [
+                "https://github.com/brayevalerien/ComfyUI-SplitString"
+            ],
+            "install_type": "git-clone",
+            "description": "Very specific node for spliting a string with 12 lines into 12 individual strings.k"
+        },
+        {
+            "author": "jenn",
+            "title": "BookCoverFinder",
+            "reference": "https://github.com/weberjc/book-cover-finder-comfy",
+            "files": [
+                "https://github.com/weberjc/book-cover-finder-comfy"
+            ],
+            "install_type": "git-clone",
+            "description": "Book Cover Finder tool that wraps openlibrary.org"
+        },
+        {
             "author": "GACLove",
             "title": "ComfyUI-VFI",
             "reference": "https://github.com/GACLove/ComfyUI-VFI",
@@ -223,7 +336,7 @@
                 "https://github.com/set-soft/ComfyUI-ImageMisc"
             ],
             "install_type": "git-clone",
-            "description": "Audio batch creation, extraction, resample, mono and stereo conversion."
+            "description": "Miscellaneous nodes for image manipulation.\nCurrently just download image with bypass, so you can create workflows including image examples.\nNo extra dependencies, just an internal module."
         },
         {
             "author": "tritant",
@@ -580,138 +693,6 @@
             ],
             "install_type": "git-clone",
             "description": "A ComfyUI wrapper implementation of ThinkSound - an advanced AI model for generating high-quality audio from text descriptions and video content using Chain-of-Thought (CoT) reasoning."
-        },
-        {
-            "author": "baikong",
-            "title": "blender-in-comfyui",
-            "reference": "https://github.com/JayLyu/blender-in-comfyui",
-            "files": [
-                "https://github.com/JayLyu/blender-in-comfyui"
-            ],
-            "install_type": "git-clone",
-            "description": "Combine multiple 3D models into a single Blender file and render in ComfyUI."
-        },
-        {
-            "author": "ZXL-Xinram",
-            "title": "ComfyUI-AutoFlow",
-            "reference": "https://github.com/ZXL-Xinram/ComfyUI-AutoFlow",
-            "files": [
-                "https://github.com/ZXL-Xinram/ComfyUI-AutoFlow"
-            ],
-            "install_type": "git-clone",
-            "description": "A collection of utility nodes for ComfyUI focused on path processing and string operations."
-        },
-        {
-            "author": "MithrilMan",
-            "title": "Mithril-Nodes for ComfyUI",
-            "reference": "https://github.com/MithrilMan/ComfyUI-MithrilNodes",
-            "files": [
-                "https://github.com/MithrilMan/ComfyUI-MithrilNodes"
-            ],
-            "install_type": "git-clone",
-            "description": "Mithril-Nodes is a collection of custom nodes for ComfyUI that enhance workflow modularity, data routing, and configuration management. These nodes help you build more dynamic, organized, and reusable pipelines for generative AI workflows."
-        },
-        {
-            "author": "swisscore-py",
-            "title": "ComfyUI Telegram Suite",
-            "reference": "https://github.com/SwissCore92/comfyui-telegram-suite",
-            "files": [
-                "https://github.com/SwissCore92/comfyui-telegram-suite"
-            ],
-            "install_type": "git-clone",
-            "description": "Implement Telegram into your ComfyUI workflows."
-        },
-        {
-            "author": "quasiblob",
-            "title": "ComfyUI-EsesImageCompare",
-            "reference": "https://github.com/quasiblob/ComfyUI-EsesImageCompare",
-            "files": [
-                "https://github.com/quasiblob/ComfyUI-EsesImageCompare"
-            ],
-            "install_type": "git-clone",
-            "description": "Interactive A/B image comparison node with a draggable slider to reveal one image over another. Includes difference and other blend modes for more detailed analysis, allowing one to spot changes in similar images. Node also outputs a passthrough image of input A, and a grayscale difference mask."
-        },
-        {
-            "author": "Yuan-ManX",
-            "title": "ComfyUI-ThinkSound",
-            "reference": "https://github.com/Yuan-ManX/ComfyUI-ThinkSound",
-            "files": [
-                "https://github.com/Yuan-ManX/ComfyUI-ThinkSound"
-            ],
-            "install_type": "git-clone",
-            "description": "ComfyUI-ThinkSound is now available in ComfyUI, ThinkSound is a unified Any2Audio generation framework with flow matching guided by Chain-of-Thought (CoT) reasoning."
-        },
-        {
-            "author": "xChenNing",
-            "title": "ComfyUI_Image_Pin",
-            "id": "comfyui-image-pin",
-            "reference": "https://github.com/CheNing233/ComfyUI_Image_Pin",
-            "files": [
-                "https://github.com/CheNing233/ComfyUI_Image_Pin"
-            ],
-            "install_type": "git-clone",
-            "description": "Allows you to pin images to the JSON of your workflow, migrate with JSON, or embed in image's metadata. supports image compression."
-        },
-        {
-            "author": "LaoMaoBoss",
-            "title": "ComfyUI-WBLESS",
-            "id": "LaoMaoBoss",
-            "reference": "https://github.com/LaoMaoBoss/ComfyUI-WBLESS",
-            "files": [
-                "https://github.com/LaoMaoBoss/ComfyUI-WBLESS"
-            ],
-            "install_type": "git-clone",
-            "description": "ComfyUI's custom node package. This custom node has many practical functions, including global variables and process flow control."
-        },
-        {
-            "author": "Android zhang",
-            "title": "Comfyui-Distill-Any-Depth",
-            "reference": "https://github.com/zade23/Comfyui-Distill-Any-Depth",
-            "files": [
-                "https://github.com/zade23/Comfyui-Distill-Any-Depth"
-            ],
-            "install_type": "git-clone",
-            "description": "ComfyUI nodes to use Distill-Any-Depth prediction."
-        },
-        {
-            "author": "tritant",
-            "title": "Advanced Photo Grain",
-            "reference": "https://github.com/tritant/ComfyUI-Advanced-Photo-Grain",
-            "files": [
-                "https://github.com/tritant/ComfyUI-Advanced-Photo-Grain"
-            ],
-            "install_type": "git-clone",
-            "description": "Adds realistic film grain, vignette and RGB aberration to photos"
-        },
-        {
-            "author": "zeeoale",
-            "title": "PromptCreatorNodetraumakom Prompt Generator",
-            "reference": "https://github.com/zeeoale/PromptCreatorNode",
-            "files": [
-                "https://github.com/zeeoale/PromptCreatorNode"
-            ],
-            "install_type": "git-clone",
-            "description": "A powerful custom node for ComfyUI that generates rich, dynamic prompts based on modular JSON worlds — with color realm control (RGB / CMYK), LoRA triggers, and optional AI-based prompt enhancement."
-        },
-        {
-            "author": "Erehr",
-            "title": "ComfyUI-Eagle-Autosend",
-            "reference": "https://github.com/Erehr/ComfyUI-Eagle-Autosend",
-            "files": [
-                "https://github.com/Erehr/ComfyUI-Eagle-Autosend"
-            ],
-            "install_type": "git-clone",
-            "description": "A seamless, node-independent way to automatically send your ComfyUI generations to Eagle, complete with full metadata annotation and tags."
-        },
-        {
-            "author": "silveroxides",
-            "title": "ComfyUI Power Shift Scheduler",
-            "reference": "https://github.com/silveroxides/ComfyUI_PowerShiftScheduler",
-            "files": [
-                "https://github.com/silveroxides/ComfyUI_PowerShiftScheduler"
-            ],
-            "install_type": "git-clone",
-            "description": "Highly customizable Scheduler for ComfyUI."
         }
     ]
 }
