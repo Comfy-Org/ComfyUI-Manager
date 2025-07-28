@@ -1514,8 +1514,6 @@ app.registerExtension({
 					tooltip: "Share"
 				}).element
 			);
-
-			app.menu?.settingsGroup.element.before(cmGroup.element);
 		}
 		catch(exception) {
 			console.log('ComfyUI is outdated. New style menu based features are disabled.');
