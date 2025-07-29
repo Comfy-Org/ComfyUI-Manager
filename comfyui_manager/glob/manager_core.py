@@ -2646,8 +2646,8 @@ async def get_current_snapshot(custom_nodes_only = False):
                         commit_hash = git_utils.get_commit_hash(fullpath)
                         url = git_utils.git_url(fullpath)
                         git_custom_nodes[url] = dict(hash=commit_hash, disabled=is_disabled)
-                except Exception:
-                    print(f"Failed to extract snapshots for the custom node '{path}'.")
+                except Exception as e:
+                    print(f"Failed to extract snapshots for the custom node '{path}'. / {e}")
 
             elif path.endswith('.py'):
                 is_disabled = path.endswith(".py.disabled")

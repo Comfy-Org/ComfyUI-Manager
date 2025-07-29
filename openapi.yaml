@@ -1209,6 +1209,89 @@ paths:
           description: Snapshot saved successfully
         '400':
           description: Error saving snapshot
+  /v2/snapshot/diff:
+    get:
+      summary: Get snapshot diff
+      description: Returns the changes that would occur when restoring from the 'from' snapshot to the 'to' snapshot.
+      parameters:
+        - name: from
+          in: query
+          required: false
+          description: This parameter refers to the existing snapshot; if omitted, it defaults to the current snapshot.
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: true
+          description: This parameter is the snapshot to compare against the existing snapshot.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nodepack_diff:
+                    type: object
+                    properties:
+                      added:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      removed:
+                        type: array
+                        items:
+                          type: string
+                      upgraded:
+                        type: object
+                        additionalProperties:
+                          type: object
+                          properties:
+                            from:
+                              type: string
+                            to:
+                              type: string
+                      downgraded:
+                        type: object
+                        additionalProperties:
+                          type: object
+                          properties:
+                            from:
+                              type: string
+                            to:
+                              type: string
+                      changed:
+                        type: array
+                        items:
+                          type: string
+                  pip_diff:
+                    type: object
+                    properties:
+                      added:
+                        type: object
+                        additionalProperties:
+                          type: string
+                      upgraded:
+                        type: object
+                        additionalProperties:
+                          type: object
+                          properties:
+                            from:
+                              type: string
+                            to:
+                              type: string
+                      downgraded:
+                        type: object
+                        additionalProperties:
+                          type: object
+                          properties:
+                            from:
+                              type: string
+                            to:
+                              type: string
   # ComfyUI Management Endpoints (v2)
   /v2/comfyui_manager/comfyui_versions:
     get:
