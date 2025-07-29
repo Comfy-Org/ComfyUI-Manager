@@ -1656,6 +1656,65 @@ async def import_fail_info(request):
         return web.Response(status=500, text="Internal server error")
 
 
+@routes.post("/v2/customnode/import_fail_info_bulk")
+async def import_fail_info_bulk(request):
+    try:
+        json_data = await request.json()
+
+        # Basic validation - ensure we have either cnr_ids or urls
+        if not isinstance(json_data, dict):
+            return web.Response(status=400, text="Request body must be a JSON object")
+
+        if "cnr_ids" not in json_data and "urls" not in json_data:
+            return web.Response(
+                status=400, text="Either 'cnr_ids' or 'urls' field is required"
+            )
+
+        await core.unified_manager.reload('cache')
+        await core.unified_manager.get_custom_nodes('default', 'cache')
+
+        results = {}
+
+        if "cnr_ids" in json_data:
+            if not isinstance(json_data["cnr_ids"], list):
+                return web.Response(status=400, text="'cnr_ids' must be an array")
+            for cnr_id in json_data["cnr_ids"]:
+                if not isinstance(cnr_id, str):
+                    results[cnr_id] = {"error": "cnr_id must be a string"}
+                    continue
+                module_name = core.unified_manager.get_module_name(cnr_id)
+                if module_name is not None:
+                    info = cm_global.error_dict.get(module_name)
+                    if info is not None:
+                        results[cnr_id] = info
+                    else:
+                        results[cnr_id] = None
+                else:
+                    results[cnr_id] = None
+
+        if "urls" in json_data:
+            if not isinstance(json_data["urls"], list):
+                return web.Response(status=400, text="'urls' must be an array")
+            for url in json_data["urls"]:
+                if not isinstance(url, str):
+                    results[url] = {"error": "url must be a string"}
+                    continue
+                module_name = core.unified_manager.get_module_name(url)
+                if module_name is not None:
+                    info = cm_global.error_dict.get(module_name)
+                    if info is not None:
+                        results[url] = info
+                    else:
+                        results[url] = None
+                else:
+                    results[url] = None
+
+        return web.json_response(results)
+    except Exception as e:
+        logging.error(f"[ComfyUI-Manager] Error processing bulk import fail info: {e}")
+        return web.Response(status=500, text="Internal server error")
+
+
 @routes.get("/v2/manager/queue/reset")
 async def reset_queue(request):
     logging.debug("[ComfyUI-Manager] Queue reset requested")
