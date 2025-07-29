@@ -496,8 +496,15 @@ def gen_json(node_info):
                 nodes_in_url, metadata_in_url = data[git_url]
                 nodes = set(nodes_in_url)
 
-            for x, desc in node_list_json.items():
-                nodes.add(x.strip())
+            try:
+                for x, desc in node_list_json.items():
+                    nodes.add(x.strip())
+            except Exception as e:
+                print(f"\nERROR: Invalid json format '{node_list_json_path}'")
+                print("------------------------------------------------------")
+                print(e)
+                print("------------------------------------------------------")
+                node_list_json = {}
 
             metadata_in_url['title_aux'] = title
 

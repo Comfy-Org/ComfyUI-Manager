@@ -18521,7 +18521,7 @@
                 "https://github.com/theshubzworld/ComfyUI-SD3.5-Latent-Size-Picker"
             ],
             "install_type": "git-clone",
-            "description": "A utility node for generating empty latent tensors in Stable Diffusion v3.5-compatible resolutions. This node allows for custom batch sizes, width/height overrides, and inverting aspect ratios, ensuring flexibility and compatibility in ComfyUI workflows."
+            "description": "A universal node for generating empty latent tensors with support for SD3.5, SDXL, and Flux models. Features extended aspect ratio support, batch processing, and flexible dimension overrides."
         },
         {
             "author": "theshubzworld",
@@ -23119,7 +23119,7 @@
             "files": [
                 "https://github.com/lum3on/comfyui_HiDream-Sampler"
             ],
-            "install_type": "copy",
+            "install_type": "git-clone",
             "description": "A custom ComfyUI node for generating images using the HiDream AI model. Uses quantization for lower memory usage."
         },
         {
@@ -28676,7 +28676,7 @@
                 "https://github.com/kpsss34/ComfyUI-kpsss34"
             ],
             "install_type": "git-clone",
-            "description": "A kpsss34 node for all my custom model"
+            "description": "Diffusers custom_node"
         },
         {
             "author": "Gary-yeh",
@@ -29033,13 +29033,13 @@
         },
         {
             "author": "set-soft",
-            "title": "Audio Separation",
+            "title": "Audio Separation (Demix)",
             "reference": "https://github.com/set-soft/AudioSeparation",
             "files": [
                 "https://github.com/set-soft/AudioSeparation"
             ],
             "install_type": "git-clone",
-            "description": "Audio separation (demixing) using AI. Separating Voices, Instruments, Bass, Drums, etc. CLI and ComfyUI"
+            "description": "Audio separation (aka demixing) nodes, for Vocals, Instruments, Bass, Drums and Others (experimental Piano and Guitar).\nUsing MDX-Net and Demucs, no extra dependencies, support for batch and resample.\nChoose between High Quality and Speed. All safetensor models (No ONNX, No PyTorch)"
         },
         {
             "author": "creepybits",
@@ -29538,16 +29538,6 @@
             "description": "Qwen3 api node"
         },
         {
-            "author": "skayka",
-            "title": "ComfyUI-DreamFit",
-            "reference": "https://github.com/skayka/ComfyUI-DreamFit",
-            "files": [
-                "https://github.com/skayka/ComfyUI-DreamFit"
-            ],
-            "install_type": "git-clone",
-            "description": "Garment-centric human generation nodes for ComfyUI using DreamFit with Flux.\nDreamFit is a powerful adapter system that enhances Flux models with garment-aware generation capabilities, enabling high-quality fashion and clothing generation."
-        },
-        {
             "author": "aiaiaikkk",
             "title": "kontext-super-prompt",
             "reference": "https://github.com/aiaiaikkk/kontext-super-prompt",
@@ -29959,6 +29949,86 @@
             ],
             "install_type": "git-clone",
             "description": "Repository contains CSV Styler - custom node for ComfyUI. It loads styles from styles.csv file (Automatic1111 Web-Ui styles.csv format) and combine them with provided positive and negative prompt.\nNOTE: 'styles.csv' should be placed in ComfyUI root directory (near main.py)."
+        },
+        {
+            "author": "cnnmmd",
+            "title": "cnnmmd: comfyui_xoxxox_cnnmmd",
+            "reference": "https://github.com/cnnmmd/comfyui_xoxxox_cnnmmd",
+            "files": [
+                "https://github.com/cnnmmd/comfyui_xoxxox_cnnmmd"
+            ],
+            "install_type": "git-clone",
+            "description": "This is a set of custom nodes for ComfyUI, designed for the following application: [a/https://github.com/cnnmmd/cnnmmd](https://github.com/cnnmmd/cnnmmd)"
+        },
+        {
+            "author": "CallMe1101",
+            "title": "ComfyUI_OmniAvatar",
+            "reference": "https://github.com/CallMe1101/ComfyUI_OmniAvatar",
+            "files": [
+                "https://github.com/CallMe1101/ComfyUI_OmniAvatar"
+            ],
+            "install_type": "git-clone",
+            "description": "A ComfyUI custom node developed based on OmniAvatar, capable of generating video sequences with synchronized lip movements and facial expressions by inputting a portrait image, audio, and text prompt. The node parameters and invocation method are fully consistent with the official OmniAvatar inference."
+        },
+        {
+            "author": "ebrinz",
+            "title": "ComfyUI-MusicGen-HF",
+            "reference": "https://github.com/ebrinz/ComfyUI-MusicGen-HF",
+            "files": [
+                "https://github.com/ebrinz/ComfyUI-MusicGen-HF"
+            ],
+            "install_type": "git-clone",
+            "description": "A standalone ComfyUI custom node package for Facebook's MusicGen using Hugging Face Transformers. Generate high-quality music from text prompts with full support for CUDA, MPS (Apple Silicon), and CPU."
+        },
+        {
+            "author": "mcDandy",
+            "title": "More Math",
+            "reference": "https://github.com/mcDandy/more_math",
+            "files": [
+                "https://github.com/mcDandy/more_math"
+            ],
+            "install_type": "git-clone",
+            "description": "Adds math nodes for numbers and types which do not need it."
+        },
+        {
+            "author": "kmlbdh",
+            "title": "ComfyUI_LocalLLMNodes",
+            "reference": "https://github.com/kmlbdh/ComfyUI_LocalLLMNodes",
+            "files": [
+                "https://github.com/kmlbdh/ComfyUI_LocalLLMNodes"
+            ],
+            "install_type": "git-clone",
+            "description": "A custom node pack for ComfyUI that allows you to run Large Language Models (LLMs) locally and use them for prompt generation and other text tasks directly within your ComfyUI workflows."
+        },
+        {
+            "author": "joosthel",
+            "title": "ComfyUI-CVOverlay",
+            "reference": "https://github.com/joosthel/ComfyUI-CVOverlay",
+            "files": [
+                "https://github.com/joosthel/ComfyUI-CVOverlay"
+            ],
+            "install_type": "git-clone",
+            "description": "TouchDesigner-style blob tracking and computer vision effects for ComfyUI. Simple nodes for bright spot detection, plexus connections, and technical aesthetics in video workflows."
+        },
+        {
+            "author": "fcanfora",
+            "title": "comfyui-camera-tools",
+            "reference": "https://github.com/fcanfora/comfyui-camera-tools",
+            "files": [
+                "https://github.com/fcanfora/comfyui-camera-tools"
+            ],
+            "install_type": "git-clone",
+            "description": "NODES: Load Camera From File, Load 3D, Load 3D - Animation, Preview 3D, Preview 3D - Animation"
+        },
+        {
+            "author": "lokinou",
+            "title": "ComfyUI-Offload-Models",
+            "reference": "https://github.com/lokinou/comfyui-offload-models",
+            "files": [
+                "https://github.com/lokinou/comfyui-offload-models"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom nodes to offload and rapatriate models from cpu."
         },
 
 
@@ -30390,5 +30460,3 @@
         }
     ]
 }
-
-
