@@ -1322,6 +1322,9 @@ async def import_fail_info_bulk(request):
                 status=400, text="Either 'cnr_ids' or 'urls' field is required"
             )
 
+        await core.unified_manager.reload('cache')
+        await core.unified_manager.get_custom_nodes('default', 'cache')
+
         results = {}
 
         if "cnr_ids" in json_data:
