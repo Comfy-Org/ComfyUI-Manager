@@ -40,9 +40,9 @@ def diff_snapshot(a, b):
     }
     
     # check: comfyui
-    if a.get('comfyui_version') != b.get('comfyui_version'):
+    if a.get('comfyui') != b.get('comfyui'):
         nodepack_diff['changed'].append('comfyui')
-    
+
     # check: cnr nodes
     a_cnrs = a.get('cnr_custom_nodes', {})
     b_cnrs = b.get('cnr_custom_nodes', {})
