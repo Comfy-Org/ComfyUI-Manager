@@ -306,6 +306,35 @@ paths:
         '400':
           description: No information available
           
+  /v2/customnode/import_fail_info_bulk:
+    post:
+      summary: Get import failure information for multiple nodes
+      description: Returns information about why a list of nodes failed to import
+      tags:
+        - customnode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cnr_ids:
+                  type: array
+                  items:
+                    type: string
+                urls:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          description: Bad Request or invalid input
+        '500':
+          description: Internal Server Error
+        
   /customnode/install/git_url:
     post:
       summary: Install custom node via Git URL
