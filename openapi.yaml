@@ -104,6 +104,38 @@ components:
           type: boolean
           description: Whether the queue is currently processing
 
+    ImportFailInfoBulkRequest:
+      type: object
+      properties:
+        cnr_ids:
+          type: array
+          items:
+            type: string
+          description: A list of CNR IDs to check.
+        urls:
+          type: array
+          items:
+            type: string
+          description: A list of repository URLs to check.
+
+    ImportFailInfoBulkResponse:
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/ImportFailInfoItem'
+      description: >-
+        A dictionary where each key is a cnr_id or url from the request,
+        and the value is the corresponding error info.
+
+    ImportFailInfoItem:
+      oneOf:
+        - type: object
+          properties:
+            error:
+              type: string
+            traceback:
+              type: string
+        - type: "null"
+
   securitySchemes:
     securityLevel:
       type: apiKey
@@ -308,32 +340,28 @@ paths:
           
   /v2/customnode/import_fail_info_bulk:
     post:
-      summary: Get import failure information for multiple nodes
-      description: Returns information about why a list of nodes failed to import
+      summary: Get import failure info for multiple nodes
+      description: Retrieves recorded import failure information for a list of custom nodes.
       tags:
         - customnode
       requestBody:
+        description: A list of CNR IDs or repository URLs to check.
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                cnr_ids:
-                  type: array
-                  items:
-                    type: string
-                urls:
-                  type: array
-                  items:
-                    type: string
+              $ref: '#/components/schemas/ImportFailInfoBulkRequest'
       responses:
         '200':
-          description: Successful operation
+          description: A dictionary containing the import failure information.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportFailInfoBulkResponse'
         '400':
-          description: Bad Request or invalid input
+          description: Bad Request. The request body is invalid.
         '500':
-          description: Internal Server Error
+          description: Internal Server Error.
         
   /customnode/install/git_url:
     post:
