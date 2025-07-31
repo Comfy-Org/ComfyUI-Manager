@@ -61,6 +61,8 @@ from ..data_models import (
     ManagerMessageName,
     BatchExecutionRecord,
     ComfyUISystemState,
+    ImportFailInfoBulkRequest,
+    ImportFailInfoBulkResponse,
     BatchOperation,
     InstalledNodeInfo,
     ComfyUIVersionInfo,
@@ -1660,12 +1662,12 @@ async def import_fail_info(request):
 async def import_fail_info_bulk(request):
     try:
         json_data = await request.json()
-
-        # Basic validation - ensure we have either cnr_ids or urls
-        if not isinstance(json_data, dict):
-            return web.Response(status=400, text="Request body must be a JSON object")
-
-        if "cnr_ids" not in json_data and "urls" not in json_data:
+        
+        # Validate input using Pydantic model
+        request_data = ImportFailInfoBulkRequest.model_validate(json_data)
+        
+        # Ensure we have either cnr_ids or urls
+        if not request_data.cnr_ids and not request_data.urls:
             return web.Response(
                 status=400, text="Either 'cnr_ids' or 'urls' field is required"
             )
@@ -1675,13 +1677,8 @@ async def import_fail_info_bulk(request):
 
         results = {}
 
-        if "cnr_ids" in json_data:
-            if not isinstance(json_data["cnr_ids"], list):
-                return web.Response(status=400, text="'cnr_ids' must be an array")
-            for cnr_id in json_data["cnr_ids"]:
-                if not isinstance(cnr_id, str):
-                    results[cnr_id] = {"error": "cnr_id must be a string"}
-                    continue
+        if request_data.cnr_ids:
+            for cnr_id in request_data.cnr_ids:
                 module_name = core.unified_manager.get_module_name(cnr_id)
                 if module_name is not None:
                     info = cm_global.error_dict.get(module_name)
@@ -1692,13 +1689,8 @@ async def import_fail_info_bulk(request):
                 else:
                     results[cnr_id] = None
 
-        if "urls" in json_data:
-            if not isinstance(json_data["urls"], list):
-                return web.Response(status=400, text="'urls' must be an array")
-            for url in json_data["urls"]:
-                if not isinstance(url, str):
-                    results[url] = {"error": "url must be a string"}
-                    continue
+        if request_data.urls:
+            for url in request_data.urls:
                 module_name = core.unified_manager.get_module_name(url)
                 if module_name is not None:
                     info = cm_global.error_dict.get(module_name)
@@ -1709,7 +1701,12 @@ async def import_fail_info_bulk(request):
                 else:
                     results[url] = None
 
-        return web.json_response(results)
+        # Create response using Pydantic model
+        response_data = ImportFailInfoBulkResponse(root=results)
+        return web.json_response(response_data.root)
+    except ValidationError as e:
+        logging.error(f"[ComfyUI-Manager] Invalid request data: {e}")
+        return web.Response(status=400, text=f"Invalid request data: {e}")
     except Exception as e:
         logging.error(f"[ComfyUI-Manager] Error processing bulk import fail info: {e}")
         return web.Response(status=500, text="Internal server error")

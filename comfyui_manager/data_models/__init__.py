@@ -30,6 +30,12 @@ from .generated_models import (
     InstalledModelInfo,
     ComfyUIVersionInfo,
     
+    # Import Fail Info Models
+    ImportFailInfoBulkRequest,
+    ImportFailInfoBulkResponse,
+    ImportFailInfoItem,
+    ImportFailInfoItem1,
+    
     # Other models
     OperationType,
     OperationResult,
@@ -87,6 +93,12 @@ __all__ = [
     "InstalledNodeInfo",
     "InstalledModelInfo",
     "ComfyUIVersionInfo",
+    
+    # Import Fail Info Models
+    "ImportFailInfoBulkRequest",
+    "ImportFailInfoBulkResponse",
+    "ImportFailInfoItem",
+    "ImportFailInfoItem1",
     
     # Other models
     "OperationType",
