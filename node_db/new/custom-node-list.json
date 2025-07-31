@@ -1,6 +1,96 @@
 {
     "custom_nodes": [
         {
+            "author": "Franklyc",
+            "title": "ComfyUI LoRA adaLN Patcher Node",
+            "reference": "https://github.com/Franklyc/comfyui-lora-adain-patcher-node",
+            "files": [
+                "https://github.com/Franklyc/comfyui-lora-adain-patcher-node"
+            ],
+            "install_type": "git-clone",
+            "description": "A simple but powerful custom node for ComfyUI that patches LoRA models by adding dummy adaLN_modulation_1 weights. This solves compatibility errors when using LoRAs with newer model architectures that expect these keys to be present in the final_layer."
+        },
+        {
+            "author": "YaserJaradeh",
+            "title": "Yaser-nodes for ComfyUI",
+            "reference": "https://github.com/YaserJaradeh/comfyui-yaser-nodes",
+            "files": [
+                "https://github.com/YaserJaradeh/comfyui-yaser-nodes"
+            ],
+            "install_type": "git-clone",
+            "description": "A collection of custom nodes for ComfyUI that provide dynamic input selection and intelligent upscaling functionality."
+        },
+        {
+            "author": "gvfarns",
+            "title": "comfyui_gvf",
+            "reference": "https://github.com/gvfarns/comfyui_gvf",
+            "files": [
+                "https://github.com/gvfarns/comfyui_gvf"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI custom convenience nodes: Cropping images to a given aspect ratio, Cropping images to a max/min aspect ratio, If/else logic with provided float (rather than using a float node)"
+        },
+        {
+            "author": "mikeshuangyan",
+            "title": "ComfyUI_MqUtils",
+            "reference": "https://github.com/mikeshuangyan/ComfyUI_MqUtils",
+            "files": [
+                "https://github.com/mikeshuangyan/ComfyUI_MqUtils"
+            ],
+            "install_type": "git-clone",
+            "description": "MQ util nodes for ComfyUI"
+        },
+        {
+            "author": "Yuan-ManX",
+            "title": "ComfyUI-SkyworkUniPic",
+            "reference": "https://github.com/Yuan-ManX/ComfyUI-SkyworkUniPic",
+            "files": [
+                "https://github.com/Yuan-ManX/ComfyUI-SkyworkUniPic"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI-SkyworkUniPic is now available in ComfyUI, Skywork-UniPic is a unified autoregressive multimodal model with 1.5 billion parameters that natively integrates image understanding, text-to-image generation, and image editing capabilities within a single architecture."
+        },
+        {
+            "author": "zl9739379",
+            "title": "ComfyUI-ArkVideoGenerate",
+            "reference": "https://github.com/zl9739379/ComfyUI-ArkVideoGenerate",
+            "files": [
+                "https://github.com/zl9739379/ComfyUI-ArkVideoGenerate"
+            ],
+            "install_type": "git-clone",
+            "description": "A custom node for ComfyUI that integrates ByteDance Volcano Engine's video generation AI model, supporting both text-to-video and image-to-video generation."
+        },
+        {
+            "author": "AlfredClark",
+            "title": "ComfyUI-ModelSpec",
+            "reference": "https://github.com/AlfredClark/ComfyUI-ModelSpec",
+            "files": [
+                "https://github.com/AlfredClark/ComfyUI-ModelSpec"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI model metadata editing nodes."
+        },
+        {
+            "author": "rainlizard",
+            "title": "Whirlpool Upscaler",
+            "reference": "https://github.com/rainlizard/ComfyUI-WhirlpoolUpscaler",
+            "files": [
+                "https://github.com/rainlizard/ComfyUI-WhirlpoolUpscaler"
+            ],
+            "install_type": "git-clone",
+            "description": "This is a modified implementation of impact-pack's iterative upscaler. It leans in on the idea that giving too much attention to computation at high resolutions isn't a good idea."
+        },
+        {
+            "author": "Android zhang",
+            "title": "ComfyUI-MoGe2",
+            "reference": "https://github.com/zade23/Comfyui-MoGe2",
+            "files": [
+                "https://github.com/zade23/Comfyui-MoGe2"
+            ],
+            "install_type": "git-clone",
+            "description": "Runs the MoGe2 model on the input image. \n v1: Ruicheng/moge-vitl \n v2: Ruicheng/moge-2-vitl-normal"
+        },
+        {
             "author": "mcDandy",
             "title": "More Math",
             "reference": "https://github.com/mcDandy/more_math",
@@ -643,56 +733,6 @@
             ],
             "install_type": "git-clone",
             "description": "A Wrapper and a set of Custom Nodes for using RenderFormer as a 3d Environment in ComfyUI."
-        },
-        {
-            "author": "seanjang990",
-            "title": "ComfyUI Document Auto Crop Node",
-            "reference": "https://github.com/seanjang990/comfyui-document-auto-crop",
-            "files": [
-                "https://github.com/seanjang990/comfyui-document-auto-crop"
-            ],
-            "install_type": "git-clone",
-            "description": "This custom node for ComfyUI automatically crops a document by detecting edges, rotates it based on face orientation using MediaPipe, and adjusts it to a target aspect ratio (default 11:14)."
-        },
-        {
-            "author": "Assistant",
-            "title": "ComfyUI-NS-ManySliders",
-            "reference": "https://github.com/NakamuraShippo/ComfyUI-NS-Util",
-            "files": [
-                "https://github.com/NakamuraShippo/ComfyUI-NS-Util"
-            ],
-            "install_type": "git-clone",
-            "description": "A collection of nodes for ComfyUI. ex:A node for batch managing int, float, and string parameters with presets"
-        },
-        {
-            "author": "cjj198909",
-            "title": "OpenAI/Azure OpenAI Image API",
-            "reference": "https://github.com/cjj198909/comfy_openai_image_api_azure",
-            "files": [
-                "https://github.com/cjj198909/comfy_openai_image_api_azure"
-            ],
-            "install_type": "git-clone",
-            "description": "A ComfyUI node that provides access to OpenAI's image generation and editing capabilities, including support for gpt-image-1 model with both OpenAI and Azure OpenAI providers."
-        },
-        {
-            "author": "NyaFuP",
-            "title": "NF Preview Selector",
-            "reference": "https://github.com/NyaFuP/ComfyUI_Preview_Selector",
-            "files": [
-                "https://github.com/NyaFuP/ComfyUI_Preview_Selector"
-            ],
-            "install_type": "git-clone",
-            "description": "A floating dialog-based image preview and selection system for ComfyUI."
-        },
-        {
-            "author": "aiaiaikkk",
-            "title": "kontext-super-prompt",
-            "reference": "https://github.com/aiaiaikkk/kontext-super-prompt",
-            "files": [
-                "https://github.com/aiaiaikkk/kontext-super-prompt"
-            ],
-            "install_type": "git-clone",
-            "description": "Super Prompt System Powered by Flux Kontext Leveraging visual annotations and AI-enhanced control, this system enables precise, multimodal image editing. Users simply select a region and describe it—structured prompts are auto-generated to guide the Kontext model in smart local or global edits."
         }
     ]
 }

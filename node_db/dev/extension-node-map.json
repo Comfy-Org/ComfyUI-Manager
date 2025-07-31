@@ -205,6 +205,16 @@
             "title_aux": "ComfyUI-1hewNodes [WIP]"
         }
     ],
+    "https://github.com/206811/ComfyUI_ZhipuAIO": [
+        [
+            "ZhipuAIOConfigNode",
+            "ZhipuAIO_VisionNode",
+            "ZhipuTranslateNode"
+        ],
+        {
+            "title_aux": "ComfyUI_ZhipuAIO"
+        }
+    ],
     "https://github.com/3dmindscapper/ComfyUI-PartField": [
         [
             "PartFieldClustering",
@@ -317,6 +327,7 @@
             "ImageBlendV1",
             "ImageRatioCrop",
             "Load_Images",
+            "Load_Images_V1",
             "PDFile_name_fix",
             "PDIMAGE_ImageCombine",
             "PDIMAGE_LongerSize",
@@ -341,11 +352,15 @@
             "PD_Image_Rotate_v1",
             "PD_Image_centerCrop",
             "PD_MASK_SELECTION",
+            "PD_RemoveBlackBackground",
             "PD_RemoveColorWords",
             "PD_ShowText",
             "PD_Text Overlay Node",
             "PD_imagesave_path",
+            "PD_number_start",
             "PD_random_prompt",
+            "PD_rename_batch_v1",
+            "PD_replace_word",
             "PDimage_corp_v1",
             "PDimage_corp_v2",
             "mask_edge_selector"
@@ -548,6 +563,14 @@
             "nickname": "ComfyUI Text Tools",
             "title": "ComfyUI APZmedia Text Tools",
             "title_aux": "comfyui-textools [WIP]"
+        }
+    ],
+    "https://github.com/Aero-Ex/comfyui_diffswap": [
+        [
+            "DiffSwapNode"
+        ],
+        {
+            "title_aux": "comfyui_diffswap"
         }
     ],
     "https://github.com/AhBumm/ComfyUI-Upscayl": [
@@ -876,6 +899,8 @@
             "TileAndStitchBack",
             "TiledWanImageStatistics",
             "TiledWanImageToMask",
+            "TiledWanInpaintCropImproved",
+            "TiledWanInpaintStitchImproved",
             "TiledWanMaskStatistics",
             "TiledWanVideoSLGSimple",
             "TiledWanVideoSamplerSimple",
@@ -1443,6 +1468,14 @@
             "title_aux": "ComfyUI-MusicGen [WIP]"
         }
     ],
+    "https://github.com/ElyZeng/ComfyUI-Translator": [
+        [
+            "TextTranslatorNode"
+        ],
+        {
+            "title_aux": "ComfyUI-Translator [NAME CONFLICT]"
+        }
+    ],
     "https://github.com/Elypha/ComfyUI-Prompt-Helper": [
         [
             "PromptHelper_CombineConditioning",
@@ -1683,6 +1716,14 @@
         ],
         {
             "title_aux": "ComfyUI-LLMs-Toolkit [WIP]"
+        }
+    ],
+    "https://github.com/Huangcj2005/comfyui-HandDetect": [
+        [
+            "HandMaskGenerator"
+        ],
+        {
+            "title_aux": "comfyui-HandDetect"
         }
     ],
     "https://github.com/IfnotFr/ComfyUI-Ifnot-Pack": [
@@ -2421,6 +2462,7 @@
             "cogvideox_flash_get_Node",
             "cogvideox_flash_post_Node",
             "cogview_3_flash_Node",
+            "doubaoNode",
             "douyin_remove_watermark_Node",
             "file_analysis_Node",
             "find_files_by_extension_Node",
@@ -3686,6 +3728,14 @@
             "title_aux": "json-creator [WIP]"
         }
     ],
+    "https://github.com/ahmedbana/upload-to-azure": [
+        [
+            "AzureBlobUploader"
+        ],
+        {
+            "title_aux": "upload-to-azure"
+        }
+    ],
     "https://github.com/aiden1020/ComfyUI_Artcoder": [
         [
             "ArtCoder"
@@ -4938,6 +4988,7 @@
             "TestAsyncConcurrentLimit",
             "TestAsyncError",
             "TestAsyncLazyCheck",
+            "TestAsyncProgressUpdate",
             "TestAsyncResourceUser",
             "TestAsyncTimeout",
             "TestAsyncValidation",
@@ -4962,11 +5013,13 @@
             "TestListToAccumulationNode",
             "TestMakeListNode",
             "TestMixedExpansionReturns",
+            "TestOutputNodeWithSocketOutput",
             "TestParallelSleep",
             "TestSamplingInExpansion",
             "TestSleep",
             "TestStringConditions",
             "TestSyncError",
+            "TestSyncProgressUpdate",
             "TestToBoolNode",
             "TestVariadicAverage",
             "TestWhileLoopClose",
@@ -5157,6 +5210,7 @@
             "OptimizedVoxelizationNode",
             "ProceduralChunkedWFC3DTerrain",
             "ShapeCompletionNode",
+            "VoxelExportNode",
             "VoxelModelLoader",
             "VoxelPreview",
             "VoxelPreviewNode",
@@ -5406,30 +5460,6 @@
         ],
         {
             "title_aux": "comfyui_runway_gen3"
-        }
-    ],
-    "https://github.com/fablestudio/ComfyUI-Showrunner-Utils": [
-        [
-            "AdjustBottomAlphaDistance",
-            "AlignFace",
-            "Alpha Crop and Position Image",
-            "CreateOutlineMask",
-            "GenerateTimestamp",
-            "GetMostCommonColors",
-            "ImageCompositeAbsoluteByContainer",
-            "LoadImageFromUrl",
-            "LoraLoaderModelWithNameOnly",
-            "LoraLoaderWithName",
-            "MaskMorphologyNode",
-            "OpenAI Image 2 Text",
-            "PadMask",
-            "ReadImage",
-            "ShowrunnerFilename",
-            "ShowrunnerSeed",
-            "Shrink Image"
-        ],
-        {
-            "title_aux": "ComfyUI-Showrunner-Utils"
         }
     ],
     "https://github.com/facok/ComfyUI-FokToolset": [
@@ -7016,6 +7046,15 @@
         ],
         {
             "title_aux": "ComfyUI_Scoring-Nodes"
+        }
+    ],
+    "https://github.com/lggcfx2020/ComfyUI-LGGCFX-Tools": [
+        [
+            "LGGCFX_resolution",
+            "LGGCFX_time_frame"
+        ],
+        {
+            "title_aux": "ComfyUI-LGGCFX-Tools"
         }
     ],
     "https://github.com/lgldlk/ComfyUI-img-tiler": [
@@ -8939,6 +8978,16 @@
             "title_aux": "comfyui-env-variable-reader [UNSAFE]"
         }
     ],
+    "https://github.com/tankenyuen-ola/comfyui-wanvideo-scheduler-loop": [
+        [
+            "WanVideoSchedulerInfo",
+            "WanVideoSchedulerLoop",
+            "WanVideoSchedulerSelector"
+        ],
+        {
+            "title_aux": "comfyui-wanvideo-scheduler-loop"
+        }
+    ],
     "https://github.com/tanmoy-it/comfyuiCustomNode": [
         [
             "DownloadImageDataUrl"
@@ -9616,13 +9665,13 @@
             "LoadImageFromDirectoryNode",
             "LoadImageFromURLNode",
             "LoadStringFromDirectoryNode",
+            "LoadStringNode",
             "OllamaClientNode",
             "OllamaNode",
-            "OutputIsListNode",
-            "OutputIsNonListNode",
             "PrependTagsNode",
             "PrintAnyNode",
             "PrintImageNode",
+            "RemoveDuplicateTagsNode",
             "SaveImageToDirectoryNode",
             "SaveStringToDirectoryNode",
             "SequenceStringListNode",

@@ -201,13 +201,15 @@ export class CopusShareDialog extends ComfyDialog {
     });
     this.LockInput = $el("input", {
       type: "text",
-      placeholder: "",
+      placeholder: "0",
       style: {
         width: "100px",
         padding: "7px",
+        paddingLeft: "30px",
         borderRadius: "4px",
         border: "1px solid #ddd",
         boxSizing: "border-box",
+        position: "relative",
       },
       oninput: (event) => {
         let input = event.target.value;
@@ -375,7 +377,7 @@ export class CopusShareDialog extends ComfyDialog {
     });
 
     const blockChainSection_lock = $el("div", { style: sectionStyle }, [
-      $el("label", { style: labelStyle }, ["6️⃣ Pay to download"]),
+      $el("label", { style: labelStyle }, ["6️⃣ Download threshold"]),
       $el(
         "label",
         {
@@ -395,6 +397,7 @@ export class CopusShareDialog extends ComfyDialog {
                 marginLeft: "5px",
                 display: "flex",
                 alignItems: "center",
+                position: "relative",
               },
             },
             [
@@ -408,8 +411,18 @@ export class CopusShareDialog extends ComfyDialog {
                     color: "#fff",
                   },
                 },
-                ["Price US$"]
+                ["Unlock with"]
               ),
+              $el("img", {
+                style: {
+                  width: "16px",
+                  height: "16px",
+                  position: "absolute",
+                  right: "75px",
+                  zIndex: "100",
+                },
+                src: "https://static.copus.io/images/admin/202507/prod/e2919a1d8f3c2d99d3b8fe27ff94b841.png",
+              }),
               this.LockInput,
             ]
           ),
@@ -420,7 +433,7 @@ export class CopusShareDialog extends ComfyDialog {
         { style: { display: "flex", alignItems: "center", cursor: "pointer" } },
         [
           this.radioButtonsCheckOff_lock,
-            $el(
+          $el(
             "div",
             {
               style: {
@@ -429,9 +442,7 @@ export class CopusShareDialog extends ComfyDialog {
                 alignItems: "center",
               },
             },
-            [
-              $el("span", { style: { marginLeft: "5px" } }, ["OFF"]),
-            ]
+            [$el("span", { style: { marginLeft: "5px" } }, ["OFF"])]
           ),
         ]
       ),
@@ -440,7 +451,6 @@ export class CopusShareDialog extends ComfyDialog {
         "p",
         { style: { fontSize: "16px", color: "#fff", margin: "10px 0 0 0" } },
         [
-          "Get paid from your workflow. You can change the price and withdraw your earnings on Copus.",
         ]
       ),
     ]);
