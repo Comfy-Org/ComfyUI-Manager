@@ -1,0 +1,903 @@
+openapi: 3.1.0
+info:
+  title: ComfyUI-Manager API
+  description: |
+    API for ComfyUI-Manager, a comprehensive management tool for ComfyUI custom nodes, models, and components.
+    This API enables programmatic access to node management, model downloading, snapshot operations,
+    and overall system configuration.
+  version: "3.32.3"
+  contact:
+    name: ComfyUI-Manager Maintainers
+servers:
+  - url: '/'
+    description: Default ComfyUI server
+
+# Common API components
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+          
+    NodePackageMetadata:
+      type: object
+      properties:
+        title:
+          type: string
+          description: Display name of the node package
+        name:
+          type: string
+          description: Repository/package name
+        files:
+          type: array
+          items:
+            type: string
+          description: Source URLs for the package
+        description:
+          type: string
+          description: Description of the node package functionality
+        install_type:
+          type: string
+          enum: [git, copy, pip]
+          description: Installation method
+        version:
+          type: string
+          description: Version identifier
+        id:
+          type: string
+          description: Unique identifier for the node package
+        ui_id:
+          type: string
+          description: ID for UI reference
+        channel:
+          type: string
+          description: Source channel
+        mode:
+          type: string
+          description: Source mode
+        
+    ModelMetadata:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the model
+        type:
+          type: string
+          description: Type of model
+        base:
+          type: string
+          description: Base model type
+        save_path:
+          type: string
+          description: Path for saving the model
+        url:
+          type: string
+          description: Download URL
+        filename:
+          type: string
+          description: Target filename
+        ui_id:
+          type: string
+          description: ID for UI reference
+          
+    SnapshotItem:
+      type: string
+      description: Name of the snapshot
+
+    QueueStatus:
+      type: object
+      properties:
+        total_count:
+          type: integer
+          description: Total number of tasks
+        done_count:
+          type: integer
+          description: Number of completed tasks
+        in_progress_count:
+          type: integer
+          description: Number of tasks in progress
+        is_processing:
+          type: boolean
+          description: Whether the queue is currently processing
+
+    ImportFailInfoBulkRequest:
+      type: object
+      properties:
+        cnr_ids:
+          type: array
+          items:
+            type: string
+          description: A list of CNR IDs to check.
+        urls:
+          type: array
+          items:
+            type: string
+          description: A list of repository URLs to check.
+
+    ImportFailInfoBulkResponse:
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/ImportFailInfoItem'
+      description: >-
+        A dictionary where each key is a cnr_id or url from the request,
+        and the value is the corresponding error info.
+
+    ImportFailInfoItem:
+      oneOf:
+        - type: object
+          properties:
+            error:
+              type: string
+            traceback:
+              type: string
+        - type: "null"
+
+  securitySchemes:
+    securityLevel:
+      type: apiKey
+      in: header
+      name: Security-Level
+      description: Security level for sensitive operations
+
+  parameters:
+    modeParam:
+      name: mode
+      in: query
+      description: Source mode (e.g., "local", "remote")
+      schema:
+        type: string
+        enum: [local, remote, default]
+        
+    targetParam:
+      name: target
+      in: query
+      description: Target identifier
+      required: true
+      schema:
+        type: string
+        
+    valueParam:
+      name: value
+      in: query
+      description: New value to set
+      required: true
+      schema:
+        type: string
+
+# API Paths
+paths:
+  # Custom Nodes Endpoints
+  /customnode/getmappings:
+    get:
+      summary: Get node-to-package mappings
+      description: Provides unified mapping between nodes and node packages
+      parameters:
+        - $ref: '#/components/parameters/modeParam'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: array
+                description: Mapping of node packages to node classes
+
+  /customnode/fetch_updates:
+    get:
+      summary: Check for updates
+      description: Fetches updates for custom nodes
+      parameters:
+        - $ref: '#/components/parameters/modeParam'
+      responses:
+        '200':
+          description: No updates available
+        '201':
+          description: Updates found
+        '400':
+          description: Error occurred
+          
+  /customnode/installed:
+    get:
+      summary: Get installed custom nodes
+      description: Returns a list of installed node packages
+      parameters:
+        - name: mode
+          in: query
+          description: Lists mode, default or imported
+          schema:
+            type: string
+            enum: [default, imported]
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  $ref: '#/components/schemas/NodePackageMetadata'
+                  
+  /customnode/getlist:
+    get:
+      summary: Get custom node list
+      description: Provides a list of available custom nodes
+      parameters:
+        - $ref: '#/components/parameters/modeParam'
+        - name: skip_update
+          in: query
+          description: Skip update check
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  channel:
+                    type: string
+                  node_packs:
+                    type: object
+                    additionalProperties:
+                      $ref: '#/components/schemas/NodePackageMetadata'
+                      
+  /customnode/alternatives:
+    get:
+      summary: Get alternative node options
+      description: Provides alternatives for nodes
+      parameters:
+        - $ref: '#/components/parameters/modeParam'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: object
+                  
+  /customnode/versions/{node_name}:
+    get:
+      summary: Get available versions for a node
+      description: Lists all available versions for a specific node
+      parameters:
+        - name: node_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    version:
+                      type: string
+        '400':
+          description: Node not found
+          
+  /customnode/disabled_versions/{node_name}:
+    get:
+      summary: Get disabled versions for a node
+      description: Lists all disabled versions for a specific node
+      parameters:
+        - name: node_name
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    version:
+                      type: string
+        '400':
+          description: Node not found
+          
+  /customnode/import_fail_info:
+    post:
+      summary: Get import failure information
+      description: Returns information about why a node failed to import
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cnr_id:
+                  type: string
+                url:
+                  type: string
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          description: No information available
+          
+  /v2/customnode/import_fail_info_bulk:
+    post:
+      summary: Get import failure info for multiple nodes
+      description: Retrieves recorded import failure information for a list of custom nodes.
+      tags:
+        - customnode
+      requestBody:
+        description: A list of CNR IDs or repository URLs to check.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportFailInfoBulkRequest'
+      responses:
+        '200':
+          description: A dictionary containing the import failure information.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportFailInfoBulkResponse'
+        '400':
+          description: Bad Request. The request body is invalid.
+        '500':
+          description: Internal Server Error.
+        
+  /customnode/install/git_url:
+    post:
+      summary: Install custom node via Git URL
+      description: Installs a custom node from a Git repository URL
+      security:
+        - securityLevel: []
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: Installation successful or already installed
+        '400':
+          description: Installation failed
+        '403':
+          description: Security policy violation
+          
+  /customnode/install/pip:
+    post:
+      summary: Install custom node dependencies via pip
+      description: Installs Python package dependencies for custom nodes
+      security:
+        - securityLevel: []
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+      responses:
+        '200':
+          description: Installation successful
+        '403':
+          description: Security policy violation
+          
+  # Model Management Endpoints
+  /externalmodel/getlist:
+    get:
+      summary: Get external model list
+      description: Provides a list of available external models
+      parameters:
+        - $ref: '#/components/parameters/modeParam'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  models:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ModelMetadata'
+                      
+  # Queue Management Endpoints
+  /manager/queue/update_all:
+    get:
+      summary: Update all custom nodes
+      description: Queues update operations for all installed custom nodes
+      security:
+        - securityLevel: []
+      parameters:
+        - $ref: '#/components/parameters/modeParam'
+      responses:
+        '200':
+          description: Update queued successfully
+        '401':
+          description: Processing already in progress
+        '403':
+          description: Security policy violation
+          
+  /manager/queue/reset:
+    get:
+      summary: Reset queue
+      description: Resets the operation queue
+      responses:
+        '200':
+          description: Queue reset successfully
+          
+  /manager/queue/status:
+    get:
+      summary: Get queue status
+      description: Returns the current status of the operation queue
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueStatus'
+                
+  /manager/queue/install:
+    post:
+      summary: Install custom node
+      description: Queues installation of a custom node
+      security:
+        - securityLevel: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodePackageMetadata'
+      responses:
+        '200':
+          description: Installation queued successfully
+        '403':
+          description: Security policy violation
+        '404':
+          description: Target node not found or security issue
+          
+  /manager/queue/start:
+    get:
+      summary: Start queue processing
+      description: Starts processing the operation queue
+      responses:
+        '200':
+          description: Processing started
+        '201':
+          description: Processing already in progress
+          
+  /manager/queue/fix:
+    post:
+      summary: Fix custom node
+      description: Attempts to fix a broken custom node installation
+      security:
+        - securityLevel: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodePackageMetadata'
+      responses:
+        '200':
+          description: Fix operation queued successfully
+        '403':
+          description: Security policy violation
+          
+  /manager/queue/reinstall:
+    post:
+      summary: Reinstall custom node
+      description: Uninstalls and then reinstalls a custom node
+      security:
+        - securityLevel: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodePackageMetadata'
+      responses:
+        '200':
+          description: Reinstall operation queued successfully
+        '403':
+          description: Security policy violation
+          
+  /manager/queue/uninstall:
+    post:
+      summary: Uninstall custom node
+      description: Queues uninstallation of a custom node
+      security:
+        - securityLevel: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodePackageMetadata'
+      responses:
+        '200':
+          description: Uninstallation queued successfully
+        '403':
+          description: Security policy violation
+          
+  /manager/queue/update:
+    post:
+      summary: Update custom node
+      description: Queues update of a custom node
+      security:
+        - securityLevel: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodePackageMetadata'
+      responses:
+        '200':
+          description: Update queued successfully
+        '403':
+          description: Security policy violation
+          
+  /manager/queue/disable:
+    post:
+      summary: Disable custom node
+      description: Disables a custom node without uninstalling it
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NodePackageMetadata'
+      responses:
+        '200':
+          description: Disable operation queued successfully
+          
+  /manager/queue/update_comfyui:
+    get:
+      summary: Update ComfyUI
+      description: Queues an update operation for ComfyUI itself
+      responses:
+        '200':
+          description: Update queued successfully
+          
+  /manager/queue/install_model:
+    post:
+      summary: Install model
+      description: Queues installation of a model
+      security:
+        - securityLevel: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModelMetadata'
+      responses:
+        '200':
+          description: Installation queued successfully
+        '400':
+          description: Invalid model request
+        '403':
+          description: Security policy violation
+          
+  # Snapshot Management Endpoints
+  /snapshot/getlist:
+    get:
+      summary: Get snapshot list
+      description: Returns a list of available snapshots
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SnapshotItem'
+                      
+  /snapshot/remove:
+    get:
+      summary: Remove snapshot
+      description: Removes a specified snapshot
+      security:
+        - securityLevel: []
+      parameters:
+        - $ref: '#/components/parameters/targetParam'
+      responses:
+        '200':
+          description: Snapshot removed successfully
+        '400':
+          description: Error removing snapshot
+        '403':
+          description: Security policy violation
+          
+  /snapshot/restore:
+    get:
+      summary: Restore snapshot
+      description: Restores a specified snapshot
+      security:
+        - securityLevel: []
+      parameters:
+        - $ref: '#/components/parameters/targetParam'
+      responses:
+        '200':
+          description: Snapshot restoration scheduled
+        '400':
+          description: Error restoring snapshot
+        '403':
+          description: Security policy violation
+          
+  /snapshot/get_current:
+    get:
+      summary: Get current snapshot
+      description: Returns the current system state as a snapshot
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Error creating snapshot
+          
+  /snapshot/save:
+    get:
+      summary: Save snapshot
+      description: Saves the current system state as a new snapshot
+      responses:
+        '200':
+          description: Snapshot saved successfully
+        '400':
+          description: Error saving snapshot
+          
+  # ComfyUI Management Endpoints
+  /comfyui_manager/comfyui_versions:
+    get:
+      summary: Get ComfyUI versions
+      description: Returns available and current ComfyUI versions
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  versions:
+                    type: array
+                    items:
+                      type: string
+                  current:
+                    type: string
+        '400':
+          description: Error retrieving versions
+          
+  /comfyui_manager/comfyui_switch_version:
+    get:
+      summary: Switch ComfyUI version
+      description: Switches to a specified ComfyUI version
+      parameters:
+        - name: ver
+          in: query
+          description: Target version
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Version switch successful
+        '400':
+          description: Error switching version
+          
+  /manager/reboot:
+    get:
+      summary: Reboot ComfyUI
+      description: Restarts the ComfyUI server
+      security:
+        - securityLevel: []
+      responses:
+        '200':
+          description: Reboot initiated
+        '403':
+          description: Security policy violation
+          
+  # Configuration Endpoints
+  /manager/preview_method:
+    get:
+      summary: Get or set preview method
+      description: Gets or sets the latent preview method
+      parameters:
+        - name: value
+          in: query
+          required: false
+          description: New preview method
+          schema:
+            type: string
+            enum: [auto, latent2rgb, taesd, none]
+      responses:
+        '200':
+          description: Setting updated or current value returned
+          content:
+            text/plain:
+              schema:
+                type: string
+                
+  /manager/db_mode:
+    get:
+      summary: Get or set database mode
+      description: Gets or sets the database mode
+      parameters:
+        - name: value
+          in: query
+          required: false
+          description: New database mode
+          schema:
+            type: string
+            enum: [channel, local, remote]
+      responses:
+        '200':
+          description: Setting updated or current value returned
+          content:
+            text/plain:
+              schema:
+                type: string
+                
+  /manager/policy/component:
+    get:
+      summary: Get or set component policy
+      description: Gets or sets the component policy
+      parameters:
+        - name: value
+          in: query
+          required: false
+          description: New component policy
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Setting updated or current value returned
+          content:
+            text/plain:
+              schema:
+                type: string
+                
+  /manager/policy/update:
+    get:
+      summary: Get or set update policy
+      description: Gets or sets the update policy
+      parameters:
+        - name: value
+          in: query
+          required: false
+          description: New update policy
+          schema:
+            type: string
+            enum: [stable, nightly, nightly-comfyui]
+      responses:
+        '200':
+          description: Setting updated or current value returned
+          content:
+            text/plain:
+              schema:
+                type: string
+                
+  /manager/channel_url_list:
+    get:
+      summary: Get or set channel URL
+      description: Gets or sets the channel URL for custom node sources
+      parameters:
+        - name: value
+          in: query
+          required: false
+          description: New channel name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Setting updated or channel list returned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  selected:
+                    type: string
+                  list:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        url:
+                          type: string
+                          
+  # Component Management Endpoints
+  /manager/component/save:
+    post:
+      summary: Save component
+      description: Saves a reusable workflow component
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                workflow:
+                  type: object
+      responses:
+        '200':
+          description: Component saved successfully
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: Error saving component
+          
+  /manager/component/loads:
+    post:
+      summary: Load components
+      description: Loads all available workflow components
+      responses:
+        '200':
+          description: Components loaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Error loading components
+          
+  # Miscellaneous Endpoints
+  /manager/version:
+    get:
+      summary: Get manager version
+      description: Returns the current version of ComfyUI-Manager
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            text/plain:
+              schema:
+                type: string
+                
+  /manager/notice:
+    get:
+      summary: Get manager notice
+      description: Returns HTML content with notices and version information
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            text/html:
+              schema:
+                type: string

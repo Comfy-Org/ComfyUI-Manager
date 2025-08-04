@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import sys
 import atexit
@@ -20,21 +21,26 @@ import cm_global
 import manager_downloader
 import folder_paths
 
-import datetime
-if hasattr(datetime, 'datetime'):
+manager_util.add_python_path_to_env()
+
+import datetime as dt
+
+if hasattr(dt, 'datetime'):
+    from datetime import datetime as dt_datetime
+    
     def current_timestamp():
-        return datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+        return dt_datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
 else:
     # NOTE: Occurs in some Mac environments.
     import time
-    logging.error(f"[ComfyUI-Manager] fallback timestamp mode\n                  datetime module is invalid: '{datetime.__file__}'")
+    logging.error(f"[ComfyUI-Manager] fallback timestamp mode\n                  datetime module is invalid: '{dt.__file__}'")
+    
     def current_timestamp():
         return str(time.time()).split('.')[0]
 
-security_check.security_check()
 
-cm_global.pip_blacklist = ['torch', 'torchsde', 'torchvision']
-cm_global.pip_downgrade_blacklist = ['torch', 'torchsde', 'torchvision', 'transformers', 'safetensors', 'kornia']
+cm_global.pip_blacklist = {'torch', 'torchaudio', 'torchsde', 'torchvision'}
+cm_global.pip_downgrade_blacklist = ['torch', 'torchaudio', 'torchsde', 'torchvision', 'transformers', 'safetensors', 'kornia']
 
 
 def skip_pip_spam(x):
@@ -81,6 +87,7 @@ comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
 custom_nodes_base_path = folder_paths.get_folder_paths('custom_nodes')[0]
 manager_files_path = os.path.abspath(os.path.join(folder_paths.get_user_directory(), 'default', 'ComfyUI-Manager'))
 manager_pip_overrides_path = os.path.join(manager_files_path, "pip_overrides.json")
+manager_pip_blacklist_path = os.path.join(manager_files_path, "pip_blacklist.list")
 restore_snapshot_path = os.path.join(manager_files_path, "startup-scripts", "restore-snapshot.json")
 manager_config_path = os.path.join(manager_files_path, 'config.ini')
 
@@ -93,7 +100,7 @@ def read_config():
     global default_conf
     try:
         import configparser
-        config = configparser.ConfigParser()
+        config = configparser.ConfigParser(strict=False)
         config.read(manager_config_path)
         default_conf = config['default']
     except Exception:
@@ -111,14 +118,22 @@ def check_file_logging():
 
 read_config()
 read_uv_mode()
+security_check.security_check()
 check_file_logging()
 
-cm_global.pip_overrides = {'numpy': 'numpy<2', 'ultralytics': 'ultralytics==8.3.40'}
+cm_global.pip_overrides = {}
+
 if os.path.exists(manager_pip_overrides_path):
     with open(manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
         cm_global.pip_overrides = json.load(json_file)
-        cm_global.pip_overrides['numpy'] = 'numpy<2'
-        cm_global.pip_overrides['ultralytics'] = 'ultralytics==8.3.40'  # for security
+
+
+if os.path.exists(manager_pip_blacklist_path):
+    with open(manager_pip_blacklist_path, 'r', encoding="UTF-8", errors="ignore") as f:
+        for x in f.readlines():
+            y = x.strip()
+            if y != '':
+                cm_global.pip_blacklist.add(y)
 
 
 def remap_pip_package(pkg):
@@ -323,7 +338,12 @@ try:
                     log_file.write(message)
                 else:
                     log_file.write(f"[{timestamp}] {message}")
-                log_file.flush()
+
+                try:
+                    log_file.flush()
+                except Exception:
+                    pass
+
                 self.last_char = message if message == '' else message[-1]
 
             if not file_only:
@@ -336,7 +356,10 @@ try:
                         original_stderr.flush()
 
         def flush(self):
-            log_file.flush()
+            try:
+                log_file.flush()
+            except Exception:
+                pass
 
             with std_log_lock:
                 if self.is_stdout:
@@ -420,29 +443,33 @@ except Exception as e:
     print(f"[ComfyUI-Manager] Logging failed: {e}")
 
 
-try:
-    import git   # noqa: F401
-    import toml  # noqa: F401
-    import rich  # noqa: F401
-except ModuleNotFoundError:
-    my_path = os.path.dirname(__file__)
-    requirements_path = os.path.join(my_path, "requirements.txt")
-
-    print("## ComfyUI-Manager: installing dependencies. (GitPython)")
+def ensure_dependencies():
     try:
-        result = subprocess.check_output(manager_util.make_pip_cmd(['install', '-r', requirements_path]))
-    except subprocess.CalledProcessError:
-        print("## [ERROR] ComfyUI-Manager: Attempting to reinstall dependencies using an alternative method.")
-        try:
-            result = subprocess.check_output(manager_util.make_pip_cmd(['install', '--user', '-r', requirements_path]))
-        except subprocess.CalledProcessError:
-            print("## [ERROR] ComfyUI-Manager: Failed to install the GitPython package in the correct Python environment. Please install it manually in the appropriate environment. (You can seek help at https://app.element.io/#/room/%23comfyui_space%3Amatrix.org)")
+        import git     # noqa: F401
+        import toml    # noqa: F401
+        import rich    # noqa: F401
+        import chardet # noqa: F401
+    except ModuleNotFoundError:
+        my_path = os.path.dirname(__file__)
+        requirements_path = os.path.join(my_path, "requirements.txt")
 
-try:
-    print("## ComfyUI-Manager: installing dependencies done.")
-except:
-    # maybe we should sys.exit() here? there is at least two screens worth of error messages still being pumped after our error messages
-    print("## [ERROR] ComfyUI-Manager: GitPython package seems to be installed, but failed to load somehow. Make sure you have a working git client installed")
+        print("## ComfyUI-Manager: installing dependencies. (GitPython)")
+        try:
+            subprocess.check_output(manager_util.make_pip_cmd(['install', '-r', requirements_path]))
+        except subprocess.CalledProcessError:
+            print("## [ERROR] ComfyUI-Manager: Attempting to reinstall dependencies using an alternative method.")
+            try:
+                subprocess.check_output(manager_util.make_pip_cmd(['install', '--user', '-r', requirements_path]))
+            except subprocess.CalledProcessError:
+                print("## [ERROR] ComfyUI-Manager: Failed to install the GitPython package in the correct Python environment. Please install it manually in the appropriate environment. (You can seek help at https://app.element.io/#/room/%23comfyui_space%3Amatrix.org)")
+
+    try:
+        print("## ComfyUI-Manager: installing dependencies done.")
+    except:
+        # maybe we should sys.exit() here? there is at least two screens worth of error messages still being pumped after our error messages
+        print("## [ERROR] ComfyUI-Manager: GitPython package seems to be installed, but failed to load somehow. Make sure you have a working git client installed")
+
+ensure_dependencies()
 
 
 print("** ComfyUI startup time:", current_timestamp())
@@ -490,7 +517,7 @@ check_bypass_ssl()
 # Perform install
 processed_install = set()
 script_list_path = os.path.join(folder_paths.user_directory, "default", "ComfyUI-Manager", "startup-scripts", "install-scripts.txt")
-pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages())
+pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path)
 
 
 def is_installed(name):
@@ -597,17 +624,19 @@ def execute_lazy_install_script(repo_path, executable):
 
     if os.path.exists(requirements_path):
         print(f"Install: pip packages for '{repo_path}'")
-        with open(requirements_path, "r") as requirements_file:
-            for line in requirements_file:
-                package_name = remap_pip_package(line.strip())
-                if package_name and not is_installed(package_name):
-                    if '--index-url' in package_name:
-                        s = package_name.split('--index-url')
-                        install_cmd = manager_util.make_pip_cmd(["install", s[0].strip(), '--index-url', s[1].strip()])
-                    else:
-                        install_cmd = manager_util.make_pip_cmd(["install", package_name])
 
-                    process_wrap(install_cmd, repo_path)
+        lines = manager_util.robust_readlines(requirements_path)
+        for line in lines:
+            package_name = remap_pip_package(line.strip())
+            package_name = package_name.split('#')[0].strip()
+            if package_name and not is_installed(package_name):
+                if '--index-url' in package_name:
+                    s = package_name.split('--index-url')
+                    install_cmd = manager_util.make_pip_cmd(["install", s[0].strip(), '--index-url', s[1].strip()])
+                else:
+                    install_cmd = manager_util.make_pip_cmd(["install", package_name])
+
+                process_wrap(install_cmd, repo_path)
 
     if os.path.exists(install_script_path) and f'{repo_path}/install.py' not in processed_install:
         processed_install.add(f'{repo_path}/install.py')
@@ -671,18 +700,42 @@ def execute_lazy_cnr_switch(target, zip_url, from_path, to_path, no_deps, custom
         file.write('\n'.join(list(extracted)))
 
 
-def execute_migration(moves):
-    import shutil
-    for x in moves:
-        if os.path.exists(x[0]) and not os.path.exists(x[1]):
-            shutil.move(x[0], x[1])
-            print(f"[ComfyUI-Manager] MIGRATION: '{x[0]}' -> '{x[1]}'")
+script_executed = False
 
-
-# Check if script_list_path exists
-if os.path.exists(script_list_path):
+def execute_startup_script():
+    global script_executed
     print("\n#######################################################################")
     print("[ComfyUI-Manager] Starting dependency installation/(de)activation for the extension\n")
+
+    custom_nodelist_cache = None
+
+    def get_custom_node_paths():
+        nonlocal custom_nodelist_cache
+        if custom_nodelist_cache is None:
+            custom_nodelist_cache = set()
+            for base in folder_paths.get_folder_paths('custom_nodes'):
+                for x in os.listdir(base):
+                    fullpath = os.path.join(base, x)
+                    if os.path.isdir(fullpath):
+                        custom_nodelist_cache.add(fullpath)
+
+        return custom_nodelist_cache
+
+    def execute_lazy_delete(path):
+        # Validate to prevent arbitrary paths from being deleted
+        if path not in get_custom_node_paths():
+            logging.error(f"## ComfyUI-Manager: The scheduled '{path}' is not a custom node path, so the deletion has been canceled.")
+            return
+
+        if not os.path.exists(path):
+            logging.info(f"## ComfyUI-Manager: SKIP-DELETE => '{path}' (already deleted)")
+            return
+
+        try:
+            shutil.rmtree(path)
+            logging.info(f"## ComfyUI-Manager: DELETE => '{path}'")
+        except Exception as e:
+            logging.error(f"## ComfyUI-Manager: Failed to delete '{path}' ({e})")
 
     executed = set()
     # Read each line from the file and convert it to a list using eval
@@ -704,8 +757,8 @@ if os.path.exists(script_list_path):
                         execute_lazy_cnr_switch(script[0], script[2], script[3], script[4], script[5], script[6])
                         execute_lazy_install_script(script[3], script[7])
 
-                    elif script[1] == "#LAZY-MIGRATION":
-                        execute_migration(script[2])
+                    elif script[1] == "#LAZY-DELETE-NODEPACK":
+                        execute_lazy_delete(script[2])
 
                 elif os.path.exists(script[0]):
                     if script[1] == "#FORCE":
@@ -715,7 +768,7 @@ if os.path.exists(script_list_path):
                             continue
 
                     print(f"\n## ComfyUI-Manager: EXECUTE => {script[1:]}")
-                    print(f"\n## Execute install/(de)activation script for '{script[0]}'")
+                    print(f"\n## Execute management script for '{script[0]}'")
 
                     new_env = os.environ.copy()
                     if 'COMFYUI_FOLDERS_BASE_PATH' not in new_env:
@@ -723,19 +776,26 @@ if os.path.exists(script_list_path):
                     exit_code = process_wrap(script[1:], script[0], env=new_env)
 
                     if exit_code != 0:
-                        print(f"install/(de)activation script failed: {script[0]}")
+                        print(f"management script failed: {script[0]}")
                 else:
                     print(f"\n## ComfyUI-Manager: CANCELED => {script[1:]}")
 
             except Exception as e:
-                print(f"[ERROR] Failed to execute install/(de)activation script: {line} / {e}")
+                print(f"[ERROR] Failed to execute management script: {line} / {e}")
 
     # Remove the script_list_path file
     if os.path.exists(script_list_path):
+        script_executed = True
         os.remove(script_list_path)
         
     print("\n[ComfyUI-Manager] Startup script completed.")
     print("#######################################################################\n")
+
+
+# Check if script_list_path exists
+if os.path.exists(script_list_path):
+    execute_startup_script()
+
 
 pip_fixer.fix_broken()
 
@@ -743,11 +803,37 @@ del processed_install
 del pip_fixer
 manager_util.clear_pip_cache()
 
+if script_executed:
+    # Restart
+    print("[ComfyUI-Manager] Restarting to reapply dependency installation.")
+
+    if '__COMFY_CLI_SESSION__' in os.environ:
+        with open(os.path.join(os.environ['__COMFY_CLI_SESSION__'] + '.reboot'), 'w'):
+            pass
+
+        print("--------------------------------------------------------------------------\n")
+        exit(0)
+    else:
+        sys_argv = sys.argv.copy()
+
+        if sys_argv[0].endswith("__main__.py"):  # this is a python module
+            module_name = os.path.basename(os.path.dirname(sys_argv[0]))
+            cmds = [sys.executable, '-m', module_name] + sys_argv[1:]
+        elif sys.platform.startswith('win32'):
+            cmds = ['"' + sys.executable + '"', '"' + sys_argv[0] + '"'] + sys_argv[1:]
+        else:
+            cmds = [sys.executable] + sys_argv
+
+        print(f"Command: {cmds}", flush=True)
+        print("--------------------------------------------------------------------------\n")
+
+        os.execv(sys.executable, cmds)
+
 
 def check_windows_event_loop_policy():
     try:
         import configparser
-        config = configparser.ConfigParser()
+        config = configparser.ConfigParser(strict=False)
         config.read(manager_config_path)
         default_conf = config['default']
 

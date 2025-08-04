@@ -2,6 +2,7 @@
 description:
     `manager_util` is the lightest module shared across the prestartup_script, main code, and cm-cli of ComfyUI-Manager.
 """
+import traceback
 
 import aiohttp
 import json
@@ -12,6 +13,8 @@ import subprocess
 import sys
 import re
 import logging
+import platform
+import shlex
 
 
 cache_lock = threading.Lock()
@@ -20,13 +23,29 @@ comfyui_manager_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '
 cache_dir = os.path.join(comfyui_manager_path, '.cache')  # This path is also updated together in **manager_core.update_user_directory**.
 
 use_uv = False
+bypass_ssl = False
+
+def add_python_path_to_env():
+    if platform.system() != "Windows":
+        sep = ':'
+    else:
+        sep = ';'
+
+    os.environ['PATH'] = os.path.dirname(sys.executable)+sep+os.environ['PATH']
+
 
 def make_pip_cmd(cmd):
-    if use_uv:
-        return [sys.executable, '-m', 'uv', 'pip'] + cmd
+    if 'python_embeded' in sys.executable:
+        if use_uv:
+            return [sys.executable, '-s', '-m', 'uv', 'pip'] + cmd
+        else:
+            return [sys.executable, '-s', '-m', 'pip'] + cmd
     else:
-        return [sys.executable, '-m', 'pip'] + cmd
-
+        # FIXED: https://github.com/ltdrdata/ComfyUI-Manager/issues/1667
+        if use_uv:
+            return [sys.executable, '-m', 'uv', 'pip'] + cmd
+        else:
+            return [sys.executable, '-m', 'pip'] + cmd
 
 # DON'T USE StrictVersion - cannot handle pre_release version
 # try:
@@ -117,7 +136,7 @@ async def get_data(uri, silent=False):
         print(f"FETCH DATA from: {uri}", end="")
 
     if uri.startswith("http"):
-        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=not bypass_ssl)) as session:
             headers = {
                 'Cache-Control': 'no-cache',
                 'Pragma': 'no-cache',
@@ -169,7 +188,7 @@ def save_to_cache(uri, json_obj, silent=False):
                 logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
 
 
-async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=False):
+async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=False, dont_cache=False):
     cache_uri = get_cache_path(uri)
 
     if cache_mode and dont_wait:
@@ -188,11 +207,12 @@ async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=Fals
         json_obj = await get_data(cache_uri, silent=silent)
     else:
         json_obj = await get_data(uri, silent=silent)
-        with cache_lock:
-            with open(cache_uri, "w", encoding='utf-8') as file:
-                json.dump(json_obj, file, indent=4, sort_keys=True)
-                if not silent:
-                    logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+        if not dont_cache:
+            with cache_lock:
+                with open(cache_uri, "w", encoding='utf-8') as file:
+                    json.dump(json_obj, file, indent=4, sort_keys=True)
+                    if not silent:
+                        logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
 
     return json_obj
 
@@ -232,10 +252,11 @@ def get_installed_packages(renew=False):
                     if y[0] == 'Package' or y[0].startswith('-'):
                         continue
 
-                    pip_map[y[0]] = y[1]
+                    normalized_name = y[0].lower().replace('-', '_')
+                    pip_map[normalized_name] = y[1]
         except subprocess.CalledProcessError:
             logging.error("[ComfyUI-Manager] Failed to retrieve the information of installed pip packages.")
-            return set()
+            return {}
 
     return pip_map
 
@@ -245,7 +266,48 @@ def clear_pip_cache():
     pip_map = None
 
 
+def parse_requirement_line(line):
+    tokens = shlex.split(line)
+    if not tokens:
+        return None
+
+    package_spec = tokens[0]
+
+    pattern = re.compile(
+        r'^(?P<package>[A-Za-z0-9_.+-]+)'
+        r'(?P<operator>==|>=|<=|!=|~=|>|<)?'
+        r'(?P<version>[A-Za-z0-9_.+-]*)$'
+    )
+    m = pattern.match(package_spec)
+    if not m:
+        return None
+
+    package = m.group('package')
+    operator = m.group('operator') or None
+    version = m.group('version') or None
+
+    index_url = None
+    if '--index-url' in tokens:
+        idx = tokens.index('--index-url')
+        if idx + 1 < len(tokens):
+            index_url = tokens[idx + 1]
+
+    res = {'package': package}
+
+    if operator is not None:
+        res['operator'] = operator
+
+    if version is not None:
+        res['version'] = StrictVersion(version)
+
+    if index_url is not None:
+        res['index_url'] = index_url
+
+    return res
+
+
 torch_torchvision_torchaudio_version_map = {
+    '2.7.0': ('0.22.0', '2.7.0'),
     '2.6.0': ('0.21.0', '2.6.0'),
     '2.5.1': ('0.20.0', '2.5.0'),
     '2.5.0': ('0.20.0', '2.5.0'),
@@ -264,35 +326,38 @@ torch_torchvision_torchaudio_version_map = {
 }
 
 
-class PIPFixer:
-    def __init__(self, prev_pip_versions):
-        self.prev_pip_versions = { **prev_pip_versions }
-
-    def torch_rollback(self):
-        spec = self.prev_pip_versions['torch'].split('+')
-        if len(spec) > 0:
-            platform = spec[1]
-        else:
-            cmd = make_pip_cmd(['install', '--force', 'torch', 'torchvision', 'torchaudio'])
-            subprocess.check_output(cmd, universal_newlines=True)
-            logging.error(cmd)
-            return
-
-        torch_ver = StrictVersion(spec[0])
-        torch_ver = f"{torch_ver.major}.{torch_ver.minor}.{torch_ver.patch}"
-        torch_torchvision_torchaudio_ver = torch_torchvision_torchaudio_version_map.get(torch_ver)
-
-        if torch_torchvision_torchaudio_ver is None:
-            cmd = make_pip_cmd(['install', '--pre', 'torch', 'torchvision', 'torchaudio',
-                                '--index-url', f"https://download.pytorch.org/whl/nightly/{platform}"])
-            logging.info("[ComfyUI-Manager] restore PyTorch to nightly version")
-        else:
-            torchvision_ver, torchaudio_ver = torch_torchvision_torchaudio_ver
-            cmd = make_pip_cmd(['install', f'torch=={torch_ver}', f'torchvision=={torchvision_ver}', f"torchaudio=={torchaudio_ver}",
-                                '--index-url', f"https://download.pytorch.org/whl/{platform}"])
-            logging.info(f"[ComfyUI-Manager] restore PyTorch to {torch_ver}+{platform}")
-
+def torch_rollback(prev):
+    spec = prev.split('+')
+    if len(spec) > 1:
+        platform = spec[1]
+    else:
+        cmd = make_pip_cmd(['install', '--force', 'torch', 'torchvision', 'torchaudio'])
         subprocess.check_output(cmd, universal_newlines=True)
+        logging.error(cmd)
+        return
+
+    torch_ver = StrictVersion(spec[0])
+    torch_ver = f"{torch_ver.major}.{torch_ver.minor}.{torch_ver.patch}"
+    torch_torchvision_torchaudio_ver = torch_torchvision_torchaudio_version_map.get(torch_ver)
+
+    if torch_torchvision_torchaudio_ver is None:
+        cmd = make_pip_cmd(['install', '--pre', 'torch', 'torchvision', 'torchaudio',
+                            '--index-url', f"https://download.pytorch.org/whl/nightly/{platform}"])
+        logging.info("[ComfyUI-Manager] restore PyTorch to nightly version")
+    else:
+        torchvision_ver, torchaudio_ver = torch_torchvision_torchaudio_ver
+        cmd = make_pip_cmd(['install', f'torch=={torch_ver}', f'torchvision=={torchvision_ver}', f"torchaudio=={torchaudio_ver}",
+                            '--index-url', f"https://download.pytorch.org/whl/{platform}"])
+        logging.info(f"[ComfyUI-Manager] restore PyTorch to {torch_ver}+{platform}")
+
+    subprocess.check_output(cmd, universal_newlines=True)
+
+
+class PIPFixer:
+    def __init__(self, prev_pip_versions, comfyui_path, manager_files_path):
+        self.prev_pip_versions = { **prev_pip_versions }
+        self.comfyui_path = comfyui_path
+        self.manager_files_path = manager_files_path
 
     def fix_broken(self):
         new_pip_versions = get_installed_packages(True)
@@ -315,7 +380,7 @@ class PIPFixer:
             elif self.prev_pip_versions['torch'] != new_pip_versions['torch'] \
                 or self.prev_pip_versions['torchvision'] != new_pip_versions['torchvision'] \
                 or self.prev_pip_versions['torchaudio'] != new_pip_versions['torchaudio']:
-                    self.torch_rollback()
+                    torch_rollback(self.prev_pip_versions['torch'])
         except Exception as e:
             logging.error("[ComfyUI-Manager] Failed to restore PyTorch")
             logging.error(e)
@@ -354,17 +419,77 @@ class PIPFixer:
             logging.error("[ComfyUI-Manager] Failed to restore opencv")
             logging.error(e)
 
-        # fix numpy
+        # fix missing frontend
         try:
-            np = new_pip_versions.get('numpy')
-            if np is not None:
-                if StrictVersion(np) >= StrictVersion('2'):
-                    cmd = make_pip_cmd(['install', "numpy<2"])
+            # NOTE: package name in requirements is 'comfyui-frontend-package'
+            #       but, package name from `pip freeze` is 'comfyui_frontend_package'
+            #       but, package name from `uv pip freeze` is 'comfyui-frontend-package'
+            #
+            #       get_installed_packages returns normalized name (i.e. comfyui_frontend_package)
+            if 'comfyui_frontend_package' not in new_pip_versions:
+                requirements_path = os.path.join(self.comfyui_path, 'requirements.txt')
+
+                with open(requirements_path, 'r') as file:
+                    lines = file.readlines()
+                
+                front_line = next((line.strip() for line in lines if line.startswith('comfyui-frontend-package')), None)
+                if front_line is None:
+                    logging.info("[ComfyUI-Manager] Skipped fixing the 'comfyui-frontend-package' dependency because the ComfyUI is outdated.")
+                else:
+                    cmd = make_pip_cmd(['install', front_line])
                     subprocess.check_output(cmd , universal_newlines=True)
+                    logging.info("[ComfyUI-Manager] 'comfyui-frontend-package' dependency were fixed")
         except Exception as e:
-            logging.error("[ComfyUI-Manager] Failed to restore numpy")
+            logging.error("[ComfyUI-Manager] Failed to restore comfyui-frontend-package")
             logging.error(e)
 
+        # restore based on custom list
+        pip_auto_fix_path = os.path.join(self.manager_files_path, "pip_auto_fix.list")
+        if os.path.exists(pip_auto_fix_path):
+            with open(pip_auto_fix_path, 'r', encoding="UTF-8", errors="ignore") as f:
+                fixed_list = []
+
+                for x in f.readlines():
+                    try:
+                        parsed = parse_requirement_line(x)
+                        need_to_reinstall = True
+
+                        normalized_name = parsed['package'].lower().replace('-', '_')
+                        if normalized_name in new_pip_versions:
+                            if 'version' in parsed and 'operator' in parsed:
+                                cur = StrictVersion(new_pip_versions[normalized_name])
+                                dest = parsed['version']
+                                op = parsed['operator']
+                                if cur == dest:
+                                    if op in ['==', '>=', '<=']:
+                                        need_to_reinstall = False
+                                elif cur < dest:
+                                    if op in ['<=', '<', '~=', '!=']:
+                                        need_to_reinstall = False
+                                elif cur > dest:
+                                    if op in ['>=', '>', '~=', '!=']:
+                                        need_to_reinstall = False
+
+                        if need_to_reinstall:
+                            cmd_args = ['install']
+                            if 'version' in parsed and 'operator' in parsed:
+                                cmd_args.append(parsed['package']+parsed['operator']+parsed['version'].version_string)
+
+                            if 'index_url' in parsed:
+                                cmd_args.append('--index-url')
+                                cmd_args.append(parsed['index_url'])
+
+                            cmd = make_pip_cmd(cmd_args)
+                            subprocess.check_output(cmd, universal_newlines=True)
+
+                            fixed_list.append(parsed['package'])
+                    except Exception as e:
+                        traceback.print_exc()
+                        logging.error(f"[ComfyUI-Manager] Failed to restore '{x}'")
+                        logging.error(e)
+
+                if len(fixed_list) > 0:
+                    logging.info(f"[ComfyUI-Manager] dependencies in pip_auto_fix.json were fixed: {fixed_list}")
 
 def sanitize(data):
     return data.replace("<", "&lt;").replace(">", "&gt;")
@@ -373,3 +498,89 @@ def sanitize(data):
 def sanitize_filename(input_string):
     result_string = re.sub(r'[^a-zA-Z0-9_]', '_', input_string)
     return result_string
+
+
+def robust_readlines(fullpath):
+    import chardet
+    try:
+        with open(fullpath, "r") as f:
+            return f.readlines()
+    except:
+        encoding = None
+        with open(fullpath, "rb") as f:
+            raw_data = f.read()
+            result = chardet.detect(raw_data)
+            encoding = result['encoding']
+
+        if encoding is not None:
+            with open(fullpath, "r", encoding=encoding) as f:
+                return f.readlines()
+
+        print(f"[ComfyUI-Manager] Failed to recognize encoding for: {fullpath}")
+        return []
+
+
+def restore_pip_snapshot(pips, options):
+    non_url = []
+    local_url = []
+    non_local_url = []
+
+    for k, v in pips.items():
+        # NOTE: skip torch related packages
+        if k.startswith("torch==") or k.startswith("torchvision==") or k.startswith("torchaudio==") or k.startswith("nvidia-"):
+            continue
+
+        if v == "":
+            non_url.append(k)
+        else:
+            if v.startswith('file:'):
+                local_url.append(v)
+            else:
+                non_local_url.append(v)
+
+
+    # restore other pips
+    failed = []
+    if '--pip-non-url' in options:
+        # try all at once
+        res = 1
+        try:
+            res = subprocess.check_output(make_pip_cmd(['install'] + non_url))
+        except Exception:
+            pass
+
+        # fallback
+        if res != 0:
+            for x in non_url:
+                res = 1
+                try:
+                    res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+                except Exception:
+                    pass
+
+                if res != 0:
+                    failed.append(x)
+
+    if '--pip-non-local-url' in options:
+        for x in non_local_url:
+            res = 1
+            try:
+                res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+            except Exception:
+                pass
+
+            if res != 0:
+                failed.append(x)
+
+    if '--pip-local-url' in options:
+        for x in local_url:
+            res = 1
+            try:
+                res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+            except Exception:
+                pass
+
+            if res != 0:
+                failed.append(x)
+
+    print(f"Installation failed for pip packages: {failed}")

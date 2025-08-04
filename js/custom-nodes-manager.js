@@ -4,337 +4,18 @@ import { api } from "../../scripts/api.js";
 
 import {
 	manager_instance, rebootAPI, install_via_git_url,
-	fetchData, md5, icons, show_message, customConfirm, customAlert, customPrompt, sanitizeHTML, infoToast
+	fetchData, md5, icons, show_message, customConfirm, customAlert, customPrompt,
+	sanitizeHTML, infoToast, showTerminal, setNeedRestart,
+	storeColumnWidth, restoreColumnWidth, getTimeAgo, copyText, loadCss,
+	showPopover, hidePopover
 } from  "./common.js";
 
 // https://cenfun.github.io/turbogrid/api.html
 import TG from "./turbogrid.esm.js";
 
-const pageCss = `
-.cn-manager {
-	--grid-font: -apple-system, BlinkMacSystemFont, "Segue UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
-	z-index: 1099;
-	width: 80%;
-	height: 80%;
-	display: flex;
-	flex-direction: column;
-	gap: 10px;
-	color: var(--fg-color);
-	font-family: arial, sans-serif;
-}
+loadCss("./custom-nodes-manager.css");
 
-.cn-manager .cn-flex-auto {
-	flex: auto;
-}
-
-.cn-manager button {
-	font-size: 16px;
-	color: var(--input-text);
-	background-color: var(--comfy-input-bg);
-	border-radius: 8px;
-	border-color: var(--border-color);
-	border-style: solid;
-	margin: 0;
-	padding: 4px 8px;
-	min-width: 100px;
-}
-
-.cn-manager button:disabled,
-.cn-manager input:disabled,
-.cn-manager select:disabled {
-	color: gray;
-}
-
-.cn-manager button:disabled {
-	background-color: var(--comfy-input-bg);
-}
-
-.cn-manager .cn-manager-restart {
-	display: none;
-	background-color: #500000;
-	color: white;
-}
-
-.cn-manager .cn-manager-stop {
-	display: none;
-	background-color: #500000;
-	color: white;
-}
-
-.cn-manager .cn-manager-back {
-	align-items: center;
-	justify-content: center;
-}
-
-.arrow-icon {
-	height: 1em;
-	width: 1em;
-	margin-right: 5px;
-	transform: translateY(2px);
-}
-
-.cn-manager-header {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 5px;
-	align-items: center;
-	padding: 0 5px;
-}
-
-.cn-manager-header label {
-	display: flex;
-	gap: 5px;
-	align-items: center;
-}
-
-.cn-manager-filter {
-	height: 28px;
-	line-height: 28px;
-}
-
-.cn-manager-keywords {
-	height: 28px;
-	line-height: 28px;
-	padding: 0 5px 0 26px;
-	background-size: 16px;
-	background-position: 5px center;
-	background-repeat: no-repeat;
-	background-image: url("data:image/svg+xml;charset=utf8,${encodeURIComponent(icons.search.replace("currentColor", "#888"))}");
-}
-
-.cn-manager-status {
-	padding-left: 10px;
-}
-
-.cn-manager-grid {
-	flex: auto;
-	border: 1px solid var(--border-color);
-	overflow: hidden;
-}
-
-.cn-manager-selection {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 10px;
-	align-items: center;
-}
-
-.cn-manager-message {
-	
-}
-
-.cn-manager-footer {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 10px;
-	align-items: center;
-}
-
-.cn-manager-grid .tg-turbogrid {
-	font-family: var(--grid-font);
-	font-size: 15px;
-	background: var(--bg-color);
-}
-
-.cn-manager-grid .cn-node-name a {
-	color: skyblue;
-	text-decoration: none;
-	word-break: break-word;
-}
-
-.cn-manager-grid .cn-node-desc a {
-	color: #5555FF;
-	font-weight: bold;
-	text-decoration: none;
-}
-
-.cn-manager-grid .tg-cell a:hover {
-	text-decoration: underline;
-}
-
-.cn-manager-grid .cn-extensions-button,
-.cn-manager-grid .cn-conflicts-button {
-	display: inline-block;
-	width: 20px;
-	height: 20px;
-	color: green;
-	border: none;
-	padding: 0;
-	margin: 0;
-	background: none;
-	min-width: 20px;
-}
-
-.cn-manager-grid .cn-conflicts-button {
-	color: orange;
-}
-
-.cn-manager-grid .cn-extensions-list,
-.cn-manager-grid .cn-conflicts-list {
-	line-height: normal;
-	text-align: left;
-	max-height: 80%;
-	min-height: 200px;
-	min-width: 300px;
-	overflow-y: auto;
-	font-size: 12px;
-	border-radius: 5px;
-	padding: 10px;
-	filter: drop-shadow(2px 5px 5px rgb(0 0 0 / 30%));
-	white-space: normal;
-}
-
-.cn-manager-grid .cn-extensions-list {
-	border-color: var(--bg-color);
-}
-
-.cn-manager-grid .cn-conflicts-list {
-	background-color: #CCCC55;
-	color: #AA3333;
-}
-
-.cn-manager-grid .cn-extensions-list h3,
-.cn-manager-grid .cn-conflicts-list h3 {
-	margin: 0;
-	padding: 5px 0;
-	color: #000;
-}
-
-.cn-tag-list {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 5px;
-	align-items: center;
-	margin-bottom: 5px;
-}
-
-.cn-tag-list > div {
-	background-color: var(--border-color);
-	border-radius: 5px;
-	padding: 0 5px;
-}
-
-.cn-install-buttons {
-	display: flex;
-	flex-direction: column;
-	gap: 3px;
-	padding: 3px;
-	align-items: center;
-	justify-content: center;
-	height: 100%;
-}
-
-.cn-selected-buttons {
-	display: flex;
-	gap: 5px;
-	align-items: center;
-	padding-right: 20px;
-}
-
-.cn-manager .cn-btn-enable {
-	background-color: #333399;
-	color: white;
-}
-
-.cn-manager .cn-btn-disable {
-	background-color: #442277;
-	color: white;
-}
-
-.cn-manager .cn-btn-update {
-	background-color: #1155AA;
-	color: white;
-}
-
-.cn-manager .cn-btn-try-update {
-	background-color: Gray;
-	color: white;
-}
-
-.cn-manager .cn-btn-try-fix {
-	background-color: #6495ED;
-	color: white;
-}
-
-.cn-manager .cn-btn-import-failed {
-	background-color: #AA1111;
-    font-size: 10px;
-	font-weight: bold;
-	color: white;
-}
-
-.cn-manager .cn-btn-install {
-	background-color: black;
-	color: white;
-}
-
-.cn-manager .cn-btn-try-install {
-	background-color: Gray;
-	color: white;
-}
-
-.cn-manager .cn-btn-uninstall {
-	background-color: #993333;
-	color: white;
-}
-
-.cn-manager .cn-btn-reinstall {
-	background-color: #993333;
-	color: white;
-}
-
-.cn-manager .cn-btn-switch {
-	background-color: #448833;
-	color: white;
-
-}
-
-@keyframes cn-btn-loading-bg {
-	0% {
-		left: 0;
-	}
-	100% {
-		left: -105px;
-	}
-}
-
-.cn-manager button.cn-btn-loading {
-	position: relative;
-	overflow: hidden;
-	border-color: rgb(0 119 207 / 80%);
-	background-color: var(--comfy-input-bg);
-}
-
-.cn-manager button.cn-btn-loading::after {
-	position: absolute;
-	top: 0;
-	left: 0;
-	content: "";
-	width: 500px;
-	height: 100%;
-	background-image: repeating-linear-gradient(
-		-45deg,
-		rgb(0 119 207 / 30%),
-		rgb(0 119 207 / 30%) 10px,
-		transparent 10px,
-		transparent 15px
-	);
-	animation: cn-btn-loading-bg 2s linear infinite;
-}
-
-.cn-manager-light .cn-node-name a {
-	color: blue;
-}
-
-.cn-manager-light .cm-warn-note {
-	background-color: #ccc !important;
-}
-
-.cn-manager-light .cn-btn-install {
-	background-color: #333;
-}
-
-`;
+const gridId = "node";
 
 const pageHtml = `
 <div class="cn-manager-header">
@@ -352,13 +33,14 @@ const pageHtml = `
 <div class="cn-manager-footer">
 	<button class="cn-manager-back">
 		<svg class="arrow-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-			<path d="M2 8H18M2 8L8 2M2 8L8 14" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+			<path d="M2 8H18M2 8L8 2M2 8L8 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 		</svg>
 		Back
 	</button>
 	<button class="cn-manager-restart">Restart</button>
 	<button class="cn-manager-stop">Stop</button>
 	<div class="cn-flex-auto"></div>
+	<button class="cn-manager-used-in-workflow">Used In Workflow</button>
 	<button class="cn-manager-check-update">Check Update</button>
 	<button class="cn-manager-check-missing">Check Missing</button>
 	<button class="cn-manager-install-url">Install via Git URL</button>
@@ -370,7 +52,8 @@ const ShowMode = {
 	UPDATE: "Update",
 	MISSING: "Missing",
 	FAVORITES: "Favorites",
-	ALTERNATIVES: "Alternatives"
+	ALTERNATIVES: "Alternatives",
+	IN_WORKFLOW: "In Workflow",
 };
 
 export class CustomNodesManager {
@@ -400,22 +83,20 @@ export class CustomNodesManager {
 		this.init();
 
         api.addEventListener("cm-queue-status", this.onQueueStatus);
-        api.addEventListener('reconnected', this.onReconnected);
+		api.getNodeDefs().then(objs => {
+			this.nodeMap = objs;
+		})
 	}
 
 	init() {
-		if (!document.querySelector(`style[context="${this.id}"]`)) {
-			const $style = document.createElement("style");
-			$style.setAttribute("context", this.id);
-			$style.innerHTML = pageCss;
-			document.head.appendChild($style);
-		}
-
 		this.element = $el("div", {
 			parent: document.body,
 			className: "comfy-modal cn-manager"
 		});
 		this.element.innerHTML = pageHtml;
+		this.element.setAttribute("tabindex", 0);
+		this.element.focus();
+
 		this.initFilter();
 		this.bindEvents();
 		this.initGrid();
@@ -584,6 +265,10 @@ export class CustomNodesManager {
 			value: ShowMode.UPDATE,
 			hasData: false
 		}, {
+			label: "In Workflow",
+			value: ShowMode.IN_WORKFLOW,
+			hasData: false
+		}, {
 			label: "Missing",
 			value: ShowMode.MISSING,
 			hasData: false
@@ -667,7 +352,7 @@ export class CustomNodesManager {
 			"invalid-installation": ["reinstall"],
 		}
 
-		if (!manager_instance.update_check_checkbox.checked) {
+		if (!installGroups.updatable) {
 			installGroups.enabled = installGroups.enabled.filter(it => it !== "try-update");
 		}
 
@@ -723,7 +408,7 @@ export class CustomNodesManager {
 					const value = e.target.value
 					this.filter = value;
 					const item = this.getFilterItem(value);
-					if (item && !item.hasData) {
+					if (item && (!item.hasData)) {
 						this.loadData(value);
 						return;
 					}
@@ -756,6 +441,9 @@ export class CustomNodesManager {
 
 			".cn-manager-back": {
 				click: (e) => {
+					this.flyover.hide(true);
+					this.removeHighlight();
+					hidePopover();
 				    this.close()
 				    manager_instance.show();
 				}
@@ -773,6 +461,14 @@ export class CustomNodesManager {
 				click: () => {
 					api.fetchApi('/manager/queue/reset');
 					infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
+				}
+			},
+
+			".cn-manager-used-in-workflow": {
+				click: (e) => {
+					e.target.classList.add("cn-btn-loading");
+					this.setFilter(ShowMode.IN_WORKFLOW);
+					this.loadData(ShowMode.IN_WORKFLOW);
 				}
 			},
 
@@ -812,6 +508,7 @@ export class CustomNodesManager {
 				}
 			}
 		});
+
 	}
 
 	// ===========================================================================================
@@ -820,6 +517,8 @@ export class CustomNodesManager {
 		const container = this.element.querySelector(".cn-manager-grid");
 		const grid = new TG.Grid(container);
 		this.grid = grid;
+
+		this.flyover = this.createFlyover(container);
 		
 		let prevViewRowsLength = -1;
 		grid.bind('onUpdated', (e, d) => {
@@ -832,7 +531,19 @@ export class CustomNodesManager {
 			this.renderSelected();
 		});
 
+		grid.bind("onColumnWidthChanged", (e, columnItem) => {
+			storeColumnWidth(gridId, columnItem)
+		});
+
 		grid.bind('onClick', (e, d) => {
+
+			this.addHighlight(d.rowItem);
+
+			if (d.columnItem.id === "nodes") {
+				this.showNodes(d);
+				return;
+			}
+
 			const btn = this.getButton(d.e.target);
 			if (btn) {
 				const item = this.grid.getRowItemBy("hash", d.rowItem.hash);
@@ -841,12 +552,28 @@ export class CustomNodesManager {
 				if((mode === "install" || mode === "switch" || mode == "enable") && item.originalData.version != 'unknown') {
 					// install after select version via dialog if item is cnr node
 					this.installNodeWithVersion(d.rowItem, btn, mode == 'enable');
-				}
-				else {
+				} else {
 					this.installNodes([d.rowItem.hash], btn, d.rowItem.title);
 				}
+				return;
 			}
+
 		});
+
+		// iteration events
+		this.element.addEventListener("click", (e) => {
+			if (container === e.target || container.contains(e.target)) {
+                return;
+            }
+			this.removeHighlight();
+		});
+		// proxy keyboard events
+		this.element.addEventListener("keydown", (e) => {
+			if (e.target === this.element) {
+				grid.containerKeyDownHandler(e);
+			}
+		}, true);
+
 
 		grid.setOption({
 			theme: 'dark',
@@ -930,7 +657,14 @@ export class CustomNodesManager {
 	renderGrid() {
 
 		// update theme
+		const globalStyle = window.getComputedStyle(document.body);
+		this.colorVars = {
+			bgColor: globalStyle.getPropertyValue('--comfy-menu-bg'),
+			borderColor: globalStyle.getPropertyValue('--border-color')
+		}
+
 		const colorPalette = this.app.ui.settings.settingsValues['Comfy.ColorPalette'];
+		this.colorPalette = colorPalette;
 		Array.from(this.element.classList).forEach(cn => {
 			if (cn.startsWith("cn-manager-")) {
 				this.element.classList.remove(cn);
@@ -942,23 +676,6 @@ export class CustomNodesManager {
 			theme: colorPalette === "light" ? "" : "dark"
 		};
 
-		const rows = this.custom_nodes || {};
-		for(let nodeKey in rows) {
-			let item = rows[nodeKey];
-			const extensionInfo = this.extension_mappings[nodeKey];
-
-			if(extensionInfo) {
-				const { extensions, conflicts } = extensionInfo;
-				if (extensions.length) {
-					item.extensions = extensions.length;
-					item.extensionsList = extensions;
-				}
-				if (conflicts) {
-					item.conflicts = conflicts.length;
-					item.conflictsList = conflicts;
-				}
-			}
-		}
 
 		let self = this;
 		const columns = [{
@@ -972,7 +689,7 @@ export class CustomNodesManager {
 			width: 200,
 			minWidth: 100,
 			maxWidth: 500,
-			classMap: 'cn-node-name',
+			classMap: 'cn-pack-name',
 			formatter: (title, rowItem, columnItem) => {
 				const container = document.createElement('div');
 
@@ -997,6 +714,7 @@ export class CustomNodesManager {
 					link.href = rowItem.reference;
 				link.target = '_blank';
 				link.innerHTML = `<b>${title}</b>`;
+				link.title = rowItem.originalData.id;
 				container.appendChild(link);
 
 				return container;
@@ -1004,27 +722,21 @@ export class CustomNodesManager {
 		}, {
 			id: 'version',
 			name: 'Version',
-			width: 200,
-			minWidth: 100,
-			maxWidth: 500,
-			classMap: 'cn-node-desc',
+			width: 100,
+			minWidth: 80,
+			maxWidth: 300,
+			classMap: 'cn-pack-version',
 			formatter: (version, rowItem, columnItem) => {
-				if(version == undefined) {
-					return `undef`;
+				if(!version) {
+					return;
 				}
-				else {
-					if(rowItem.cnr_latest && version != rowItem.cnr_latest) {
-						if(version == 'nightly') {
-							return `${version} [${rowItem.cnr_latest}]`;
-						}
-						else {
-							return `${version} [↑${rowItem.cnr_latest}]`;
-						}
+				if(rowItem.cnr_latest && version != rowItem.cnr_latest) {
+					if(version == 'nightly') {
+						return `<div>${version}</div><div>[${rowItem.cnr_latest}]</div>`;
 					}
-					else {
-						return `${version}`;
-					}
+					return `<div>${version}</div><div>[↑${rowItem.cnr_latest}]</div>`;
 				}
+				return version;
 			}
 		}, {
 			id: 'action',
@@ -1042,73 +754,42 @@ export class CustomNodesManager {
 				return `<div class="cn-install-buttons">${buttons}</div>`;
 			}
 		}, {
+			id: "nodes",
+			name: "Nodes",
+			width: 100,
+			formatter: (v, rowItem, columnItem) => {
+				if (!rowItem.nodes) {
+					return '';
+				}
+				const list = [`<div class="cn-pack-nodes">`];
+				list.push(`<div>${rowItem.nodes} node${(rowItem.nodes>1?'s':'')}</div>`);
+				if (rowItem.conflicts) {
+					list.push(`<div class="cn-pack-conflicts">${rowItem.conflicts} conflict${(rowItem.conflicts>1?'s':'')}</div>`);
+				}
+				list.push('</div>');
+				return list.join("");
+			}
+		}, {
 			id: "alternatives",
 			name: "Alternatives",
 			width: 400,
 			maxWidth: 5000,
 			invisible: !this.hasAlternatives(),
-			classMap: 'cn-node-desc'
+			classMap: 'cn-pack-desc'
 		}, {
 			id: 'description',
 			name: 'Description',
 			width: 400,
 			maxWidth: 5000,
-			classMap: 'cn-node-desc'
-		}, {
-			id: "extensions",
-			name: "Extensions",
-			width: 80,
-			align: 'center',
-			formatter: (extensions, rowItem, columnItem) => {
-				const extensionsList = rowItem.extensionsList;
-				if (!extensionsList) {
-					return;
-				}
-				const list = [];
-				const eId = `popover_extensions_${columnItem.id}_${rowItem.tg_index}`; 
-				list.push(`<button popovertarget="${eId}" title="${extensionsList.length} Extension Nodes" class="cn-extensions-button">${icons.extensions}</button>`)
-				list.push(`<div popover id="${eId}" class="cn-extensions-list">`)
-				list.push(`<h3>【${rowItem.title}】Extension Nodes (${extensionsList.length})</h3>`);
-				extensionsList.forEach(en => {
-					list.push(`<li>${en}</li>`);
-				})
-				list.push("</div>");
-				return list.join("");
-			}
-		}, {
-			id: "conflicts",
-			name: "Conflicts",
-			width: 80,
-			align: 'center',
-			formatter: (conflicts, rowItem, columnItem) => {
-				const conflictsList = rowItem.conflictsList;
-				if (!conflictsList) {
-					return;
-				}
-				const list = [];
-				const cId = `popover_conflicts_${columnItem.id}_${rowItem.tg_index}`; 
-				list.push(`<button popovertarget="${cId}" title="${conflictsList.length} Conflicted Nodes" class="cn-conflicts-button">${icons.conflicts}</button>`)
-				list.push(`<div popover id="${cId}" class="cn-conflicts-list">`)
-				list.push(`<h3>【${rowItem.title}】Conflicted Nodes (${conflictsList.length})</h3>`);
-				conflictsList.forEach(en => {
-					let [node_name, extension_name] = en;
-					extension_name = extension_name.split('/').filter(it => it).pop();
-					if(extension_name.endsWith('.git')) {
-						extension_name = extension_name.slice(0, -4);
-					}
-					list.push(`<li><B>${node_name}</B> [${extension_name}]</li>`);
-				})
-				list.push("</div>");
-				return list.join("");
-			}
+			classMap: 'cn-pack-desc'
 		}, {
 			id: 'author',
 			name: 'Author',
 			width: 120,
-			classMap: "cn-node-author", 
+			classMap: "cn-pack-author", 
 			formatter: (author, rowItem, columnItem) => {
 				if (rowItem.trust) {
-					return `<span title="This author has been active for more than six months in GitHub">✅ ${author}</span>`;
+					return `<span tooltip="This author has been active for more than six months in GitHub">✅ ${author}</span>`;
 				}
 				return author;
 			}
@@ -1116,7 +797,7 @@ export class CustomNodesManager {
 			id: 'stars',
 			name: '★',
 			align: 'center',
-			classMap: "cn-node-stars",
+			classMap: "cn-pack-stars",
 			formatter: (stars) => {
 				if (stars < 0) {
 					return 'N/A';
@@ -1132,42 +813,44 @@ export class CustomNodesManager {
 			align: 'center',
 			type: 'date',
 			width: 100,
-			classMap: "cn-node-last-update",
+			classMap: "cn-pack-last-update",
 			formatter: (last_update) => {
 				if (last_update < 0) {
 					return 'N/A';
 				}
-				return `${last_update}`.split(' ')[0];
+				const ago = getTimeAgo(last_update);
+				const short = `${last_update}`.split(' ')[0];
+				return `<span tooltip="${ago}">${short}</span>`;
 			}
 		}];
 
-		let rows_values = Object.keys(rows).map(key => rows[key]);
+		restoreColumnWidth(gridId, columns);
 
-		rows_values =
-			rows_values.sort((a, b) => {
-				if (a.version == 'unknown' && b.version != 'unknown') return 1;
-				if (a.version != 'unknown' && b.version == 'unknown') return -1;
+		const rows_values = Object.values(this.custom_nodes);
+		rows_values.sort((a, b) => {
+			if (a.version == 'unknown' && b.version != 'unknown') return 1;
+			if (a.version != 'unknown' && b.version == 'unknown') return -1;
 
-				if (a.stars !== b.stars) {
-					return b.stars - a.stars;
-				}
+			if (a.stars !== b.stars) {
+				return b.stars - a.stars;
+			}
 
-				if (a.last_update !== b.last_update) {
-					return new Date(b.last_update) - new Date(a.last_update);
-				}
+			if (a.last_update !== b.last_update) {
+				return new Date(b.last_update) - new Date(a.last_update);
+			}
 
-				return 0;
-			});
+			return 0;
+		});
+
+		rows_values.forEach((it, i) => {
+			it.id = i + 1;
+		});
 
 		this.grid.setData({
 			options: options,
 			rows: rows_values,
 			columns: columns
 		});
-
-		for(let i=0; i<rows_values.length; i++) {
-			rows_values[i].id = i+1;
-		}
 
 		this.grid.render();
 	}
@@ -1181,6 +864,478 @@ export class CustomNodesManager {
 				this.grid.hideColumn("alternatives");
 			}
 		}
+	}
+
+	addHighlight(rowItem) {
+		this.removeHighlight();
+		if (this.grid && rowItem) {
+			this.grid.setRowState(rowItem, 'highlight', true);
+			this.highlightRow = rowItem;
+		}
+	}
+	
+	removeHighlight() {
+		if (this.grid && this.highlightRow) {
+			this.grid.setRowState(this.highlightRow, 'highlight', false);
+			this.highlightRow = null;
+		}
+	}
+
+	// ===========================================================================================
+
+	getWidgetType(type, inputName) {
+		if (type === 'COMBO') {
+		  	return 'COMBO'
+		}
+		const widgets = app.widgets;
+		if (`${type}:${inputName}` in widgets) {
+		  	return `${type}:${inputName}`
+		}
+		if (type in widgets) {
+		  	return type
+		}
+	}
+	
+	createNodePreview(nodeItem) {
+		// console.log(nodeItem);
+		const list = [`<div class="cn-preview-header">
+			<div class="cn-preview-dot"></div>
+			<div class="cn-preview-name">${nodeItem.name}</div>
+			<div class="cn-pack-badge">Preview</div>
+		</div>`];
+
+		// Node slot I/O
+		const inputList = [];
+		nodeItem.input_order.required?.map(name => {
+			inputList.push({
+				name
+			});
+		})
+		nodeItem.input_order.optional?.map(name => {
+			inputList.push({
+				name,
+				optional: true
+			});
+		});
+
+		const slotInputList = [];
+		const widgetInputList = [];
+		const inputMap = Object.assign({}, nodeItem.input.optional, nodeItem.input.required);
+		inputList.forEach(it => {
+			const inputName = it.name;
+			const _inputData = inputMap[inputName];
+			let type = _inputData[0];
+			let options = _inputData[1] || {};
+			if (Array.isArray(type)) {
+				options.default = type[0];
+				type = 'COMBO';
+			}
+			it.type = type;
+			it.options = options;
+
+			// convert force/default inputs
+			if (options.forceInput || options.defaultInput) {
+				slotInputList.push(it);
+				return;
+			}
+
+			const widgetType = this.getWidgetType(type, inputName);
+			if (widgetType) {
+				it.default = options.default;
+				widgetInputList.push(it);
+			} else {
+				slotInputList.push(it);
+			}
+		});
+
+		const outputList = nodeItem.output.map((type, i) => {
+			return {
+				type,
+				name: nodeItem.output_name[i],
+				list: nodeItem.output_is_list[i]
+			}
+		});
+
+		// dark
+		const colorMap = {
+			"CLIP": "#FFD500",
+			"CLIP_VISION": "#A8DADC",
+			"CLIP_VISION_OUTPUT": "#ad7452",
+			"CONDITIONING": "#FFA931",
+			"CONTROL_NET": "#6EE7B7",
+			"IMAGE": "#64B5F6",
+			"LATENT": "#FF9CF9",
+			"MASK": "#81C784",
+			"MODEL": "#B39DDB",
+			"STYLE_MODEL": "#C2FFAE",
+			"VAE": "#FF6E6E",
+			"NOISE": "#B0B0B0",
+			"GUIDER": "#66FFFF",
+			"SAMPLER": "#ECB4B4",
+			"SIGMAS": "#CDFFCD",
+			"TAESD": "#DCC274"
+		}
+
+		const inputHtml = slotInputList.map(it => {
+			const color = colorMap[it.type] || "gray";
+			const optional = it.optional ? " cn-preview-optional" : ""
+			return `<div class="cn-preview-input">
+				<div class="cn-preview-dot${optional}" style="background-color:${color}"></div>
+				${it.name}
+			</div>`;
+		}).join("");
+
+		const outputHtml = outputList.map(it => {
+			const color = colorMap[it.type] || "gray";
+			const grid = it.list ? " cn-preview-grid" : "";
+			return `<div class="cn-preview-output">
+				${it.name}
+				<div class="cn-preview-dot${grid}" style="background-color:${color}"></div>
+			</div>`;
+		}).join("");
+
+		list.push(`<div class="cn-preview-io">
+			<div class="cn-preview-column">${inputHtml}</div>
+			<div class="cn-preview-column">${outputHtml}</div>
+		</div>`);
+
+		// Node widget inputs
+		if (widgetInputList.length) {
+			list.push(`<div class="cn-preview-list">`);
+
+			// console.log(widgetInputList);
+			widgetInputList.forEach(it => {
+
+				let value = it.default;
+				if (typeof value === "object" && value && Object.prototype.hasOwnProperty.call(value, "content")) {
+					value = value.content;
+				}
+				if (typeof value === "undefined" || value === null) {
+					value = "";
+				} else {
+					value = `${value}`;
+				}
+	
+				if (
+					(it.type === "STRING" && (value || it.options.multiline))
+					|| it.type === "MARKDOWN"
+				) {
+					if (value) {
+						value = value.replace(/\r?\n/g, "<br>")
+					}
+					list.push(`<div class="cn-preview-string">${value || it.name}</div>`);
+					return;
+				}
+
+				list.push(`<div class="cn-preview-switch">
+					<div>${it.name}</div>
+					<div class="cn-preview-value">${value}</div>	
+				</div>`);
+			});
+			list.push(`</div>`);
+		}
+
+		if (nodeItem.description) {
+			list.push(`<div class="cn-preview-description">${nodeItem.description}</div>`)
+		}
+
+		return list.join("");
+	}
+	
+	showNodePreview(target) {
+		const nodeName = target.innerText;
+		const nodeItem = this.nodeMap[nodeName];
+		if (!nodeItem) {
+			this.hideNodePreview();
+			return;
+		}
+		const html = this.createNodePreview(nodeItem);
+		showPopover(target, html, "cn-preview cn-preview-"+this.colorPalette, {
+			positions: ['left'],
+			bgColor: this.colorVars.bgColor,
+			borderColor: this.colorVars.borderColor
+		})
+	}
+
+	hideNodePreview() {
+		hidePopover();
+	}
+
+	createFlyover(container) {
+		const $flyover = document.createElement("div");
+		$flyover.className = "cn-flyover";
+		$flyover.innerHTML = `<div class="cn-flyover-header">
+			<div class="cn-flyover-close">${icons.arrowRight}</div>
+			<div class="cn-flyover-title"></div>
+			<div class="cn-flyover-close">${icons.close}</div>
+			</div>
+			<div class="cn-flyover-body"></div>`
+		container.appendChild($flyover);
+
+		const $flyoverTitle = $flyover.querySelector(".cn-flyover-title");
+		const $flyoverBody = $flyover.querySelector(".cn-flyover-body");
+		
+		let width = '50%';
+		let visible = false;
+
+		let timeHide;
+		const closeHandler = (e) => {
+            if ($flyover === e.target || $flyover.contains(e.target)) {
+                return;
+            }
+			clearTimeout(timeHide);
+			timeHide = setTimeout(() => {
+				flyover.hide();
+			}, 100);
+		}
+
+		const hoverHandler = (e) => {
+			if(e.type === "mouseenter") {
+				if(e.target.classList.contains("cn-nodes-name")) {
+					this.showNodePreview(e.target);
+				}
+				return;
+			}
+			this.hideNodePreview();
+		}
+
+		const displayHandler = () => {
+			if (visible) {
+				$flyover.classList.remove("cn-slide-in-right");
+			} else {
+				$flyover.classList.remove("cn-slide-out-right");
+				$flyover.style.width = '0px';
+				$flyover.style.display = "none";
+			}
+		}
+
+		const flyover = {
+			show: (titleHtml, bodyHtml) => {
+				clearTimeout(timeHide);
+				this.element.removeEventListener("click", closeHandler);
+				$flyoverTitle.innerHTML = titleHtml;
+				$flyoverBody.innerHTML = bodyHtml;
+				$flyover.style.display = "block";
+				$flyover.style.width = width;
+				if(!visible) {
+					$flyover.classList.add("cn-slide-in-right");
+				}
+				visible = true;
+				setTimeout(() => {
+					this.element.addEventListener("click", closeHandler);
+				}, 100);
+			},
+			hide: (now) => {
+				visible = false;
+				this.element.removeEventListener("click", closeHandler);
+				if(now) {
+					displayHandler();
+					return;
+				}
+				$flyover.classList.add("cn-slide-out-right");
+			}
+		}
+
+		$flyover.addEventListener("animationend", (e) => {
+			displayHandler();
+		});
+
+		$flyover.addEventListener("mouseenter", hoverHandler, true);
+		$flyover.addEventListener("mouseleave", hoverHandler, true);
+
+		$flyover.addEventListener("click", (e) => {
+
+			if(e.target.classList.contains("cn-nodes-name")) {
+				const nodeName = e.target.innerText;
+				const nodeItem = this.nodeMap[nodeName];
+				if (!nodeItem) {
+					copyText(nodeName).then((res) => {
+						if (res) {
+							e.target.setAttribute("action", "Copied");
+							e.target.classList.add("action");
+							setTimeout(() => {
+								e.target.classList.remove("action");
+								e.target.removeAttribute("action");
+							}, 1000);
+						}
+					});
+					return;
+				}
+
+				const [x, y, w, h] = app.canvas.ds.visible_area;
+				const dpi = Math.max(window.devicePixelRatio ?? 1, 1);
+				const node = window.LiteGraph?.createNode(
+					nodeItem.name,
+					nodeItem.display_name,
+					{
+						pos: [x + (w-300) / dpi / 2, y]
+					}
+				);
+				if (node) {
+					app.graph.add(node);
+					e.target.setAttribute("action", "Added to Workflow");
+					e.target.classList.add("action");
+					setTimeout(() => {
+						e.target.classList.remove("action");
+						e.target.removeAttribute("action");
+					}, 1000);
+				}
+				
+				return;
+			}
+			if(e.target.classList.contains("cn-nodes-pack")) {
+				const hash = e.target.getAttribute("hash");
+				const rowItem = this.grid.getRowItemBy("hash", hash);
+				//console.log(rowItem);
+				this.grid.scrollToRow(rowItem);
+				this.addHighlight(rowItem);
+				return;
+			}
+			if(e.target.classList.contains("cn-flyover-close")) {
+				flyover.hide();
+				return;
+			}
+		});
+
+		return flyover;
+	}
+
+	showNodes(d) {
+		const nodesList = d.rowItem.nodesList;
+		if (!nodesList) {
+			return;
+		}
+
+		const rowItem = d.rowItem;
+		const isNotInstalled = rowItem.action == "not-installed";
+
+		let titleHtml = `<div class="cn-nodes-pack" hash="${rowItem.hash}">${rowItem.title}</div>`;
+		if (isNotInstalled) {
+			titleHtml += '<div class="cn-pack-badge">Not Installed</div>'
+		}
+
+		const list = [];
+		list.push(`<div class="cn-nodes-list">`);
+	
+		nodesList.forEach((it, i) => {
+			let rowClass = 'cn-nodes-row'
+			if (it.conflicts) {
+				rowClass += ' cn-nodes-conflict';
+			}
+
+			list.push(`<div class="${rowClass}">`);
+			list.push(`<div class="cn-nodes-sn">${i+1}</div>`);
+			list.push(`<div class="cn-nodes-name">${it.name}</div>`);
+
+			if (it.conflicts) {
+				list.push(`<div class="cn-conflicts-list"><div class="cn-nodes-conflict cn-icon">${icons.conflicts}</div><b>Conflict with</b>${it.conflicts.map(c => {
+					return `<div class="cn-nodes-pack" hash="${c.hash}">${c.title}</div>`;
+				}).join("<b>,</b>")}</div>`);
+			}
+			list.push(`</div>`);
+		});
+
+		list.push("</div>");
+		const bodyHtml = list.join("");
+
+		this.flyover.show(titleHtml, bodyHtml);
+	}
+
+	async loadNodes(node_packs) {
+		const mode = manager_instance.datasrc_combo.value;
+		this.showStatus(`Loading node mappings (${mode}) ...`);
+		const res = await fetchData(`/customnode/getmappings?mode=${mode}`);
+		if (res.error) {
+			console.log(res.error);
+			return;
+		}
+	
+		const data = res.data;
+
+		const findNode = (k, title) => {
+			let item = node_packs[k];
+			if (item) {
+				return item;
+			}
+			
+			// git url
+			if (k.includes("/")) {
+				const gitName = k.split("/").pop();
+				item = node_packs[gitName];
+				if (item) {
+					return item;
+				}
+			}
+			
+			return node_packs[title];
+		}
+
+		const conflictsMap = {};
+
+		// add nodes data
+		Object.keys(data).forEach(k => {
+			const [nodes, metadata] = data[k];
+			if (nodes?.length) {
+				const title = metadata?.title_aux;
+				const nodeItem = findNode(k, title);
+				if (nodeItem) {
+
+					// deduped
+					const eList = Array.from(new Set(nodes));
+
+					nodeItem.nodes = eList.length;
+					const nodesMap = {};
+					eList.forEach(extName => {
+						nodesMap[extName] = {
+							name: extName
+						};
+						let cList = conflictsMap[extName];
+						if(!cList) {
+							cList = [];
+							conflictsMap[extName] = cList;
+						}
+						cList.push(nodeItem.key);
+					});
+					nodeItem.nodesMap = nodesMap;
+				} else {
+					// should be removed
+					// console.log("not found", k, title, nodes)
+				}
+			}
+		});
+
+		// calculate conflicts data
+		Object.keys(conflictsMap).forEach(extName => {
+			const cList = conflictsMap[extName];
+			if(cList.length <= 1) {
+				return;
+			}
+			cList.forEach(key => {
+				const nodeItem = node_packs[key];
+				const extItem = nodeItem.nodesMap[extName];
+				if(!extItem.conflicts) {
+					extItem.conflicts = []
+				}
+				const conflictsList = cList.filter(k => k !== key);
+				conflictsList.forEach(k => {
+					const nItem = node_packs[k];
+					extItem.conflicts.push({
+						key: k,
+						title: nItem.title, 
+						hash: nItem.hash
+					})
+
+				})
+			})
+		})
+
+		Object.values(node_packs).forEach(nodeItem => {
+			if (nodeItem.nodesMap) {
+				nodeItem.nodesList = Object.values(nodeItem.nodesMap);
+				nodeItem.conflicts = nodeItem.nodesList.filter(it => it.conflicts).length;
+			}
+		})
+	
 	}
 
 	// ===========================================================================================
@@ -1256,14 +1411,15 @@ export class CustomNodesManager {
 			let version_cnt = 0;
 
 			if(!is_enable) {
+
+				if(rowItem.cnr_latest != rowItem.originalData.active_version && obj.length > 0) {
+					versions.push('latest');
+				}
+
 				if(rowItem.originalData.active_version != 'nightly') {
 					versions.push('nightly');
 					default_version = 'nightly';
 					version_cnt++;
-				}
-
-				if(rowItem.cnr_latest != rowItem.originalData.active_version && obj.length > 0) {
-					versions.push('latest');
 				}
 			}
 
@@ -1369,14 +1525,14 @@ export class CustomNodesManager {
 			});
 
 			if (res.status != 200) {
-				errorMsg = `${item.title} ${mode} failed: `;
+				errorMsg = `'${item.title}': `;
 
 				if(res.status == 403) {
-					errorMsg += `This action is not allowed with this security level configuration.`;
+					errorMsg += `This action is not allowed with this security level configuration.\n`;
 				} else if(res.status == 404) {
-					errorMsg += `With the current security level configuration, only custom nodes from the <B>"default channel"</B> can be installed.`;
+					errorMsg += `With the current security level configuration, only custom nodes from the <B>"default channel"</B> can be installed.\n`;
 				} else {
-					errorMsg += await res.text();
+					errorMsg += await res.text() + '\n';
 				}
 
 				break;
@@ -1387,32 +1543,18 @@ export class CustomNodesManager {
 
 		if(errorMsg) {
 			this.showError(errorMsg);
-			show_message("Installation Error:\n"+errorMsg);
+			show_message("[Installation Errors]\n"+errorMsg);
 
 			// reset
 			for(let k in target_items) {
-				let item = this.install_context.targets[k];
+				const item = target_items[k];
 				this.grid.updateCell(item, "action");
 			}
 		}
 		else {
 			await api.fetchApi('/manager/queue/start');
 			this.showStop();
-		}
-	}
-
-	async onReconnected(event) {
-		let self = CustomNodesManager.instance;
-
-		if(self.need_restart) {
-			self.need_restart = false;
-
-			const confirmed = await customConfirm("To apply the changes to the node pack's installation status, you need to refresh the browser. Would you like to refresh?");
-			if (!confirmed) {
-				return;
-			}
-
-			window.location.reload(true);
+			showTerminal();
 		}
 	}
 
@@ -1455,7 +1597,7 @@ export class CustomNodesManager {
 		for(let hash in result){
 			let v = result[hash];
 
-			if(v != 'success')
+			if(v != 'success' && v != 'skip')
 				errorMsg += v+'\n';
 		}
 
@@ -1480,61 +1622,128 @@ export class CustomNodesManager {
 
 	// ===========================================================================================
 
-	async getExtensionMappings() {
-		const mode = manager_instance.datasrc_combo.value;
-		this.showStatus(`Loading extension mappings (${mode}) ...`);
-		const res = await fetchData(`/customnode/getmappings?mode=${mode}`);
-		if (res.error) {
-			console.log(res.error);
-			return {}
+	getNodesInWorkflow() {
+		let usedGroupNodes = new Set();
+		let allUsedNodes = {};
+
+		for(let k in app.graph._nodes) {
+			let node = app.graph._nodes[k];
+
+			if(node.type.startsWith('workflow>')) {
+				usedGroupNodes.add(node.type.slice(9));
+				continue;
+			}
+
+			allUsedNodes[node.type] = node;
 		}
-	
-		const data = res.data;
 
-		const extension_mappings = {};
-		const conflicts_map = {};
-		Object.keys(data).forEach(k => {
-			const [extensions, metadata] = data[k];
-			extension_mappings[k] = {
-				extensions,
-				metadata
-			}
-			extensions.forEach(node => {
-				let l = conflicts_map[node];
-				if(!l) {
-					l = [];
-					conflicts_map[node] = l;
+		for(let k of usedGroupNodes) {
+			let subnodes = app.graph.extra.groupNodes[k]?.nodes;
+
+			if(subnodes) {
+				for(let k2 in subnodes) {
+					let node = subnodes[k2];
+					allUsedNodes[node.type] = node;
 				}
-				l.push(k);
-			})
-		})
-
-		Object.keys(conflicts_map).forEach(node => {
-			const list = conflicts_map[node];
-			if(list.length > 1) {
-				list.forEach(k => {
-					const item = extension_mappings[k];
-					if(!item) {
-						console.log(`not found ${k}`)
-						return;
-					}
-
-					if (!item.conflicts) {
-						item.conflicts = [];
-					}
-					list.forEach(key => {
-						if(k !== key) {
-							item.conflicts.push([node, key])
-						}
-					})
-				})
 			}
-		})
-	
-		return extension_mappings;
+		}
+
+		return allUsedNodes;
 	}
 
 	async getMissingNodes() {
+		let unresolved_missing_nodes = new Set();
+		let hashMap = {};
+		let allUsedNodes = this.getNodesInWorkflow();
+		
+		const registered_nodes = new Set();
+		for (let i in LiteGraph.registered_node_types) {
+			registered_nodes.add(LiteGraph.registered_node_types[i].type);
+		}
+
+		let unresolved_aux_ids = {};
+		let outdated_comfyui = false;
+		let unresolved_cnr_list = [];
+
+		for(let k in allUsedNodes) {
+			let node = allUsedNodes[k];
+
+			if(!registered_nodes.has(node.type)) {
+				// missing node
+				if(node.properties.cnr_id) {
+					if(node.properties.cnr_id == 'comfy-core') {
+						outdated_comfyui = true;
+					}
+
+					let item = this.custom_nodes[node.properties.cnr_id];
+					if(item) {
+						hashMap[item.hash] = true;
+					}
+					else {
+						console.log(`CM: cannot find '${node.properties.cnr_id}' from cnr list.`);
+						unresolved_aux_ids[node.properties.cnr_id] = node.type;
+						unresolved_cnr_list.push(node.properties.cnr_id);
+					}
+				}
+				else if(node.properties.aux_id) {
+					unresolved_aux_ids[node.properties.aux_id] = node.type;
+				}
+				else {
+					unresolved_missing_nodes.add(node.type);
+				}
+			}
+		}
+
+
+		if(unresolved_cnr_list.length > 0) {
+			let error_msg = "Failed to find the following ComfyRegistry list.\nThe cache may be outdated, or the nodes may have been removed from ComfyRegistry.<HR>";
+			for(let i in unresolved_cnr_list) {
+				error_msg += '<li>'+unresolved_cnr_list[i]+'</li>';
+			}
+
+			show_message(error_msg);
+		}
+
+		if(outdated_comfyui) {
+			customAlert('ComfyUI is outdated, so some built-in nodes cannot be used.');
+		}
+
+		if(Object.keys(unresolved_aux_ids).length > 0) {
+			// building aux_id to nodepack map
+			let aux_id_to_pack = {};
+			for(let k in this.custom_nodes) {
+				let nodepack = this.custom_nodes[k];
+				let aux_id;
+				if(nodepack.repository?.startsWith('https://github.com')) {
+					aux_id = nodepack.repository.split('/').slice(-2).join('/');
+					aux_id_to_pack[aux_id] = nodepack;
+				}
+				else if(nodepack.repository) {
+					aux_id = nodepack.repository.split('/').slice(-1);
+					aux_id_to_pack[aux_id] = nodepack;
+				}
+			}
+
+			// resolving aux_id
+			for(let k in unresolved_aux_ids) {
+				let nodepack = aux_id_to_pack[k];
+				if(nodepack) {
+					hashMap[nodepack.hash] = true;
+				}
+				else {
+					unresolved_missing_nodes.add(unresolved_aux_ids[k]);
+				}
+			}
+		}
+
+		if(unresolved_missing_nodes.size > 0) {
+			await this.getMissingNodesLegacy(hashMap, unresolved_missing_nodes);
+		}
+
+		return hashMap;
+	}
+
+	async getMissingNodesLegacy(hashMap, missing_nodes) {
 		const mode = manager_instance.datasrc_combo.value;
 		this.showStatus(`Loading missing nodes (${mode}) ...`);
 		const res = await fetchData(`/customnode/getmappings?mode=${mode}`);
@@ -1573,50 +1782,29 @@ export class CustomNodesManager {
 			}
 		}
 
-		const registered_nodes = new Set();
-		for (let i in LiteGraph.registered_node_types) {
-			registered_nodes.add(LiteGraph.registered_node_types[i].type);
-		}
-
-		const missing_nodes = new Set();
-		const workflow = app.graph.serialize();
-		const group_nodes = workflow.extra && workflow.extra.groupNodes ? workflow.extra.groupNodes : [];
-		let nodes = workflow.nodes;
-
-		for (let i in group_nodes) {
-			let group_node = group_nodes[i];
-			nodes = nodes.concat(group_node.nodes);
-		}
-
-		for (let i in nodes) {
-			const node_type = nodes[i].type;
-			if(node_type.startsWith('workflow/') || node_type.startsWith('workflow>'))
-				continue;
-
-			if (!registered_nodes.has(node_type)) {
-				const packs = name_to_packs[node_type.trim()];
-				if(packs)
-					packs.forEach(url => {
-						missing_nodes.add(url);
-					});
-				else {
-					for(let j in regex_to_pack) {
-						if(regex_to_pack[j].regex.test(node_type)) {
-							missing_nodes.add(regex_to_pack[j].url);
-						}
+		let unresolved_missing_nodes = new Set();
+		for (let node_type of missing_nodes) {
+			const packs = name_to_packs[node_type.trim()];
+			if(packs)
+				packs.forEach(url => {
+					unresolved_missing_nodes.add(url);
+				});
+			else {
+				for(let j in regex_to_pack) {
+					if(regex_to_pack[j].regex.test(node_type)) {
+						unresolved_missing_nodes.add(regex_to_pack[j].url);
 					}
 				}
 			}
 		}
 
-		const hashMap = {};
 		for(let k in this.custom_nodes) {
 			let item = this.custom_nodes[k];
 
-			if(missing_nodes.has(item.id)) {
+			if(unresolved_missing_nodes.has(item.id)) {
 				hashMap[item.hash] = true;
 			}
-			else if (item.files?.some(file => missing_nodes.has(file))) {
+			else if (item.files?.some(file => unresolved_missing_nodes.has(file))) {
 				hashMap[item.hash] = true;
 			}
 		}
@@ -1629,6 +1817,41 @@ export class CustomNodesManager {
 		for(let k in this.custom_nodes) {
 			let item = this.custom_nodes[k];
 			if(item.is_favorite)
+			    hashMap[item.hash] = true;
+		}
+
+		return hashMap;
+	}
+
+	async getNodepackInWorkflow() {
+		let allUsedNodes = this.getNodesInWorkflow();
+
+		// building aux_id to nodepack map
+		let aux_id_to_pack = {};
+		for(let k in this.custom_nodes) {
+			let nodepack = this.custom_nodes[k];
+			let aux_id;
+			if(nodepack.repository?.startsWith('https://github.com')) {
+				aux_id = nodepack.repository.split('/').slice(-2).join('/');
+				aux_id_to_pack[aux_id] = nodepack;
+			}
+			else if(nodepack.repository) {
+				aux_id = nodepack.repository.split('/').slice(-1);
+				aux_id_to_pack[aux_id] = nodepack;
+			}
+		}
+
+		const hashMap = {};
+		for(let k in allUsedNodes) {
+			var item;
+			if(allUsedNodes[k].properties.cnr_id) {
+				item = this.custom_nodes[allUsedNodes[k].properties.cnr_id];
+			}
+			else if(allUsedNodes[k].properties.aux_id) {
+				item = aux_id_to_pack[allUsedNodes[k].properties.aux_id];
+			}
+
+			if(item)
 			    hashMap[item.hash] = true;
 		}
 
@@ -1670,25 +1893,35 @@ export class CustomNodesManager {
 	}
 
 	async loadData(show_mode = ShowMode.NORMAL) {
+		const isElectron = 'electronAPI' in window;
+
 		this.show_mode = show_mode;
 		console.log("Show mode:", show_mode);
 
 		this.showLoading();
 
-		this.extension_mappings = await this.getExtensionMappings();
-
 		const mode = manager_instance.datasrc_combo.value;
 		this.showStatus(`Loading custom nodes (${mode}) ...`);
 
 		const skip_update = this.show_mode === ShowMode.UPDATE ? "" : "&skip_update=true";
+
+		if(this.show_mode === ShowMode.UPDATE) {
+			infoToast('Fetching updated information. This may take some time if many custom nodes are installed.');
+		}
+
 		const res = await fetchData(`/customnode/getlist?mode=${mode}${skip_update}`);
 		if (res.error) {
 			this.showError("Failed to get custom node list.");
 			this.hideLoading();
-			return
+			return;
 		}
 		
 		const { channel, node_packs } = res.data;
+
+		if(isElectron) {
+			delete node_packs['comfyui-manager'];
+		}
+
 		this.channel = channel;
 		this.mode = mode;
 		this.custom_nodes = node_packs;
@@ -1703,8 +1936,11 @@ export class CustomNodesManager {
 			if(item.originalData.id == undefined) {
 				item.originalData.id = k;
 			}
+			item.key = k;
 			item.hash = md5(k);
 		}
+
+		await this.loadNodes(node_packs);
 
 		const filterItem = this.getFilterItem(this.show_mode);
 		if(filterItem) {
@@ -1723,9 +1959,14 @@ export class CustomNodesManager {
 				hashMap = await this.getAlternatives();
 			} else if(this.show_mode == ShowMode.FAVORITES) {
 				hashMap = await this.getFavorites();
+			} else if(this.show_mode == ShowMode.IN_WORKFLOW) {
+				hashMap = await this.getNodepackInWorkflow();
 			}
 			filterItem.hashMap = hashMap;
-			filterItem.hasData = true;
+
+			if(this.show_mode != ShowMode.IN_WORKFLOW) {
+				filterItem.hasData = true;
+			}
 		}
 
 		for(let k in node_packs) {
@@ -1777,7 +2018,6 @@ export class CustomNodesManager {
 						case "disabled":
 							filterTypes.add("installed");
 							break;
-
 						case "not-installed":
 							filterTypes.add("not-installed");
 							break;
@@ -1889,7 +2129,7 @@ export class CustomNodesManager {
 
 	showRestart() {
 		this.element.querySelector(".cn-manager-restart").style.display = "block";
-		this.need_restart = true;
+		setNeedRestart(true);
 	}
 
 	showStop() {
@@ -1917,6 +2157,7 @@ export class CustomNodesManager {
 
 	show(show_mode) {
 		this.element.style.display = "flex";
+		this.element.focus();
 		this.setFilter(show_mode);
 		this.setKeywords("");
 		this.showSelection("");

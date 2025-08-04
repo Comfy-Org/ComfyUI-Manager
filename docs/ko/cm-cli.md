@@ -123,7 +123,8 @@ ComfyUI-Loopchain
   * `--pip-non-url`: PyPI 에 등록된 pip 패키지들에 대해서 복구를 수행
   * `--pip-non-local-url`: web URL에 등록된 pip 패키지들에 대해서 복구를 수행
   * `--pip-local-url`: local 경로를 지정하고 있는 pip 패키지들에 대해서 복구를 수행 
-
+  * `--user-directory`: 사용자 디렉토리 설정
+  * `--restore-to`: 복구될 커스텀 노드가 설치될 경로. (이 옵션을 적용할 경우 오직 대상 경로에 설치된 custom nodes 만 설치된 것으로 인식함.)
 
 ### 5. CLI only mode
 

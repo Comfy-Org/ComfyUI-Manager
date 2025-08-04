@@ -154,14 +154,27 @@ def switch_to_default_branch(repo):
         repo.git.checkout(default_branch)
         return True
     except:
+        # try checkout master
+        # try checkout main if failed
         try:
             repo.git.checkout(repo.heads.master)
+            return True
         except:
             try:
                 if remote_name is not None:
                     repo.git.checkout('-b', 'master', f'{remote_name}/master')
+                    return True
             except:
-                pass
+                try:
+                    repo.git.checkout(repo.heads.main)
+                    return True
+                except:
+                    try:
+                        if remote_name is not None:
+                            repo.git.checkout('-b', 'main', f'{remote_name}/main')
+                            return True
+                    except:
+                        pass
 
     print("[ComfyUI Manager] Failed to switch to the default branch")
     return False
@@ -389,12 +402,13 @@ def apply_snapshot(path):
                 git_custom_node_infos = info['git_custom_nodes']
                 file_custom_node_infos = info['file_custom_nodes']
 
-                checkout_comfyui_hash(comfyui_hash)
+                if comfyui_hash:
+                    checkout_comfyui_hash(comfyui_hash)
                 checkout_custom_node_hash(git_custom_node_infos)
                 invalidate_custom_node_file(file_custom_node_infos)
 
                 print("APPLY SNAPSHOT: True")
-                if 'pips' in info:
+                if 'pips' in info and info['pips']:
                     return info['pips']
                 else:
                     return None

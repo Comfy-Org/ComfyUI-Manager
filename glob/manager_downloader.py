@@ -3,8 +3,14 @@ from urllib.parse import urlparse
 import urllib
 import sys
 import logging
+import requests
+from huggingface_hub import HfApi
+from tqdm.auto import tqdm
+
+
 aria2 = os.getenv('COMFYUI_MANAGER_ARIA2_SERVER')
 HF_ENDPOINT = os.getenv('HF_ENDPOINT')
+
 
 if aria2 is not None:
     secret = os.getenv('COMFYUI_MANAGER_ARIA2_SECRET')
@@ -49,7 +55,11 @@ def download_url(model_url: str, model_dir: str, filename: str):
         return aria2_download_url(model_url, model_dir, filename)
     else:
         from torchvision.datasets.utils import download_url as torchvision_download_url
-        return torchvision_download_url(model_url, model_dir, filename)
+        try:
+            return torchvision_download_url(model_url, model_dir, filename)
+        except Exception as e:
+            logging.error(f"[ComfyUI-Manager] Failed to download: {model_url} / {repr(e)}")
+            raise
 
 
 def aria2_find_task(dir: str, filename: str):
@@ -117,3 +127,37 @@ def download_url_with_agent(url, save_path):
 
     print("Installation was successful.")
     return True
+
+# NOTE: snapshot_download doesn't provide file size tqdm.
+def download_repo_in_bytes(repo_id, local_dir):
+    api = HfApi()
+    repo_info = api.repo_info(repo_id=repo_id, files_metadata=True)
+
+    os.makedirs(local_dir, exist_ok=True)
+
+    total_size = 0
+    for file_info in repo_info.siblings:
+        if file_info.size is not None:
+            total_size += file_info.size
+
+    pbar = tqdm(total=total_size, unit="B", unit_scale=True, desc="Downloading")
+
+    for file_info in repo_info.siblings:
+        out_path = os.path.join(local_dir, file_info.rfilename)
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+
+        if file_info.size is None:
+            continue
+
+        download_url = f"https://huggingface.co/{repo_id}/resolve/main/{file_info.rfilename}"
+
+        with requests.get(download_url, stream=True) as r, open(out_path, "wb") as f:
+            r.raise_for_status()
+            for chunk in r.iter_content(chunk_size=65536):
+                if chunk:
+                    f.write(chunk)
+                    pbar.update(len(chunk))
+
+    pbar.close()
+
+

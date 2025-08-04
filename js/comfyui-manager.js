@@ -13,11 +13,15 @@ import {
 import { OpenArtShareDialog } from "./comfyui-share-openart.js";
 import {
 	free_models, install_pip, install_via_git_url, manager_instance,
-	rebootAPI, migrateAPI, setManagerInstance, show_message, customAlert, customPrompt } from "./common.js";
+	rebootAPI, setManagerInstance, show_message, customAlert, customPrompt,
+	infoToast, showTerminal, setNeedRestart
+} from "./common.js";
 import { ComponentBuilderDialog, getPureName, load_components, set_component_policy } from "./components-manager.js";
 import { CustomNodesManager } from "./custom-nodes-manager.js";
 import { ModelManager } from "./model-manager.js";
 import { SnapshotManager } from "./snapshot.js";
+
+let manager_version = await getVersion();
 
 var docStyle = document.createElement('style');
 docStyle.innerHTML = `
@@ -40,7 +44,7 @@ docStyle.innerHTML = `
 
 #cm-manager-dialog {
 	width: 1000px;
-	height: 450px;
+	height: 455px;
 	box-sizing: content-box;
 	z-index: 1000;
 	overflow-y: auto;
@@ -137,7 +141,7 @@ docStyle.innerHTML = `
 
 .cm-notice-board {
 	width: 290px;
-	height: 210px;
+	height: 230px;
 	overflow: auto;
 	color: var(--input-text);
 	border: 1px solid var(--descrip-text);
@@ -223,9 +227,13 @@ document.head.appendChild(docStyle);
 
 var update_comfyui_button = null;
 var switch_comfyui_button = null;
-var fetch_updates_button = null;
 var update_all_button = null;
+var restart_stop_button = null;
+var update_policy_combo = null;
+
 let share_option = 'all';
+var is_updating = false;
+
 
 // copied style from https://github.com/pythongosssss/ComfyUI-Custom-Scripts
 const style = `
@@ -424,102 +432,56 @@ async function init_notice(notice) {
 
 await init_share_option();
 
-async function fetchNicknames() {
-	const response1 = await api.fetchApi(`/customnode/getmappings?mode=nickname`);
-	const mappings = await response1.json();
 
-	let result = {};
-	let nickname_patterns = [];
+async function set_inprogress_mode() {
+	update_comfyui_button.disabled = true;
+	update_comfyui_button.style.backgroundColor = "gray";
 
-	for (let i in mappings) {
-		let item = mappings[i];
-		var nickname;
-		if (item[1].nickname) {
-			nickname = item[1].nickname;
-		}
-		else if (item[1].title) {
-			nickname = item[1].title;
-		}
-		else {
-			nickname = item[1].title_aux;
-		}
+	update_all_button.disabled = true;
+	update_all_button.style.backgroundColor = "gray";
 
-		for (let j in item[0]) {
-			result[item[0][j]] = nickname;
-		}
+	switch_comfyui_button.disabled = true;
+	switch_comfyui_button.style.backgroundColor = "gray";
 
-		if(item[1].nodename_pattern) {
-			nickname_patterns.push([item[1].nodename_pattern, nickname]);
-		}
-	}
-
-	return [result, nickname_patterns];
+	restart_stop_button.innerText = 'Stop';
 }
 
-const [nicknames, nickname_patterns] = await fetchNicknames();
 
-function getNickname(node, nodename) {
-	if(node.nickname) {
-		return node.nickname;
+async function reset_action_buttons() {
+	const isElectron = 'electronAPI' in window;
+
+	if(isElectron) {
+		update_all_button.innerText = "Update All Custom Nodes";
 	}
 	else {
-		if (nicknames[nodename]) {
-			node.nickname = nicknames[nodename];
-		}
-		else if(node.getInnerNodes) {
-			let pure_name = getPureName(node);
-			let groupNode = app.graph.extra?.groupNodes?.[pure_name];
-			if(groupNode) {
-				let packname = groupNode.packname;
-				node.nickname = packname;
-			}
-			return node.nickname;
-		}
-		else {
-			for(let i in nickname_patterns) {
-				let item = nickname_patterns[i];
-				if(nodename.match(item[0])) {
-					node.nickname = item[1];
-				}
-			}
-		}
-
-		return node.nickname;
+		update_all_button.innerText = "Update All";
 	}
+
+	update_comfyui_button.innerText = "Update ComfyUI";
+	switch_comfyui_button.innerText = "Switch ComfyUI";
+	restart_stop_button.innerText = 'Restart';
+
+	update_comfyui_button.disabled = false;
+	update_all_button.disabled = false;
+	switch_comfyui_button.disabled = false;
+
+	update_comfyui_button.style.backgroundColor = "";
+	update_all_button.style.backgroundColor = "";
+	switch_comfyui_button.style.backgroundColor = "";
 }
 
 async function updateComfyUI() {
 	let prev_text = update_comfyui_button.innerText;
 	update_comfyui_button.innerText = "Updating ComfyUI...";
-	update_comfyui_button.disabled = true;
-	update_comfyui_button.style.backgroundColor = "gray";
 
-	try {
-		const response = await api.fetchApi('/comfyui_manager/update_comfyui');
+	set_inprogress_mode();
 
-		if (response.status == 400) {
-			show_message('Failed to update ComfyUI.');
-			return false;
-		}
+	const response = await api.fetchApi('/manager/queue/update_comfyui');
 
-		if (response.status == 201) {
-			show_message('ComfyUI has been successfully updated.');
-		}
-		else {
-			show_message('ComfyUI is already up to date with the latest version.');
-		}
+	showTerminal();
 
-		return true;
-	}
-	catch (exception) {
-		show_message(`Failed to update ComfyUI / ${exception}`);
-		return false;
-	}
-	finally {
-		update_comfyui_button.disabled = false;
-		update_comfyui_button.innerText = prev_text;
-		update_comfyui_button.style.backgroundColor = "";
-	}
+	is_updating = true;
+	await api.fetchApi('/manager/queue/start');
 }
 
 function showVersionSelectorDialog(versions, current, onSelect) {
@@ -647,143 +609,183 @@ function showVersionSelectorDialog(versions, current, onSelect) {
 }
 
 async function switchComfyUI() {
-    let res = await api.fetchApi(`/comfyui_manager/comfyui_versions`, { cache: "no-store" });
+	switch_comfyui_button.disabled = true;
+	switch_comfyui_button.style.backgroundColor = "gray";
+	
+	let res = await api.fetchApi(`/comfyui_manager/comfyui_versions`, { cache: "no-store" });
 
-    if(res.status == 200) {
-        let obj = await res.json();
+	switch_comfyui_button.disabled = false;
+	switch_comfyui_button.style.backgroundColor = "";
 
-        let versions = [];
-        let default_version;
+	if(res.status == 200) {
+		let obj = await res.json();
 
-        for(let v of obj.versions) {
-            default_version = v;
-            versions.push(v);
-        }
+		let versions = [];
+		let default_version;
 
-        showVersionSelectorDialog(versions, obj.current, (selected_version) => {
-            api.fetchApi(`/comfyui_manager/comfyui_switch_version?ver=${selected_version}`, { cache: "no-store" });
-        });
-    }
-    else {
-        show_message('Failed to fetch ComfyUI versions.');
-    }
-}
-
-
-async function fetchUpdates(update_check_checkbox) {
-	let prev_text = fetch_updates_button.innerText;
-	fetch_updates_button.innerText = "Fetching updates...";
-	fetch_updates_button.disabled = true;
-	fetch_updates_button.style.backgroundColor = "gray";
-
-	try {
-		var mode = manager_instance.datasrc_combo.value;
-
-		const response = await api.fetchApi(`/customnode/fetch_updates?mode=${mode}`);
-
-		if (response.status != 200 && response.status != 201) {
-			show_message('Failed to fetch updates.');
-			return false;
+		for(let v of obj.versions) {
+			default_version = v;
+			versions.push(v);
 		}
 
-		if (response.status == 201) {
-			show_message("There is an updated extension available.<BR><BR><P><B>NOTE:<BR>Fetch Updates is not an update.<BR>Please update from <button id='cm-install-customnodes-button'>Install Custom Nodes</button> </B></P>");
+		showVersionSelectorDialog(versions, obj.current, async (selected_version) => {
+			if(selected_version == 'nightly') {
+				update_policy_combo.value = 'nightly-comfyui';
+				api.fetchApi('/manager/policy/update?value=nightly-comfyui');
+			}
+			else {
+				update_policy_combo.value = 'stable-comfyui';
+				api.fetchApi('/manager/policy/update?value=stable-comfyui');
+			}
 
-			const button = document.getElementById('cm-install-customnodes-button');
-			button.addEventListener("click",
-				async function() {
-					app.ui.dialog.close();
+			let response = await api.fetchApi(`/comfyui_manager/comfyui_switch_version?ver=${selected_version}`, { cache: "no-store" });
+			if (response.status == 200) {
+				infoToast(`ComfyUI version is switched to ${selected_version}`);
+			}
+			else {
+				customAlert('Failed to switch ComfyUI version.');
+			}
+		});
+	}
+	else {
+		customAlert('Failed to fetch ComfyUI versions.');
+	}
+}
 
-					if(!CustomNodesManager.instance) {
-						CustomNodesManager.instance = new CustomNodesManager(app, self);
+async function onQueueStatus(event) {
+	const isElectron = 'electronAPI' in window;
+
+	if(event.detail.status == 'in_progress') {
+		set_inprogress_mode();
+		update_all_button.innerText = `in progress.. (${event.detail.done_count}/${event.detail.total_count})`;
+	}
+	else if(event.detail.status == 'done') {
+		reset_action_buttons();
+
+		if(!is_updating)  {
+			return;
+		}
+
+		is_updating = false;
+
+		let success_list = [];
+		let failed_list = [];
+		let comfyui_state = null;
+
+		for(let k in event.detail.nodepack_result){
+			let v = event.detail.nodepack_result[k];
+
+			if(k == 'comfyui') {
+				comfyui_state = v;
+				continue;
+			}
+
+			if(v.msg == 'success') {
+				success_list.push(k);
+			}
+			else if(v.msg != 'skip')
+				failed_list.push(k);
+		}
+
+		let msg = "";
+		
+		if(success_list.length == 0 && comfyui_state.startsWith('skip')) {
+			if(failed_list.length == 0) {
+				msg += "You are already up to date.";
+			}
+		}
+		else {
+			msg = "To apply the updates, you need to <button class='cm-small-button' id='cm-reboot-button5'>RESTART</button> ComfyUI.<hr>";
+
+			if(comfyui_state == 'success-nightly') {
+				msg += "ComfyUI has been updated to latest nightly version.<BR><BR>";
+				infoToast("ComfyUI has been updated to the latest nightly version.");
+			}
+			else if(comfyui_state.startsWith('success-stable')) {
+				const ver = comfyui_state.split("-").pop();
+				msg += `ComfyUI has been updated to ${ver}.<BR><BR>`;
+				infoToast(`ComfyUI has been updated to ${ver}`);
+			}
+			else if(comfyui_state == 'skip') {
+				msg += "ComfyUI is already up to date.<BR><BR>"
+			}
+			else if(comfyui_state != null) {
+				msg += "Failed to update ComfyUI.<BR><BR>"
+			}
+
+			if(success_list.length > 0) {
+				msg += "The following custom nodes have been updated:<ul>";
+				for(let x in success_list) {
+					let k = success_list[x];
+					let url = event.detail.nodepack_result[k].url;
+					let title = event.detail.nodepack_result[k].title;
+					if(url) {
+						msg += `<li><a href='${url}' target='_blank'>${title}</a></li>`;
 					}
-					await CustomNodesManager.instance.show(CustomNodesManager.ShowMode.UPDATE);
+					else {
+						msg += `<li>${k}</li>`;
+					}
 				}
-			);
+				msg += "</ul>";
+			}
 
-			update_check_checkbox.checked = false;
+			setNeedRestart(true);
 		}
-		else {
-			show_message('All extensions are already up-to-date with the latest versions.');
+		
+		if(failed_list.length > 0) {
+			msg += '<br>The update for the following custom nodes has failed:<ul>';
+			for(let x in failed_list) {
+				let k = failed_list[x];
+				let url = event.detail.nodepack_result[k].url;
+				let title = event.detail.nodepack_result[k].title;
+				if(url) {
+					msg += `<li><a href='${url}' target='_blank'>${title}</a></li>`;
+				}
+				else {
+					msg += `<li>${k}</li>`;
+				}
+			}
+
+			msg += '</ul>'
 		}
 
-		return true;
-	}
-	catch (exception) {
-		show_message(`Failed to update custom nodes / ${exception}`);
-		return false;
-	}
-	finally {
-		fetch_updates_button.disabled = false;
-		fetch_updates_button.innerText = prev_text;
-		fetch_updates_button.style.backgroundColor = "";
+		show_message(msg);
+
+		const rebootButton = document.getElementById('cm-reboot-button5');
+		rebootButton?.addEventListener("click",
+			function() {
+				if(rebootAPI()) {
+					manager_dialog.close();
+				}
+			});
 	}
 }
 
-async function updateAll(update_check_checkbox, manager_dialog) {
-	let prev_text = update_all_button.innerText;
-	update_all_button.innerText = "Updating all...(ComfyUI)";
-	update_all_button.disabled = true;
-	update_all_button.style.backgroundColor = "gray";
+api.addEventListener("cm-queue-status", onQueueStatus);
 
-	try {
-		var mode = manager_instance.datasrc_combo.value;
 
-		update_all_button.innerText = "Updating all...";
-		const response1 = await api.fetchApi('/comfyui_manager/update_comfyui');
-		const response2 = await api.fetchApi(`/customnode/update_all?mode=${mode}`);
+async function updateAll(update_comfyui) {
+	update_all_button.innerText = "Updating...";
 
-		if (response2.status == 403) {
-			show_message('This action is not allowed with this security level configuration.');
-			return false;
-		}
+	set_inprogress_mode();
 
-		if (response1.status == 400 || response2.status == 400) {
-			show_message('Failed to update ComfyUI or several extensions.<BR><BR>See terminal log.<BR>');
-			return false;
-		}
+	var mode = manager_instance.datasrc_combo.value;
 
-		if(response1.status == 201 || response2.status == 201) {
-			const update_info = await response2.json();
+	showTerminal();
 
-			let failed_list = "";
-			if(update_info.failed.length > 0) {
-				failed_list = "<BR>FAILED: "+update_info.failed.join(", ");
-			}
-
-			let updated_list = "";
-			if(update_info.updated.length > 0) {
-				updated_list = "<BR>UPDATED: "+update_info.updated.join(", ");
-			}
-
-			show_message(
-				"ComfyUI and all extensions have been updated to the latest version.<BR>To apply the updated custom node, please <button class='cm-small-button' id='cm-reboot-button5'>RESTART</button> ComfyUI. And refresh browser.<BR>"
-				+failed_list
-				+updated_list
-				);
-
-			const rebootButton = document.getElementById('cm-reboot-button5');
-			rebootButton.addEventListener("click",
-				function() {
-					if(rebootAPI()) {
-						manager_dialog.close();
-					}
-				});
-		}
-		else {
-			show_message('ComfyUI and all extensions are already up-to-date with the latest versions.');
-		}
-
-		return true;
+	if(update_comfyui) {
+		update_all_button.innerText = "Updating ComfyUI...";
+		await api.fetchApi('/manager/queue/update_comfyui');
 	}
-	catch (exception) {
-		show_message(`Failed to update ComfyUI or several extensions / ${exception}`);
-		return false;
+
+	const response = await api.fetchApi(`/manager/queue/update_all?mode=${mode}`);
+
+	if (response.status == 401) {
+		customAlert('Another task is already in progress. Please stop the ongoing task first.');
 	}
-	finally {
-		update_all_button.disabled = false;
-		update_all_button.innerText = prev_text;
-		update_all_button.style.backgroundColor = "";
+	else if(response.status == 200) {
+		is_updating = true;
+		await api.fetchApi('/manager/queue/start');
 	}
 }
 
@@ -807,12 +809,22 @@ const isOutputNode = (node) => {
 	return SUPPORTED_OUTPUT_NODE_TYPES.includes(node.type);
 }
 
+function restartOrStop() {
+	if(restart_stop_button.innerText == 'Restart'){
+		rebootAPI();
+	}
+	else {
+		api.fetchApi('/manager/queue/reset');
+		infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
+	}
+}
+
 // -----------
 class ManagerMenuDialog extends ComfyDialog {
 	createControlsMid() {
 		let self = this;
-    const isElectron = 'electronAPI' in window;
-
+		const isElectron = 'electronAPI' in window;
+		
 		update_comfyui_button =
 			$el("button.cm-button", {
 				type: "button",
@@ -835,21 +847,31 @@ class ManagerMenuDialog extends ComfyDialog {
 					() => switchComfyUI()
 			});
 
-		fetch_updates_button =
-			$el("button.cm-button", {
+		restart_stop_button =
+			$el("button.cm-button-red", {
 				type: "button",
-				textContent: "Fetch Updates",
-				onclick:
-					() => fetchUpdates(this.update_check_checkbox)
+				textContent: "Restart",
+				onclick: () => restartOrStop()
 			});
 
-		update_all_button =
-			$el("button.cm-button", {
-				type: "button",
-				textContent: "Update All",
-				onclick:
-					() => updateAll(this.update_check_checkbox, self)
-			});
+		if(isElectron) {
+			update_all_button =
+				$el("button.cm-button", {
+					type: "button",
+					textContent: "Update All Custom Nodes",
+					onclick:
+						() => updateAll(false)
+				});
+		}
+		else {
+			update_all_button =
+				$el("button.cm-button", {
+					type: "button",
+					textContent: "Update All",
+					onclick:
+						() => updateAll(true)
+				});
+		}
 
 		const res =
 			[
@@ -877,7 +899,19 @@ class ManagerMenuDialog extends ComfyDialog {
 						}
 				}),
 
+				$el("button.cm-button", {
+					type: "button",
+					textContent: "Custom Nodes In Workflow",
+					onclick:
+						() => {
+							if(!CustomNodesManager.instance) {
+								CustomNodesManager.instance = new CustomNodesManager(app, self);
+							}
+							CustomNodesManager.instance.show(CustomNodesManager.ShowMode.IN_WORKFLOW);
+						}
+				}),
 				
+				$el("br", {}, []),
 				$el("button.cm-button", {
 					type: "button",
 					textContent: "Model Manager",
@@ -906,49 +940,19 @@ class ManagerMenuDialog extends ComfyDialog {
 				update_all_button,
 				update_comfyui_button,
 				switch_comfyui_button,
-				fetch_updates_button,
+				// fetch_updates_button,
 
 				$el("br", {}, []),
-				$el("button.cm-button-red", {
-					type: "button",
-					textContent: "Restart",
-					onclick: () => rebootAPI()
-				}),
+				restart_stop_button,
 			];
-
-		let migration_btn =
-			$el("button.cm-button-orange", {
-				type: "button",
-				textContent: "Migrate to New Node System",
-				onclick: () => migrateAPI()
-			});
-
-		migration_btn.style.display = 'none';
-
-		res.push(migration_btn);
-
-		api.fetchApi('/manager/need_to_migrate')
-			.then(response => response.text())
-			.then(text => {
-				if (text === 'True') {
-					migration_btn.style.display = 'block';
-				}
-			})
-			.catch(error => {
-				console.error('Error checking migration status:', error);
-			});
 
 		return res;
 	}
 
 	createControlsLeft() {
-		let self = this;
+		const isElectron = 'electronAPI' in window;
 
-		this.update_check_checkbox = $el("input",{type:'checkbox', id:"skip_update_check"},[])
-		const uc_checkbox_text = $el("label",{for:"skip_update_check"},[" Skip update check"])
-		uc_checkbox_text.style.color = "var(--fg-color)";
-		uc_checkbox_text.style.cursor = "pointer";
-		this.update_check_checkbox.checked = true;
+		let self = this;
 
 		// db mode
 		this.datasrc_combo = document.createElement("select");
@@ -957,6 +961,14 @@ class ManagerMenuDialog extends ComfyDialog {
 		this.datasrc_combo.appendChild($el('option', { value: 'cache', text: 'DB: Channel (1day cache)' }, []));
 		this.datasrc_combo.appendChild($el('option', { value: 'local', text: 'DB: Local' }, []));
 		this.datasrc_combo.appendChild($el('option', { value: 'remote', text: 'DB: Channel (remote)' }, []));
+
+		api.fetchApi('/manager/db_mode')
+			.then(response => response.text())
+			.then(data => { this.datasrc_combo.value = data; });
+
+		this.datasrc_combo.addEventListener('change', function (event) {
+			api.fetchApi(`/manager/db_mode?value=${event.target.value}`);
+		});
 
 		// preview method
 		let preview_combo = document.createElement("select");
@@ -1020,25 +1032,6 @@ class ManagerMenuDialog extends ComfyDialog {
 			share_combo.appendChild($el('option', { value: option[0], text: `Share: ${option[1]}` }, []));
 		}
 
-		// default ui state
-		let component_policy_combo = document.createElement("select");
-		component_policy_combo.setAttribute("title", "When loading the workflow, configure which version of the component to use.");
-		component_policy_combo.className = "cm-menu-combo";
-		component_policy_combo.appendChild($el('option', { value: 'workflow', text: 'Component: Use workflow version' }, []));
-		component_policy_combo.appendChild($el('option', { value: 'higher', text: 'Component: Use higher version' }, []));
-		component_policy_combo.appendChild($el('option', { value: 'mine', text: 'Component: Use my version' }, []));
-		api.fetchApi('/manager/component/policy')
-			.then(response => response.text())
-			.then(data => {
-				component_policy_combo.value = data;
-				set_component_policy(data);
-			});
-
-		component_policy_combo.addEventListener('change', function (event) {
-			api.fetchApi(`/manager/component/policy?value=${event.target.value}`);
-			set_component_policy(event.target.value);
-		});
-
 		api.fetchApi('/manager/share_option')
 			.then(response => response.text())
 			.then(data => {
@@ -1058,14 +1051,51 @@ class ManagerMenuDialog extends ComfyDialog {
 			}
 		});
 
+		let component_policy_combo = document.createElement("select");
+		component_policy_combo.setAttribute("title", "When loading the workflow, configure which version of the component to use.");
+		component_policy_combo.className = "cm-menu-combo";
+		component_policy_combo.appendChild($el('option', { value: 'workflow', text: 'Component: Use workflow version' }, []));
+		component_policy_combo.appendChild($el('option', { value: 'higher', text: 'Component: Use higher version' }, []));
+		component_policy_combo.appendChild($el('option', { value: 'mine', text: 'Component: Use my version' }, []));
+		api.fetchApi('/manager/policy/component')
+			.then(response => response.text())
+			.then(data => {
+				component_policy_combo.value = data;
+				set_component_policy(data);
+			});
+
+		component_policy_combo.addEventListener('change', function (event) {
+			api.fetchApi(`/manager/policy/component?value=${event.target.value}`);
+			set_component_policy(event.target.value);
+		});
+
+		update_policy_combo = document.createElement("select");
+
+		if(isElectron)
+			update_policy_combo.style.display = 'none';
+		
+		update_policy_combo.setAttribute("title", "Sets the policy to be applied when performing an update.");
+		update_policy_combo.className = "cm-menu-combo";
+		update_policy_combo.appendChild($el('option', { value: 'stable-comfyui', text: 'Update: ComfyUI Stable Version' }, []));
+		update_policy_combo.appendChild($el('option', { value: 'nightly-comfyui', text: 'Update: ComfyUI Nightly Version' }, []));
+		api.fetchApi('/manager/policy/update')
+			.then(response => response.text())
+			.then(data => {
+				update_policy_combo.value = data;
+			});
+
+		update_policy_combo.addEventListener('change', function (event) {
+			api.fetchApi(`/manager/policy/update?value=${event.target.value}`);
+		});
+
 		return [
-			$el("div", {}, [this.update_check_checkbox, uc_checkbox_text]),
 			$el("br", {}, []),
 			this.datasrc_combo,
 			channel_combo,
 			preview_combo,
 			share_combo,
 			component_policy_combo,
+			update_policy_combo,
 			$el("br", {}, []),
 
 			$el("br", {}, []),
@@ -1092,11 +1122,6 @@ class ManagerMenuDialog extends ComfyDialog {
 									install_pip(url, self);
 								}
 							}
-					}),
-					$el("button.cm-experimental-button", {
-						type: "button",
-						textContent: "Unload models",
-						onclick: () => { free_models(); }
 					})
 				]),
 		];
@@ -1225,7 +1250,7 @@ class ManagerMenuDialog extends ComfyDialog {
 				$el("div.comfy-modal-content",
 					[
 						$el("tr.cm-title", {}, [
-								$el("font", {size:6, color:"white"}, [`ComfyUI Manager Menu`])]
+								$el("font", {size:6, color:"white"}, [`ComfyUI Manager ${manager_version}`])]
 							),
 						$el("br", {}, []),
 						$el("div.cm-menu-container",
@@ -1367,13 +1392,12 @@ async function getVersion() {
 	return await version.text();
 }
 
-
 app.registerExtension({
 	name: "Comfy.ManagerMenu",
 
 	aboutPageBadges: [
 		{
-			label: `ComfyUI-Manager ${await getVersion()}`,
+			label: `ComfyUI-Manager ${manager_version}`,
 			url: 'https://github.com/ltdrdata/ComfyUI-Manager',
 			icon: 'pi pi-th-large'
 		}

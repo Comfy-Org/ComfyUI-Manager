@@ -113,3 +113,5 @@ def add_on_revision_detected(k, f):
 
 
 error_dict = {}
+
+disable_front = False

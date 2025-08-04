@@ -1,12 +1,15 @@
-import requests
-from dataclasses import dataclass
-from typing import List
-import manager_util
-import toml
-import os
 import asyncio
 import json
+import os
+import platform
 import time
+from dataclasses import dataclass
+from typing import List
+
+import manager_core
+import manager_util
+import requests
+import toml
 
 base_url = "https://api.comfy.org"
 
@@ -32,9 +35,43 @@ async def _get_cnr_data(cache_mode=True, dont_wait=True):
         page = 1
 
         full_nodes = {}
+
+        
+        # Determine form factor based on environment and platform
+        is_desktop = bool(os.environ.get('__COMFYUI_DESKTOP_VERSION__'))
+        system = platform.system().lower()
+        is_windows = system == 'windows'
+        is_mac = system == 'darwin'
+        is_linux = system == 'linux'
+
+        # Get ComfyUI version tag
+        if is_desktop:
+            # extract version from pyproject.toml instead of git tag
+            comfyui_ver = manager_core.get_current_comfyui_ver() or 'unknown'
+        else:
+            comfyui_ver = manager_core.get_comfyui_tag() or 'unknown'
+
+        if is_desktop:
+            if is_windows:
+                form_factor = 'desktop-win'
+            elif is_mac:
+                form_factor = 'desktop-mac'
+            else:
+                form_factor = 'other'
+        else:
+            if is_windows:
+                form_factor = 'git-windows'
+            elif is_mac:
+                form_factor = 'git-mac'
+            elif is_linux:
+                form_factor = 'git-linux'
+            else:
+                form_factor = 'other'
+        
         while remained:
-            sub_uri = f'{base_url}/nodes?page={page}&limit=30'
-            sub_json_obj = await asyncio.wait_for(manager_util.get_data_with_cache(sub_uri, cache_mode=False, silent=True), timeout=30)
+            # Add comfyui_version and form_factor to the API request
+            sub_uri = f'{base_url}/nodes?page={page}&limit=30&comfyui_version={comfyui_ver}&form_factor={form_factor}'
+            sub_json_obj = await asyncio.wait_for(manager_util.get_data_with_cache(sub_uri, cache_mode=False, silent=True, dont_cache=True), timeout=30)
             remained = page < sub_json_obj['totalPages']
 
             for x in sub_json_obj['nodes']:
@@ -142,7 +179,7 @@ def install_node(node_id, version=None):
     else:
         url = f"{base_url}/nodes/{node_id}/install?version={version}"
 
-    response = requests.get(url)
+    response = requests.get(url, verify=not manager_util.bypass_ssl)
     if response.status_code == 200:
         # Convert the API response to a NodeVersion object
         return map_node_version(response.json())
@@ -153,7 +190,7 @@ def install_node(node_id, version=None):
 def all_versions_of_node(node_id):
     url = f"{base_url}/nodes/{node_id}/versions?statuses=NodeVersionStatusActive&statuses=NodeVersionStatusPending"
 
-    response = requests.get(url)
+    response = requests.get(url, verify=not manager_util.bypass_ssl)
     if response.status_code == 200:
         return response.json()
     else:
@@ -173,7 +210,10 @@ def read_cnr_info(fullpath):
 
             project = data.get('project', {})
             name = project.get('name').strip().lower()
-            version = project.get('version')
+
+            # normalize version
+            # for example: 2.5 -> 2.5.0
+            version = str(manager_util.StrictVersion(project.get('version')))
 
             urls = project.get('urls', {})
             repository = urls.get('Repository')

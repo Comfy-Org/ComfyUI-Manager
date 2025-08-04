@@ -8,7 +8,7 @@
 * V3.16: Support for `uv` has been added. Set `use_uv` in `config.ini`.
 * V3.10: `double-click feature` is removed
   * This feature has been moved to https://github.com/ltdrdata/comfyui-connection-helper
-* V3.3.2: Overhauled. Officially supports [https://comfyregistry.org/](https://comfyregistry.org/).
+* V3.3.2: Overhauled. Officially supports [https://registry.comfy.org/](https://registry.comfy.org/).
 * You can see whole nodes info on [ComfyUI Nodes Info](https://ltdrdata.github.io/) page.
 
 ## Installation
@@ -149,6 +149,8 @@ In `ComfyUI-Manager` V3.0 and later, configuration files and dynamically generat
 * Basic config files: `<USER_DIRECTORY>/default/ComfyUI-Manager/config.ini`
 * Configurable channel lists: `<USER_DIRECTORY>/default/ComfyUI-Manager/channels.ini`
 * Configurable pip overrides: `<USER_DIRECTORY>/default/ComfyUI-Manager/pip_overrides.json`
+* Configurable pip blacklist: `<USER_DIRECTORY>/default/ComfyUI-Manager/pip_blacklist.list`
+* Configurable pip auto fix: `<USER_DIRECTORY>/default/ComfyUI-Manager/pip_auto_fix.list`
 * Saved snapshot files: `<USER_DIRECTORY>/default/ComfyUI-Manager/snapshots`
 * Startup script files: `<USER_DIRECTORY>/default/ComfyUI-Manager/startup-scripts`
 * Component files: `<USER_DIRECTORY>/default/ComfyUI-Manager/components`
@@ -262,9 +264,16 @@ The following settings are applied based on the section marked as `is_default`.
     windows_selector_event_loop_policy = <If an event loop error occurs on Windows, set this to True.>
     model_download_by_agent = <When downloading models, use an agent instead of torchvision_download_url.>
     downgrade_blacklist = <Set a list of packages to prevent downgrades. List them separated by commas.>
-    security_level = <Set the security level.>
+    security_level = <Set the security level => strong|normal|normal-|weak>
     always_lazy_install = <Whether to perform dependency installation on restart even in environments other than Windows.>
+    network_mode = <Set the network mode => public|private|offline>
     ```
+
+    * network_mode:
+      - public: An environment that uses a typical public network.
+      - private: An environment that uses a closed network, where a private node DB is configured via `channel_url`. (Uses cache if available)
+      - offline: An environment that does not use any external connections when using an offline network. (Uses cache if available)
+
 
 ## Additional Feature
 * Logging to file feature
@@ -294,13 +303,40 @@ The following settings are applied based on the section marked as `is_default`.
 * Custom pip mapping
   * When you create the `pip_overrides.json` file, it changes the installation of specific pip packages to installations defined by the user.
     * Please refer to the `pip_overrides.json.template` file.
-    
+
+* Prevent the installation of specific pip packages
+  * List the package names one per line in the `pip_blacklist.list` file.
+
+* Automatically Restoring pip Installation
+ * If you list pip spec requirements in `pip_auto_fix.list`, similar to `requirements.txt`, it will automatically restore the specified versions when starting ComfyUI or when versions get mismatched during various custom node installations.
+ * `--index-url` can be used.
+
 * Use `aria2` as downloader
   * [howto](docs/en/use_aria2.md)
 
-* If you add the item `skip_migration_check = True` to `config.ini`, it will not check whether there are nodes that can be migrated at startup.
-  * This option can be used if performance issues occur in a Colab+GDrive environment.
 
+## Environment Variables
+
+The following features can be configured using environment variables:
+
+* **COMFYUI_PATH**: The installation path of ComfyUI
+* **GITHUB_ENDPOINT**: Reverse proxy configuration for environments with limited access to GitHub
+* **HF_ENDPOINT**: Reverse proxy configuration for environments with limited access to Hugging Face
+
+
+### Example 1:
+Redirecting `https://github.com/ltdrdata/ComfyUI-Impact-Pack` to `https://mirror.ghproxy.com/https://github.com/ltdrdata/ComfyUI-Impact-Pack`
+
+```
+GITHUB_ENDPOINT=https://mirror.ghproxy.com/https://github.com
+```
+
+#### Example 2:
+Changing `https://huggingface.co/path/to/somewhere` to `https://some-hf-mirror.com/path/to/somewhere`
+
+```
+HF_ENDPOINT=https://some-hf-mirror.com 
+```
 
 ## Scanner
 When you run the `scan.sh` script:

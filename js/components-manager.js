@@ -709,7 +709,7 @@ app.handleFile = handleFile;
 
 let current_component_policy = 'workflow';
 try {
-	api.fetchApi('/manager/component/policy')
+	api.fetchApi('/manager/policy/component')
 		.then(response => response.text())
 		.then(data => { current_component_policy = data; });
 }

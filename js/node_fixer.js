@@ -153,6 +153,7 @@ app.registerExtension({
 					app.canvas.graph.add(new_node, false);
 					node_info_copy(this, new_node, true);
 					app.canvas.graph.remove(this);
+					requestAnimationFrame(() => app.canvas.setDirty(true, true))
 				},
 			});
 		});

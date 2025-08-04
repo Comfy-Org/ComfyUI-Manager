@@ -1,0 +1,213 @@
+.cmm-manager {
+	--grid-font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+	z-index: 1099;
+	width: 80%;
+	height: 80%;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	color: var(--fg-color);
+	font-family: arial, sans-serif;
+}
+
+.cmm-manager .cmm-flex-auto {
+	flex: auto;
+}
+
+.cmm-manager button {
+	font-size: 16px;
+	color: var(--input-text);
+    background-color: var(--comfy-input-bg);
+    border-radius: 8px;
+    border-color: var(--border-color);
+    border-style: solid;
+    margin: 0;
+	padding: 4px 8px;
+	min-width: 100px;
+}
+
+.cmm-manager button:disabled,
+.cmm-manager input:disabled,
+.cmm-manager select:disabled {
+	color: gray;
+}
+
+.cmm-manager button:disabled {
+	background-color: var(--comfy-input-bg);
+}
+
+.cmm-manager .cmm-manager-refresh {
+	display: none;
+	background-color: #000080;
+	color: white;
+}
+
+.cmm-manager .cmm-manager-stop {
+	display: none;
+	background-color: #500000;
+	color: white;
+}
+
+.cmm-manager-header {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+	align-items: center;
+	padding: 0 5px;
+}
+
+.cmm-manager-header label {
+	display: flex;
+	gap: 5px;
+	align-items: center;
+}
+
+.cmm-manager-type,
+.cmm-manager-base,
+.cmm-manager-filter {
+	height: 28px;
+	line-height: 28px;
+}
+
+.cmm-manager-keywords {
+	height: 28px;
+	line-height: 28px;
+	padding: 0 5px 0 26px;
+	background-size: 16px;
+	background-position: 5px center;
+	background-repeat: no-repeat;
+	background-image: url("data:image/svg+xml;charset=utf8,%3Csvg%20viewBox%3D%220%200%2024%2024%22%20width%3D%22100%25%22%20height%3D%22100%25%22%20pointer-events%3D%22none%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%3E%3Cpath%20fill%3D%22none%22%20stroke%3D%22%23888%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%20stroke-width%3D%222%22%20d%3D%22m21%2021-4.486-4.494M19%2010.5a8.5%208.5%200%201%201-17%200%208.5%208.5%200%200%201%2017%200%22%2F%3E%3C%2Fsvg%3E");
+}
+
+.cmm-manager-status {
+	padding-left: 10px;
+}
+
+.cmm-manager-grid {
+	flex: auto;
+	border: 1px solid var(--border-color);
+	overflow: hidden;
+}
+
+.cmm-manager-selection {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	align-items: center;
+}
+
+.cmm-manager-footer {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	align-items: center;
+}
+
+.cmm-manager-grid .tg-turbogrid {
+	font-family: var(--grid-font);
+	font-size: 15px;
+	background: var(--bg-color);
+}
+
+.cmm-manager-grid .cmm-node-name a {
+	color: skyblue;
+	text-decoration: none;
+	word-break: break-word;
+}
+
+.cmm-manager-grid .cmm-node-desc a {
+	color: #5555FF;
+    font-weight: bold;
+	text-decoration: none;
+}
+
+.cmm-manager-grid .tg-cell a:hover {
+	text-decoration: underline;
+}
+
+.cmm-icon-passed {
+	width: 20px;
+	height: 20px;
+	position: absolute;
+	left: calc(50% - 10px);
+	top: calc(50% - 10px);
+}
+
+.cmm-manager .cmm-btn-enable {
+	background-color: blue;
+	color: white;
+}
+
+.cmm-manager .cmm-btn-disable {
+	background-color: MediumSlateBlue;
+	color: white;
+}
+
+.cmm-manager .cmm-btn-install {
+	background-color: black;
+	color: white;
+}
+
+.cmm-btn-download {
+	width: 18px;
+	height: 18px;
+	position: absolute;
+	left: calc(50% - 10px);
+	top: calc(50% - 10px);
+	cursor: pointer;
+	opacity: 0.8;
+	color: #fff;
+}
+
+.cmm-btn-download:hover {
+	opacity: 1;
+}
+
+.cmm-manager-light .cmm-btn-download {
+	color: #000;
+}
+
+@keyframes cmm-btn-loading-bg {
+    0% {
+        left: 0;
+    }
+    100% {
+        left: -105px;
+    }
+}
+
+.cmm-manager button.cmm-btn-loading {
+    position: relative;
+    overflow: hidden;
+    border-color: rgb(0 119 207 / 80%);
+	background-color: var(--comfy-input-bg);
+}
+
+.cmm-manager button.cmm-btn-loading::after {
+    position: absolute;
+    top: 0;
+    left: 0;
+    content: "";
+    width: 500px;
+    height: 100%;
+    background-image: repeating-linear-gradient(
+        -45deg,
+        rgb(0 119 207 / 30%),
+        rgb(0 119 207 / 30%) 10px,
+        transparent 10px,
+        transparent 15px
+    );
+    animation: cmm-btn-loading-bg 2s linear infinite;
+}
+
+.cmm-manager-light .cmm-node-name a {
+	color: blue;
+}
+
+.cmm-manager-light .cm-warn-note {
+	background-color: #ccc !important;
+}
+
+.cmm-manager-light .cmm-btn-install {
+	background-color: #333;
+}

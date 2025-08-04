@@ -102,12 +102,8 @@ def extract_nodes(code_text):
 def scan_in_file(filename, is_builtin=False):
     global builtin_nodes
 
-    try:
-        with open(filename, encoding='utf-8') as file:
-            code = file.read()
-    except UnicodeDecodeError:
-        with open(filename, encoding='cp949') as file:
-            code = file.read()
+    with open(filename, encoding='utf-8', errors='ignore') as file:
+        code = file.read()
 
     pattern = r"_CLASS_MAPPINGS\s*=\s*{([^}]*)}"
     regex = re.compile(pattern, re.MULTILINE | re.DOTALL)
@@ -259,13 +255,13 @@ def clone_or_pull_git_repository(git_url):
             repo.git.submodule('update', '--init', '--recursive')
             print(f"Pulling {repo_name}...")
         except Exception as e:
-            print(f"Pulling {repo_name} failed: {e}")
+            print(f"Failed to pull '{repo_name}': {e}")
     else:
         try:
             Repo.clone_from(git_url, repo_dir, recursive=True)
             print(f"Cloning {repo_name}...")
         except Exception as e:
-            print(f"Cloning {repo_name} failed: {e}")
+            print(f"Failed to clone '{repo_name}': {e}")
 
 
 def update_custom_nodes():
@@ -297,7 +293,7 @@ def update_custom_nodes():
             pass
 
         def is_rate_limit_exceeded():
-            return g.rate_limiting[0] == 0
+            return g.rate_limiting[0] <= 20
 
         if is_rate_limit_exceeded():
             print(f"GitHub API Rate Limit Exceeded: remained - {(g.rate_limiting_resettime - datetime.datetime.now().timestamp())/60:.2f} min")
@@ -500,8 +496,15 @@ def gen_json(node_info):
                 nodes_in_url, metadata_in_url = data[git_url]
                 nodes = set(nodes_in_url)
 
-            for x, desc in node_list_json.items():
-                nodes.add(x.strip())
+            try:
+                for x, desc in node_list_json.items():
+                    nodes.add(x.strip())
+            except Exception as e:
+                print(f"\nERROR: Invalid json format '{node_list_json_path}'")
+                print("------------------------------------------------------")
+                print(e)
+                print("------------------------------------------------------")
+                node_list_json = {}
 
             metadata_in_url['title_aux'] = title
 

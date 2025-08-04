@@ -1,6 +1,7 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 import { $el, ComfyDialog } from "../../scripts/ui.js";
+import { getBestPosition, getPositionStyle, getRect } from './popover-helper.js';
 
 
 function internalCustomConfirm(message, confirmMessage, cancelMessage) {
@@ -176,23 +177,6 @@ export function rebootAPI() {
 			catch(exception) {}
 		}
 	});
-
-	return false;
-}
-
-
-export async function migrateAPI() {
-	let confirmed = await customConfirm("When performing a migration, existing installed custom nodes will be renamed and the server will be restarted. Are you sure you want to apply this?\n\n(If you don't perform the migration, ComfyUI-Manager's start-up time will be longer each time due to re-checking during startup.)")
-	if (confirmed) {
-		try {
-			await api.fetchApi("/manager/migrate_unmanaged_nodes");
-			api.fetchApi("/manager/reboot");
-		}
-		catch(exception) {
-
-		}
-		return true;
-	}
 
 	return false;
 }
@@ -404,19 +388,267 @@ export async function fetchData(route, options) {
 	}
 }
 
+// https://cenfun.github.io/open-icons/
 export const icons = {
 	search: '<svg viewBox="0 0 24 24" width="100%" height="100%" pointer-events="none" xmlns="http://www.w3.org/2000/svg"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m21 21-4.486-4.494M19 10.5a8.5 8.5 0 1 1-17 0 8.5 8.5 0 0 1 17 0"/></svg>',
-	extensions: '<svg viewBox="64 64 896 896" width="100%" height="100%" pointer-events="none" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M843.5 737.4c-12.4-75.2-79.2-129.1-155.3-125.4S550.9 676 546 752c-153.5-4.8-208-40.7-199.1-113.7 3.3-27.3 19.8-41.9 50.1-49 18.4-4.3 38.8-4.9 57.3-3.2 1.7.2 3.5.3 5.2.5 11.3 2.7 22.8 5 34.3 6.8 34.1 5.6 68.8 8.4 101.8 6.6 92.8-5 156-45.9 159.2-132.7 3.1-84.1-54.7-143.7-147.9-183.6-29.9-12.8-61.6-22.7-93.3-30.2-14.3-3.4-26.3-5.7-35.2-7.2-7.9-75.9-71.5-133.8-147.8-134.4S189.7 168 180.5 243.8s40 146.3 114.2 163.9 149.9-23.3 175.7-95.1c9.4 1.7 18.7 3.6 28 5.8 28.2 6.6 56.4 15.4 82.4 26.6 70.7 30.2 109.3 70.1 107.5 119.9-1.6 44.6-33.6 65.2-96.2 68.6-27.5 1.5-57.6-.9-87.3-5.8-8.3-1.4-15.9-2.8-22.6-4.3-3.9-.8-6.6-1.5-7.8-1.8l-3.1-.6c-2.2-.3-5.9-.8-10.7-1.3-25-2.3-52.1-1.5-78.5 4.6-55.2 12.9-93.9 47.2-101.1 105.8-15.7 126.2 78.6 184.7 276 188.9 29.1 70.4 106.4 107.9 179.6 87 73.3-20.9 119.3-93.4 106.9-168.6M329.1 345.2a83.3 83.3 0 1 1 .01-166.61 83.3 83.3 0 0 1-.01 166.61M695.6 845a83.3 83.3 0 1 1 .01-166.61A83.3 83.3 0 0 1 695.6 845"/></svg>',
 	conflicts: '<svg viewBox="0 0 400 400" width="100%" height="100%" pointer-events="none" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="m397.2 350.4.2-.2-180-320-.2.2C213.8 24.2 207.4 20 200 20s-13.8 4.2-17.2 10.4l-.2-.2-180 320 .2.2c-1.6 2.8-2.8 6-2.8 9.6 0 11 9 20 20 20h360c11 0 20-9 20-20 0-3.6-1.2-6.8-2.8-9.6M220 340h-40v-40h40zm0-60h-40V120h40z"/></svg>',
 	passed: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 426.667 426.667"><path fill="#6AC259" d="M213.333,0C95.518,0,0,95.514,0,213.333s95.518,213.333,213.333,213.333c117.828,0,213.333-95.514,213.333-213.333S331.157,0,213.333,0z M174.199,322.918l-93.935-93.931l31.309-31.309l62.626,62.622l140.894-140.898l31.309,31.309L174.199,322.918z"/></svg>',
-	download: '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" width="100%" height="100%" viewBox="0 0 32 32"><path fill="currentColor" d="M26 24v4H6v-4H4v4a2 2 0 0 0 2 2h20a2 2 0 0 0 2-2v-4zm0-10l-1.41-1.41L17 20.17V2h-2v18.17l-7.59-7.58L6 14l10 10l10-10z"></path></svg>'
+	download: '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" width="100%" height="100%" viewBox="0 0 32 32"><path fill="currentColor" d="M26 24v4H6v-4H4v4a2 2 0 0 0 2 2h20a2 2 0 0 0 2-2v-4zm0-10l-1.41-1.41L17 20.17V2h-2v18.17l-7.59-7.58L6 14l10 10l10-10z"></path></svg>',
+	close: '<svg xmlns="http://www.w3.org/2000/svg" pointer-events="none" width="100%" height="100%" viewBox="0 0 16 16"><g fill="currentColor"><path fill-rule="evenodd" clip-rule="evenodd" d="m7.116 8-4.558 4.558.884.884L8 8.884l4.558 4.558.884-.884L8.884 8l4.558-4.558-.884-.884L8 7.116 3.442 2.558l-.884.884L7.116 8z"/></g></svg>',
+	arrowRight: '<svg xmlns="http://www.w3.org/2000/svg" pointer-events="none" width="100%" height="100%" viewBox="0 0 20 20"><path fill="currentColor" fill-rule="evenodd" d="m2.542 2.154 7.254 7.26c.136.14.204.302.204.483a.73.73 0 0 1-.204.5l-7.575 7.398c-.383.317-.724.317-1.022 0-.299-.317-.299-.643 0-.98l7.08-6.918-6.754-6.763c-.237-.343-.215-.654.066-.935.281-.28.598-.295.951-.045Zm9 0 7.254 7.26c.136.14.204.302.204.483a.73.73 0 0 1-.204.5l-7.575 7.398c-.383.317-.724.317-1.022 0-.299-.317-.299-.643 0-.98l7.08-6.918-6.754-6.763c-.237-.343-.215-.654.066-.935.281-.28.598-.295.951-.045Z"/></svg>'
 }
 
 export function sanitizeHTML(str) {
-    return str
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+	return str
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&#039;");
 }
+
+export function showTerminal() {
+	try {
+		const panel = app.extensionManager.bottomPanel;
+		const isTerminalVisible = panel.bottomPanelVisible && panel.activeBottomPanelTab.id === 'logs-terminal';
+		if (!isTerminalVisible)
+			panel.toggleBottomPanelTab('logs-terminal');
+	}
+	catch(exception) {
+		// do nothing
+	}
+}
+
+let need_restart = false;
+
+export function setNeedRestart(value) {
+	need_restart = value;
+}
+
+async function onReconnected(event) {
+	if(need_restart) {
+		setNeedRestart(false);
+
+		const confirmed = await customConfirm("To apply the changes to the node pack's installation status, you need to refresh the browser. Would you like to refresh?");
+		if (!confirmed) {
+			return;
+		}
+
+		window.location.reload(true);
+	}
+}
+
+api.addEventListener('reconnected', onReconnected);
+
+const storeId = "comfyui-manager-grid";
+let timeId;
+export function storeColumnWidth(gridId, columnItem) {
+	clearTimeout(timeId);
+	timeId = setTimeout(() => {
+		let data = {};
+		const dataStr = localStorage.getItem(storeId);
+		if (dataStr) {
+			try {
+				data = JSON.parse(dataStr);
+			} catch (e) {}
+		}
+
+		if (!data[gridId]) {
+			data[gridId] =  {};
+		}
+
+		data[gridId][columnItem.id] = columnItem.width;
+
+		localStorage.setItem(storeId, JSON.stringify(data));
+
+	}, 200)
+}
+
+export function restoreColumnWidth(gridId, columns) {
+	const dataStr = localStorage.getItem(storeId);
+	if (!dataStr) {
+		return;
+	}
+	let data;
+	try {
+		data = JSON.parse(dataStr);
+	} catch (e) {}
+	if(!data) {
+		return;
+	}
+	const widthMap = data[gridId];
+	if (!widthMap) {
+		return;
+	}
+
+	columns.forEach(columnItem => {
+		const w = widthMap[columnItem.id];
+		if (w) {
+			columnItem.width = w;
+		}
+	});
+
+}
+
+export function getTimeAgo(dateStr) {
+	const date = new Date(dateStr);
+
+	if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+		return "";
+	}
+
+	const units = [
+		{ max: 2760000, value: 60000, name: 'minute', past: 'a minute ago', future: 'in a minute' },
+		{ max: 72000000, value: 3600000, name: 'hour', past: 'an hour ago', future: 'in an hour' },
+		{ max: 518400000, value: 86400000, name: 'day', past: 'yesterday', future: 'tomorrow' },
+		{ max: 2419200000, value: 604800000, name: 'week', past: 'last week', future: 'in a week' },
+		{ max: 28512000000, value: 2592000000, name: 'month', past: 'last month', future: 'in a month' }
+	];
+    const diff = Date.now() - date.getTime();
+    // less than a minute
+    if (Math.abs(diff) < 60000)
+        return 'just now';
+    for (let i = 0; i < units.length; i++) {
+        if (Math.abs(diff) < units[i].max) {
+            return format(diff, units[i].value, units[i].name, units[i].past, units[i].future, diff < 0);
+        }
+    }
+    function format(diff, divisor, unit, past, future, isInTheFuture) {
+		const val = Math.round(Math.abs(diff) / divisor);
+		if (isInTheFuture)
+			return val <= 1 ? future : 'in ' + val + ' ' + unit + 's';
+		return val <= 1 ? past : val + ' ' + unit + 's ago';
+	}
+    return format(diff, 31536000000, 'year', 'last year', 'in a year', diff < 0);
+};
+
+export const loadCss = (cssFile) => {
+	const cssPath = import.meta.resolve(cssFile);
+	//console.log(cssPath);
+	const $link = document.createElement("link");
+	$link.setAttribute("rel", 'stylesheet');
+	$link.setAttribute("href", cssPath);
+	document.head.appendChild($link);
+};
+
+export const copyText = (text) => {
+	return new Promise((resolve) => {
+		let err;
+		try {
+			navigator.clipboard.writeText(text);
+		} catch (e) {
+			err = e;
+		}
+		if (err) {
+			resolve(false);
+		} else {
+			resolve(true);
+		}
+	});
+};
+
+function renderPopover($elem, target, options = {}) {
+	// async microtask
+	queueMicrotask(() => {
+		
+		const containerRect = getRect(window);
+		const targetRect = getRect(target);
+		const elemRect = getRect($elem);
+
+		const positionInfo = getBestPosition(
+			containerRect,
+			targetRect,
+			elemRect,
+			options.positions
+		);
+		const style = getPositionStyle(positionInfo, {
+			bgColor: options.bgColor,
+			borderColor: options.borderColor,
+			borderRadius: options.borderRadius
+		});
+
+		$elem.style.top = positionInfo.top + "px";
+		$elem.style.left = positionInfo.left + "px";
+		$elem.style.background = style.background;
+	
+	});
+}
+
+let $popover;
+export function hidePopover() {
+	if ($popover) {
+		$popover.remove();
+		$popover = null;
+	}
+}
+export function showPopover(target, text, className, options) {
+	hidePopover();
+	$popover = document.createElement("div");
+	$popover.className = ['cn-popover', className].filter(it => it).join(" ");
+	document.body.appendChild($popover);
+	$popover.innerHTML = text;
+	$popover.style.display = "block";
+	renderPopover($popover, target, {
+		borderRadius: 10,
+		... options
+	});
+}
+
+let $tooltip;
+export function hideTooltip(target) {
+	if ($tooltip) {
+		$tooltip.style.display = "none";
+		$tooltip.innerHTML = "";
+		$tooltip.style.top = "0px";
+		$tooltip.style.left = "0px";
+	}
+}
+export function showTooltip(target, text, className = 'cn-tooltip', styleMap = {}) {
+	if (!$tooltip) {
+		$tooltip = document.createElement("div");
+		$tooltip.className = className;
+		$tooltip.style.cssText = `
+			pointer-events: none;
+			position: fixed;
+			z-index: 10001;
+			padding: 20px;
+			color: #1e1e1e;
+			max-width: 350px;
+			filter: drop-shadow(1px 5px 5px rgb(0 0 0 / 30%));
+			${Object.keys(styleMap).map(k=>k+":"+styleMap[k]+";").join("")}
+		`;
+		document.body.appendChild($tooltip);
+	}
+
+	$tooltip.innerHTML = text;
+	$tooltip.style.display = "block";
+	renderPopover($tooltip, target, {
+		positions: ['top', 'bottom', 'right', 'center'],
+		bgColor: "#ffffff",
+		borderColor: "#cccccc",
+		borderRadius: 5
+	});
+}
+
+function initTooltip () {
+	const mouseenterHandler = (e) => {
+        const target = e.target;
+        const text = target.getAttribute('tooltip');
+        if (text) {
+            showTooltip(target, text);
+        }
+    };
+	const mouseleaveHandler = (e) => {
+        const target = e.target;
+        const text = target.getAttribute('tooltip');
+        if (text) {
+            hideTooltip(target);
+        }
+    };
+	document.body.removeEventListener('mouseenter', mouseenterHandler, true);
+	document.body.removeEventListener('mouseleave', mouseleaveHandler, true);
+	document.body.addEventListener('mouseenter', mouseenterHandler, true);
+    document.body.addEventListener('mouseleave', mouseleaveHandler, true);
+}
+
+initTooltip();
