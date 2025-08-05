@@ -80,10 +80,7 @@ def aria2_download_url(model_url: str, model_dir: str, filename: str):
     import tqdm
     import time
 
-    if model_dir.startswith(core.comfy_path):
-        model_dir = model_dir[len(core.comfy_path) :]
-
-    download_dir = model_dir if model_dir.startswith('/') else os.path.join('/models', model_dir)
+    download_dir = model_dir
 
     download = aria2_find_task(download_dir, filename)
     if download is None:
