@@ -81,6 +81,7 @@ def aria2_download_url(model_url: str, model_dir: str, filename: str):
     import time
 
     download_dir = model_dir
+    filename += '.downloading'  # aria2 uses .downloading suffix for incomplete files
 
     download = aria2_find_task(download_dir, filename)
     if download is None:
@@ -101,6 +102,17 @@ def aria2_download_url(model_url: str, model_dir: str, filename: str):
                 progress_bar.update(download.completed_length - progress_bar.n)
                 time.sleep(1)
                 download.update()
+    
+    if download.is_complete and download.completed_length == download.total_length:
+        file_path = os.path.join(download_dir, filename) 
+        final_path = file_path[:-len('.downloading')] # remove the .downloading suffix
+        if os.path.exists(file_path):
+            os.rename(file_path, final_path)
+            logging.info(f"Download completed: {final_path}")
+        else:
+            logging.error(f"Download directory {file_path} does not exist after download completion.")
+    else:
+        logging.error(f"Download failed or incomplete: {download.status} for {model_url}")
 
 
 def download_url_with_agent(url, save_path):
