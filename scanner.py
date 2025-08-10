@@ -255,13 +255,13 @@ def clone_or_pull_git_repository(git_url):
             repo.git.submodule('update', '--init', '--recursive')
             print(f"Pulling {repo_name}...")
         except Exception as e:
-            print(f"Pulling {repo_name} failed: {e}")
+            print(f"Failed to pull '{repo_name}': {e}")
     else:
         try:
             Repo.clone_from(git_url, repo_dir, recursive=True)
             print(f"Cloning {repo_name}...")
         except Exception as e:
-            print(f"Cloning {repo_name} failed: {e}")
+            print(f"Failed to clone '{repo_name}': {e}")
 
 
 def update_custom_nodes():
@@ -496,8 +496,15 @@ def gen_json(node_info):
                 nodes_in_url, metadata_in_url = data[git_url]
                 nodes = set(nodes_in_url)
 
-            for x, desc in node_list_json.items():
-                nodes.add(x.strip())
+            try:
+                for x, desc in node_list_json.items():
+                    nodes.add(x.strip())
+            except Exception as e:
+                print(f"\nERROR: Invalid json format '{node_list_json_path}'")
+                print("------------------------------------------------------")
+                print(e)
+                print("------------------------------------------------------")
+                node_list_json = {}
 
             metadata_in_url['title_aux'] = title
 
