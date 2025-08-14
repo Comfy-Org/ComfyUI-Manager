@@ -11,17 +11,487 @@ info:
 servers:
   - url: '/'
     description: Default ComfyUI server
+    
+# Default security - can be overridden per operation
+security: []
 
 # Common API components
 components:
   schemas:
-    Error:
+    OperationType:
+      type: string
+      enum: [install, uninstall, update, update-comfyui, fix, disable, enable, install-model]
+      description: Type of operation or task being performed
+    OperationResult:
+      type: string
+      enum: [success, failed, skipped, error, skip]
+      description: Result status of an operation (failed/error and skipped/skip are aliases)
+    # Core Task Queue Models
+    QueueTaskItem:
       type: object
       properties:
+        ui_id:
+          type: string
+          description: Unique identifier for the task
+        client_id:
+          type: string
+          description: Client identifier that initiated the task
+        kind:
+          $ref: '#/components/schemas/OperationType'
+        params:
+          oneOf:
+            - $ref: '#/components/schemas/InstallPackParams'
+            - $ref: '#/components/schemas/UpdatePackParams'
+            - $ref: '#/components/schemas/UpdateAllPacksParams'
+            - $ref: '#/components/schemas/UpdateComfyUIParams'
+            - $ref: '#/components/schemas/FixPackParams'
+            - $ref: '#/components/schemas/UninstallPackParams'
+            - $ref: '#/components/schemas/DisablePackParams'
+            - $ref: '#/components/schemas/EnablePackParams'
+            - $ref: '#/components/schemas/ModelMetadata'
+      required: [ui_id, client_id, kind, params]
+    TaskHistoryItem:
+      type: object
+      properties:
+        ui_id:
+          type: string
+          description: Unique identifier for the task
+        client_id:
+          type: string
+          description: Client identifier that initiated the task
+        kind:
+          type: string
+          description: Type of task that was performed
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO timestamp when task completed
+        result:
+          type: string
+          description: Task result message or details
+        status:
+          $ref: '#/components/schemas/TaskExecutionStatus'
+        batch_id:
+          type: [string, 'null']
+          description: ID of the batch this task belongs to
+        end_time:
+          type: [string, 'null']
+          format: date-time
+          description: ISO timestamp when task execution ended
+      required: [ui_id, client_id, kind, timestamp, result]
+    TaskExecutionStatus:
+      type: object
+      properties:
+        status_str:
+          $ref: '#/components/schemas/OperationResult'
+        completed:
+          type: boolean
+          description: Whether the task completed
+        messages:
+          type: array
+          items:
+            type: string
+          description: Additional status messages
+      required: [status_str, completed, messages]
+    TaskStateMessage:
+      type: object
+      properties:
+        history:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/TaskHistoryItem'
+          description: Map of task IDs to their history items
+        running_queue:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueTaskItem'
+          description: Currently executing tasks
+        pending_queue:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueTaskItem'
+          description: Tasks waiting to be executed
+        installed_packs:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/ManagerPackInstalled'
+          description: Map of currently installed node packages by name
+      required: [history, running_queue, pending_queue, installed_packs]
+    # WebSocket Message Models
+    ManagerMessageName:
+      type: string
+      enum: [cm-task-completed, cm-task-started, cm-queue-status]
+      description: WebSocket message type constants for manager events
+    MessageTaskDone:
+      type: object
+      properties:
+        ui_id:
+          type: string
+          description: Task identifier
+        result:
+          type: string
+          description: Task result message
+        kind:
+          type: string
+          description: Type of task
+        status:
+          $ref: '#/components/schemas/TaskExecutionStatus'
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO timestamp when task completed
+        state:
+          $ref: '#/components/schemas/TaskStateMessage'
+      required: [ui_id, result, kind, timestamp, state]
+    MessageTaskStarted:
+      type: object
+      properties:
+        ui_id:
+          type: string
+          description: Task identifier
+        kind:
+          type: string
+          description: Type of task
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO timestamp when task started
+        state:
+          $ref: '#/components/schemas/TaskStateMessage'
+      required: [ui_id, kind, timestamp, state]
+    MessageTaskFailed:
+      type: object
+      properties:
+        ui_id:
+          type: string
+          description: Task identifier
         error:
           type: string
           description: Error message
-          
+        kind:
+          type: string
+          description: Type of task
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO timestamp when task failed
+        state:
+          $ref: '#/components/schemas/TaskStateMessage'
+      required: [ui_id, error, kind, timestamp, state]
+    MessageUpdate:
+      oneOf:
+        - $ref: '#/components/schemas/MessageTaskDone'
+        - $ref: '#/components/schemas/MessageTaskStarted'
+        - $ref: '#/components/schemas/MessageTaskFailed'
+      description: Union type for all possible WebSocket message updates
+    # Manager Package Models
+    ManagerPackInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Either github-author/github-repo or name of pack from the registry
+        version:
+          type: string
+          description: Semantic version or Git commit hash
+        ui_id:
+          type: string
+          description: Task ID - generated internally
+      required: [id, version]
+    ManagerPackInstalled:
+      type: object
+      properties:
+        ver:
+          type: string
+          description: The version of the pack that is installed (Git commit hash or semantic version)
+        cnr_id:
+          type: [string, 'null']
+          description: The name of the pack if installed from the registry
+        aux_id:
+          type: [string, 'null']
+          description: The name of the pack if installed from github (author/repo-name format)
+        enabled:
+          type: boolean
+          description: Whether the pack is enabled
+      required: [ver, enabled]
+    SelectedVersion:
+      type: string
+      enum: [latest, nightly]
+      description: Version selection for pack installation
+    ManagerChannel:
+      type: string
+      enum: [default, recent, legacy, forked, dev, tutorial]
+      description: Channel for pack sources
+    ManagerDatabaseSource:
+      type: string
+      enum: [remote, local, cache]
+      description: Source for pack information
+    ManagerPackState:
+      type: string
+      enum: [installed, disabled, not_installed, import_failed, needs_update]
+      description: Current state of a pack
+    ManagerPackInstallType:
+      type: string
+      enum: [git-clone, copy, cnr]
+      description: Type of installation used for the pack
+    SecurityLevel:
+      type: string
+      enum: [strong, normal, normal-, weak]
+      description: Security level configuration (from most to least restrictive)
+    RiskLevel:
+      type: string
+      enum: [block, high+, high, middle+, middle]
+      description: Risk classification for operations
+    ManagerPack:
+      allOf:
+        - $ref: '#/components/schemas/ManagerPackInfo'
+        - type: object
+          properties:
+            author:
+              type: string
+              description: Pack author name or 'Unclaimed' if added via GitHub crawl
+            files:
+              type: array
+              items:
+                type: string
+              description: Repository URLs for installation (typically contains one GitHub URL)
+            reference:
+              type: string
+              description: The type of installation reference
+            title:
+              type: string
+              description: The display name of the pack
+            cnr_latest:
+              $ref: '#/components/schemas/SelectedVersion'
+            repository:
+              type: string
+              description: GitHub repository URL
+            state:
+              $ref: '#/components/schemas/ManagerPackState'
+            update-state:
+              type: [string, 'null']
+              enum: ['false', 'true']
+              description: Update availability status
+            stars:
+              type: integer
+              description: GitHub stars count
+            last_update:
+              type: string
+              format: date-time
+              description: Last update timestamp
+            health:
+              type: string
+              description: Health status of the pack
+            description:
+              type: string
+              description: Pack description
+            trust:
+              type: boolean
+              description: Whether the pack is trusted
+            install_type:
+              $ref: '#/components/schemas/ManagerPackInstallType'
+    # Installation Parameters
+    InstallPackParams:
+      allOf:
+        - $ref: '#/components/schemas/ManagerPackInfo'
+        - type: object
+          properties:
+            selected_version:
+              oneOf:
+                - type: string
+                - $ref: '#/components/schemas/SelectedVersion'
+              description: Semantic version, Git commit hash, latest, or nightly
+            repository:
+              type: string
+              description: GitHub repository URL (required if selected_version is nightly)
+            pip:
+              type: array
+              items:
+                type: string
+              description: PyPi dependency names
+            mode:
+              $ref: '#/components/schemas/ManagerDatabaseSource'
+            channel:
+              $ref: '#/components/schemas/ManagerChannel'
+            skip_post_install:
+              type: boolean
+              description: Whether to skip post-installation steps
+          required: [selected_version, mode, channel]
+    UpdateAllPacksParams:
+      type: object
+      properties:
+        mode:
+          $ref: '#/components/schemas/ManagerDatabaseSource'
+        ui_id:
+          type: string
+          description: Task ID - generated internally
+    UpdatePackParams:
+      type: object
+      properties:
+        node_name:
+          type: string
+          description: Name of the node package to update
+        node_ver:
+          type: [string, 'null']
+          description: Current version of the node package
+      required: [node_name]
+    UpdateComfyUIParams:
+      type: object
+      properties:
+        is_stable:
+          type: boolean
+          description: Whether to update to stable version (true) or nightly (false)
+          default: true
+        target_version:
+          type: [string, 'null']
+          description: Specific version to switch to (for version switching operations)
+      required: []
+    FixPackParams:
+      type: object
+      properties:
+        node_name:
+          type: string
+          description: Name of the node package to fix
+        node_ver:
+          type: string
+          description: Version of the node package
+      required: [node_name, node_ver]
+    UninstallPackParams:
+      type: object
+      properties:
+        node_name:
+          type: string
+          description: Name of the node package to uninstall
+        is_unknown:
+          type: boolean
+          description: Whether this is an unknown/unregistered package
+          default: false
+      required: [node_name]
+    DisablePackParams:
+      type: object
+      properties:
+        node_name:
+          type: string
+          description: Name of the node package to disable
+        is_unknown:
+          type: boolean
+          description: Whether this is an unknown/unregistered package
+          default: false
+      required: [node_name]
+    EnablePackParams:
+      type: object
+      properties:
+        cnr_id:
+          type: string
+          description: ComfyUI Node Registry ID of the package to enable
+      required: [cnr_id]
+    # Query Parameter Models
+    UpdateAllQueryParams:
+      type: object
+      properties:
+        client_id:
+          type: string
+          description: Client identifier that initiated the request
+        ui_id:
+          type: string
+          description: Base UI identifier for task tracking
+        mode:
+          $ref: '#/components/schemas/ManagerDatabaseSource'
+      required: [client_id, ui_id]
+    UpdateComfyUIQueryParams:
+      type: object
+      properties:
+        client_id:
+          type: string
+          description: Client identifier that initiated the request
+        ui_id:
+          type: string
+          description: UI identifier for task tracking
+        stable:
+          type: boolean
+          default: true
+          description: Whether to update to stable version (true) or nightly (false)
+      required: [client_id, ui_id]
+    ComfyUISwitchVersionQueryParams:
+      type: object
+      properties:
+        ver:
+          type: string
+          description: Version to switch to
+        client_id:
+          type: string
+          description: Client identifier that initiated the request
+        ui_id:
+          type: string
+          description: UI identifier for task tracking
+      required: [ver, client_id, ui_id]
+    # Queue Status Models
+    QueueStatus:
+      type: object
+      properties:
+        total_count:
+          type: integer
+          description: Total number of tasks (pending + running)
+        done_count:
+          type: integer
+          description: Number of completed tasks
+        in_progress_count:
+          type: integer
+          description: Number of tasks currently running
+        pending_count:
+          type: integer
+          description: Number of tasks waiting to be executed
+        is_processing:
+          type: boolean
+          description: Whether the task worker is active
+        client_id:
+          type: string
+          description: Client ID (when filtered by client)
+      required: [total_count, done_count, in_progress_count, is_processing]
+    # Mappings Model
+    ManagerMappings:
+      type: object
+      additionalProperties:
+        type: array
+        description: Tuple of [node_names, metadata]
+        items:
+          oneOf:
+            - type: array
+              items:
+                type: string
+              description: List of ComfyNode names included in the pack
+            - type: object
+              properties:
+                title_aux:
+                  type: string
+                  description: The display name of the pack
+    # Model Management
+    ModelMetadata:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Name of the model
+        type:
+          type: string
+          description: Type of model
+        base:
+          type: string
+          description: Base model type
+        save_path:
+          type: string
+          description: Path for saving the model
+        url:
+          type: string
+          description: Download URL
+        filename:
+          type: string
+          description: Target filename
+        ui_id:
+          type: string
+          description: ID for UI reference
+      required: [name, type, url, filename]
+    # Legacy Node Package Model (for backward compatibility)
     NodePackageMetadata:
       type: object
       properties:
@@ -58,51 +528,260 @@ components:
         mode:
           type: string
           description: Source mode
-        
-    ModelMetadata:
+    # Snapshot Models
+    SnapshotItem:
+      type: string
+      description: Name of the snapshot
+    # Error Models
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+      required: [error]
+    # Response Models
+    InstalledPacksResponse:
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/ManagerPackInstalled'
+      description: Map of pack names to their installation info
+    HistoryResponse:
+      type: object
+      properties:
+        history:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/TaskHistoryItem'
+          description: Map of task IDs to their history items
+    HistoryListResponse:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+          description: List of available batch history IDs
+    # State Management Models
+    InstalledNodeInfo:
       type: object
       properties:
         name:
           type: string
-          description: Name of the model
-        type:
+          description: Node package name
+        version:
           type: string
-          description: Type of model
-        base:
+          description: Installed version
+        repository_url:
+          type: [string, 'null']
+          description: Git repository URL
+        install_method:
           type: string
-          description: Base model type
-        save_path:
-          type: string
-          description: Path for saving the model
-        url:
-          type: string
-          description: Download URL
-        filename:
-          type: string
-          description: Target filename
-        ui_id:
-          type: string
-          description: ID for UI reference
-          
-    SnapshotItem:
-      type: string
-      description: Name of the snapshot
-
-    QueueStatus:
+          description: Installation method (cnr, git, pip, etc.)
+        enabled:
+          type: boolean
+          description: Whether the node is currently enabled
+          default: true
+        install_date:
+          type: [string, 'null']
+          format: date-time
+          description: ISO timestamp of installation
+      required: [name, version, install_method]
+    InstalledModelInfo:
       type: object
       properties:
-        total_count:
-          type: integer
-          description: Total number of tasks
-        done_count:
-          type: integer
-          description: Number of completed tasks
-        in_progress_count:
-          type: integer
-          description: Number of tasks in progress
-        is_processing:
+        name:
+          type: string
+          description: Model filename
+        path:
+          type: string
+          description: Full path to model file
+        type:
+          type: string
+          description: Model type (checkpoint, lora, vae, etc.)
+        size_bytes:
+          type: [integer, 'null']
+          description: File size in bytes
+          minimum: 0
+        hash:
+          type: [string, 'null']
+          description: Model file hash for verification
+        install_date:
+          type: [string, 'null']
+          format: date-time
+          description: ISO timestamp when added
+      required: [name, path, type]
+    ComfyUIVersionInfo:
+      type: object
+      properties:
+        version:
+          type: string
+          description: ComfyUI version string
+        commit_hash:
+          type: [string, 'null']
+          description: Git commit hash
+        branch:
+          type: [string, 'null']
+          description: Git branch name
+        is_stable:
           type: boolean
-          description: Whether the queue is currently processing
+          description: Whether this is a stable release
+          default: false
+        last_updated:
+          type: [string, 'null']
+          format: date-time
+          description: ISO timestamp of last update
+      required: [version]
+    BatchOperation:
+      type: object
+      properties:
+        operation_id:
+          type: string
+          description: Unique operation identifier
+        operation_type:
+          $ref: '#/components/schemas/OperationType'
+        target:
+          type: string
+          description: Target of the operation (node name, model name, etc.)
+        target_version:
+          type: [string, 'null']
+          description: Target version for the operation
+        result:
+          $ref: '#/components/schemas/OperationResult'
+        error_message:
+          type: [string, 'null']
+          description: Error message if operation failed
+        start_time:
+          type: string
+          format: date-time
+          description: ISO timestamp when operation started
+        end_time:
+          type: [string, 'null']
+          format: date-time
+          description: ISO timestamp when operation completed
+        client_id:
+          type: [string, 'null']
+          description: Client that initiated the operation
+      required: [operation_id, operation_type, target, result, start_time]
+    ComfyUISystemState:
+      type: object
+      properties:
+        snapshot_time:
+          type: string
+          format: date-time
+          description: ISO timestamp when snapshot was taken
+        comfyui_version:
+          $ref: '#/components/schemas/ComfyUIVersionInfo'
+        frontend_version:
+          type: [string, 'null']
+          description: ComfyUI frontend version if available
+        python_version:
+          type: string
+          description: Python interpreter version
+        platform_info:
+          type: string
+          description: Operating system and platform information
+        installed_nodes:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/InstalledNodeInfo'
+          description: Map of installed node packages by name
+        installed_models:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/InstalledModelInfo'
+          description: Map of installed models by name
+        manager_config:
+          type: object
+          additionalProperties: true
+          description: ComfyUI Manager configuration settings
+        comfyui_root_path:
+          type: [string, 'null']
+          description: ComfyUI root installation directory
+        model_paths:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          description: Map of model types to their configured paths
+        manager_version:
+          type: [string, 'null']
+          description: ComfyUI Manager version
+        security_level:
+          $ref: '#/components/schemas/SecurityLevel'
+        network_mode:
+          type: [string, 'null']
+          description: Network mode (online, offline, private)
+        cli_args:
+          type: object
+          additionalProperties: true
+          description: Selected ComfyUI CLI arguments
+        custom_nodes_count:
+          type: [integer, 'null']
+          description: Total number of custom node packages
+          minimum: 0
+        failed_imports:
+          type: array
+          items:
+            type: string
+          description: List of custom nodes that failed to import
+        pip_packages:
+          type: object
+          additionalProperties:
+            type: string
+          description: Map of installed pip packages to their versions
+        embedded_python:
+          type: [boolean, 'null']
+          description: Whether ComfyUI is running from an embedded Python distribution
+      required: [snapshot_time, comfyui_version, python_version, platform_info]
+    BatchExecutionRecord:
+      type: object
+      properties:
+        batch_id:
+          type: string
+          description: Unique batch identifier
+        start_time:
+          type: string
+          format: date-time
+          description: ISO timestamp when batch started
+        end_time:
+          type: [string, 'null']
+          format: date-time
+          description: ISO timestamp when batch completed
+        state_before:
+          $ref: '#/components/schemas/ComfyUISystemState'
+        state_after:
+          type: ['null']
+          allOf:
+            - $ref: '#/components/schemas/ComfyUISystemState'
+          description: System state after batch execution
+        operations:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchOperation'
+          description: List of operations performed in this batch
+        total_operations:
+          type: integer
+          description: Total number of operations in batch
+          minimum: 0
+          default: 0
+        successful_operations:
+          type: integer
+          description: Number of successful operations
+          minimum: 0
+          default: 0
+        failed_operations:
+          type: integer
+          description: Number of failed operations
+          minimum: 0
+          default: 0
+        skipped_operations:
+          type: integer
+          description: Number of skipped operations
+          minimum: 0
+          default: 0
+      required: [batch_id, start_time, state_before]
 
     ImportFailInfoBulkRequest:
       type: object
@@ -142,15 +821,13 @@ components:
       in: header
       name: Security-Level
       description: Security level for sensitive operations
-
   parameters:
     modeParam:
       name: mode
       in: query
       description: Source mode (e.g., "local", "remote")
       schema:
-        type: string
-        enum: [local, remote, default]
+        $ref: '#/components/schemas/ManagerDatabaseSource'
         
     targetParam:
       name: target
@@ -167,177 +844,213 @@ components:
       required: true
       schema:
         type: string
-
+    clientIdParam:
+      name: client_id
+      in: query
+      description: Client ID for filtering tasks
+      schema:
+        type: string
+    uiIdParam:
+      name: ui_id
+      in: query
+      description: Specific task ID to retrieve
+      schema:
+        type: string
+    clientIdRequiredParam:
+      name: client_id
+      in: query
+      required: true
+      description: Required client ID that initiated the request
+      schema:
+        type: string
+    uiIdRequiredParam:
+      name: ui_id
+      in: query
+      required: true
+      description: Required unique task identifier
+      schema:
+        type: string
+    maxItemsParam:
+      name: max_items
+      in: query
+      description: Maximum number of items to return
+      schema:
+        type: integer
+        minimum: 1
+    offsetParam:
+      name: offset
+      in: query
+      description: Offset for pagination
+      schema:
+        type: integer
+        minimum: 0
 # API Paths
 paths:
-  # Custom Nodes Endpoints
-  /customnode/getmappings:
-    get:
-      summary: Get node-to-package mappings
-      description: Provides unified mapping between nodes and node packages
-      parameters:
-        - $ref: '#/components/parameters/modeParam'
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  type: array
-                  items:
-                    type: array
-                description: Mapping of node packages to node classes
-
-  /customnode/fetch_updates:
-    get:
-      summary: Check for updates
-      description: Fetches updates for custom nodes
-      parameters:
-        - $ref: '#/components/parameters/modeParam'
-      responses:
-        '200':
-          description: No updates available
-        '201':
-          description: Updates found
-        '400':
-          description: Error occurred
-          
-  /customnode/installed:
-    get:
-      summary: Get installed custom nodes
-      description: Returns a list of installed node packages
-      parameters:
-        - name: mode
-          in: query
-          description: Lists mode, default or imported
-          schema:
-            type: string
-            enum: [default, imported]
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  $ref: '#/components/schemas/NodePackageMetadata'
-                  
-  /customnode/getlist:
-    get:
-      summary: Get custom node list
-      description: Provides a list of available custom nodes
-      parameters:
-        - $ref: '#/components/parameters/modeParam'
-        - name: skip_update
-          in: query
-          description: Skip update check
-          schema:
-            type: boolean
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  channel:
-                    type: string
-                  node_packs:
-                    type: object
-                    additionalProperties:
-                      $ref: '#/components/schemas/NodePackageMetadata'
-                      
-  /customnode/alternatives:
-    get:
-      summary: Get alternative node options
-      description: Provides alternatives for nodes
-      parameters:
-        - $ref: '#/components/parameters/modeParam'
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  type: object
-                  
-  /customnode/versions/{node_name}:
-    get:
-      summary: Get available versions for a node
-      description: Lists all available versions for a specific node
-      parameters:
-        - name: node_name
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    version:
-                      type: string
-        '400':
-          description: Node not found
-          
-  /customnode/disabled_versions/{node_name}:
-    get:
-      summary: Get disabled versions for a node
-      description: Lists all disabled versions for a specific node
-      parameters:
-        - name: node_name
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  properties:
-                    version:
-                      type: string
-        '400':
-          description: Node not found
-          
-  /customnode/import_fail_info:
+  # Task Queue Management (v2 endpoints)
+  /v2/manager/queue/task:
     post:
-      summary: Get import failure information
-      description: Returns information about why a node failed to import
+      summary: Add task to queue
+      description: Adds a new task to the processing queue
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                cnr_id:
-                  type: string
-                url:
-                  type: string
+              $ref: '#/components/schemas/QueueTaskItem'
+            examples:
+              install:
+                summary: Install a custom node
+                value:
+                  ui_id: "task_123"
+                  client_id: "client_abc"
+                  kind: "install"
+                  params:
+                    id: "pythongosssss/ComfyUI-Custom-Scripts"
+                    version: "latest"
+                    selected_version: "latest"
+                    mode: "remote"
+                    channel: "default"
+              update:
+                summary: Update a custom node
+                value:
+                  ui_id: "task_124"
+                  client_id: "client_abc"
+                  kind: "update"
+                  params:
+                    node_name: "ComfyUI-Custom-Scripts"
+                    node_ver: "1.0.0"
+              update-all:
+                summary: Update all custom nodes
+                value:
+                  ui_id: "task_125"
+                  client_id: "client_abc"
+                  kind: "update-all"
+                  params:
+                    mode: "remote"
+              update-comfyui:
+                summary: Update ComfyUI itself
+                value:
+                  ui_id: "task_126"
+                  client_id: "client_abc"
+                  kind: "update-comfyui"
+                  params:
+                    is_stable: true
+              fix:
+                summary: Fix a custom node
+                value:
+                  ui_id: "task_127"
+                  client_id: "client_abc"
+                  kind: "fix"
+                  params:
+                    node_name: "ComfyUI-Impact-Pack"
+                    node_ver: "2.0.0"
+              uninstall:
+                summary: Uninstall a custom node
+                value:
+                  ui_id: "task_128"
+                  client_id: "client_abc"
+                  kind: "uninstall"
+                  params:
+                    node_name: "ComfyUI-AnimateDiff-Evolved"
+                    is_unknown: false
+              disable:
+                summary: Disable a custom node
+                value:
+                  ui_id: "task_129"
+                  client_id: "client_abc"
+                  kind: "disable"
+                  params:
+                    node_name: "ComfyUI-Manager"
+                    is_unknown: false
+              enable:
+                summary: Enable a custom node
+                value:
+                  ui_id: "task_130"
+                  client_id: "client_abc"
+                  kind: "enable"
+                  params:
+                    cnr_id: "comfyui-manager"
+              install-model:
+                summary: Install a model
+                value:
+                  ui_id: "task_131"
+                  client_id: "client_abc"
+                  kind: "install-model"
+                  params:
+                    name: "SD 1.5 Base Model"
+                    type: "checkpoint"
+                    base: "SD1.x"
+                    save_path: "default"
+                    url: "https://huggingface.co/runwayml/stable-diffusion-v1-5/resolve/main/v1-5-pruned.safetensors"
+                    filename: "v1-5-pruned.safetensors"
+      responses:
+        '200':
+          description: Task queued successfully
+        '400':
+          description: Invalid task data
+        '500':
+          description: Internal server error
+  /v2/manager/queue/status:
+    get:
+      summary: Get queue status
+      description: Returns the current status of the operation queue with optional client filtering
+      parameters:
+        - $ref: '#/components/parameters/clientIdParam'
       responses:
         '200':
           description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueStatus'
+  /v2/manager/queue/history:
+    get:
+      summary: Get task history
+      description: Get task history with optional filtering
+      parameters:
+        - name: id
+          in: query
+          description: Batch history ID (for file-based history)
+          schema:
+            type: string
+        - $ref: '#/components/parameters/clientIdParam'
+        - $ref: '#/components/parameters/uiIdParam'
+        - $ref: '#/components/parameters/maxItemsParam'
+        - $ref: '#/components/parameters/offsetParam'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/HistoryResponse'
+                  - type: object  # File-based batch history
         '400':
-          description: No information available
-          
+          description: Error retrieving history
+  /v2/manager/queue/history_list:
+    get:
+      summary: Get available batch history files
+      description: Returns a list of batch history IDs sorted by modification time
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryListResponse'
+        '400':
+          description: Error retrieving history list
+  /v2/manager/queue/start:
+    get:
+      summary: Start queue processing
+      description: Starts processing the operation queue
+      responses:
+        '200':
+          description: Processing started
+        '201':
+          description: Processing already in progress
+
   /v2/customnode/import_fail_info_bulk:
     post:
       summary: Get import failure info for multiple nodes
@@ -362,67 +1075,15 @@ paths:
           description: Bad Request. The request body is invalid.
         '500':
           description: Internal Server Error.
-        
-  /customnode/install/git_url:
-    post:
-      summary: Install custom node via Git URL
-      description: Installs a custom node from a Git repository URL
-      security:
-        - securityLevel: []
-      requestBody:
-        required: true
-        content:
-          text/plain:
-            schema:
-              type: string
-      responses:
-        '200':
-          description: Installation successful or already installed
-        '400':
-          description: Installation failed
-        '403':
-          description: Security policy violation
-          
-  /customnode/install/pip:
-    post:
-      summary: Install custom node dependencies via pip
-      description: Installs Python package dependencies for custom nodes
-      security:
-        - securityLevel: []
-      requestBody:
-        required: true
-        content:
-          text/plain:
-            schema:
-              type: string
-      responses:
-        '200':
-          description: Installation successful
-        '403':
-          description: Security policy violation
-          
-  # Model Management Endpoints
-  /externalmodel/getlist:
+
+  /v2/manager/queue/reset:
     get:
-      summary: Get external model list
-      description: Provides a list of available external models
-      parameters:
-        - $ref: '#/components/parameters/modeParam'
+      summary: Reset queue
+      description: Resets the operation queue
       responses:
         '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  models:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/ModelMetadata'
-                      
-  # Queue Management Endpoints
-  /manager/queue/update_all:
+          description: Queue reset successfully
+  /v2/manager/queue/update_all:
     get:
       summary: Update all custom nodes
       description: Queues update operations for all installed custom nodes
@@ -430,159 +1091,30 @@ paths:
         - securityLevel: []
       parameters:
         - $ref: '#/components/parameters/modeParam'
+        - $ref: '#/components/parameters/clientIdRequiredParam'
+        - $ref: '#/components/parameters/uiIdRequiredParam'
       responses:
         '200':
           description: Update queued successfully
+        '400':
+          description: Missing required parameters
         '401':
           description: Processing already in progress
         '403':
           description: Security policy violation
-          
-  /manager/queue/reset:
-    get:
-      summary: Reset queue
-      description: Resets the operation queue
-      responses:
-        '200':
-          description: Queue reset successfully
-          
-  /manager/queue/status:
-    get:
-      summary: Get queue status
-      description: Returns the current status of the operation queue
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/QueueStatus'
-                
-  /manager/queue/install:
-    post:
-      summary: Install custom node
-      description: Queues installation of a custom node
-      security:
-        - securityLevel: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/NodePackageMetadata'
-      responses:
-        '200':
-          description: Installation queued successfully
-        '403':
-          description: Security policy violation
-        '404':
-          description: Target node not found or security issue
-          
-  /manager/queue/start:
-    get:
-      summary: Start queue processing
-      description: Starts processing the operation queue
-      responses:
-        '200':
-          description: Processing started
-        '201':
-          description: Processing already in progress
-          
-  /manager/queue/fix:
-    post:
-      summary: Fix custom node
-      description: Attempts to fix a broken custom node installation
-      security:
-        - securityLevel: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/NodePackageMetadata'
-      responses:
-        '200':
-          description: Fix operation queued successfully
-        '403':
-          description: Security policy violation
-          
-  /manager/queue/reinstall:
-    post:
-      summary: Reinstall custom node
-      description: Uninstalls and then reinstalls a custom node
-      security:
-        - securityLevel: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/NodePackageMetadata'
-      responses:
-        '200':
-          description: Reinstall operation queued successfully
-        '403':
-          description: Security policy violation
-          
-  /manager/queue/uninstall:
-    post:
-      summary: Uninstall custom node
-      description: Queues uninstallation of a custom node
-      security:
-        - securityLevel: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/NodePackageMetadata'
-      responses:
-        '200':
-          description: Uninstallation queued successfully
-        '403':
-          description: Security policy violation
-          
-  /manager/queue/update:
-    post:
-      summary: Update custom node
-      description: Queues update of a custom node
-      security:
-        - securityLevel: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/NodePackageMetadata'
-      responses:
-        '200':
-          description: Update queued successfully
-        '403':
-          description: Security policy violation
-          
-  /manager/queue/disable:
-    post:
-      summary: Disable custom node
-      description: Disables a custom node without uninstalling it
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/NodePackageMetadata'
-      responses:
-        '200':
-          description: Disable operation queued successfully
-          
-  /manager/queue/update_comfyui:
+  /v2/manager/queue/update_comfyui:
     get:
       summary: Update ComfyUI
       description: Queues an update operation for ComfyUI itself
+      parameters:
+        - $ref: '#/components/parameters/clientIdRequiredParam'
+        - $ref: '#/components/parameters/uiIdRequiredParam'
       responses:
         '200':
           description: Update queued successfully
-          
-  /manager/queue/install_model:
+        '400':
+          description: Missing required parameters
+  /v2/manager/queue/install_model:
     post:
       summary: Install model
       description: Queues installation of a model
@@ -601,9 +1133,74 @@ paths:
           description: Invalid model request
         '403':
           description: Security policy violation
+  # Custom Nodes Endpoints (v2)
+  /v2/customnode/getmappings:
+    get:
+      summary: Get node-to-package mappings
+      description: Provides unified mapping between nodes and node packages
+      parameters:
+        - $ref: '#/components/parameters/modeParam'
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManagerMappings'
+  /v2/customnode/fetch_updates:
+    get:
+      summary: Check for updates
+      description: Fetches updates for custom nodes
+      parameters:
+        - $ref: '#/components/parameters/modeParam'
+      responses:
+        '200':
+          description: No updates available
+        '201':
+          description: Updates found
+        '400':
+          description: Error occurred
           
-  # Snapshot Management Endpoints
-  /snapshot/getlist:
+  /v2/customnode/installed:
+    get:
+      summary: Get installed custom nodes
+      description: Returns a list of installed node packages
+      parameters:
+        - name: mode
+          in: query
+          description: Lists mode, default or imported
+          schema:
+            type: string
+            enum: [default, imported]
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstalledPacksResponse'
+  /v2/customnode/import_fail_info:
+    post:
+      summary: Get import failure information
+      description: Returns information about why a node failed to import
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cnr_id:
+                  type: string
+                url:
+                  type: string
+      responses:
+        '200':
+          description: Successful operation
+        '400':
+          description: No information available
+  # Snapshot Management Endpoints (v2)
+  /v2/snapshot/getlist:
     get:
       summary: Get snapshot list
       description: Returns a list of available snapshots
@@ -619,8 +1216,7 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/SnapshotItem'
-                      
-  /snapshot/remove:
+  /v2/snapshot/remove:
     get:
       summary: Remove snapshot
       description: Removes a specified snapshot
@@ -635,8 +1231,7 @@ paths:
           description: Error removing snapshot
         '403':
           description: Security policy violation
-          
-  /snapshot/restore:
+  /v2/snapshot/restore:
     get:
       summary: Restore snapshot
       description: Restores a specified snapshot
@@ -651,8 +1246,7 @@ paths:
           description: Error restoring snapshot
         '403':
           description: Security policy violation
-          
-  /snapshot/get_current:
+  /v2/snapshot/get_current:
     get:
       summary: Get current snapshot
       description: Returns the current system state as a snapshot
@@ -665,8 +1259,7 @@ paths:
                 type: object
         '400':
           description: Error creating snapshot
-          
-  /snapshot/save:
+  /v2/snapshot/save:
     get:
       summary: Save snapshot
       description: Saves the current system state as a new snapshot
@@ -675,9 +1268,8 @@ paths:
           description: Snapshot saved successfully
         '400':
           description: Error saving snapshot
-          
-  # ComfyUI Management Endpoints
-  /comfyui_manager/comfyui_versions:
+  # ComfyUI Management Endpoints (v2)
+  /v2/comfyui_manager/comfyui_versions:
     get:
       summary: Get ComfyUI versions
       description: Returns available and current ComfyUI versions
@@ -697,57 +1289,26 @@ paths:
                     type: string
         '400':
           description: Error retrieving versions
-          
-  /comfyui_manager/comfyui_switch_version:
+  /v2/comfyui_manager/comfyui_switch_version:
     get:
       summary: Switch ComfyUI version
       description: Switches to a specified ComfyUI version
       parameters:
         - name: ver
           in: query
+          required: true
           description: Target version
           schema:
             type: string
+        - $ref: '#/components/parameters/clientIdRequiredParam'
+        - $ref: '#/components/parameters/uiIdRequiredParam'
       responses:
         '200':
-          description: Version switch successful
+          description: Version switch queued successfully
         '400':
-          description: Error switching version
-          
-  /manager/reboot:
-    get:
-      summary: Reboot ComfyUI
-      description: Restarts the ComfyUI server
-      security:
-        - securityLevel: []
-      responses:
-        '200':
-          description: Reboot initiated
-        '403':
-          description: Security policy violation
-          
-  # Configuration Endpoints
-  /manager/preview_method:
-    get:
-      summary: Get or set preview method
-      description: Gets or sets the latent preview method
-      parameters:
-        - name: value
-          in: query
-          required: false
-          description: New preview method
-          schema:
-            type: string
-            enum: [auto, latent2rgb, taesd, none]
-      responses:
-        '200':
-          description: Setting updated or current value returned
-          content:
-            text/plain:
-              schema:
-                type: string
-                
-  /manager/db_mode:
+          description: Missing required parameters or error switching version
+  # Configuration Endpoints (v2)
+  /v2/manager/db_mode:
     get:
       summary: Get or set database mode
       description: Gets or sets the database mode
@@ -766,27 +1327,7 @@ paths:
             text/plain:
               schema:
                 type: string
-                
-  /manager/policy/component:
-    get:
-      summary: Get or set component policy
-      description: Gets or sets the component policy
-      parameters:
-        - name: value
-          in: query
-          required: false
-          description: New component policy
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Setting updated or current value returned
-          content:
-            text/plain:
-              schema:
-                type: string
-                
-  /manager/policy/update:
+  /v2/manager/policy/update:
     get:
       summary: Get or set update policy
       description: Gets or sets the update policy
@@ -805,8 +1346,7 @@ paths:
             text/plain:
               schema:
                 type: string
-                
-  /manager/channel_url_list:
+  /v2/manager/channel_url_list:
     get:
       summary: Get or set channel URL
       description: Gets or sets the channel URL for custom node sources
@@ -836,49 +1376,18 @@ paths:
                           type: string
                         url:
                           type: string
-                          
-  # Component Management Endpoints
-  /manager/component/save:
-    post:
-      summary: Save component
-      description: Saves a reusable workflow component
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                workflow:
-                  type: object
+  /v2/manager/reboot:
+    get:
+      summary: Reboot ComfyUI
+      description: Restarts the ComfyUI server
+      security:
+        - securityLevel: []
       responses:
         '200':
-          description: Component saved successfully
-          content:
-            text/plain:
-              schema:
-                type: string
-        '400':
-          description: Error saving component
-          
-  /manager/component/loads:
-    post:
-      summary: Load components
-      description: Loads all available workflow components
-      responses:
-        '200':
-          description: Components loaded successfully
-          content:
-            application/json:
-              schema:
-                type: object
-        '400':
-          description: Error loading components
-          
-  # Miscellaneous Endpoints
-  /manager/version:
+          description: Reboot initiated
+        '403':
+          description: Security policy violation
+  /v2/manager/version:
     get:
       summary: Get manager version
       description: Returns the current version of ComfyUI-Manager
@@ -889,15 +1398,17 @@ paths:
             text/plain:
               schema:
                 type: string
-                
-  /manager/notice:
+  /v2/manager/is_legacy_manager_ui:
     get:
-      summary: Get manager notice
-      description: Returns HTML content with notices and version information
+      summary: Check if legacy manager UI is enabled
+      description: Returns whether the legacy manager UI is enabled
       responses:
         '200':
           description: Successful operation
           content:
-            text/html:
+            application/json:
               schema:
-                type: string
+                type: object
+                properties:
+                  is_legacy_manager_ui:
+                    type: boolean
