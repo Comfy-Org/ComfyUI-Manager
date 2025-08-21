@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, feat/*, fix/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-openapi:
+    name: Validate OpenAPI Specification
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Check if OpenAPI changed
+      id: openapi-changed
+      uses: tj-actions/changed-files@v44
+      with:
+        files: openapi.yaml
+    
+    - name: Setup Node.js
+      if: steps.openapi-changed.outputs.any_changed == 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Install Redoc CLI
+      if: steps.openapi-changed.outputs.any_changed == 'true'
+      run: |
+        npm install -g @redocly/cli
+    
+    - name: Validate OpenAPI specification
+      if: steps.openapi-changed.outputs.any_changed == 'true'
+      run: |
+        redocly lint openapi.yaml
+
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for proper diff
+    
+    - name: Get changed Python files
+      id: changed-py-files
+      uses: tj-actions/changed-files@v44
+      with:
+        files: |
+          **/*.py
+        files_ignore: |
+          comfyui_manager/legacy/**
+          
+    - name: Setup Python
+      if: steps.changed-py-files.outputs.any_changed == 'true'
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+    
+    - name: Install dependencies
+      if: steps.changed-py-files.outputs.any_changed == 'true'
+      run: |
+        pip install ruff
+    
+    - name: Run ruff linting on changed files
+      if: steps.changed-py-files.outputs.any_changed == 'true'
+      run: |
+        echo "Changed files: ${{ steps.changed-py-files.outputs.all_changed_files }}"
+        echo "${{ steps.changed-py-files.outputs.all_changed_files }}" | xargs -r ruff check
