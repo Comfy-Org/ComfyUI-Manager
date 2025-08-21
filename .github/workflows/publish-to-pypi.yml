@@ -21,7 +21,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: '3.x'
 
       - name: Install build dependencies
         run: |
@@ -38,17 +38,17 @@ jobs:
       - name: Build package
         run: python -m build
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: dist/*
-          tag_name: v${{ steps.current_version.outputs.version }}
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+      # - name: Create GitHub Release
+      #   id: create_release
+      #   uses: softprops/action-gh-release@v2
+      #   env:
+      #     GITHUB_TOKEN: ${{ github.token }}
+      #   with:
+      #     files: dist/*
+      #     tag_name: v${{ steps.current_version.outputs.version }}
+      #     draft: false
+      #     prerelease: false
+      #     generate_release_notes: true
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
