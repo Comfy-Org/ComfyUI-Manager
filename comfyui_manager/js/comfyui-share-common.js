@@ -552,6 +552,20 @@ export class ShareDialog extends ComfyDialog {
 		this.matrix_destination_checkbox.style.color = "var(--fg-color)";
 		this.matrix_destination_checkbox.checked = this.share_option === 'matrix'; //true;
 
+		try {
+			api.fetchApi(`/v2/manager/get_matrix_dep_status`)
+				.then(response => response.text())
+				.then(data => {
+					if(data == 'unavailable') {
+						matrix_destination_checkbox_text.style.textDecoration = "line-through";
+						this.matrix_destination_checkbox.disabled = true;
+						this.matrix_destination_checkbox.title = "It has been disabled because the 'matrix-nio' dependency is not installed. Please install this dependency to use the matrix sharing feature.";
+						matrix_destination_checkbox_text.title = "It has been disabled because the 'matrix-nio' dependency is not installed. Please install this dependency to use the matrix sharing feature.";
+					}
+				})
+				.catch(error => {});
+		} catch (error) {}
+
 		this.comfyworkflows_destination_checkbox = $el("input", { type: 'checkbox', id: "comfyworkflows_destination" }, [])
 		const comfyworkflows_destination_checkbox_text = $el("label", {}, [" ComfyWorkflows.com"])
 		this.comfyworkflows_destination_checkbox.style.color = "var(--fg-color)";

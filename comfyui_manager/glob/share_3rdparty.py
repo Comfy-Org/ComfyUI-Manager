@@ -11,6 +11,15 @@ import hashlib
 import folder_paths
 from server import PromptServer
 import logging
+import sys
+
+
+try:
+    from nio import AsyncClient, LoginResponse, UploadResponse
+    matrix_nio_is_available = True
+except Exception:
+    logging.warning(f"[ComfyUI-Manager] The matrix sharing feature has been disabled because the `matrix-nio` dependency is not installed.\n\tTo use this feature, please run the following command:\n\t{sys.executable} -m pip install matrix-nio")
+    matrix_nio_is_available = False
 
 
 def extract_model_file_names(json_data):
@@ -193,6 +202,14 @@ async def get_esheep_workflow_and_images(request):
         return web.Response(status=200, text=json.dumps(data))
 
 
+@PromptServer.instance.routes.get("/v2/manager/get_matrix_dep_status")
+async def get_matrix_dep_status(request):
+    if matrix_nio_is_available:
+        return web.Response(status=200, text='available')
+    else:
+        return web.Response(status=200, text='unavailable')
+
+
 def set_matrix_auth(json_data):
     homeserver = json_data['homeserver']
     username = json_data['username']
@@ -332,15 +349,12 @@ async def share_art(request):
                 workflowId = upload_workflow_json["workflowId"]
 
     # check if the user has provided Matrix credentials
-    if "matrix" in share_destinations:
+    if matrix_nio_is_available and "matrix" in share_destinations:
         comfyui_share_room_id = '!LGYSoacpJPhIfBqVfb:matrix.org'
         filename = os.path.basename(asset_filepath)
         content_type = assetFileType
 
         try:
-            from matrix_client.api import MatrixHttpApi
-            from matrix_client.client import MatrixClient
-
             homeserver = 'matrix.org'
             if matrix_auth:
                 homeserver = matrix_auth.get('homeserver', 'matrix.org')
@@ -348,20 +362,35 @@ async def share_art(request):
             if not homeserver.startswith("https://"):
                 homeserver = "https://" + homeserver
 
-            client = MatrixClient(homeserver)
-            try:
-                token = client.login(username=matrix_auth['username'], password=matrix_auth['password'])
-                if not token:
-                    return web.json_response({"error": "Invalid Matrix credentials."}, content_type='application/json', status=400)
-            except Exception:
+            client = AsyncClient(homeserver, matrix_auth['username'])
+
+            # Login
+            login_resp = await client.login(matrix_auth['password'])
+            if not isinstance(login_resp, LoginResponse) or not login_resp.access_token:
+                await client.close()
                 return web.json_response({"error": "Invalid Matrix credentials."}, content_type='application/json', status=400)
 
-            matrix = MatrixHttpApi(homeserver, token=token)
+            # Upload asset
             with open(asset_filepath, 'rb') as f:
-                mxc_url = matrix.media_upload(f.read(), content_type, filename=filename)['content_uri']
+                upload_resp, _maybe_keys = await client.upload(f, content_type=content_type, filename=filename)
+                asset_data = f.seek(0) or f.read()  # get size for info below
+            if not isinstance(upload_resp, UploadResponse) or not upload_resp.content_uri:
+                await client.close()
+                return web.json_response({"error": "Failed to upload asset to Matrix."}, content_type='application/json', status=500)
+            mxc_url = upload_resp.content_uri
 
-            workflow_json_mxc_url = matrix.media_upload(prompt['workflow'], 'application/json', filename='workflow.json')['content_uri']
+            # Upload workflow JSON
+            import io
+            workflow_json_bytes = json.dumps(prompt['workflow']).encode('utf-8')
+            workflow_io = io.BytesIO(workflow_json_bytes)
+            upload_workflow_resp, _maybe_keys = await client.upload(workflow_io, content_type='application/json', filename='workflow.json')
+            workflow_io.seek(0)
+            if not isinstance(upload_workflow_resp, UploadResponse) or not upload_workflow_resp.content_uri:
+                await client.close()
+                return web.json_response({"error": "Failed to upload workflow to Matrix."}, content_type='application/json', status=500)
+            workflow_json_mxc_url = upload_workflow_resp.content_uri
 
+            # Send text message
             text_content = ""
             if title:
                 text_content += f"{title}\n"
@@ -369,11 +398,47 @@ async def share_art(request):
                 text_content += f"{description}\n"
             if credits:
                 text_content += f"\ncredits: {credits}\n"
-            matrix.send_message(comfyui_share_room_id, text_content)
-            matrix.send_content(comfyui_share_room_id, mxc_url, filename, 'm.image')
-            matrix.send_content(comfyui_share_room_id, workflow_json_mxc_url, 'workflow.json', 'm.file')
-        except Exception:
-            logging.exception("An error occurred")
+            await client.room_send(
+                room_id=comfyui_share_room_id,
+                message_type="m.room.message",
+                content={"msgtype": "m.text", "body": text_content}
+            )
+
+            # Send image
+            await client.room_send(
+                room_id=comfyui_share_room_id,
+                message_type="m.room.message",
+                content={
+                    "msgtype": "m.image",
+                    "body": filename,
+                    "url": mxc_url,
+                    "info": {
+                        "mimetype": content_type,
+                        "size": len(asset_data)
+                    }
+                }
+            )
+
+            # Send workflow JSON file
+            await client.room_send(
+                room_id=comfyui_share_room_id,
+                message_type="m.room.message",
+                content={
+                    "msgtype": "m.file",
+                    "body": "workflow.json",
+                    "url": workflow_json_mxc_url,
+                    "info": {
+                        "mimetype": "application/json",
+                        "size": len(workflow_json_bytes)
+                    }
+                }
+            )
+
+            await client.close()
+
+        except:
+            import traceback
+            traceback.print_exc()
             return web.json_response({"error": "An error occurred when sharing your art to Matrix."}, content_type='application/json', status=500)
 
     return web.json_response({
