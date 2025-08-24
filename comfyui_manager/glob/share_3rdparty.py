@@ -18,7 +18,7 @@ try:
     from nio import AsyncClient, LoginResponse, UploadResponse
     matrix_nio_is_available = True
 except Exception:
-    logging.warning(f"[ComfyUI-Manager] The matrix sharing feature has been disabled because the `matrix-nio` dependency is not installed.\n\tTo use this feature, please run the following command:\n\t{sys.executable} -m pip install matrix-nio")
+    logging.warning(f"[ComfyUI-Manager] The matrix sharing feature has been disabled because the `matrix-nio` dependency is not installed.\n\tTo use this feature, please run the following command:\n\t{sys.executable} -m pip install matrix-nio\n")
     matrix_nio_is_available = False
 
 
