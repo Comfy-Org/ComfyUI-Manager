@@ -29,15 +29,9 @@ def start():
                 print("Error enabling legacy ComfyUI Manager frontend:", e)
                 core = None
         else:
-            # NOTE: As a temporary measure, the new UI will use the legacy backend structure.
-            #       The glob version will be applied later after the cacheless implementation is completed.
-            from .legacy import manager_server  # noqa: F401
-            from .legacy import share_3rdparty  # noqa: F401
-            from .legacy import manager_core as core
-
-            # from .glob import manager_server  # noqa: F401
-            # from .glob import share_3rdparty  # noqa: F401
-            # from .glob import manager_core as core
+            from .glob import manager_server  # noqa: F401
+            from .glob import share_3rdparty  # noqa: F401
+            from .glob import manager_core as core
 
         if core is not None:
             manager_security.is_personal_cloud_mode = core.get_config()['network_mode'].lower() == 'personal_cloud'
