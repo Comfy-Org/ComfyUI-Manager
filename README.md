@@ -5,6 +5,7 @@
 ![menu](https://raw.githubusercontent.com/ltdrdata/ComfyUI-extension-tutorials/refs/heads/Main/ComfyUI-Manager/images/dialog.jpg)
 
 ## NOTICE
+* V4.0: Modify the structure to be installable via pip instead of using git clone.
 * V3.16: Support for `uv` has been added. Set `use_uv` in `config.ini`.
 * V3.10: `double-click feature` is removed
   * This feature has been moved to https://github.com/ltdrdata/comfyui-connection-helper
@@ -13,78 +14,26 @@
 
 ## Installation
 
-### Installation[method1] (General installation method: ComfyUI-Manager only)
+* When installing the latest ComfyUI, it will be automatically installed as a dependency, so manual installation is no longer necessary.
 
-To install ComfyUI-Manager in addition to an existing installation of ComfyUI, you can follow the following steps:
+* Manual installation of the nightly version:
+    * Clone to a temporary directory (**Note:** Do **not** clone into `ComfyUI/custom_nodes`.)
+      ```  
+      git clone https://github.com/Comfy-Org/ComfyUI-Manager  
+      ```  
+    * Install via pip
+      ```  
+      cd ComfyUI-Manager  
+      pip install .  
+      ```
 
-1. goto `ComfyUI/custom_nodes` dir in terminal(cmd)
-2. `git clone https://github.com/ltdrdata/ComfyUI-Manager comfyui-manager`
-3. Restart ComfyUI
-
-
-### Installation[method2] (Installation for portable ComfyUI version: ComfyUI-Manager only)
-1. install git 
-- https://git-scm.com/download/win
-- standalone version  
-- select option: use windows default console window
-2. Download [scripts/install-manager-for-portable-version.bat](https://github.com/ltdrdata/ComfyUI-Manager/raw/main/scripts/install-manager-for-portable-version.bat) into installed `"ComfyUI_windows_portable"` directory
-- Don't click. Right click the link and use save as...
-3. double click `install-manager-for-portable-version.bat` batch file
-
-![portable-install](https://raw.githubusercontent.com/ltdrdata/ComfyUI-extension-tutorials/Main/ComfyUI-Manager/images/portable-install.jpg)
-
-
-### Installation[method3] (Installation through comfy-cli: install ComfyUI and ComfyUI-Manager at once.)  
-> RECOMMENDED: comfy-cli provides various features to manage ComfyUI from the CLI.
-
-* **prerequisite: python 3, git**
-
-Windows:
-```commandline
-python -m venv venv
-venv\Scripts\activate
-pip install comfy-cli
-comfy install
-```
-
-Linux/OSX:
-```commandline
-python -m venv venv
-. venv/bin/activate
-pip install comfy-cli
-comfy install
-```
 * See also: https://github.com/Comfy-Org/comfy-cli
 
 
-### Installation[method4] (Installation for linux+venv: ComfyUI + ComfyUI-Manager)
+## Front-end
 
-To install ComfyUI with ComfyUI-Manager on Linux using a venv environment, you can follow these steps:
-* **prerequisite: python-is-python3, python3-venv, git**
-
-1. Download [scripts/install-comfyui-venv-linux.sh](https://github.com/ltdrdata/ComfyUI-Manager/raw/main/scripts/install-comfyui-venv-linux.sh) into empty install directory
-- Don't click. Right click the link and use save as...
-- ComfyUI will be installed in the subdirectory of the specified directory, and the directory will contain the generated executable script.
-2. `chmod +x install-comfyui-venv-linux.sh`
-3. `./install-comfyui-venv-linux.sh`
-
-### Installation Precautions
-* **DO**: `ComfyUI-Manager` files must be accurately located in the path `ComfyUI/custom_nodes/comfyui-manager`
-  * Installing in a compressed file format is not recommended.
-* **DON'T**: Decompress directly into the `ComfyUI/custom_nodes` location, resulting in the Manager contents like `__init__.py` being placed directly in that directory.
-  * You have to remove all ComfyUI-Manager files from `ComfyUI/custom_nodes`
-* **DON'T**: In a form where decompression occurs in a path such as `ComfyUI/custom_nodes/ComfyUI-Manager/ComfyUI-Manager`.
-* **DON'T**: In a form where decompression occurs in a path such as `ComfyUI/custom_nodes/ComfyUI-Manager-main`.
-  * In such cases, `ComfyUI-Manager` may operate, but it won't be recognized within `ComfyUI-Manager`, and updates cannot be performed. It also poses the risk of duplicate installations. Remove it and install properly via `git clone` method.
-
-
-You can execute ComfyUI by running either `./run_gpu.sh` or `./run_cpu.sh` depending on your system configuration.
-
-## Colab Notebook
-This repository provides Colab notebooks that allow you to install and use ComfyUI, including ComfyUI-Manager. To use ComfyUI, [click on this link](https://colab.research.google.com/github/ltdrdata/ComfyUI-Manager/blob/main/notebooks/comfyui_colab_with_manager.ipynb).
-* Support for installing ComfyUI
-* Support for basic installation of ComfyUI-Manager
-* Support for automatically installing dependencies of custom nodes upon restarting Colab notebooks.
+* The built-in front-end of ComfyUI-Manager is the legacy front-end. The front-end for ComfyUI-Manager is now provided via [ComfyUI Frontend](https://github.com/Comfy-Org/ComfyUI_frontend).
+* To enable the legacy front-end, set the environment variable `ENABLE_LEGACY_COMFYUI_MANAGER_FRONT` to `true` before running.
 
 
 ## How To Use
@@ -266,13 +215,14 @@ The following settings are applied based on the section marked as `is_default`.
     downgrade_blacklist = <Set a list of packages to prevent downgrades. List them separated by commas.>
     security_level = <Set the security level => strong|normal|normal-|weak>
     always_lazy_install = <Whether to perform dependency installation on restart even in environments other than Windows.>
-    network_mode = <Set the network mode => public|private|offline>
+    network_mode = <Set the network mode => public|private|offline|personal_cloud>
     ```
 
     * network_mode:
       - public: An environment that uses a typical public network.
       - private: An environment that uses a closed network, where a private node DB is configured via `channel_url`. (Uses cache if available)
       - offline: An environment that does not use any external connections when using an offline network. (Uses cache if available)
+      - personal_cloud: Applies relaxed security features in cloud environments such as Google Colab or Runpod, where strong security is not required. 
 
 
 ## Additional Feature
@@ -363,31 +313,33 @@ When you run the `scan.sh` script:
 
 
 ## Security policy
-  * Edit `config.ini` file: add `security_level = <LEVEL>`
-    * `strong`
-      * doesn't allow `high` and `middle` level risky feature
-    * `normal`
-      * doesn't allow `high` level risky feature
-      * `middle` level risky feature is available
-    * `normal-`
-      * doesn't allow `high` level risky feature if `--listen` is specified and not starts with `127.`
-      * `middle` level risky feature is available
-    * `weak`
-      * all feature is available
-    
-  * `high` level risky features
-    * `Install via git url`, `pip install`
-    * Installation of custom nodes registered not in the `default channel`.
-    * Fix custom nodes
-  
-  * `middle` level risky features
-    * Uninstall/Update
-    * Installation of custom nodes registered in the `default channel`.
-    * Restore/Remove Snapshot
-    * Restart
-  
-  * `low` level risky features
-    * Update ComfyUI
+
+The security settings are applied based on whether the ComfyUI server's listener is non-local and whether the network mode is set to `personal_cloud`.
+
+* **non-local**: When the server is launched with `--listen` and is bound to a network range other than the local `127.` range, allowing remote IP access.
+* **personal\_cloud**: When the `network_mode` is set to `personal_cloud`.
+
+
+### Risky Level Table
+
+| Risky Level | features                                                                                                                              |
+|-------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| high+       | * `Install via git url`, `pip install`<BR>* Installation of nodepack registered not in the `default channel`.                         |
+| high        | * Fix nodepack                                                                                                                        |
+| middle+     | * Uninstall/Update<BR>* Installation of nodepack registered in the `default channel`.<BR>* Restore/Remove Snapshot<BR>* Install model |
+| middle      | * Restart                                                                                                                             |
+| low         | * Update ComfyUI                                                                                                                      |
+
+
+### Security Level Table
+
+| Security Level | local                                                                                                                    | non-local (personal_cloud)                                                                                               | non-local (not personal_cloud) |
+|----------------|--------------------------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------|--------------------------------|
+| strong         | * Only `weak` level risky features are allowed                                                                           | * Only `weak` level risky features are allowed                                                                           | * Only `weak` level risky features are allowed                               |
+| normal         | * `high+` and `high` level risky features are not allowed<BR>* `middle+` and `middle` level risky features are available | * `high+` and `high` level risky features are not allowed<BR>* `middle+` and `middle` level risky features are available | * `high+`, `high` and `middle+` level risky features are not allowed<BR>* `middle` level risky features are available
+| normal-        | * All features are available                                                                                             | * `high+` and `high` level risky features are not allowed<BR>* `middle+` and `middle` level risky features are available | * `high+`, `high` and `middle+` level risky features are not allowed<BR>* `middle` level risky features are available 
+| weak           | * All features are available                                                                                             | * All features are available                                                                                             | * `high+` and `middle+` level risky features are not allowed<BR>* `high`, `middle` and `low` level risky features are available
+
 
 
 # Disclaimer
