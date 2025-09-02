@@ -1,6 +1,7 @@
 import {app} from "../../scripts/app.js";
 import {api} from "../../scripts/api.js";
 import {ComfyDialog, $el} from "../../scripts/ui.js";
+import { customAlert } from "./common.js";
 
 const BASE_URL = "https://youml.com";
 //const BASE_URL = "http://localhost:3000";
@@ -347,7 +348,7 @@ export class YouMLShareDialog extends ComfyDialog {
       this.shareButton.textContent = "Sharing...";
       await this.share();
     } catch (e) {
-      alert(e.message);
+      customAlert(e.message);
     } finally {
       this.shareButton.disabled = false;
       this.shareButton.textContent = "Share";

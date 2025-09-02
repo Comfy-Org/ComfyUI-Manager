@@ -1,6 +1,16 @@
 {
     "custom_nodes": [
         {
+            "author": "Comfy-Org",
+            "title": "ComfyUI React Extension Template",
+            "reference": "https://github.com/Comfy-Org/ComfyUI-React-Extension-Template",
+            "files": [
+                "https://github.com/Comfy-Org/ComfyUI-React-Extension-Template"
+            ],
+            "install_type": "git-clone",
+            "description": "A minimal template for creating React/TypeScript frontend extensions for ComfyUI, with complete boilerplate setup including internationalization and unit testing."
+        },
+        {
             "author": "Suzie1",
             "title": "Guide To Making Custom Nodes in ComfyUI",
             "reference": "https://github.com/Suzie1/ComfyUI_Guide_To_Making_Custom_Nodes",
@@ -81,16 +91,6 @@
             "description": "Tutorial nodes"
         },
         {
-            "author": "GraftingRayman",
-            "title": "ComfyUI-Trajectory",
-            "reference": "https://github.com/GraftingRayman/ComfyUI-Trajectory",
-            "files": [
-                "https://github.com/GraftingRayman/ComfyUI-Trajectory"
-            ],
-            "install_type": "git-clone",
-            "description": "Nodes:GR Trajectory"
-        },
-        {
             "author": "wailovet",
             "title": "ComfyUI-WW",
             "reference": "https://github.com/wailovet/ComfyUI-WW",
@@ -99,16 +99,6 @@
             ],
             "install_type": "git-clone",
             "description": "Nodes:WW_ImageResize"
-        },
-        {
-            "author": "bmz55",
-            "title": "bmz nodes",
-            "reference": "https://github.com/bmz55/comfyui-bmz-nodes",
-            "files": [
-                "https://github.com/bmz55/comfyui-bmz-nodes"
-            ],
-            "install_type": "git-clone",
-            "description": "Nodes:Load Images From Dir With Name (Inspire - BMZ), Count Images In Dir (BMZ), Get Level Text (BMZ), Get Level Float (BMZ)"
         },
         {
             "author": "azure-dragon-ai",
@@ -161,24 +151,206 @@
             "description": "This module provides an annotation @ComfyFunc to streamline adding custom node types in ComfyUI. It processes your function's signature to create a wrapped function and custom node definition required for ComfyUI, eliminating all the boilerplate code. In most cases you can just add a @ComfyFunc(\"category\") annotation to your existing function."
         },
         {
-            "author": "MokkaBoss1",
-            "title": "Woman_in_a_dress",
-            "reference": "https://github.com/MokkaBoss1/Woman_in_a_dress",
+            "author": "OuticNZ",
+            "title": "ComfyUI-Simple-Of-Complex",
+            "reference": "https://github.com/OuticNZ/ComfyUI-Simple-Of-Complex",
             "files": [
-                "https://github.com/MokkaBoss1/Woman_in_a_dress/raw/main/Woman_In_A_Dress.py"
+                "https://github.com/OuticNZ/ComfyUI-Simple-Of-Complex"
             ],
             "install_type": "git-clone",
-            "description": "Nodes:Woman_in_a_dress"
+            "description": "Keeping it simple for starting. Single branch for now and will add development branch later."
         },
         {
-            "author": "shinich39",
-            "title": "comfyui-concat-text-39",
-            "reference": "https://github.com/shinich39/comfyui-concat-text-39",
+            "author": "jtong",
+            "title": "comfyui-jtong-workflow",
+            "reference": "https://github.com/jtong/comfyui-jtong-workflow",
             "files": [
-                "https://github.com/shinich39/comfyui-concat-text-39"
+                "https://github.com/jtong/comfyui-jtong-workflow"
             ],
             "install_type": "git-clone",
-            "description": "Nodes:Concatenate multiple text nodes."
+            "description": "Nodes:jtong.Highway, Example"
+        },
+        {
+            "author": "thinkthinking",
+            "title": "ComfyUI-Ye",
+            "reference": "https://github.com/thinkthinking/ComfyUI-Ye",
+            "files": [
+                "https://github.com/thinkthinking/ComfyUI-Ye"
+            ],
+            "install_type": "git-clone",
+            "description": "Nodes:Signature|Ye, CheckpointLoader|Ye, PrintHelloWorld|Ye."
+        },
+        {
+            "author": "BoosterCore",
+            "title": "ComfyUI-BC-Experimental",
+            "reference": "https://github.com/BoosterCore/ComfyUI-BC-Experimental",
+            "files": [
+                "https://github.com/BoosterCore/ComfyUI-BC-Experimental"
+            ],
+            "install_type": "git-clone",
+            "description": "Nodes:ClipTextEncodeBC, SaveAnyText, SimpleText"
+        },
+        {
+            "author": "sonyeon-sj",
+            "title": "ComfyUI-easy_ImageSize_Selecter",
+            "reference": "https://github.com/sonyeon-sj/ComfyUI-easy_ImageSize_Selecter",
+            "files": [
+                "https://github.com/sonyeon-sj/ComfyUI-easy_ImageSize_Selecter"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom node for ComfyUI Select the image size from the preset and select Vertical and Horizontal to output Width and Height."
+        },
+        {
+            "author": "boricuapab",
+            "title": "ComfyUI_BoricuapabWFNodePack",
+            "reference": "https://github.com/boricuapab/ComfyUI_BoricuapabWFNodePack",
+            "files": [
+                "https://github.com/boricuapab/ComfyUI_BoricuapabWFNodePack"
+            ],
+            "install_type": "git-clone",
+            "description": "Learning how to make my own comfy ui custom nodes"
+        },
+        {
+            "author": "mira-6",
+            "title": "mira-wildcard-node",
+            "reference": "https://github.com/mira-6/mira-wildcard-node",
+            "files": [
+                "https://github.com/mira-6/mira-wildcard-node"
+            ],
+            "install_type": "git-clone",
+            "description": "Mira's Simple Wildcard Node"
+        },
+        {
+            "author": "BetaDoggo",
+            "title": "ComfyUI Tetris",
+            "id": "tetris",
+            "reference": "https://github.com/BetaDoggo/ComfyUI-Tetris",
+            "files": [
+                "https://github.com/BetaDoggo/ComfyUI-Tetris"
+            ],
+            "install_type": "git-clone",
+            "description": "The primitive node and dummy input are required because comfy doesn't accept requests with identical graphs. You'll also need a show text node. I like the one from ComfyUI-Custom-Scripts. I got the generic tetris remake from claude so it may or may not be ripped from somewhere else."
+        },
+        {
+            "author": "FlyMyAI",
+            "title": "ComfyUI-ExampleNode",
+            "reference": "https://github.com/FlyMyAI/ComfyUI-ExampleNode",
+            "files": [
+                "https://github.com/FlyMyAI/ComfyUI-ExampleNode"
+            ],
+            "install_type": "git-clone",
+            "description": "Node to provide convenient ComfyUI standard, supported by flymy_comfyui."
+        },
+        {
+            "author": "Wanghanying",
+            "title": "ComfyUI_RAGDemo",
+            "reference": "https://github.com/Wanghanying/ComfyUI_RAGDemo",
+            "files": [
+                "https://github.com/Wanghanying/ComfyUI_RAGDemo"
+            ],
+            "install_type": "git-clone",
+            "description": "RAG Demo for LLM"
+        },
+        {
+            "author": "FelixTeutsch",
+            "title": "BachelorThesis",
+            "reference": "https://github.com/FelixTeutsch/BachelorThesis",
+            "files": [
+                "https://github.com/FelixTeutsch/BachelorThesis"
+            ],
+            "install_type": "git-clone",
+            "description": "This is a ComfyUi custom node, that build a new UI on top of the already existing AI, to enable the use of custom controllers"
+        },
+        {
+            "author": "jhj0517",
+            "title": "ComfyUI-CustomNodes-Template",
+            "reference": "https://github.com/jhj0517/ComfyUI-CustomNodes-Template",
+            "files": [
+                "https://github.com/jhj0517/ComfyUI-CustomNodes-Template"
+            ],
+            "install_type": "git-clone",
+            "description": "This is the ComfyUI custom node template repository that anyone can use to create their own custom nodes."
+        },
+        {
+            "author": "laogou666",
+            "title": "Comfyui_LG_Advertisement",
+            "reference": "https://github.com/LAOGOU-666/Comfyui_LG_Advertisement",
+            "files": [
+                "https://github.com/LAOGOU-666/Comfyui_LG_Advertisement"
+            ],
+            "install_type": "git-clone",
+            "description": "A node for demonstration."
+        },
+        {
+            "author": "amorano",
+            "title": "cozy_spoke",
+            "reference": "https://github.com/cozy-comfyui/cozy_spoke",
+            "files": [
+                "https://github.com/cozy-comfyui/cozy_spoke"
+            ],
+            "install_type": "git-clone",
+            "description": "Example node communicating between ComfyUI Javascript and Python."
+        },
+        {
+            "author": "amorano",
+            "title": "Cozy Link Toggle",
+            "id": "cozyLinkToggle",
+            "reference": "https://github.com/cozy-comfyui/cozy_link_toggle",
+            "files": [
+                "https://github.com/cozy-comfyui/cozy_link_toggle"
+            ],
+            "install_type": "git-clone",
+            "description": "Example of using ComfyUI Toolbar to Toggle ComfyUI links on/off"
+        },
+        {
+            "author": "xhiroga",
+            "title": "ComfyUI-TypeScript-CustomNode",
+            "reference": "https://github.com/xhiroga/ComfyUI-TypeScript-CustomNode",
+            "files": [
+                "https://github.com/xhiroga/ComfyUI-TypeScript-CustomNode"
+            ],
+            "install_type": "git-clone",
+            "description": "This project is generated from xhiroga/ComfyUI-TypeScript-CustomNode"
+        },
+        {
+            "author": "zentrocdot",
+            "title": "ComfyUI-Turtle_Graphics_Demos",
+            "reference": "https://github.com/zentrocdot/ComfyUI-Turtle_Graphics_Demo",
+            "files": [
+                "https://github.com/zentrocdot/ComfyUI-Turtle_Graphics_Demo"
+            ],
+            "description": "ComfyUI node for creating some Turtle Graphic demos.", 
+            "install_type": "git-clone"
+        },
+        {
+            "author": "cozy-comfyui",
+            "title": "cozy_ex_dynamic",
+            "reference": "https://github.com/cozy-comfyui/cozy_ex_dynamic",
+            "files": [
+                "https://github.com/cozy-comfyui/cozy_ex_dynamic"
+            ],
+            "description": "Dynamic Node examples for ComfyUI",
+            "install_type": "git-clone"
+        },
+        {
+            "author": "Jonathon-Doran",
+            "title": "remote-combo-demo",
+            "reference": "https://github.com/Jonathon-Doran/remote-combo-demo",
+            "files": [
+                "https://github.com/Jonathon-Doran/remote-combo-demo"
+            ],
+            "install_type": "git-clone",
+            "description": "A minimal test suite demonstrating how remote COMBO inputs behave in ComfyUI, with and without force_input"
+        },
+        {
+            "author": "J1mB091",
+            "title": "ComfyUI-J1mB091 Custom Nodes",
+            "reference": "https://github.com/J1mB091/ComfyUI-J1mB091",
+            "files": [
+                "https://github.com/J1mB091/ComfyUI-J1mB091"
+            ],
+            "install_type": "git-clone",
+            "description": "Vibe Coded ComfyUI Custom Nodes"
         }
     ]
 }

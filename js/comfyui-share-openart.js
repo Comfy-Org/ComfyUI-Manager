@@ -1,6 +1,7 @@
 import {app} from "../../scripts/app.js";
 import {api} from "../../scripts/api.js";
 import {ComfyDialog, $el} from "../../scripts/ui.js";
+import { customAlert } from "./common.js";
 
 const LOCAL_STORAGE_KEY = "openart_comfy_workflow_key";
 const DEFAULT_HOMEPAGE_URL = "https://openart.ai/workflows/dev?developer=true";
@@ -199,7 +200,7 @@ export class OpenArtShareDialog extends ComfyDialog {
       color: "white",
       style: {
         'text-align': 'center',
-        color: 'white',
+        color: 'var(--input-text)',
         margin: '0 0 10px 0',
       }
     });
@@ -431,7 +432,7 @@ export class OpenArtShareDialog extends ComfyDialog {
       this.shareButton.textContent = "Sharing...";
       await this.share();
     } catch (e) {
-      alert(e.message);
+      customAlert(e.message);
     }
     this.shareButton.disabled = false;
     this.shareButton.textContent = "Share";
@@ -476,10 +477,6 @@ export class OpenArtShareDialog extends ComfyDialog {
             this.uploadedImages = [];
             throw new Error(e.message);
           }
-        }
-
-        if (this.uploadImagesInput.files.length === 0) {
-          throw new Error("No thumbnail uploaded");
         }
 
         if (this.uploadImagesInput.files.length === 0) {
@@ -737,7 +734,7 @@ export class OpenArtShareDialog extends ComfyDialog {
         size: 2,
         color: "white",
         style: {
-          color: 'white',
+          color: 'var(--input-text)',
           margin: '0 0 5px 0',
           fontSize: '12px',
         },

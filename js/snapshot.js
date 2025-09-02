@@ -1,24 +1,28 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js"
 import { ComfyDialog, $el } from "../../scripts/ui.js";
-import { manager_instance, rebootAPI } from  "./common.js";
+import { manager_instance, rebootAPI, show_message } from  "./common.js";
 
 
 async function restore_snapshot(target) {
 	if(SnapshotManager.instance) {
 		try {
 			const response = await api.fetchApi(`/snapshot/restore?target=${target}`, { cache: "no-store" });
+
+			if(response.status == 403) {
+				show_message('This action is not allowed with this security level configuration.');
+				return false;
+			}
+
 			if(response.status == 400) {
-				app.ui.dialog.show(`Restore snapshot failed: ${target.title} / ${exception}`);
-				app.ui.dialog.element.style.zIndex = 10010;
+				show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
 			}
 
 			app.ui.dialog.close();
 			return true;
 		}
 		catch(exception) {
-			app.ui.dialog.show(`Restore snapshot failed: ${target.title} / ${exception}`);
-			app.ui.dialog.element.style.zIndex = 10010;
+			show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
 			return false;
 		}
 		finally {
@@ -32,17 +36,21 @@ async function remove_snapshot(target) {
 	if(SnapshotManager.instance) {
 		try {
 			const response = await api.fetchApi(`/snapshot/remove?target=${target}`, { cache: "no-store" });
+
+			if(response.status == 403) {
+				show_message('This action is not allowed with this security level configuration.');
+				return false;
+			}
+
 			if(response.status == 400) {
-				app.ui.dialog.show(`Remove snapshot failed: ${target.title} / ${exception}`);
-				app.ui.dialog.element.style.zIndex = 10010;
+				show_message(`Remove snapshot failed: ${target.title} / ${exception}`);
 			}
 
 			app.ui.dialog.close();
 			return true;
 		}
 		catch(exception) {
-			app.ui.dialog.show(`Restore snapshot failed: ${target.title} / ${exception}`);
-			app.ui.dialog.element.style.zIndex = 10010;
+			show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
 			return false;
 		}
 		finally {
@@ -58,8 +66,7 @@ async function save_current_snapshot() {
 		return true;
 	}
 	catch(exception) {
-		app.ui.dialog.show(`Backup snapshot failed: ${exception}`);
-		app.ui.dialog.element.style.zIndex = 10010;
+		show_message(`Backup snapshot failed: ${exception}`);
 		return false;
 	}
 	finally {
@@ -284,7 +291,7 @@ export class SnapshotManager extends ComfyDialog {
 		try {
 			this.invalidateControl();
 			this.element.style.display = "block";
-			this.element.style.zIndex = 10001;
+			this.element.style.zIndex = 1099;
 		}
 		catch(exception) {
 			app.ui.dialog.show(`Failed to get external model list. / ${exception}`);

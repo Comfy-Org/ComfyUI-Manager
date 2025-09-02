@@ -1,10 +1,10 @@
 import { api } from "../../scripts/api.js";
 import { app } from "../../scripts/app.js";
-import { sleep } from "./common.js";
+import { sleep, customConfirm, customAlert } from "./common.js";
 
 async function tryInstallCustomNode(event) {
 	let msg = '-= [ComfyUI Manager] extension installation request =-\n\n';
-	msg += `The '${event.detail.sender}' extension requires the installation of the '${event.detail.title}' extension. `;
+	msg += `The '${event.detail.sender}' extension requires the installation of the '${event.detail.target.title}' extension. `;
 
 	if(event.detail.target.installed == 'Disabled') {
 		msg += 'However, the extension is currently disabled. Would you like to enable it and reboot?'
@@ -19,11 +19,10 @@ async function tryInstallCustomNode(event) {
 	msg += `\n\nRequest message:\n${event.detail.msg}`;
 
 	if(event.detail.target.installed == 'True') {
-		alert(msg);
+		customAlert(msg);
 		return;
 	}
-
-	let res = confirm(msg);
+	const res = await customConfirm(msg);
 	if(res) {
 		if(event.detail.target.installed == 'Disabled') {
 			const response = await api.fetchApi(`/customnode/toggle_active`, {
@@ -41,9 +40,23 @@ async function tryInstallCustomNode(event) {
 										headers: { 'Content-Type': 'application/json' },
 										body: JSON.stringify(event.detail.target)
 									});
+
+			if(response.status == 403) {
+				show_message('This action is not allowed with this security level configuration.');
+				return false;
+			}
+			else if(response.status == 400) {
+				let msg = await res.text();
+				show_message(msg);
+				return false;
+			}
 		}
 
-		api.fetchApi("/manager/reboot");
+		let response = await api.fetchApi("/manager/reboot");
+		if(response.status == 403) {
+			show_message('This action is not allowed with this security level configuration.');
+			return false;
+		}
 
 		await sleep(300);
 

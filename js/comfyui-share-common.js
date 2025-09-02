@@ -1,8 +1,10 @@
-import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
-import { ComfyDialog, $el } from "../../scripts/ui.js";
+import { app } from "../../scripts/app.js";
+import { $el, ComfyDialog } from "../../scripts/ui.js";
+import { CopusShareDialog } from "./comfyui-share-copus.js";
 import { OpenArtShareDialog } from "./comfyui-share-openart.js";
 import { YouMLShareDialog } from "./comfyui-share-youml.js";
+import { customAlert } from "./common.js";
 
 export const SUPPORTED_OUTPUT_NODE_TYPES = [
 	"PreviewImage",
@@ -187,6 +189,21 @@ export const shareToEsheep= () => {
 	})
 }
 
+export const showCopusShareDialog = () => {
+  if (!CopusShareDialog.instance) {
+    CopusShareDialog.instance = new CopusShareDialog();
+  }
+
+  return app.graphToPrompt()
+    .then(prompt => {
+      return app.graph._nodes;
+    })
+    .then(nodes => {
+        const { potential_outputs, potential_output_nodes } = getPotentialOutputsAndOutputNodes(nodes);
+        CopusShareDialog.instance.show({ potential_outputs, potential_output_nodes});
+    })
+}
+
 export const showOpenArtShareDialog = () => {
   if (!OpenArtShareDialog.instance) {
     OpenArtShareDialog.instance = new OpenArtShareDialog();
@@ -236,9 +253,9 @@ export const showShareDialog = async (share_option) => {
         if (potential_output_nodes.length === 0) {
           // todo: add support for other output node types (animatediff combine, etc.)
           const supported_nodes_string = SUPPORTED_OUTPUT_NODE_TYPES.join(", ");
-          alert(`No supported output node found (${supported_nodes_string}). To share this workflow, please add an output node to your graph and re-run your prompt.`);
+          customAlert(`No supported output node found (${supported_nodes_string}). To share this workflow, please add an output node to your graph and re-run your prompt.`);
         } else {
-          alert("To share this, first run a prompt. Once it's done, click 'Share'.\n\nNOTE: Images of the Share target can only be selected in the PreviewImage, SaveImage, and VHS_VideoCombine nodes. In the case of VHS_VideoCombine, only the image/gif and image/webp formats are supported.");
+          customAlert("To share this, first run a prompt. Once it's done, click 'Share'.\n\nNOTE: Images of the Share target can only be selected in the PreviewImage, SaveImage, and VHS_VideoCombine nodes. In the case of VHS_VideoCombine, only the image/gif and image/webp formats are supported.");
         }
         return false;
       }
@@ -299,7 +316,7 @@ export class ShareDialogChooser extends ComfyDialog {
 				key: "comfyworkflows",
 				textContent: "ComfyWorkflows",
 				website: "https://comfyworkflows.com",
-				description: "Share & browse thousands of ComfyUI workflows and art 🎨<br/><br/><a style='color:white;' href='https://comfyworkflows.com' target='_blank'>ComfyWorkflows.com</a>",
+				description: "Share & browse thousands of ComfyUI workflows and art 🎨<br/><br/><a style='color:var(--input-text);' href='https://comfyworkflows.com' target='_blank'>ComfyWorkflows.com</a>",
 				onclick: () => {
 				  showShareDialog('comfyworkflows').then((suc) => {
 				    suc && this.close();
@@ -310,10 +327,20 @@ export class ShareDialogChooser extends ComfyDialog {
 				key: "esheep",
 				textContent: "eSheep",
 				website: "https://www.esheep.com",
-				description: "Share & download thousands of ComfyUI workflows on <a style='color:white;' href='https://www.esheep.com' target='_blank'>esheep.com</a>",
+				description: "Share & download thousands of ComfyUI workflows on <a style='color:var(--input-text);' href='https://www.esheep.com' target='_blank'>esheep.com</a>",
 				onclick: () => {
 					shareToEsheep();
 				  	this.close();
+				}
+			},
+			{
+				key: "Copus",
+				textContent: "Copus",
+				website: "https://www.copus.io",
+				description: "🔴 Earn simple. Get paid from your ComfyUI workflows—no revenue sharing. Ever.",
+				onclick: () => {
+					showCopusShareDialog();
+				  this.close();
 				}
 			},
 		];
@@ -330,7 +357,8 @@ export class ShareDialogChooser extends ComfyDialog {
 			});
 
 			buttons.forEach(b => {
-				const button = $el("button", {
+				const button = $el("button", 
+					{
 					type: "button",
 					textContent: b.textContent,
 					onclick: b.onclick,
@@ -343,8 +371,14 @@ export class ShareDialogChooser extends ComfyDialog {
 						'padding': '5px 5px',
 						'margin-bottom': '5px',
 						'transition': 'background-color 0.3s',
+						'position':'relative'
 					}
-				});
+				},
+				[
+					$el("span", { style: { 
+					 } }),
+				]
+			);
 				button.addEventListener('mouseover', () => {
 					button.style.backgroundColor = '#007BFF'; // Change color on hover
 				});
@@ -356,18 +390,40 @@ export class ShareDialogChooser extends ComfyDialog {
 					innerHTML: b.description,
 					style: {
 						'text-align': 'left',
-						color: 'white',
+						color: 'var(--input-text)',
 						'font-size': '14px',
 						'margin-bottom': '0',
 					},
 				});
+
+				const copus_ui =$el("div", { style: { 
+					'position': 'absolute',
+					'height': '100%',
+					'left': '-25px',
+					'top': '-26px',
+					'width': '100%',
+					'z-index':'-1',
+					'background':'url("https://static.copus.io/images/client/202412/test/f28ac6ef8f4c6f3d5d50856a272ed02c.png")',
+					'background-repeat': 'no-repeat',
+				} });
+				const copus_ui_bottom =$el("div", { style: { 
+					'position': 'absolute',
+					'height': '100%',
+					'left': '25px',
+					'bottom': '-26px',
+					'width': '100%',
+					'transform':'scale(-1, -1)',
+					'z-index':'-1',
+					'background':'url("https://static.copus.io/images/client/202412/test/f28ac6ef8f4c6f3d5d50856a272ed02c.png")',
+					'background-repeat': 'no-repeat',
+				} });
 
 				const websiteLink = $el("a", {
 					textContent: "🌐 Website",
 					href: b.website,
 					target: "_blank",
 					style: {
-						color: 'white',
+						color: 'var(--input-text)',
 						'margin-left': '10px',
 						'font-size': '12px',
 						'text-decoration': 'none',
@@ -391,7 +447,6 @@ export class ShareDialogChooser extends ComfyDialog {
 						'margin-bottom': '10px',
 					}
 				}, [button, websiteLink]);
-
 				const column = $el("div", {
 					style: {
 						'flex-basis': '100%',
@@ -400,8 +455,17 @@ export class ShareDialogChooser extends ComfyDialog {
 						'border': '1px solid #ddd',
 						'border-radius': '5px',
 						'box-shadow': '0 2px 4px rgba(0, 0, 0, 0.1)',
+						'position':'relative'
 					}
-				}, [buttonLinkContainer, description]);
+				}, [buttonLinkContainer, description
+					, 
+					b.key ==='Copus' ?
+					copus_ui
+					:'',
+					b.key ==='Copus' ?
+					copus_ui_bottom
+					:'',
+				]);
 
 				container.appendChild(column);
 			});
@@ -414,7 +478,7 @@ export class ShareDialogChooser extends ComfyDialog {
 		      textContent: 'Choose a platform to share your workflow',
 			    style: {
 				  'text-align': 'center',
-				  'color': 'white',
+				  'color': 'var(--input-text)',
 				  'font-size': '18px',
 				  'margin-bottom': '10px',
 				},
@@ -449,7 +513,7 @@ export class ShareDialogChooser extends ComfyDialog {
 	}
 	show() {
 		this.element.style.display = "block";
-		this.element.style.zIndex = 10001;
+		this.element.style.zIndex = 1099;
 	}
 }
 export class ShareDialog extends ComfyDialog {
@@ -660,7 +724,7 @@ export class ShareDialog extends ComfyDialog {
 				$el("div", {}, [
 					$el("p", {
 						size: 3, color: "white", style: {
-							color: 'white'
+							color: 'var(--input-text)'
 						}
 					}, [`Select where to share your art:`]),
 					this.matrix_destination_checkbox,
@@ -675,7 +739,7 @@ export class ShareDialog extends ComfyDialog {
 					size: 3,
 					color: "white",
 					style: {
-						color: 'white'
+						color: 'var(--input-text)'
 					}
 				}, []),
 				this.credits_input,
@@ -686,7 +750,7 @@ export class ShareDialog extends ComfyDialog {
 					size: 3,
 					color: "white",
 					style: {
-						color: 'white'
+						color: 'var(--input-text)'
 					}
 				}, []),
 				this.title_input,
@@ -697,7 +761,7 @@ export class ShareDialog extends ComfyDialog {
 					size: 3,
 					color: "white",
 					style: {
-						color: 'white'
+						color: 'var(--input-text)'
 					}
 				}, []),
 				this.description_input,
@@ -798,7 +862,7 @@ export class ShareDialog extends ComfyDialog {
 			if (destinations.includes("matrix")) {
 				let definedMatrixAuth = !!this.matrix_homeserver_input.value && !!this.matrix_username_input.value && !!this.matrix_password_input.value;
 				if (!definedMatrixAuth) {
-					alert("Please set your Matrix account details.");
+					customAlert("Please set your Matrix account details.");
 					return;
 				}
 			}
@@ -815,9 +879,9 @@ export class ShareDialog extends ComfyDialog {
 				if (potential_output_nodes.length === 0) {
 					// todo: add support for other output node types (animatediff combine, etc.)
 					const supported_nodes_string = SUPPORTED_OUTPUT_NODE_TYPES.join(", ");
-					alert(`No supported output node found (${supported_nodes_string}). To share this workflow, please add an output node to your graph and re-run your prompt.`);
+					customAlert(`No supported output node found (${supported_nodes_string}). To share this workflow, please add an output node to your graph and re-run your prompt.`);
 				} else {
-					alert("To share this, first run a prompt. Once it's done, click 'Share'.\n\nNOTE: Images of the Share target can only be selected in the PreviewImage, SaveImage, and VHS_VideoCombine nodes. In the case of VHS_VideoCombine, only the image/gif and image/webp formats are supported.");
+					customAlert("To share this, first run a prompt. Once it's done, click 'Share'.\n\nNOTE: Images of the Share target can only be selected in the PreviewImage, SaveImage, and VHS_VideoCombine nodes. In the case of VHS_VideoCombine, only the image/gif and image/webp formats are supported.");
 				}
 				this.selectedOutputIndex = 0;
 				this.close();
@@ -855,16 +919,16 @@ export class ShareDialog extends ComfyDialog {
 				try {
 					const response_json = await response.json();
 					if (response_json.error) {
-						alert(response_json.error);
+						customAlert(response_json.error);
 						this.close();
 						return;
 					} else {
-						alert("Failed to share your art. Please try again.");
+						customAlert("Failed to share your art. Please try again.");
 						this.close();
 						return;
 					}
 				} catch (e) {
-					alert("Failed to share your art. Please try again.");
+					customAlert("Failed to share your art. Please try again.");
 					this.close();
 					return;
 				}
@@ -963,7 +1027,7 @@ export class ShareDialog extends ComfyDialog {
 			}
 			const radio_button_text = $el("label", {
 				// style: {
-				// 	color: 'white'
+				// 	color: 'var(--input-text)'
 				// }
 			}, [output.title])
 			radio_button.style.color = "var(--fg-color)";
@@ -1002,7 +1066,7 @@ export class ShareDialog extends ComfyDialog {
 			color: "white",
 			style: {
 				'text-align': 'center',
-				color: 'white',
+				color: 'var(--input-text)',
 				backgroundColor: 'black',
 				padding: '10px',
 				'margin-top': '0px',
@@ -1014,7 +1078,7 @@ export class ShareDialog extends ComfyDialog {
 				color: "white",
 				style: {
 					'text-align': 'center',
-					color: 'white',
+					color: 'var(--input-text)',
 					'margin-bottom': '5px',
 					'font-style': 'italic',
 					'font-size': '12px',

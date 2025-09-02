@@ -4,7 +4,8 @@
 
 
 ```
--= ComfyUI-Manager CLI (V2.22) =-
+-= ComfyUI-Manager CLI (V2.24) =-
+
 
 python cm-cli.py [OPTIONS]
 
@@ -12,12 +13,11 @@ OPTIONS:
     [install|reinstall|uninstall|update|disable|enable|fix] node_name ... ?[--channel <channel name>] ?[--mode [remote|local|cache]]
     [update|disable|enable|fix] all ?[--channel <channel name>] ?[--mode [remote|local|cache]]
     [simple-show|show] [installed|enabled|not-installed|disabled|all|snapshot|snapshot-list] ?[--channel <channel name>] ?[--mode [remote|local|cache]]
-    save-snapshot
-    restore-snapshot <snapshot>
+    save-snapshot ?[--output <snapshot .json/.yaml>]
+    restore-snapshot <snapshot .json/.yaml> ?[--pip-non-url] ?[--pip-non-local-url] ?[--pip-local-url]
     cli-only-mode [enable|disable]
     restore-dependencies
     clear
-
 ```
 
 ## How To Use?
@@ -52,7 +52,7 @@ OPTIONS:
 Executing a command like `python cm-cli.py show installed` will display detailed information about the installed custom nodes.
 
 ```
--= ComfyUI-Manager CLI (V2.21.1) =-
+-= ComfyUI-Manager CLI (V2.24) =-
 
 FETCH DATA from: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/custom-node-list.json
 [    ENABLED    ]  ComfyUI-Manager                                   (author: Dr.Lt.Data)
@@ -69,7 +69,7 @@ FETCH DATA from: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main
 Using a command like `python cm-cli.py simple-show installed` will simply display information about the installed custom nodes.
 
 ```
--= ComfyUI-Manager CLI (V2.21.1) =-
+-= ComfyUI-Manager CLI (V2.24) =-
 
 FETCH DATA from: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/custom-node-list.json
 ComfyUI-Manager                                   
@@ -112,11 +112,18 @@ ComfyUI-Loopchain
     * `enable`: Enables the specified custom nodes.
     * `fix`: Attempts to fix dependencies for the specified custom nodes.
 
+
 ### 4. Snapshot Management
-* `python cm-cli.py save-snapshot`: Saves the current snapshot.
-* `python cm-cli.py restore-snapshot <snapshot>`: Restores to the specified snapshot.
-    * It is assumed that the snapshot files are located in ComfyUI-Manager/snapshots.
-    (An update is planned to allow files from other paths in the future.)
+* `python cm-cli.py save-snapshot [--output <snapshot .json/.yaml>]`: Saves the current snapshot.
+  * With `--output`, you can save a file in .yaml format to any specified path.
+* `python cm-cli.py restore-snapshot <snapshot .json/.yaml>`: Restores to the specified snapshot.
+  * If a file exists at the snapshot path, that snapshot is loaded.
+  * If no file exists at the snapshot path, it is implicitly assumed to be in ComfyUI-Manager/snapshots.
+  * `--pip-non-url`: Restore for pip packages registered on PyPI.
+  * `--pip-non-local-url`: Restore for pip packages registered at web URLs.
+  * `--pip-local-url`: Restore for pip packages specified by local paths.
+  * `--user-directory`: Set the user directory.
+  * `--restore-to`: The path where the restored custom nodes will be installed. (When this option is applied, only the custom nodes installed in the target path are recognized as installed.)
 
 ### 5. CLI Only Mode
 

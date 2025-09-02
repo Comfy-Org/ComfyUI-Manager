@@ -1,8 +1,10 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js"
-import { sleep, show_message } from "./common.js";
+import { sleep, show_message, customConfirm, customAlert } from "./common.js";
 import { GroupNodeConfig, GroupNodeHandler } from "../../extensions/core/groupNode.js";
 import { ComfyDialog, $el } from "../../scripts/ui.js";
+
+const SEPARATOR = ">"
 
 let pack_map = {};
 let rpack_map = {};
@@ -20,7 +22,7 @@ export function getPureName(node) {
 		let purename = node.comfyClass.substring(category.length+1);
 		return purename;
 	}
-	else if(node.comfyClass.startsWith('workflow/')) {
+	else if(node.comfyClass.startsWith('workflow/') || node.comfyClass.startsWith(`workflow${SEPARATOR}`)) {
 		return node.comfyClass.substring(9);
 	}
 	else {
@@ -76,7 +78,7 @@ export async function load_components() {
 
 				let category = data.packname;
 				if(data.category) {
-					category += "/" + data.category;
+					category += SEPARATOR + data.category;
 				}
 				if(category == '') {
 					category = 'components';
@@ -100,7 +102,7 @@ export async function load_components() {
 			try {
 				let category = nodeData.packname;
 				if(nodeData.category) {
-					category += "/" + nodeData.category;
+					category += SEPARATOR + nodeData.category;
 				}
 				if(category == '') {
 					category = 'components';
@@ -139,7 +141,7 @@ export async function load_components() {
 			try {
 				let category = nodeData.packname;
 				if(nodeData.workflow.category) {
-					category += "/" + nodeData.category;
+					category += SEPARATOR + nodeData.category;
 				}
 				if(category == '') {
 					category = 'components';
@@ -174,7 +176,7 @@ export async function load_components() {
 			try {
 				let category = nodeData.workflow.packname;
 				if(nodeData.workflow.category) {
-					category += "/" + nodeData.category;
+					category += SEPARATOR + nodeData.category;
 				}
 				if(category == '') {
 					category = 'components';
@@ -234,7 +236,7 @@ async function save_as_component(node, version, author, prefix, nodename, packna
 
 		let category = body.workflow.packname;
 		if(body.workflow.category) {
-			category += "/" + body.workflow.category;
+			category += SEPARATOR + body.workflow.category;
 		}
 		if(category == '') {
 			category = 'components';
@@ -266,7 +268,7 @@ async function import_component(component_name, component, mode) {
 
 	let category = component.packname;
 	if(component.category) {
-		category += "/" + component.category;
+		category += SEPARATOR + component.category;
 	}
 	if(category == '') {
 		category = 'components';
@@ -363,7 +365,7 @@ function checkVersion(name, component) {
 	return msg;
 }
 
-function handle_import_components(components) {
+async function handle_import_components(components) {
 	let msg = 'Components:\n';
 	let cnt = 0;
 	for(let name in components) {
@@ -385,8 +387,9 @@ function handle_import_components(components) {
 
 	let last_name = null;
 	msg += '\nWill you load components?\n';
-	if(confirm(msg)) {
-		let mode = confirm('\nWill you save components?\n(cancel=load without save)');
+	const confirmed = await customConfirm(msg);
+	if(confirmed) {
+		const mode = await customConfirm('\nWill you save components?\n(cancel=load without save)');
 
 		for(let name in components) {
 			let component = components[name];
@@ -403,13 +406,13 @@ function handle_import_components(components) {
 	}
 
 	if(cnt == 1 && last_name) {
-		const node = LiteGraph.createNode(`workflow/${last_name}`);
+		const node = LiteGraph.createNode(`workflow${SEPARATOR}${last_name}`);
 		node.pos = [app.canvas.graph_mouse[0], app.canvas.graph_mouse[1]];
 		app.canvas.graph.add(node, false);
 	}
 }
 
-function handlePaste(e) {
+async function handlePaste(e) {
 	let data = (e.clipboardData || window.clipboardData);
 	const items = data.items;
 	for(const item of items) {
@@ -419,7 +422,7 @@ function handlePaste(e) {
 				let json_data = JSON.parse(data);
 				if(json_data.kind == 'ComfyUI Components' && last_paste_timestamp != json_data.timestamp) {
 					last_paste_timestamp = json_data.timestamp;
-					handle_import_components(json_data.components);
+					await handle_import_components(json_data.components);
 
 					// disable paste node
 					localStorage.removeItem("litegrapheditor_clipboard", null);
@@ -453,7 +456,7 @@ export class ComponentBuilderDialog extends ComfyDialog {
 		this.invalidateControl();
 
 		this.element.style.display = "block";
-		this.element.style.zIndex = 10001;
+		this.element.style.zIndex = 1099;
 		this.element.style.width = "500px";
 		this.element.style.height = "480px";
 	}
@@ -619,7 +622,7 @@ export class ComponentBuilderDialog extends ComfyDialog {
 				self.version_string.value = self.default_ver;
 			}
 			else {
-				alert('If you are not the author, it is not recommended to change the version, as it may cause component update issues.');
+				customAlert('If you are not the author, it is not recommended to change the version, as it may cause component update issues.');
 			}
 		};
 
@@ -675,7 +678,7 @@ export class ComponentBuilderDialog extends ComfyDialog {
 
 let orig_handleFile = app.handleFile;
 
-function handleFile(file) {
+async function handleFile(file) {
 	if (file.name?.endsWith(".json") || file.name?.endsWith(".pack")) {
 		const reader = new FileReader();
 		reader.onload = async () => {
@@ -688,7 +691,7 @@ function handleFile(file) {
 			}
 
 			if(is_component) {
-				handle_import_components(jsonContent);
+				await handle_import_components(jsonContent);
 			}
 			else {
 				orig_handleFile.call(app, file);
@@ -706,7 +709,7 @@ app.handleFile = handleFile;
 
 let current_component_policy = 'workflow';
 try {
-	api.fetchApi('/manager/component/policy')
+	api.fetchApi('/manager/policy/component')
 		.then(response => response.text())
 		.then(data => { current_component_policy = data; });
 }
@@ -786,7 +789,7 @@ app.graphToPrompt = async function () {
 			// get used group nodes
 			let used_group_nodes = new Set();
 			for(let node of p.workflow.nodes) {
-				if(node.type.startsWith('workflow/')) {
+				if(node.type.startsWith(`workflow/`) || node.type.startsWith(`workflow${SEPARATOR}`)) {
 					used_group_nodes.add(node.type.substring(9));
 				}
 			}

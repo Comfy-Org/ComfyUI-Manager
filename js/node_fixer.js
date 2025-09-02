@@ -1,16 +1,6 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
 
-let double_click_policy = "copy-all";
-
-api.fetchApi('/manager/dbl_click/policy')
-	.then(response => response.text())
-	.then(data => set_double_click_policy(data));
-
-export function set_double_click_policy(mode) {
-	double_click_policy = mode;
-}
-
 function addMenuHandler(nodeType, cb) {
 	const getOpts = nodeType.prototype.getExtraMenuOptions;
 	nodeType.prototype.getExtraMenuOptions = function () {
@@ -101,10 +91,14 @@ function connect_inputs(nearest_inputs, node) {
 	}
 }
 
-function node_info_copy(src, dest, connect_both) {
+function node_info_copy(src, dest, connect_both, copy_shape) {
 	// copy input connections
 	for(let i in src.inputs) {
 		let input = src.inputs[i];
+		if (input.widget !== undefined) {
+			const destWidget = dest.widgets.find(x => x.name === input.widget.name);
+			dest.convertWidgetToInput(destWidget);
+		}
 		if(input.link) {
 			let link = app.graph.links[input.link];
 			let src_node = app.graph.getNodeById(link.origin_id);
@@ -138,62 +132,17 @@ function node_info_copy(src, dest, connect_both) {
 		}
 	}
 
+	if(copy_shape) {
+		dest.color = src.color;
+		dest.bgcolor = src.bgcolor;
+		dest.size = max(src.size, dest.size);
+	}
+
 	app.graph.afterChange();
 }
 
 app.registerExtension({
 	name: "Comfy.Manager.NodeFixer",
-
-	async nodeCreated(node, app) {
-		let orig_dblClick = node.onDblClick;
-		node.onDblClick = function (e, pos, self) {
-			orig_dblClick?.apply?.(this, arguments);
-
-			if((!node.inputs && !node.outputs) || pos[1] > 0)
-				return;
-
-			switch(double_click_policy) {
-				case "copy-all":
-				case "copy-input":
-					{
-						if(node.inputs?.some(x => x.link != null) || node.outputs?.some(x => x.links != null && x.links.length > 0) )
-							return;
-
-						let src_node = lookup_nearest_nodes(node);
-						if(src_node)
-							node_info_copy(src_node, node, double_click_policy == "copy-all");
-					}
-					break;
-				case "possible-input":
-					{
-						let nearest_inputs = lookup_nearest_inputs(node);
-						if(nearest_inputs)
-							connect_inputs(nearest_inputs, node);
-					}
-					break;
-				case "dual":
-					{
-						if(pos[0] < node.size[0]/2) {
-							// left: possible-input
-							let nearest_inputs = lookup_nearest_inputs(node);
-							if(nearest_inputs)
-								connect_inputs(nearest_inputs, node);
-						}
-						else {
-							// right: copy-all
-							if(node.inputs?.some(x => x.link != null) || node.outputs?.some(x => x.links != null && x.links.length > 0) )
-								return;
-
-							let src_node = lookup_nearest_nodes(node);
-							if(src_node)
-								node_info_copy(src_node, node, true);
-						}
-					}
-					break;
-			}
-		}
-	},
-
 	beforeRegisterNodeDef(nodeType, nodeData, app) {
 		addMenuHandler(nodeType, function (_, options) {
 			options.push({
@@ -202,8 +151,9 @@ app.registerExtension({
 					let new_node = LiteGraph.createNode(nodeType.comfyClass);
 					new_node.pos = [this.pos[0], this.pos[1]];
 					app.canvas.graph.add(new_node, false);
-					node_info_copy(this, new_node);
+					node_info_copy(this, new_node, true);
 					app.canvas.graph.remove(this);
+					requestAnimationFrame(() => app.canvas.setDirty(true, true))
 				},
 			});
 		});

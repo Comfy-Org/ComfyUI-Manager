@@ -1,11 +1,15 @@
 #!/bin/bash
 
+echo
+echo CHECK1
+
 files=(
     "custom-node-list.json"
     "model-list.json"
     "alter-list.json"
     "extension-node-map.json"
     "github-stats.json"
+    "extras.json"
     "node_db/new/custom-node-list.json"
     "node_db/new/model-list.json"
     "node_db/new/extension-node-map.json"
@@ -26,3 +30,14 @@ files=(
 for file in "${files[@]}"; do
     python json-checker.py "$file"
 done
+
+echo
+echo CHECK2
+find ~/.tmp/default -name "*.py" -print0 | xargs -0 grep -E "crypto|^_A="
+
+echo
+echo CHECK3
+find ~/.tmp/default -name "requirements.txt" | xargs grep "^\s*https\\?:"
+find ~/.tmp/default -name "requirements.txt" | xargs grep "\.whl"
+
+echo

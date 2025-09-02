@@ -1,4 +1,3 @@
 #!/bin/bash
-source ../../../../venv/bin/activate
-rm .tmp/*.py > /dev/null
-python ../../scanner.py
+rm ~/.tmp/dev/*.py > /dev/null 2>&1
+python ../../scanner.py ~/.tmp/tutorial

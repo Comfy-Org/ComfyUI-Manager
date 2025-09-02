@@ -4,7 +4,8 @@
 
 
 ```
--= ComfyUI-Manager CLI (V2.21.1) =-
+-= ComfyUI-Manager CLI (V2.24) =-
+
 
 python cm-cli.py [OPTIONS]
 
@@ -12,12 +13,11 @@ OPTIONS:
     [install|reinstall|uninstall|update|disable|enable|fix] node_name ... ?[--channel <channel name>] ?[--mode [remote|local|cache]]
     [update|disable|enable|fix] all ?[--channel <channel name>] ?[--mode [remote|local|cache]]
     [simple-show|show] [installed|enabled|not-installed|disabled|all|snapshot|snapshot-list] ?[--channel <channel name>] ?[--mode [remote|local|cache]]
-    save-snapshot
-    restore-snapshot <snapshot>
+    save-snapshot ?[--output <snapshot .json/.yaml>]
+    restore-snapshot <snapshot .json/.yaml> ?[--pip-non-url] ?[--pip-non-local-url] ?[--pip-local-url]
     cli-only-mode [enable|disable]
     restore-dependencies
     clear
-
 ```
 
 ## How To Use?
@@ -53,7 +53,7 @@ OPTIONS:
 
 `python cm-cli.py show installed` 와 같은 코맨드를 실행하면 설치된 커스텀 노드의 정보를 상세하게 보여줍니다.
 ```
--= ComfyUI-Manager CLI (V2.21.1) =-
+-= ComfyUI-Manager CLI (V2.24) =-
 
 FETCH DATA from: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/custom-node-list.json
 [    ENABLED    ]  ComfyUI-Manager                                   (author: Dr.Lt.Data)
@@ -70,7 +70,7 @@ FETCH DATA from: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main
 `python cm-cli.py simple-show installed` 와 같은 코맨드를 이용해서 설치된 커스텀 노드의 정보를 간단하게 보여줍니다.
 
 ```
--= ComfyUI-Manager CLI (V2.21.1) =-
+-= ComfyUI-Manager CLI (V2.24) =-
 
 FETCH DATA from: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main/custom-node-list.json
 ComfyUI-Manager                                   
@@ -115,11 +115,16 @@ ComfyUI-Loopchain
 
 
 ### 4. 스냅샷 관리 기능
-* `python cm-cli.py save-snapshot`: 현재의 snapshot을 저장합니다.
-* `python cm-cli.py restore-snapshot <snapshot>`: 지정된 snapshot으로 복구합니다.
-    * snapshot 파일은 ComfyUI-Manager/snapshots 에 있다고 가정합니다.
-    (추후 다른 경로에 있는 파일을 허용 가능하도록 업데이트 예정입니다.)
-
+* `python cm-cli.py save-snapshot ?[--output <snapshot .json/.yaml>]`: 현재의 snapshot을 저장합니다.
+  * --output 으로 임의의 경로에 .yaml 파일과 format으로 저장할 수 있습니다.
+* `python cm-cli.py restore-snapshot <snapshot .json/.yaml>`: 지정된 snapshot으로 복구합니다.
+  * snapshot 경로에 파일이 존재하는 경우 해당 snapshot을 로드합니다.
+  * snapshot 경로에 파일이 존재하지 않는 경우 묵시적으로, ComfyUI-Manager/snapshots 에 있다고 가정합니다.
+  * `--pip-non-url`: PyPI 에 등록된 pip 패키지들에 대해서 복구를 수행
+  * `--pip-non-local-url`: web URL에 등록된 pip 패키지들에 대해서 복구를 수행
+  * `--pip-local-url`: local 경로를 지정하고 있는 pip 패키지들에 대해서 복구를 수행 
+  * `--user-directory`: 사용자 디렉토리 설정
+  * `--restore-to`: 복구될 커스텀 노드가 설치될 경로. (이 옵션을 적용할 경우 오직 대상 경로에 설치된 custom nodes 만 설치된 것으로 인식함.)
 
 ### 5. CLI only mode
 
