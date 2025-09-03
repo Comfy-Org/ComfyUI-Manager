@@ -62,7 +62,6 @@ from ..data_models import (
     BatchExecutionRecord,
     ComfyUISystemState,
     ImportFailInfoBulkRequest,
-    ImportFailInfoBulkResponse,
     BatchOperation,
     InstalledNodeInfo,
     ComfyUIVersionInfo,
@@ -1683,7 +1682,11 @@ async def import_fail_info_bulk(request):
                 if module_name is not None:
                     info = cm_global.error_dict.get(module_name)
                     if info is not None:
-                        results[cnr_id] = info
+                        # Convert error_dict format to API spec format
+                        results[cnr_id] = {
+                            'error': info.get('msg', ''),
+                            'traceback': info.get('traceback', '')
+                        }
                     else:
                         results[cnr_id] = None
                 else:
@@ -1695,15 +1698,18 @@ async def import_fail_info_bulk(request):
                 if module_name is not None:
                     info = cm_global.error_dict.get(module_name)
                     if info is not None:
-                        results[url] = info
+                        # Convert error_dict format to API spec format
+                        results[url] = {
+                            'error': info.get('msg', ''),
+                            'traceback': info.get('traceback', '')
+                        }
                     else:
                         results[url] = None
                 else:
                     results[url] = None
 
-        # Create response using Pydantic model
-        response_data = ImportFailInfoBulkResponse(root=results)
-        return web.json_response(response_data.root)
+        # Return results directly as JSON
+        return web.json_response(results, content_type="application/json")
     except ValidationError as e:
         logging.error(f"[ComfyUI-Manager] Invalid request data: {e}")
         return web.Response(status=400, text=f"Invalid request data: {e}")
