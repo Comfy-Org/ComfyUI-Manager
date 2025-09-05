@@ -4820,7 +4820,6 @@
             "DD-ModelOptimizer",
             "DD-ModelSwitcher",
             "DD-QwenMTTranslator",
-            "DD-SamplingOptimizer",
             "DD-SimpleLatent",
             "DD-VideoFrameExtractor"
         ],
@@ -12194,7 +12193,10 @@
         [
             "LoadRemoteAudio",
             "LoadRemoteImage",
-            "LoadRemoteVideo"
+            "LoadRemoteVideo",
+            "SaveAudioToRemote",
+            "SaveImageToRemote",
+            "SaveVideoToRemote"
         ],
         {
             "title_aux": "comfyui_remote_media_io"
@@ -17568,6 +17570,7 @@
             "Sage_DualCLIPSelector",
             "Sage_DualCLIPTextEncode",
             "Sage_DualCLIPTextEncodeLumina2",
+            "Sage_DualCLIPTextEncodeQwen",
             "Sage_EmptyLatentImagePassthrough",
             "Sage_FloatToStr",
             "Sage_FreeMemory",
@@ -20539,7 +20542,8 @@
     ],
     "https://github.com/chenpipi0807/Comfyui-Qwen-image-edit-CharacterConsistency": [
         [
-            "TextEncodeQwenImageEditEnhanced"
+            "TextEncodeQwenImageEditEnhanced",
+            "TextEncodeQwenImageT2ICustom"
         ],
         {
             "title_aux": "Comfyui-Qwen-image-edit-CharacterConsistency"
@@ -26626,6 +26630,7 @@
     ],
     "https://github.com/hubentu/ComfyUI-loras-loader": [
         [
+            "ConvertGreyscaleNode",
             "DynamicLoRALoader",
             "ImageBatchToImageList",
             "LoRAStringAdapter",
@@ -28183,9 +28188,9 @@
     ],
     "https://github.com/jialuw0830/flux_api_comfyui_plugin": [
         [
+            "EigenAIFluxNode",
             "EigenAIKontextNode",
             "EigenAIQwenNode",
-            "EigenAISchnellNode",
             "nodes"
         ],
         {
@@ -31361,10 +31366,12 @@
     ],
     "https://github.com/livepeer/ComfyUI-Stream-Pack": [
         [
+            "AudioTranscriptionNode",
             "FaceMeshDrawNode",
             "FaceMeshMaskNode",
             "FaceMeshNode",
             "FeatureBankAttentionProcessor",
+            "SRTGeneratorNode",
             "SuperResolutionModelLoader",
             "SuperResolutionUpscale"
         ],
@@ -36228,6 +36235,7 @@
             "PVL KONTEXT MAX",
             "PVLCheckIfConnected",
             "PVL_Crop2AR",
+            "PVL_Google_NanoBanana_API",
             "PVL_ImageResize",
             "PVL_ImageStitch",
             "PVL_NoneOutputNode",
@@ -36944,8 +36952,8 @@
             "AutoGradePro",
             "ColorAnalysisPlotNode",
             "ColorSpaceSim",
-            "ConvertToLogImage",
             "FilmGrain",
+            "LogReconstructionNode",
             "ProColorGrading",
             "PromptGenerator"
         ],
