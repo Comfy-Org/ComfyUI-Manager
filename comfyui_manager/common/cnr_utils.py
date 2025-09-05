@@ -211,6 +211,7 @@ def read_cnr_info(fullpath):
 
             project = data.get('project', {})
             name = project.get('name').strip().lower()
+            original_name = project.get('name')
 
             # normalize version
             # for example: 2.5 -> 2.5.0
@@ -222,6 +223,7 @@ def read_cnr_info(fullpath):
             if name and version:  # repository is optional
                 return {
                     "id": name,
+                    "original_name": original_name,
                     "version": version,
                     "url": repository
                 }

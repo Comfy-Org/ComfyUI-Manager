@@ -1072,12 +1072,15 @@ async def fetch_customnode_list(request):
     if channel != 'local':
         found = 'custom'
 
-        for name, url in core.get_channel_dict().items():
-            if url == channel:
-                found = name
-                break
+        if channel == core.DEFAULT_CHANNEL or channel == core.DEFAULT_CHANNEL_LEGACY:
+            channel = 'default'
+        else:
+            for name, url in core.get_channel_dict().items():
+                if url == channel:
+                    found = name
+                    break
 
-        channel = found
+            channel = found
 
     result = dict(channel=channel, node_packs=node_packs.to_dict())
 

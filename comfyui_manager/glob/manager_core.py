@@ -46,6 +46,7 @@ version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' i
 
 
 DEFAULT_CHANNEL = "https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main"
+DEFAULT_CHANNEL_LEGACY = "https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main"
 
 
 default_custom_nodes_path = None
@@ -153,14 +154,8 @@ def check_invalid_nodes():
 cached_config = None
 js_path = None
 
-comfy_ui_required_revision = 1930
-comfy_ui_required_commit_datetime = datetime(2024, 1, 24, 0, 0, 0)
-
-comfy_ui_revision = "Unknown"
-comfy_ui_commit_datetime = datetime(1900, 1, 1, 0, 0, 0)
-
 channel_dict = None
-valid_channels = {'default', 'local'}
+valid_channels = {'default', 'local', DEFAULT_CHANNEL, DEFAULT_CHANNEL_LEGACY}
 channel_list = None
 
 
@@ -1479,7 +1474,7 @@ def identify_node_pack_from_path(fullpath):
         # cnr
         cnr = cnr_utils.read_cnr_info(fullpath)
         if cnr is not None:
-            return module_name, cnr['version'], cnr['id'], None
+            return module_name, cnr['version'], cnr['original_name'], None
 
         return None
     else:
@@ -1529,7 +1524,10 @@ def get_installed_node_packs():
                 if info is None:
                     continue
 
-                res[info[0]] = { 'ver': info[1], 'cnr_id': info[2], 'aux_id': info[3], 'enabled': False }
+                # NOTE: don't add disabled nodepack if there is enabled nodepack
+                original_name = info[0].split('@')[0]
+                if original_name not in res:
+                    res[info[0]] = { 'ver': info[1], 'cnr_id': info[2], 'aux_id': info[3], 'enabled': False }
 
     return res
 
@@ -1785,16 +1783,6 @@ def try_install_script(url, repo_path, install_cmd, instant_execution=False):
 
         print(f"\n## ComfyUI-Manager: EXECUTE => {install_cmd}")
         code = manager_funcs.run_script(install_cmd, cwd=repo_path)
-
-        if platform.system() != "Windows":
-            try:
-                if not os.environ.get('__COMFYUI_DESKTOP_VERSION__') and comfy_ui_commit_datetime.date() < comfy_ui_required_commit_datetime.date():
-                    print("\n\n###################################################################")
-                    print(f"[WARN] ComfyUI-Manager: Your ComfyUI version ({comfy_ui_revision})[{comfy_ui_commit_datetime.date()}] is too old. Please update to the latest version.")
-                    print("[WARN] The extension installation feature may not work properly in the current installed ComfyUI version on Windows environment.")
-                    print("###################################################################\n\n")
-            except Exception:
-                pass
 
         if code != 0:
             if url is None:
