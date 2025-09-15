@@ -18,6 +18,7 @@ import {
 } from "./common.js";
 import { ComponentBuilderDialog, getPureName, load_components, set_component_policy } from "./components-manager.js";
 import { CustomNodesManager } from "./custom-nodes-manager.js";
+import { NodeUsageAnalyzer } from "./node-usage-analyzer.js";
 import { ModelManager } from "./model-manager.js";
 import { SnapshotManager } from "./snapshot.js";
 
@@ -908,6 +909,17 @@ class ManagerMenuDialog extends ComfyDialog {
 								CustomNodesManager.instance = new CustomNodesManager(app, self);
 							}
 							CustomNodesManager.instance.show(CustomNodesManager.ShowMode.IN_WORKFLOW);
+						}
+				}),
+				$el("button.cm-button", {
+					type: "button",
+					textContent: "Node Usage Analyzer",
+					onclick:
+						() => {
+							if(!NodeUsageAnalyzer.instance) {
+								NodeUsageAnalyzer.instance = new NodeUsageAnalyzer(app, self);
+							}
+							NodeUsageAnalyzer.instance.show(NodeUsageAnalyzer.SortMode.BY_PACKAGE);
 						}
 				}),
 				

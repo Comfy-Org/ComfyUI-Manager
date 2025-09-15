@@ -109,9 +109,9 @@ export async function customConfirm(message) {
 		let res = await
 			window['app'].extensionManager.dialog
 			.confirm({
-				title: 'Confirm',
-				message: message
-			});
+			title: 'Confirm',
+			message: message
+		});
 
 		return res;
 	}
@@ -151,9 +151,9 @@ export async function customPrompt(title, message) {
 		let res = await
 				window['app'].extensionManager.dialog
 				.prompt({
-					title: title,
-					message: message
-				});
+			title: title,
+			message: message
+		});
 
 		return res;
 	}
@@ -649,6 +649,451 @@ function initTooltip () {
 	document.body.removeEventListener('mouseleave', mouseleaveHandler, true);
 	document.body.addEventListener('mouseenter', mouseenterHandler, true);
     document.body.addEventListener('mouseleave', mouseleaveHandler, true);
+}
+
+export async function uninstallNodes(nodeList, options = {}) {
+	const {
+		title = `${nodeList.length} custom nodes`,
+		onProgress = () => {},
+		onError = () => {},
+		onSuccess = () => {},
+		channel = 'default',
+		mode = 'default'
+	} = options;
+
+	// Check if queue is busy
+	let stats = await api.fetchApi('/manager/queue/status');
+	stats = await stats.json();
+	if (stats.is_processing) {
+		customAlert(`[ComfyUI-Manager] There are already tasks in progress. Please try again after it is completed. (${stats.done_count}/${stats.total_count})`);
+		return { success: false, error: 'Queue is busy' };
+	}
+
+	// Confirmation dialog for uninstall
+	const confirmed = await customConfirm(`Are you sure uninstall ${title}?`);
+	if (!confirmed) {
+		return { success: false, error: 'User cancelled' };
+	}
+
+	let errorMsg = "";
+	let target_items = [];
+
+	await api.fetchApi('/manager/queue/reset');
+
+	for (const nodeItem of nodeList) {
+		target_items.push(nodeItem);
+
+		onProgress(`Uninstall ${nodeItem.title || nodeItem.name} ...`);
+
+		const data = nodeItem.originalData || nodeItem;
+		data.channel = channel;
+		data.mode = mode;
+		data.ui_id = nodeItem.hash || md5(nodeItem.name || nodeItem.title);
+
+		const res = await api.fetchApi(`/manager/queue/uninstall`, {
+			method: 'POST',
+			body: JSON.stringify(data)
+		});
+
+		if (res.status != 200) {
+			errorMsg = `'${nodeItem.title || nodeItem.name}': `;
+
+			if (res.status == 403) {
+				errorMsg += `This action is not allowed with this security level configuration.\n`;
+			} else if (res.status == 404) {
+				errorMsg += `With the current security level configuration, only custom nodes from the <B>"default channel"</B> can be uninstalled.\n`;
+			} else {
+				errorMsg += await res.text() + '\n';
+			}
+
+			break;
+		}
+	}
+
+	if (errorMsg) {
+		onError(errorMsg);
+		show_message("[Uninstall Errors]\n" + errorMsg);
+		return { success: false, error: errorMsg, targets: target_items };
+	} else {
+		await api.fetchApi('/manager/queue/start');
+		onSuccess(target_items);
+		showTerminal();
+		return { success: true, targets: target_items };
+	}
+}
+
+// ===========================================================================================
+// Workflow Utilities Consolidation
+
+export async function getWorkflowNodeTypes() {
+	try {
+		const res = await fetchData('/customnode/get_node_types_in_workflows');
+		
+		if (res.status === 200) {
+			return { success: true, data: res.data };
+		} else if (res.status === 204) {
+			// No workflows found - return empty list
+			return { success: true, data: [] };
+		} else {
+			return { success: false, error: res.error };
+		}
+	} catch (error) {
+		return { success: false, error: error };
+	}
+}
+
+export function findPackageByCnrId(cnrId, nodePackages, installedOnly = true) {
+	if (!cnrId || !nodePackages) {
+		return null;
+	}
+	
+	// Tier 1: Direct key match
+	if (nodePackages[cnrId]) {
+		const pack = nodePackages[cnrId];
+		if (!installedOnly || pack.state !== "not-installed") {
+			return { key: cnrId, pack: pack };
+		}
+	}
+	
+	// Tier 2: Case-insensitive match
+	const cnrIdLower = cnrId.toLowerCase();
+	for (const packKey of Object.keys(nodePackages)) {
+		if (packKey.toLowerCase() === cnrIdLower) {
+			const pack = nodePackages[packKey];
+			if (!installedOnly || pack.state !== "not-installed") {
+				return { key: packKey, pack: pack };
+			}
+		}
+	}
+	
+	// Tier 3: URL/reference contains match
+	for (const packKey of Object.keys(nodePackages)) {
+		const pack = nodePackages[packKey];
+		
+		// Skip non-installed packages if installedOnly is true
+		if (installedOnly && pack.state === "not-installed") {
+			continue;
+		}
+		
+		// Check if reference URL contains cnr_id
+		if (pack.reference && pack.reference.includes(cnrId)) {
+			return { key: packKey, pack: pack };
+		}
+		
+		// Check if any file URL contains cnr_id
+		if (pack.files && Array.isArray(pack.files)) {
+			for (const fileUrl of pack.files) {
+				if (fileUrl.includes(cnrId)) {
+					return { key: packKey, pack: pack };
+				}
+			}
+		}
+	}
+	
+	return null;
+}
+
+export async function analyzeWorkflowUsage(nodePackages) {
+	const result = await getWorkflowNodeTypes();
+	
+	if (!result.success) {
+		return { success: false, error: result.error };
+	}
+	
+	const workflowNodeList = result.data;
+	const usageMap = new Map();
+	const workflowDetailsMap = new Map();
+	
+	if (workflowNodeList && Array.isArray(workflowNodeList)) {
+		const cnrIdCounts = new Map();
+		const cnrIdToWorkflows = new Map();
+		
+		// Process each workflow
+		workflowNodeList.forEach((workflowObj, workflowIndex) => {
+			if (workflowObj.node_types && Array.isArray(workflowObj.node_types)) {
+				const workflowCnrIds = new Set();
+				
+				// Get workflow filename
+				const workflowFilename = workflowObj.workflow_file_name ||
+										 workflowObj.filename ||
+										 workflowObj.file ||
+										 workflowObj.name ||
+										 workflowObj.path ||
+										 `Workflow ${workflowIndex + 1}`;
+				
+				// Count nodes per cnr_id in this workflow
+				const workflowCnrIdCounts = new Map();
+				workflowObj.node_types.forEach(nodeTypeObj => {
+					const cnrId = nodeTypeObj.cnr_id;
+					
+					if (cnrId && cnrId !== "comfy-core") {
+						// Track unique cnr_ids per workflow
+						workflowCnrIds.add(cnrId);
+						
+						// Count nodes per cnr_id in this specific workflow
+						const workflowNodeCount = workflowCnrIdCounts.get(cnrId) || 0;
+						workflowCnrIdCounts.set(cnrId, workflowNodeCount + 1);
+					}
+				});
+				
+				// Record workflow details for each unique cnr_id found in this workflow
+				workflowCnrIds.forEach(cnrId => {
+					// Count occurrences of this cnr_id across all workflows
+					const currentCount = cnrIdCounts.get(cnrId) || 0;
+					cnrIdCounts.set(cnrId, currentCount + 1);
+					
+					// Track workflow details
+					if (!cnrIdToWorkflows.has(cnrId)) {
+						cnrIdToWorkflows.set(cnrId, []);
+					}
+					cnrIdToWorkflows.get(cnrId).push({
+						filename: workflowFilename,
+						nodeCount: workflowCnrIdCounts.get(cnrId) || 0
+					});
+				});
+			}
+		});
+		
+		// Map cnr_id to installed packages with workflow details
+		cnrIdCounts.forEach((count, cnrId) => {
+			const workflowDetails = cnrIdToWorkflows.get(cnrId) || [];
+			
+			const foundPackage = findPackageByCnrId(cnrId, nodePackages, true);
+			if (foundPackage) {
+				usageMap.set(foundPackage.key, count);
+				workflowDetailsMap.set(foundPackage.key, workflowDetails);
+			}
+		});
+	}
+	
+	return {
+		success: true,
+		usageMap: usageMap,
+		workflowDetailsMap: workflowDetailsMap
+	};
+}
+
+// Size formatting utilities - consolidated from model-manager.js and node-usage-analyzer.js
+export function formatSize(v) {
+	const base = 1000;
+	const units = ['', 'K', 'M', 'G', 'T', 'P'];
+	const space = '';
+	const postfix = 'B';
+	if (v <= 0) {
+		return `0${space}${postfix}`;
+	}
+	for (let i = 0, l = units.length; i < l; i++) {
+		const min = Math.pow(base, i);
+		const max = Math.pow(base, i + 1);
+		if (v > min && v <= max) {
+			const unit = units[i];
+			if (unit) {
+				const n = v / min;
+				const nl = n.toString().split('.')[0].length;
+				const fl = Math.max(3 - nl, 1);
+				v = n.toFixed(fl);
+			}
+			v = v + space + unit + postfix;
+			break;
+		}
+	}
+	return v;
+}
+
+// for size sort
+export function sizeToBytes(v) {
+	if (typeof v === "number") {
+		return v;
+	}
+	if (typeof v === "string") {
+		const n = parseFloat(v);
+		const unit = v.replace(/[0-9.B]+/g, "").trim().toUpperCase();
+		if (unit === "K") {
+			return n * 1000;
+		}
+		if (unit === "M") {
+			return n * 1000 * 1000;
+		}
+		if (unit === "G") {
+			return n * 1000 * 1000 * 1000;
+		}
+		if (unit === "T") {
+			return n * 1000 * 1000 * 1000 * 1000;
+		}
+	}
+	return v;
+}
+
+// Flyover component - consolidated from custom-nodes-manager.js and node-usage-analyzer.js
+export function createFlyover(container, options = {}) {
+	const {
+		enableHover = false,
+		hoverHandler = null,
+		context = null
+	} = options;
+
+	const $flyover = document.createElement("div");
+	$flyover.className = "cn-flyover";
+	$flyover.innerHTML = `<div class="cn-flyover-header">
+		<div class="cn-flyover-close">${icons.arrowRight}</div>
+		<div class="cn-flyover-title"></div>
+		<div class="cn-flyover-close">${icons.close}</div>
+		</div>
+		<div class="cn-flyover-body"></div>`
+	container.appendChild($flyover);
+
+	const $flyoverTitle = $flyover.querySelector(".cn-flyover-title");
+	const $flyoverBody = $flyover.querySelector(".cn-flyover-body");
+	
+	let width = '50%';
+	let visible = false;
+
+	let timeHide;
+	const closeHandler = (e) => {
+		if ($flyover === e.target || $flyover.contains(e.target)) {
+			return;
+		}
+		clearTimeout(timeHide);
+		timeHide = setTimeout(() => {
+			flyover.hide();
+		}, 100);
+	}
+
+	const displayHandler = () => {
+		if (visible) {
+			$flyover.classList.remove("cn-slide-in-right");
+		} else {
+			$flyover.classList.remove("cn-slide-out-right");
+			$flyover.style.width = '0px';
+			$flyover.style.display = "none";
+		}
+	}
+
+	const flyover = {
+		show: (titleHtml, bodyHtml) => {
+			clearTimeout(timeHide);
+			if (context && context.element) {
+				context.element.removeEventListener("click", closeHandler);
+			}
+			$flyoverTitle.innerHTML = titleHtml;
+			$flyoverBody.innerHTML = bodyHtml;
+			$flyover.style.display = "block";
+			$flyover.style.width = width;
+			if(!visible) {
+				$flyover.classList.add("cn-slide-in-right");
+			}
+			visible = true;
+			setTimeout(() => {
+				if (context && context.element) {
+					context.element.addEventListener("click", closeHandler);
+				}
+			}, 100);
+		},
+		hide: (now) => {
+			visible = false;
+			if (context && context.element) {
+				context.element.removeEventListener("click", closeHandler);
+			}
+			if(now) {
+				displayHandler();
+				return;
+			}
+			$flyover.classList.add("cn-slide-out-right");
+		}
+	}
+
+	$flyover.addEventListener("animationend", (e) => {
+		displayHandler();
+	});
+
+	// Add hover handlers if enabled
+	if (enableHover && hoverHandler) {
+		$flyover.addEventListener("mouseenter", hoverHandler, true);
+		$flyover.addEventListener("mouseleave", hoverHandler, true);
+	}
+
+	$flyover.addEventListener("click", (e) => {
+		if(e.target.classList.contains("cn-flyover-close")) {
+			flyover.hide();
+			return;
+		}
+		
+		// Forward other click events to the provided handler or context
+		if (context && context.handleFlyoverClick) {
+			context.handleFlyoverClick(e);
+		}
+	});
+
+	return flyover;
+}
+
+// Shared UI State Methods - consolidated from multiple managers
+export function createUIStateManager(element, selectors) {
+	return {
+		showSelection: (msg) => {
+			const el = element.querySelector(selectors.selection);
+			if (el) el.innerHTML = msg;
+		},
+		
+		showError: (err) => {
+			const el = element.querySelector(selectors.message);
+			if (el) {
+				const msg = err ? `<font color="red">${err}</font>` : "";
+				el.innerHTML = msg;
+			}
+		},
+		
+		showMessage: (msg, color) => {
+			const el = element.querySelector(selectors.message);
+			if (el) {
+				if (color) {
+					msg = `<font color="${color}">${msg}</font>`;
+				}
+				el.innerHTML = msg;
+			}
+		},
+		
+		showStatus: (msg, color) => {
+			const el = element.querySelector(selectors.status);
+			if (el) {
+				if (color) {
+					msg = `<font color="${color}">${msg}</font>`;
+				}
+				el.innerHTML = msg;
+			}
+		},
+		
+		showLoading: (grid) => {
+			if (grid) {
+				grid.showLoading();
+				grid.showMask({
+					opacity: 0.05
+				});
+			}
+		},
+		
+		hideLoading: (grid) => {
+			if (grid) {
+				grid.hideLoading();
+				grid.hideMask();
+			}
+		},
+		
+		showRefresh: () => {
+			const el = element.querySelector(selectors.refresh);
+			if (el) el.style.display = "block";
+		},
+		
+		showStop: () => {
+			const el = element.querySelector(selectors.stop);
+			if (el) el.style.display = "block";
+		},
+		
+		hideStop: () => {
+			const el = element.querySelector(selectors.stop);
+			if (el) el.style.display = "none";
+		}
+	};
 }
 
 initTooltip();
