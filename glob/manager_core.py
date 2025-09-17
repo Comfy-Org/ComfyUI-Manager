@@ -809,7 +809,7 @@ class UnifiedManager:
             dont_wait = True
 
         # reload 'cnr_map' and 'repo_cnr_map'
-        cnrs = await cnr_utils.get_cnr_data(cache_mode=cache_mode=='cache', dont_wait=dont_wait)
+        cnrs = await cnr_utils.get_cnr_data(cache_mode=True, dont_wait=dont_wait)
 
         for x in cnrs:
             self.cnr_map[x['id']] = x
