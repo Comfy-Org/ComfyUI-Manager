@@ -15,7 +15,7 @@ def start():
     logging.info('[START] ComfyUI-Manager')
     from .common import cm_global     # noqa: F401
 
-    if not args.disable_manager:
+    if args.enable_manager:
         if args.enable_manager_legacy_ui:
             try:
                 from .legacy import manager_server  # noqa: F401
@@ -42,7 +42,7 @@ def should_be_disabled(fullpath:str) -> bool:
     1. Disables the legacy ComfyUI-Manager.
     2. The blocklist can be expanded later based on policies.
     """
-    if not args.disable_manager:
+    if args.enable_manager:
         # In cases where installation is done via a zip archive, the directory name may not be comfyui-manager, and it may not contain a git repository.
         # It is assumed that any installed legacy ComfyUI-Manager will have at least 'comfyui-manager' in its directory name.
         dir_name = os.path.basename(fullpath).lower()

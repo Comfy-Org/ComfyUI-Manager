@@ -41,7 +41,7 @@ from ..common.enums import NetworkMode, SecurityLevel, DBMode
 from ..common import context
 
 
-version_code = [4, 0, 1]
+version_code = [4, 0, 2]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
