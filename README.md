@@ -13,7 +13,8 @@ The new **ComfyUI Manager** is now managed as an optional dependency of ComfyUI.
 * **ComfyUI Manager** is now available as a package on PyPI: [https://pypi.org/project/comfyui-manager](https://pypi.org/project/comfyui-manager)
 * Even if the **ComfyUI Manager** dependency is installed, you must enable it by adding the `--enable-manager` option when running ComfyUI.
 * Once the new **ComfyUI Manager** is enabled, any copy of **comfyui-manager** installed under `ComfyUI/custom_nodes` will be disabled.
-
+* Please make all future contributions for feature improvements and bug fixes to the manager-v4 branch.
+* For now, custom node registration will continue in this branch as well, but it will eventually be fully replaced by registration through https://registry.comfy.org via `pyproject.toml` ([guide](https://docs.comfy.org/registry/overview)).
 ---
 
 **ComfyUI-Manager** is an extension designed to enhance the usability of [ComfyUI](https://github.com/comfyanonymous/ComfyUI). It offers management functions to **install, remove, disable, and enable** various custom nodes of ComfyUI. Furthermore, this extension provides a hub feature and convenience functions to access a wide range of information within ComfyUI.
