@@ -15,6 +15,7 @@ import re
 import logging
 import platform
 import shlex
+from functools import lru_cache
 
 
 cache_lock = threading.Lock()
@@ -34,18 +35,64 @@ def add_python_path_to_env():
     os.environ['PATH'] = os.path.dirname(sys.executable)+sep+os.environ['PATH']
 
 
+@lru_cache(maxsize=2)
+def get_pip_cmd(force_uv=False):
+    """
+    Get the base pip command, with automatic fallback to uv if pip is unavailable.
+
+    Args:
+        force_uv (bool): If True, use uv directly without trying pip
+
+    Returns:
+        list: Base command for pip operations
+    """
+    embedded = 'python_embeded' in sys.executable
+
+    # Try pip first (unless forcing uv)
+    if not force_uv:
+        try:
+            test_cmd = [sys.executable] + (['-s'] if embedded else []) + ['-m', 'pip', '--version']
+            subprocess.check_output(test_cmd, stderr=subprocess.DEVNULL, timeout=5)
+            return [sys.executable] + (['-s'] if embedded else []) + ['-m', 'pip']
+        except Exception:
+            logging.warning("[ComfyUI-Manager] python -m pip not available. Falling back to uv.")
+
+    # Try uv (either forced or pip failed)
+    import shutil
+
+    # Try uv as Python module
+    try:
+        test_cmd = [sys.executable] + (['-s'] if embedded else []) + ['-m', 'uv', '--version']
+        subprocess.check_output(test_cmd, stderr=subprocess.DEVNULL, timeout=5)
+        logging.info("[ComfyUI-Manager] Using uv as Python module for pip operations.")
+        return [sys.executable] + (['-s'] if embedded else []) + ['-m', 'uv', 'pip']
+    except Exception:
+        pass
+
+    # Try standalone uv
+    if shutil.which('uv'):
+        logging.info("[ComfyUI-Manager] Using standalone uv for pip operations.")
+        return ['uv', 'pip']
+
+    # Nothing worked
+    logging.error("[ComfyUI-Manager] Neither python -m pip nor uv are available. Cannot proceed with package operations.")
+    raise Exception("Neither pip nor uv are available for package management")
+
+
 def make_pip_cmd(cmd):
-    if 'python_embeded' in sys.executable:
-        if use_uv:
-            return [sys.executable, '-s', '-m', 'uv', 'pip'] + cmd
-        else:
-            return [sys.executable, '-s', '-m', 'pip'] + cmd
-    else:
-        # FIXED: https://github.com/ltdrdata/ComfyUI-Manager/issues/1667
-        if use_uv:
-            return [sys.executable, '-m', 'uv', 'pip'] + cmd
-        else:
-            return [sys.executable, '-m', 'pip'] + cmd
+    """
+    Create a pip command by combining the cached base pip command with the given arguments.
+
+    Args:
+        cmd (list): List of pip command arguments (e.g., ['install', 'package'])
+
+    Returns:
+        list: Complete command list ready for subprocess execution
+    """
+    global use_uv
+    base_cmd = get_pip_cmd(force_uv=use_uv)
+    return base_cmd + cmd
+
 
 # DON'T USE StrictVersion - cannot handle pre_release version
 # try:

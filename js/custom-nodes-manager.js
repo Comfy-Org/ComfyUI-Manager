@@ -1625,17 +1625,35 @@ export class CustomNodesManager {
 	getNodesInWorkflow() {
 		let usedGroupNodes = new Set();
 		let allUsedNodes = {};
+		const visitedGraphs = new Set();
 
-		for(let k in app.graph._nodes) {
-			let node = app.graph._nodes[k];
+		const visitGraph = (graph) => {
+			if (!graph || visitedGraphs.has(graph)) return;
+			visitedGraphs.add(graph);
 
-			if(node.type.startsWith('workflow>')) {
-				usedGroupNodes.add(node.type.slice(9));
-				continue;
+			const nodes = graph._nodes || graph.nodes || [];
+			for(let k in nodes) {
+				let node = nodes[k];
+				if (!node) continue;
+
+				// If it's a SubgraphNode, recurse into its graph and continue searching
+				if (node.isSubgraphNode?.() && node.subgraph) {
+					visitGraph(node.subgraph);
+				}
+
+				if (!node.type) continue;
+
+				// Group nodes / components
+				if(typeof node.type === 'string' && node.type.startsWith('workflow>')) {
+					usedGroupNodes.add(node.type.slice(9));
+					continue;
+				}
+
+				allUsedNodes[node.type] = node;
 			}
+		};
 
-			allUsedNodes[node.type] = node;
-		}
+		visitGraph(app.graph);
 
 		for(let k of usedGroupNodes) {
 			let subnodes = app.graph.extra.groupNodes[k]?.nodes;
