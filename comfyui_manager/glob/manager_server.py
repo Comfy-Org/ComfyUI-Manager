@@ -47,7 +47,7 @@ from ..common import manager_util
 from ..common import cm_global
 from ..common import manager_downloader
 from ..common import context
-
+from ..common import snapshot_util
 
 
 from ..data_models import (
@@ -1593,6 +1593,46 @@ async def save_snapshot(request):
     except Exception:
         return web.Response(status=400)
 
+
+@routes.get("/v2/snapshot/diff")
+async def get_snapshot_diff(request):
+    try:
+        from_id = request.rel_url.query.get("from")
+        to_id = request.rel_url.query.get("to")
+
+        if (from_id is not None and '..' in from_id) or (to_id is not None and '..' in to_id):
+            logging.error("/v2/snapshot/diff: invalid 'from' or 'to' parameter.")
+            return web.Response(status=400)
+
+        if from_id is None:
+            from_json = await core.get_current_snapshot()
+        else:
+            from_path = os.path.join(context.manager_snapshot_path, f"{from_id}.json")
+            if not os.path.exists(from_path):
+                logging.error(f"/v2/snapshot/diff: 'from' parameter file not found: {from_path}")
+                return web.Response(status=400)
+
+            from_json = snapshot_util.read_snapshot(from_path)
+
+        if to_id is None:
+            logging.error("/v2/snapshot/diff: 'to' parameter is required.")
+            return web.Response(status=401)
+        else:
+            to_path = os.path.join(context.manager_snapshot_path, f"{to_id}.json")
+            if not os.path.exists(to_path):
+                logging.error(f"/v2/snapshot/diff: 'to' parameter file not found: {to_path}")
+                return web.Response(status=400)
+
+            to_json = snapshot_util.read_snapshot(to_path)
+
+        return web.json_response(snapshot_util.diff_snapshot(from_json, to_json), content_type='application/json')
+
+    except Exception as e:
+        logging.error(f"[ComfyUI-Manager] Error in /v2/snapshot/diff: {e}")
+        traceback.print_exc()
+        # Return a generic error response
+        return web.Response(status=400)
+        
 
 def unzip_install(files):
     temp_filename = "manager-temp.zip"
