@@ -1,15 +1,25 @@
-# ComfyUI Manager
+# ComfyUI Manager (V3.0)
+
+## Introducing the New ComfyUI Manager (V4.0)
+
+This branch is a temporary branch maintained for users of the older ComfyUI. It will be kept for a limited time and then replaced by the [manager-v4](https://github.com/Comfy-Org/ComfyUI-Manager/tree/manager-v4) branch. (This branch will be renamed to the `manager-v3` branch.)
+
+Previously, **ComfyUI Manager** functioned as a somewhat independent extension of ComfyUI, requiring users to install it via `git clone`. This branch will continue to exist for a while to ensure that using `git clone` with older versions of ComfyUI does not cause problems.
+
+The new **ComfyUI Manager** is now managed as an optional dependency of ComfyUI. This means that if you are using the new ComfyUI, you no longer need to visit this repository to use **ComfyUI Manager**.
+
+**Notes:**
+
+* **ComfyUI Manager** is now available as a package on PyPI: [https://pypi.org/project/comfyui-manager](https://pypi.org/project/comfyui-manager)
+* Even if the **ComfyUI Manager** dependency is installed, you must enable it by adding the `--enable-manager` option when running ComfyUI.
+* Once the new **ComfyUI Manager** is enabled, any copy of **comfyui-manager** installed under `ComfyUI/custom_nodes` will be disabled.
+* Please make all future contributions for feature improvements and bug fixes to the manager-v4 branch.
+* For now, custom node registration will continue in this branch as well, but it will eventually be fully replaced by registration through https://registry.comfy.org via `pyproject.toml` ([guide](https://docs.comfy.org/registry/overview)).
+---
 
 **ComfyUI-Manager** is an extension designed to enhance the usability of [ComfyUI](https://github.com/comfyanonymous/ComfyUI). It offers management functions to **install, remove, disable, and enable** various custom nodes of ComfyUI. Furthermore, this extension provides a hub feature and convenience functions to access a wide range of information within ComfyUI.
 
 ![menu](https://raw.githubusercontent.com/ltdrdata/ComfyUI-extension-tutorials/refs/heads/Main/ComfyUI-Manager/images/dialog.jpg)
-
-## NOTICE
-* V3.16: Support for `uv` has been added. Set `use_uv` in `config.ini`.
-* V3.10: `double-click feature` is removed
-  * This feature has been moved to https://github.com/ltdrdata/comfyui-connection-helper
-* V3.3.2: Overhauled. Officially supports [https://registry.comfy.org/](https://registry.comfy.org/).
-* You can see whole nodes info on [ComfyUI Nodes Info](https://ltdrdata.github.io/) page.
 
 ## Installation
 
