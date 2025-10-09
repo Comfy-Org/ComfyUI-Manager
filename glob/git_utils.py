@@ -46,6 +46,8 @@ def git_url(fullpath):
 
     for k, v in config.items():
         if k.startswith('remote ') and 'url' in v:
+            if 'Comfy-Org/ComfyUI-Manager' in v['url']:
+                return "https://github.com/ltdrdata/ComfyUI-Manager"
             return v['url']
 
     return None

@@ -43,7 +43,7 @@ import manager_downloader
 from node_package import InstalledNodePackage
 
 
-version_code = [3, 32, 5]
+version_code = [3, 37]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
@@ -400,18 +400,86 @@ class ManagedResult:
         return self
 
 
+class NormalizedKeyDict:
+    def __init__(self):
+        self._store = {}
+        self._key_map = {}
+
+    def _normalize_key(self, key):
+        if isinstance(key, str):
+            return key.strip().lower()
+        return key
+
+    def __setitem__(self, key, value):
+        norm_key = self._normalize_key(key)
+        self._key_map[norm_key] = key
+        self._store[key] = value
+
+    def __getitem__(self, key):
+        norm_key = self._normalize_key(key)
+        original_key = self._key_map[norm_key]
+        return self._store[original_key]
+
+    def __delitem__(self, key):
+        norm_key = self._normalize_key(key)
+        original_key = self._key_map.pop(norm_key)
+        del self._store[original_key]
+
+    def __contains__(self, key):
+        return self._normalize_key(key) in self._key_map
+
+    def get(self, key, default=None):
+        return self[key] if key in self else default
+
+    def setdefault(self, key, default=None):
+        if key in self:
+            return self[key]
+        self[key] = default
+        return default
+
+    def pop(self, key, default=None):
+        if key in self:
+            val = self[key]
+            del self[key]
+            return val
+        if default is not None:
+            return default
+        raise KeyError(key)
+
+    def keys(self):
+        return self._store.keys()
+
+    def values(self):
+        return self._store.values()
+
+    def items(self):
+        return self._store.items()
+
+    def __iter__(self):
+        return iter(self._store)
+
+    def __len__(self):
+        return len(self._store)
+
+    def __repr__(self):
+        return repr(self._store)
+
+    def to_dict(self):
+        return dict(self._store)
+
+
 class UnifiedManager:
     def __init__(self):
         self.installed_node_packages: dict[str, InstalledNodePackage] = {}
 
-        self.cnr_inactive_nodes = {}       # node_id -> node_version -> fullpath
-        self.nightly_inactive_nodes = {}   # node_id -> fullpath
-        self.unknown_inactive_nodes = {}   # node_id -> repo url * fullpath
-        self.active_nodes = {}             # node_id -> node_version * fullpath
-        self.unknown_active_nodes = {}     # node_id -> repo url * fullpath
-        self.cnr_map = {}                  # node_id -> cnr info
-        self.repo_cnr_map = {}             # repo_url -> cnr info
-        self.custom_node_map_cache = {}    # (channel, mode) -> augmented custom node list json
+        self.cnr_inactive_nodes = NormalizedKeyDict()       # node_id -> node_version -> fullpath
+        self.nightly_inactive_nodes = NormalizedKeyDict()   # node_id -> fullpath
+        self.unknown_inactive_nodes = {}                    # node_id -> repo url * fullpath
+        self.active_nodes = NormalizedKeyDict()             # node_id -> node_version * fullpath
+        self.unknown_active_nodes = {}                      # node_id -> repo url * fullpath
+        self.cnr_map = NormalizedKeyDict()                  # node_id -> cnr info
+        self.repo_cnr_map = {}                              # repo_url -> cnr info
+        self.custom_node_map_cache = {}                     # (channel, mode) -> augmented custom node list json
         self.processed_install = set()
 
     def get_module_name(self, x):
@@ -814,7 +882,7 @@ class UnifiedManager:
         channel = normalize_channel(channel)
         nodes = await self.load_nightly(channel, mode)
 
-        res = {}
+        res = NormalizedKeyDict()
         added_cnr = set()
         for v in nodes.values():
             v = v[0]
@@ -1416,6 +1484,7 @@ class UnifiedManager:
                 return ManagedResult('skip')
             elif self.is_disabled(node_id):
                 return self.unified_enable(node_id)
+
             else:
                 version_spec = self.resolve_unspecified_version(node_id)
 
@@ -1643,10 +1712,12 @@ def read_config():
         config = configparser.ConfigParser(strict=False)
         config.read(manager_config_path)
         default_conf = config['default']
-        manager_util.use_uv = default_conf['use_uv'].lower() == 'true' if 'use_uv' in default_conf else False
 
         def get_bool(key, default_value):
             return default_conf[key].lower() == 'true' if key in default_conf else False
+
+        manager_util.use_uv = default_conf['use_uv'].lower() == 'true' if 'use_uv' in default_conf else False
+        manager_util.bypass_ssl = get_bool('bypass_ssl', False)
 
         return {
                     'http_channel_enabled': get_bool('http_channel_enabled', False),
@@ -1670,16 +1741,20 @@ def read_config():
                }
 
     except Exception:
-        manager_util.use_uv = False
+        import importlib.util
+        # temporary disable `uv` on Windows by default (https://github.com/Comfy-Org/ComfyUI-Manager/issues/1969)
+        manager_util.use_uv = importlib.util.find_spec("uv") is not None and platform.system() != "Windows"
+        manager_util.bypass_ssl = False
+
         return {
             'http_channel_enabled': False,
             'preview_method': manager_funcs.get_current_preview_method(),
             'git_exe': '',
-            'use_uv': False,
+            'use_uv': manager_util.use_uv,
             'channel_url': DEFAULT_CHANNEL,
             'default_cache_as_channel_url': False,
             'share_option': 'all',
-            'bypass_ssl': False,
+            'bypass_ssl': manager_util.bypass_ssl,
             'file_logging': True,
             'component_policy': 'workflow',
             'update_policy': 'stable-comfyui',
@@ -2876,7 +2951,7 @@ async def get_unified_total_nodes(channel, mode, regsitry_cache_mode='cache'):
 
         if cnr_id is not None:
             # cnr or nightly version
-            cnr_ids.remove(cnr_id)
+            cnr_ids.discard(cnr_id)
             updatable = False
             cnr = unified_manager.cnr_map[cnr_id]
 
@@ -3039,6 +3114,11 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
         elif snapshot_path.endswith('.yaml'):
             info = yaml.load(snapshot_file, Loader=yaml.SafeLoader)
             info = info['custom_nodes']
+
+        if 'pips' in info and info['pips']:
+            pips = info['pips']
+        else:
+            pips = {}
 
         # for cnr restore
         cnr_info = info.get('cnr_custom_nodes')
@@ -3245,6 +3325,8 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
         to_path = os.path.join(get_default_custom_nodes_path(), repo_name)
         unified_manager.repo_install(repo_url, to_path, instant_execution=True, no_deps=False, return_postinstall=False)
         cloned_repos.append(repo_name)
+
+    manager_util.restore_pip_snapshot(pips, git_helper_extras)
 
     # print summary
     for x in cloned_repos:
