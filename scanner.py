@@ -13,7 +13,7 @@ builtin_nodes = set()
 import sys
 
 from urllib.parse import urlparse
-from github import Github
+from github import Github, Auth
 
 
 def download_url(url, dest_folder, filename=None):
@@ -53,7 +53,8 @@ skip_update = '--skip-update' in sys.argv or '--skip-all' in sys.argv
 skip_stat_update = '--skip-stat-update' in sys.argv or '--skip-all' in sys.argv
 
 if not skip_stat_update:
-    g = Github(os.environ.get('GITHUB_TOKEN'))
+    auth = Auth.Token(os.environ.get('GITHUB_TOKEN'))
+    g = Github(auth=auth)
 else:
     g = None
 

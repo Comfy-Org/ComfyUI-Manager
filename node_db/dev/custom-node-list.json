@@ -1,6 +1,136 @@
 {
     "custom_nodes": [
         {
+            "author": "Immac",
+            "title": "Immac's Tools",
+            "reference": "https://github.com/Immac/ComfyUI-ImmacTools",
+            "files": [
+                "https://github.com/Immac/ComfyUI-ImmacTools"
+            ],
+            "install_type": "git-clone",
+            "description": "NODES: Concatenate Sigmas Node, Splice Sigmas At %"
+        },
+        {
+            "author": "silveroxides",
+            "title": "WIP Conditioning Toolkit [UNSAFE]",
+            "reference": "https://github.com/silveroxides/ComfyUI_CondsUtils",
+            "files": [
+                "https://github.com/silveroxides/ComfyUI_CondsUtils"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom nodes for modifying, saving and loading of various conditionings.[w/This nodepack contains a node that has a vulnerability allowing write to arbitrary file paths.]"
+        },
+        {
+            "author": "ThuckMaBaws",
+            "title": "TMB Camera Modifier for ComfyUI [WIP]",
+            "reference": "https://github.com/ThuckMaBaws/TMB-Camera-Modifier",
+            "files": [
+                "https://github.com/ThuckMaBaws/TMB-Camera-Modifier"
+            ],
+            "install_type": "git-clone",
+            "description": "This custom node adds a powerful camera-based modifier system to ComfyUI, enabling rich, authentic prompt generation for image workflows. It’s designed for creators who want to simulate real-world camera setups, film types, and stylistic traits — all with flexible filtering and randomization.\nNOTE: The files in the repo are not organized."
+        },
+        {
+            "author": "pfpb",
+            "title": "comfyui-badnodes",
+            "reference": "https://github.com/pfpb/comfyui-badnodes",
+            "files": [
+                "https://github.com/pfpb/comfyui-badnodes"
+            ],
+            "install_type": "git-clone",
+            "description": "NODES: ReplaceEmptyMasksWithLastMasks, ..."
+        },
+        {
+            "author": "isurulkh",
+            "title": "ComfyUI-Lovis-Node [WIP]",
+            "reference": "https://github.com/isurulkh/ComfyUI-Lovis-Node",
+            "files": [
+                "https://github.com/isurulkh/ComfyUI-Lovis-Node"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom nodes for text and audio processing in ComfyUI.\nNOTE: The files in the repo are not organized."
+        },
+        {
+            "author": "doc",
+            "title": "doc-utils",
+            "reference": "https://github.com/doc-packages/comfyui-doc-utils",
+            "files": [
+                "https://github.com/doc-packages/comfyui-doc-utils"
+            ],
+            "install_type": "git-clone",
+            "description": "NODES: DOC_SaveImageAndAddToHistory, DOC_RandomPromptChoice"
+        },
+        {
+            "author": "Dehypnotic",
+            "title": "Save MP3 node for ComfyUI [UNSAFE]",
+            "reference": "https://github.com/Dehypnotic/comfyui-save-mp3",
+            "files": [
+                "https://github.com/Dehypnotic/comfyui-save-mp3"
+            ],
+            "install_type": "git-clone",
+            "description": "Simple, flexible MP3 saver with bitrate options and handy path/filename templates.[w/This nodepack contains a node that has a vulnerability allowing write to arbitrary file paths.]"
+        },
+        {
+            "author": "obisin",
+            "title": "FSampler for ComfyUI — Fast Skips via Epsilon Extrapolation [WIP]",
+            "reference": "https://github.com/obisin/ComfyUI-FSampler",
+            "files": [
+                "https://github.com/obisin/ComfyUI-FSampler"
+            ],
+            "install_type": "git-clone",
+            "description": "FSampler is a training‑free, sampler‑agnostic acceleration layer for diffusion sampling that reduces model calls by predicting each step’s epsilon (noise) from recent real calls and feeding it into the existing integrator. It provides fixed history modes (h2/h3/h4) and an aggressive adaptive mode that, per step, builds two predictions (e.g., h3 vs h2), compares their predicted next states to get a relative error, and skips the model call when that error is below a hardcoded tolerance. Predicted epsilons are validated and scaled by a universal learning stabilizer L, skips are bounded by guard rails, and the sampler math (Euler, RES 2M/2S, DDIM, DPM++ 2M/2S, LMS) is unchanged.\nNOTE: The files in the repo are not organized."
+        },
+        {
+            "author": "remhesneb",
+            "title": "comfyui-remote-media",
+            "reference": "https://github.com/remhesneb/comfyui-remote-media",
+            "files": [
+                "https://github.com/remhesneb/comfyui-remote-media"
+            ],
+            "install_type": "git-clone",
+            "description": "NODES: Load Image by URL, Load Video by URL"
+        },
+        {
+            "author": "takoyaki1118",
+            "title": "ComfyUI-Kakimoji-Layer",
+            "reference": "https://github.com/takoyaki1118/ComfyUI-Kakimoji-Layer",
+            "files": [
+                "https://github.com/takoyaki1118/ComfyUI-Kakimoji-Layer"
+            ],
+            "install_type": "git-clone",
+            "description": "NODES: Kakimoji Editor (Live Preview)"
+        },
+        {
+            "author": "ethanfel",
+            "title": "ComfyUI-Mamad8 [WIP]",
+            "reference": "https://github.com/ethanfel/ComfyUI-Mamad8-QwenEdit-fix",
+            "files": [
+                "https://github.com/ethanfel/ComfyUI-Mamad8-QwenEdit-fix"
+            ],
+            "install_type": "git-clone",
+            "description": "Router nodes for optimized batch processing\nNOTE: The files in the repo are not organized."
+        },
+        {
+            "author": "wTechArtist",
+            "title": "ComfyUI-VVL-Tools",
+            "reference": "https://github.com/wTechArtist/ComfyUI-VVL-Tools",
+            "files": [
+                "https://github.com/wTechArtist/ComfyUI-VVL-Tools"
+            ],
+            "install_type": "git-clone",
+            "description": "NODES: VVL For Loop Start (Async), VVL For Loop End (Async),  VVL List Chunk (Async), VVL Batch Anything Dynamic, VVL Tensor List Preview, VVL JSON Object Deduplicator, ..."
+        },
+        {
+            "author": "Goldlionren",
+            "title": "ComfyUI-CleanSlate [WIP]",
+            "reference": "https://github.com/Goldlionren/ComfyUI-CleanSlate",
+            "files": [
+                "https://github.com/Goldlionren/ComfyUI-CleanSlate"
+            ],
+            "install_type": "git-clone",
+            "description": "CleanSlate: Post-Sample Cleanup — put it between Sampler and VAE Decode to free memory aggressively.\nNOTE: The files in the repo are not organized."
+        },
+        {
             "author": "systemaiofinterest-wq",
             "title": "ComfyUI-GoogleFX",
             "reference": "https://github.com/systemaiofinterest-wq/ComfyUI-GoogleFX",
@@ -161,6 +291,16 @@
             "description": "This is the file-based version of comfyui-sequential-prompt. For detailed usage instructions, please refer to the following link: [a/https://note.com/alive_gibbon2712/n/n0eb671383b30](https://note.com/alive_gibbon2712/n/n0eb671383b30)[w/This extension has a vulnerability that allows arbitrary access to local files from remote.]"
         },
         {
+            "author": "YokoYokoTEC",
+            "title": "ComfyUI Batch Sequence Node [UNSAFE]",
+            "reference": "https://github.com/YokoYokoTEC/comfyui-batch-sequence",
+            "files": [
+                "https://github.com/YokoYokoTEC/comfyui-batch-sequence"
+            ],
+            "install_type": "git-clone",
+            "description": "This custom node is a toolkit designed to help you run batch processing (such as sequential image generation) more smoothly in ComfyUI.[w/This extension has a vulnerability that allows arbitrary access to local files from remote.]"
+        },
+        {
             "author": "kaski23",
             "title": "Kaskis_Comfy_Nodes",
             "reference": "https://github.com/kaski23/Kaskis_Comfy_Nodes",
@@ -219,16 +359,6 @@
             ],
             "install_type": "git-clone",
             "description": "ComfyUI nodes for WanAnimate model input preprocessing"
-        },
-        {
-            "author": "znuost10",
-            "title": "comfyui-multi-float-output",
-            "reference": "https://github.com/znuost10/comfyui-multi-float-output",
-            "files": [
-                "https://github.com/znuost10/comfyui-multi-float-output"
-            ],
-            "install_type": "git-clone",
-            "description": "System monitoring API endpoints for ComfyUI by otoy SKW"
         },
         {
             "author": "heyburns",
