@@ -1754,9 +1754,10 @@ async def default_cache_update():
         if core.get_config()['network_mode'] == 'private':
             logging.info("[ComfyUI-Manager] The private comfyregistry is not yet supported in `network_mode=private`.")
         else:
-            # load at least once
-            await core.unified_manager.reload('remote', dont_wait=False)
-            await core.unified_manager.get_custom_nodes(channel_url, 'remote')
+            # use configured db_mode for startup data loading
+            db_mode = core.get_config()['db_mode']
+            await core.unified_manager.reload(db_mode, dont_wait=False)
+            await core.unified_manager.get_custom_nodes(channel_url, db_mode)
 
     logging.info("[ComfyUI-Manager] All startup tasks have been completed.")
 
