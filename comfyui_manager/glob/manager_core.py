@@ -1003,7 +1003,6 @@ class UnifiedManager:
         """
 
         result = ManagedResult('enable')
-
         if 'comfyui-manager' in node_id.lower():
             return result.fail(f"ignored: enabling '{node_id}'")
 
