@@ -2045,10 +2045,7 @@ async def default_cache_update():
             )
             traceback.print_exc()
 
-    if (
-        core.get_config()["network_mode"] != "offline"
-        and not manager_util.is_manager_pip_package()
-    ):
+    if core.get_config()["network_mode"] != "offline":
         a = get_cache("custom-node-list.json")
         b = get_cache("extension-node-map.json")
         c = get_cache("model-list.json")
