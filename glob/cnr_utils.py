@@ -179,7 +179,7 @@ def install_node(node_id, version=None):
     else:
         url = f"{base_url}/nodes/{node_id}/install?version={version}"
 
-    response = requests.get(url)
+    response = requests.get(url, verify=not manager_util.bypass_ssl)
     if response.status_code == 200:
         # Convert the API response to a NodeVersion object
         return map_node_version(response.json())
@@ -190,7 +190,7 @@ def install_node(node_id, version=None):
 def all_versions_of_node(node_id):
     url = f"{base_url}/nodes/{node_id}/versions?statuses=NodeVersionStatusActive&statuses=NodeVersionStatusPending"
 
-    response = requests.get(url)
+    response = requests.get(url, verify=not manager_util.bypass_ssl)
     if response.status_code == 200:
         return response.json()
     else:

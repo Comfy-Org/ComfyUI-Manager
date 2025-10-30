@@ -589,7 +589,7 @@ async def task_worker():
                 return 'success'
 
         except Exception as e:
-            logging.error(f"[ComfyUI-Manager] ERROR: {e}", file=sys.stderr)
+            logging.error(f"[ComfyUI-Manager] ERROR: {e}")
 
         return f"Model installation error: {model_url}"
 
