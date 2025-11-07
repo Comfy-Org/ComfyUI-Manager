@@ -10,16 +10,6 @@ import hashlib
 
 import folder_paths
 from server import PromptServer
-import logging
-import sys
-
-
-try:
-    from nio import AsyncClient, LoginResponse, UploadResponse
-    matrix_nio_is_available = True
-except Exception:
-    logging.warning(f"[ComfyUI-Manager] The matrix sharing feature has been disabled because the `matrix-nio` dependency is not installed.\n\tTo use this feature, please run the following command:\n\t{sys.executable} -m pip install matrix-nio\n")
-    matrix_nio_is_available = False
 
 
 def extract_model_file_names(json_data):
@@ -202,14 +192,6 @@ async def get_esheep_workflow_and_images(request):
         return web.Response(status=200, text=json.dumps(data))
 
 
-@PromptServer.instance.routes.get("/v2/manager/get_matrix_dep_status")
-async def get_matrix_dep_status(request):
-    if matrix_nio_is_available:
-        return web.Response(status=200, text='available')
-    else:
-        return web.Response(status=200, text='unavailable')
-
-
 def set_matrix_auth(json_data):
     homeserver = json_data['homeserver']
     username = json_data['username']
@@ -349,12 +331,14 @@ async def share_art(request):
                 workflowId = upload_workflow_json["workflowId"]
 
     # check if the user has provided Matrix credentials
-    if matrix_nio_is_available and "matrix" in share_destinations:
+    if "matrix" in share_destinations:
         comfyui_share_room_id = '!LGYSoacpJPhIfBqVfb:matrix.org'
         filename = os.path.basename(asset_filepath)
         content_type = assetFileType
 
         try:
+            from nio import AsyncClient, LoginResponse, UploadResponse
+
             homeserver = 'matrix.org'
             if matrix_auth:
                 homeserver = matrix_auth.get('homeserver', 'matrix.org')

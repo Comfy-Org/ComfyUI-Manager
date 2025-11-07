@@ -17,25 +17,6 @@ def get_model_dir(data, show_log=False):
     if any(char in data["filename"] for char in {"/", "\\", ":"}):
         return None
 
-    def resolve_custom_node(save_path):
-        save_path = save_path[13:]  # remove 'custom_nodes/'
-
-        # NOTE: Validate to prevent path traversal.
-        if save_path.startswith(os.path.sep) or ":" in save_path:
-            return None
-
-        repo_name = save_path.replace("\\", "/").split("/")[
-            0
-        ]  # get custom node repo name
-
-        # NOTE: The creation of files within the custom node path should be removed in the future.
-        repo_path = core.lookup_installed_custom_nodes_legacy(repo_name)
-        if repo_path is not None and repo_path[0]:
-            # Returns the retargeted path based on the actually installed repository
-            return os.path.join(os.path.dirname(repo_path[1]), save_path)
-        else:
-            return None
-
     if data["save_path"] != "default":
         if ".." in data["save_path"] or data["save_path"].startswith("/"):
             if show_log:
@@ -45,13 +26,8 @@ def get_model_dir(data, show_log=False):
             base_model = os.path.join(models_base, "etc")
         else:
             if data["save_path"].startswith("custom_nodes"):
-                base_model = resolve_custom_node(data["save_path"])
-                if base_model is None:
-                    if show_log:
-                        logging.info(
-                            f"[ComfyUI-Manager] The target custom node for model download is not installed: {data['save_path']}"
-                        )
-                    return None
+                logging.warning("The feature to download models into the custom node path is no longer supported.")
+                return None
             else:
                 base_model = os.path.join(models_base, data["save_path"])
     else:

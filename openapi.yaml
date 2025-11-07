@@ -42,13 +42,13 @@ components:
           oneOf:
             - $ref: '#/components/schemas/InstallPackParams'
             - $ref: '#/components/schemas/UpdatePackParams'
-            - $ref: '#/components/schemas/UpdateAllPacksParams'
-            - $ref: '#/components/schemas/UpdateComfyUIParams'
             - $ref: '#/components/schemas/FixPackParams'
             - $ref: '#/components/schemas/UninstallPackParams'
             - $ref: '#/components/schemas/DisablePackParams'
             - $ref: '#/components/schemas/EnablePackParams'
             - $ref: '#/components/schemas/ModelMetadata'
+            - $ref: '#/components/schemas/UpdateComfyUIParams'
+            - $ref: '#/components/schemas/UpdateAllPacksParams'
       required: [ui_id, client_id, kind, params]
     TaskHistoryItem:
       type: object
@@ -206,7 +206,10 @@ components:
           description: The version of the pack that is installed (Git commit hash or semantic version)
         cnr_id:
           type: [string, 'null']
-          description: The name of the pack if installed from the registry
+          description: The name of the pack if installed from the registry (normalized lowercase)
+        original_name:
+          type: [string, 'null']
+          description: The original case-preserved name of the pack from the registry
         aux_id:
           type: [string, 'null']
           description: The name of the pack if installed from github (author/repo-name format)
@@ -238,6 +241,10 @@ components:
       type: string
       enum: [strong, normal, normal-, weak]
       description: Security level configuration (from most to least restrictive)
+    NetworkMode:
+      type: string
+      enum: [public, private, offline]
+      description: Network mode configuration
     RiskLevel:
       type: string
       enum: [block, high+, high, middle+, middle]
@@ -316,7 +323,7 @@ components:
             skip_post_install:
               type: boolean
               description: Whether to skip post-installation steps
-          required: [selected_version, mode, channel]
+          required: [selected_version]
     UpdateAllPacksParams:
       type: object
       properties:
@@ -711,8 +718,7 @@ components:
         security_level:
           $ref: '#/components/schemas/SecurityLevel'
         network_mode:
-          type: [string, 'null']
-          description: Network mode (online, offline, private)
+          $ref: '#/components/schemas/NetworkMode'
         cli_args:
           type: object
           additionalProperties: true

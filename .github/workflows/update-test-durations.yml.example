@@ -1,0 +1,56 @@
+# Example: GitHub Actions workflow to auto-update test durations
+# Rename to .github/workflows/update-test-durations.yml to enable
+
+name: Update Test Durations
+
+on:
+  schedule:
+    # Run weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  update-durations:
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pytest pytest-split
+
+      - name: Update test durations
+        run: |
+          chmod +x tests/update_test_durations.sh
+          ./tests/update_test_durations.sh
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet .test_durations; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update test duration data'
+          title: 'Update test duration data'
+          body: |
+            Automated update of `.test_durations` file for optimal parallel test distribution.
+
+            This ensures pytest-split can effectively balance test load across parallel environments.
+          branch: auto/update-test-durations
+          delete-branch: true

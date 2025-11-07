@@ -41,12 +41,11 @@ from ..common.enums import NetworkMode, SecurityLevel, DBMode
 from ..common import context
 
 
-version_code = [4, 0, 3]
+version_code = [5, 0]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
 DEFAULT_CHANNEL = "https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/main"
-DEFAULT_CHANNEL_LEGACY = "https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main"
 
 
 default_custom_nodes_path = None
@@ -161,7 +160,7 @@ comfy_ui_revision = "Unknown"
 comfy_ui_commit_datetime = datetime(1900, 1, 1, 0, 0, 0)
 
 channel_dict = None
-valid_channels = {'default', 'local', DEFAULT_CHANNEL, DEFAULT_CHANNEL_LEGACY}
+valid_channels = {'default', 'local'}
 channel_list = None
 
 
@@ -1391,7 +1390,6 @@ class UnifiedManager:
                 return ManagedResult('skip')
             elif self.is_disabled(node_id):
                 return self.unified_enable(node_id)
-
             else:
                 version_spec = self.resolve_unspecified_version(node_id)
 

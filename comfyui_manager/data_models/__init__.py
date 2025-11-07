@@ -70,6 +70,7 @@ from .generated_models import (
     InstallType,
     SecurityLevel,
     RiskLevel,
+    NetworkMode
 )
 
 __all__ = [
@@ -134,4 +135,5 @@ __all__ = [
     "InstallType",
     "SecurityLevel",
     "RiskLevel",
+    "NetworkMode",
 ]

@@ -34,6 +34,11 @@ variables = {}
 APIs = {}
 
 
+pip_overrides = {}
+pip_blacklist = {}
+pip_downgrade_blacklist = {}
+
+
 def register_api(k, f):
     global APIs
     APIs[k] = f

@@ -77,6 +77,14 @@ def normalize_to_github_id(url) -> str:
     return None
 
 
+def compact_url(url):
+    github_id = normalize_to_github_id(url)
+    if github_id is not None:
+        return github_id
+
+    return url
+
+
 def get_url_for_clone(url):
     url = normalize_url(url)
 

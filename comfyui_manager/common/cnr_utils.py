@@ -12,6 +12,10 @@ from . import manager_util
 import requests
 import toml
 import logging
+from . import git_utils
+from cachetools import TTLCache, cached
+
+query_ttl_cache = TTLCache(maxsize=100, ttl=60)
 
 base_url = "https://api.comfy.org"
 
@@ -19,6 +23,29 @@ base_url = "https://api.comfy.org"
 lock = asyncio.Lock()
 
 is_cache_loading = False
+
+
+def normalize_package_name(name: str) -> str:
+    """
+    Normalize package name for case-insensitive matching.
+
+    This follows the same normalization pattern used throughout CNR:
+    - Strip leading/trailing whitespace
+    - Convert to lowercase
+
+    Args:
+        name: Package name to normalize (e.g., "ComfyUI_SigmoidOffsetScheduler" or " NodeName ")
+
+    Returns:
+        Normalized package name (e.g., "comfyui_sigmoidoffsetscheduler")
+
+    Examples:
+        >>> normalize_package_name("ComfyUI_SigmoidOffsetScheduler")
+        "comfyui_sigmoidoffsetscheduler"
+        >>> normalize_package_name(" NodeName ")
+        "nodename"
+    """
+    return name.strip().lower()
 
 async def get_cnr_data(cache_mode=True, dont_wait=True):
     try:
@@ -37,7 +64,6 @@ async def _get_cnr_data(cache_mode=True, dont_wait=True):
         page = 1
 
         full_nodes = {}
-
         
         # Determine form factor based on environment and platform
         is_desktop = bool(os.environ.get('__COMFYUI_DESKTOP_VERSION__'))
@@ -138,7 +164,7 @@ def map_node_version(api_node_version):
     Maps node version data from API response to NodeVersion dataclass.
 
     Args:
-        api_data (dict): The 'node_version' part of the API response.
+        api_node_version (dict): The 'node_version' part of the API response.
 
     Returns:
         NodeVersion: An instance of NodeVersion dataclass populated with data from the API.
@@ -189,6 +215,80 @@ def install_node(node_id, version=None):
         return None
 
 
+@cached(query_ttl_cache)
+def get_nodepack(packname):
+    """
+    Retrieves the nodepack
+
+    Args:
+      packname (str): The unique identifier of the node.
+
+    Returns:
+      nodepack info {id, latest_version}
+    """
+    url = f"{base_url}/nodes/{packname}"
+
+    response = requests.get(url, verify=not manager_util.bypass_ssl)
+    if response.status_code == 200:
+        info = response.json()
+
+        res = {
+            'id': info['id']
+        }
+
+        if 'latest_version' in info:
+            res['latest_version'] = info['latest_version']['version']
+
+        if 'repository' in info:
+            res['repository'] = info['repository']
+
+        return res
+    else:
+        return None
+
+
+@cached(query_ttl_cache)
+def get_nodepack_by_url(url):
+    """
+    Retrieves the nodepack info for installation.
+
+    Args:
+      url (str): The unique identifier of the node.
+
+    Returns:
+      NodeVersion: Node version data or error message.
+    """
+
+    # example query: https://api.comfy.org/nodes/search?repository_url_search=ltdrdata/ComfyUI-Impact-Pack&limit=1
+    url = f"nodes/search?repository_url_search={url}&limit=1"
+
+    response = requests.get(url, verify=not manager_util.bypass_ssl)
+    if response.status_code == 200:
+        # Convert the API response to a NodeVersion object
+        info = response.json().get('nodes', [])
+        if len(info) > 0:
+            info = info[0]
+            repo_url = info['repository']
+
+            if git_utils.compact_url(url) != git_utils.compact_url(repo_url):
+                return None
+
+            res = {
+                'id': info['id']
+            }
+
+            if 'latest_version' in info:
+                res['latest_version'] = info['latest_version']['version']
+
+            res['repository'] = info['repository']
+
+            return res
+        else:
+            return None
+    else:
+        return None
+
+
 def all_versions_of_node(node_id):
     url = f"{base_url}/nodes/{node_id}/versions?statuses=NodeVersionStatusActive&statuses=NodeVersionStatusPending"
 
@@ -211,8 +311,7 @@ def read_cnr_info(fullpath):
             data = toml.load(f)
 
             project = data.get('project', {})
-            name = project.get('name').strip().lower()
-            original_name = project.get('name')
+            name = project.get('name').strip()
 
             # normalize version
             # for example: 2.5 -> 2.5.0
@@ -224,7 +323,6 @@ def read_cnr_info(fullpath):
             if name and version:  # repository is optional
                 return {
                     "id": name,
-                    "original_name": original_name,
                     "version": version,
                     "url": repository
                 }
@@ -254,4 +352,3 @@ def read_cnr_id(fullpath):
         pass
 
     return None
-

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "comfyui-manager"
 license = { text = "GPL-3.0-only" }
-version = "4.0.3b1"
+version = "5.0b1"
 requires-python = ">= 3.9"
 description = "ComfyUI-Manager provides features to install and manage custom nodes for ComfyUI, as well as various functionalities to assist with ComfyUI."
 readme = "README.md"
@@ -62,4 +62,9 @@ select = [
   "E9", # default
   "F",  # default
   "I",  # isort-like behavior (import statement sorting)
+]
+
+[tool.pytest.ini_options]
+markers = [
+  "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
 ]

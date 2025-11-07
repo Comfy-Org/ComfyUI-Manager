@@ -36,9 +36,9 @@ if not os.path.exists(os.path.join(comfy_path, 'folder_paths.py')):
 
 import utils.extra_config
 from ..common import cm_global
-from ..legacy import manager_core as core
+from ..glob import manager_core as core
 from ..common import context
-from ..legacy.manager_core import unified_manager
+from ..glob.manager_core import unified_manager
 from ..common import cnr_utils
 
 comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
@@ -129,8 +129,7 @@ class Ctx:
         if channel is not None:
             self.channel = channel
 
-        asyncio.run(unified_manager.reload(cache_mode=self.mode, dont_wait=False))
-        asyncio.run(unified_manager.load_nightly(self.channel, self.mode))
+        unified_manager.reload()
 
     def set_no_deps(self, no_deps):
         self.no_deps = no_deps
@@ -188,9 +187,14 @@ def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
     exit_on_fail = kwargs.get('exit_on_fail', False)
     print(f"install_node exit on fail:{exit_on_fail}...")
     
-    if core.is_valid_url(node_spec_str):
-        # install via urls
-        res = asyncio.run(core.gitclone_install(node_spec_str, no_deps=cmd_ctx.no_deps))
+    if unified_manager.is_url_like(node_spec_str):
+        # install via git URLs
+        repo_name = os.path.basename(node_spec_str)
+        if repo_name.endswith('.git'):
+            repo_name = repo_name[:-4]
+        res = asyncio.run(unified_manager.repo_install(
+            node_spec_str, repo_name, instant_execution=True, no_deps=cmd_ctx.no_deps
+        ))
         if not res.result:
             print(res.msg)
             print(f"[bold red]ERROR: An error occurred while installing '{node_spec_str}'.[/bold red]")
@@ -224,7 +228,7 @@ def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
             print(f"{cnt_msg} [INSTALLED] {node_name:50}[{res.target}]")
         elif res.action == 'switch-cnr' and res.result:
             print(f"{cnt_msg} [INSTALLED] {node_name:50}[{res.target}]")
-        elif (res.action == 'switch-cnr' or res.action == 'install-cnr') and not res.result and node_name in unified_manager.cnr_map:
+        elif (res.action == 'switch-cnr' or res.action == 'install-cnr') and not res.result and cnr_utils.get_nodepack(node_name):
             print(f"\nAvailable version of '{node_name}'")
             show_versions(node_name)
             print("")
@@ -315,10 +319,10 @@ def update_parallel(nodes):
     if 'all' in nodes:
         is_all = True
         nodes = []
-        for x in unified_manager.active_nodes.keys():
-            nodes.append(x)
-        for x in unified_manager.unknown_active_nodes.keys():
-            nodes.append(x+"@unknown")
+        for packages in unified_manager.installed_node_packages.values():
+            for pack in packages:
+                if pack.is_enabled:
+                    nodes.append(pack.id)
     else:
         nodes = [x for x in nodes if x.lower() not in ['comfy', 'comfyui']]
 
@@ -416,121 +420,60 @@ def disable_node(node_spec_str: str, is_all=False, cnt_msg=''):
 
 
 def show_list(kind, simple=False):
-    custom_nodes = asyncio.run(unified_manager.get_custom_nodes(channel=cmd_ctx.channel, mode=cmd_ctx.mode))
+    """
+    Show installed nodepacks only with on-demand metadata retrieval
+    Supported kinds: 'installed', 'enabled', 'disabled'
+    """
+    # Validate supported commands
+    if kind not in ['installed', 'enabled', 'disabled']:
+        print(f"[bold red]Unsupported: 'show {kind}'. Available options: installed/enabled/disabled[/bold red]")
+        print("Note: 'show all', 'show not-installed', and 'show cnr' are no longer supported.")
+        print("Use 'show installed' to see all installed packages.")
+        return
 
-    # collect not-installed unknown nodes
-    not_installed_unknown_nodes = []
-    repo_unknown = {}
+    # Get all installed packages from glob unified_manager
+    all_packages = []
+    for packages in unified_manager.installed_node_packages.values():
+        all_packages.extend(packages)
+    
+    # Filter by status
+    if kind == 'enabled':
+        packages = [pkg for pkg in all_packages if pkg.is_enabled]
+    elif kind == 'disabled':
+        packages = [pkg for pkg in all_packages if pkg.is_disabled]
+    else:  # 'installed'
+        packages = all_packages
 
-    for k, v in custom_nodes.items():
-        if 'cnr_latest' not in v:
-            if len(v['files']) == 1:
-                repo_url = v['files'][0]
-                node_name = repo_url.split('/')[-1]
-                if node_name not in unified_manager.unknown_inactive_nodes and node_name not in unified_manager.unknown_active_nodes:
-                    not_installed_unknown_nodes.append(v)
-                else:
-                    repo_unknown[node_name] = v
-
-    processed = {}
-    unknown_processed = []
-
-    flag = kind in ['all', 'cnr', 'installed', 'enabled']
-    for k, v in unified_manager.active_nodes.items():
-        if flag:
-            cnr = unified_manager.cnr_map.get(k)
-            if cnr:
-                processed[k] = "[    ENABLED    ] ", cnr['name'], k, cnr['publisher']['name'], v[0]
-            else:
-                processed[k] = None
-        else:
-            processed[k] = None
-
-    if flag and kind != 'cnr':
-        for k, v in unified_manager.unknown_active_nodes.items():
-            item = repo_unknown.get(k)
-
-            if item is None:
-                continue
-
-            log_item = "[    ENABLED    ] ", item['title'], k, item['author']
-            unknown_processed.append(log_item)
-
-    flag = kind in ['all', 'cnr', 'installed', 'disabled']
-    for k, v in unified_manager.cnr_inactive_nodes.items():
-        if k in processed:
-            continue
-
-        if flag:
-            cnr = unified_manager.cnr_map.get(k)  # NOTE: can this be None if removed from CNR after installed
-            if cnr:
-                processed[k] = "[    DISABLED   ] ", cnr['name'], k, cnr['publisher']['name'], ", ".join(list(v.keys()))
-            else:
-                processed[k] = None
-        else:
-            processed[k] = None
-
-    for k, v in unified_manager.nightly_inactive_nodes.items():
-        if k in processed:
-            continue
-
-        if flag:
-            cnr = unified_manager.cnr_map.get(k)
-            if cnr:
-                processed[k] = "[    DISABLED   ] ", cnr['name'], k, cnr['publisher']['name'], 'nightly'
-            else:
-                processed[k] = None
-        else:
-            processed[k] = None
-
-    if flag and kind != 'cnr':
-        for k, v in unified_manager.unknown_inactive_nodes.items():
-            item = repo_unknown.get(k)
-
-            if item is None:
-                continue
-
-            log_item = "[    DISABLED   ] ", item['title'], k, item['author']
-            unknown_processed.append(log_item)
-
-    flag = kind in ['all', 'cnr', 'not-installed']
-    for k, v in unified_manager.cnr_map.items():
-        if k in processed:
-            continue
-
-        if flag:
-            cnr = unified_manager.cnr_map.get(k)
-            if cnr:
-                ver_spec = v['latest_version']['version'] if 'latest_version' in v else '0.0.0'
-                processed[k] = "[ NOT INSTALLED ] ", cnr['name'], k, cnr['publisher']['name'], ver_spec
-            else:
-                processed[k] = None
-        else:
-            processed[k] = None
-
-    if flag and kind != 'cnr':
-        for x in not_installed_unknown_nodes:
-            if len(x['files']) == 1:
-                node_id = os.path.basename(x['files'][0])
-                log_item = "[ NOT INSTALLED ] ", x['title'], node_id, x['author']
-                unknown_processed.append(log_item)
-
-    for x in processed.values():
-        if x is None:
-            continue
-
-        prefix, title, short_id, author, ver_spec = x
+    # Display packages
+    for package in sorted(packages, key=lambda x: x.id):
+        # Basic info from InstalledNodePackage
+        status = "[  ENABLED   ]" if package.is_enabled else "[ DISABLED   ]"
+        
+        # Enhanced info with on-demand CNR retrieval
+        display_name = package.id
+        author = "Unknown"
+        version = package.version
+        
+        # Try to get additional info from CNR for better display
+        if package.is_from_cnr:
+            try:
+                cnr_info = cnr_utils.get_nodepack(package.id)
+                if cnr_info:
+                    display_name = cnr_info.get('name', package.id)
+                    if 'publisher' in cnr_info and 'name' in cnr_info['publisher']:
+                        author = cnr_info['publisher']['name']
+            except Exception:
+                # Fallback to basic info if CNR lookup fails
+                pass
+        elif package.is_nightly:
+            version = "nightly"
+        elif package.is_unknown:
+            version = "unknown"
+        
         if simple:
-            print(title+'@'+ver_spec)
+            print(f"{display_name}@{version}")
         else:
-            print(f"{prefix} {title:50} {short_id:30} (author: {author:20}) \\[{ver_spec}]")
-
-    for x in unknown_processed:
-        prefix, title, short_id, author = x
-        if simple:
-            print(title+'@unknown')
-        else:
-            print(f"{prefix} {title:50} {short_id:30} (author: {author:20}) [UNKNOWN]")
+            print(f"{status} {display_name:50} {package.id:30} (author: {author:20}) [{version}]")
 
 
 async def show_snapshot(simple_mode=False):
@@ -571,37 +514,14 @@ async def auto_save_snapshot():
 
 
 def get_all_installed_node_specs():
+    """
+    Get all installed node specifications using glob InstalledNodePackage data structure
+    """
     res = []
-    processed = set()
-    for k, v in unified_manager.active_nodes.items():
-        node_spec_str = f"{k}@{v[0]}"
-        res.append(node_spec_str)
-        processed.add(k)
-
-    for k in unified_manager.cnr_inactive_nodes.keys():
-        if k in processed:
-            continue
-
-        latest = unified_manager.get_from_cnr_inactive_nodes(k)
-        if latest is not None:
-            node_spec_str = f"{k}@{str(latest[0])}"
+    for packages in unified_manager.installed_node_packages.values():
+        for pack in packages:
+            node_spec_str = f"{pack.id}@{pack.version}"
             res.append(node_spec_str)
-
-    for k in unified_manager.nightly_inactive_nodes.keys():
-        if k in processed:
-            continue
-
-        node_spec_str = f"{k}@nightly"
-        res.append(node_spec_str)
-
-    for k in unified_manager.unknown_active_nodes.keys():
-        node_spec_str = f"{k}@unknown"
-        res.append(node_spec_str)
-
-    for k in unified_manager.unknown_inactive_nodes.keys():
-        node_spec_str = f"{k}@unknown"
-        res.append(node_spec_str)
-
     return res
 
 
@@ -1277,19 +1197,21 @@ def export_custom_node_ids(
     cmd_ctx.set_channel_mode(channel, mode)
 
     with open(path, "w", encoding='utf-8') as output_file:
-        for x in unified_manager.cnr_map.keys():
-            print(x, file=output_file)
+        # Export CNR package IDs using cnr_utils
+        try:
+            all_cnr = cnr_utils.get_all_nodepackages()
+            for package_id in all_cnr.keys():
+                print(package_id, file=output_file)
+        except Exception:
+            # If CNR lookup fails, continue with installed packages
+            pass
 
-        custom_nodes = asyncio.run(unified_manager.get_custom_nodes(channel=cmd_ctx.channel, mode=cmd_ctx.mode))
-        for x in custom_nodes.values():
-            if 'cnr_latest' not in x:
-                if len(x['files']) == 1:
-                    repo_url = x['files'][0]
-                    node_id = repo_url.split('/')[-1]
-                    print(f"{node_id}@unknown", file=output_file)
-
-                if 'id' in x:
-                    print(f"{x['id']}@unknown", file=output_file)
+        # Export installed packages that are not from CNR
+        for packages in unified_manager.installed_node_packages.values():
+            for pack in packages:
+                if pack.is_unknown or pack.is_nightly:
+                    version_suffix = "@unknown" if pack.is_unknown else "@nightly" 
+                    print(f"{pack.id}{version_suffix}", file=output_file)
 
 
 def main():

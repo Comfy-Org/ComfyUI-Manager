@@ -12,7 +12,6 @@ import json
 import logging
 import os
 import platform
-import re
 import shutil
 import subprocess  # don't remove this
 import sys
@@ -26,7 +25,6 @@ from typing import Any, Optional
 
 import folder_paths
 import latent_preview
-import nodes
 from aiohttp import web
 from comfy.cli_args import args
 from pydantic import ValidationError
@@ -35,7 +33,6 @@ from comfyui_manager.glob.utils import (
     formatting_utils,
     model_utils,
     security_utils,
-    node_pack_utils,
     environment_utils,
 )
 
@@ -47,6 +44,7 @@ from ..common import manager_util
 from ..common import cm_global
 from ..common import manager_downloader
 from ..common import context
+from ..common import cnr_utils
 
 
 
@@ -61,7 +59,6 @@ from ..data_models import (
     ManagerMessageName,
     BatchExecutionRecord,
     ComfyUISystemState,
-    ImportFailInfoBulkRequest,
     BatchOperation,
     InstalledNodeInfo,
     ComfyUIVersionInfo,
@@ -216,7 +213,7 @@ class TaskQueue:
             history=self.get_history(),
             running_queue=self.get_current_queue()[0],
             pending_queue=self.get_current_queue()[1],
-            installed_packs=core.get_installed_node_packs(),
+            installed_packs=core.get_installed_nodepacks(),
         )
 
     @staticmethod
@@ -365,11 +362,7 @@ class TaskQueue:
                     item.kind,
                 )
                 # Force unified_manager to refresh its installed packages cache
-                await core.unified_manager.reload(
-                    ManagerDatabaseSource.cache.value,
-                    dont_wait=True,
-                    update_cnr_map=False,
-                )
+                core.unified_manager.reload()
             except Exception as e:
                 logging.warning(
                     f"[ComfyUI-Manager] Failed to refresh cache after {item.kind}: {e}"
@@ -619,7 +612,7 @@ class TaskQueue:
         installed_nodes = {}
 
         try:
-            node_packs = core.get_installed_node_packs()
+            node_packs = core.get_installed_nodepacks()
             for pack_name, pack_info in node_packs.items():
                 # Determine install method and repository URL
                 install_method = "git" if pack_info.get("aux_id") else "cnr"
@@ -678,12 +671,12 @@ class TaskQueue:
             level_str = config.get("security_level", "normal")
             # Map the string to SecurityLevel enum
             level_mapping = {
-                "strong": SecurityLevel.strong,
-                "normal": SecurityLevel.normal,
-                "normal-": SecurityLevel.normal_,
-                "weak": SecurityLevel.weak,
+                "strong": SecurityLevel.STRONG,
+                "normal": SecurityLevel.NORMAL,
+                "normal-": SecurityLevel.NORMAL_,
+                "weak": SecurityLevel.WEAK,
             }
-            return level_mapping.get(level_str, SecurityLevel.normal)
+            return level_mapping.get(level_str, SecurityLevel.NORMAL)
         except Exception:
             return None
 
@@ -703,8 +696,6 @@ class TaskQueue:
                 cli_args["listen"] = args.listen
             if hasattr(args, "port"):
                 cli_args["port"] = args.port
-            if hasattr(args, "preview_method"):
-                cli_args["preview_method"] = str(args.preview_method)
             if hasattr(args, "enable_manager_legacy_ui"):
                 cli_args["enable_manager_legacy_ui"] = args.enable_manager_legacy_ui
             if hasattr(args, "front_end_version"):
@@ -718,7 +709,7 @@ class TaskQueue:
     def _get_custom_nodes_count(self) -> int:
         """Get total number of custom node packages."""
         try:
-            node_packs = core.get_installed_node_packs()
+            node_packs = core.get_installed_nodepacks()
             return len(node_packs)
         except Exception:
             return 0
@@ -818,24 +809,18 @@ class TaskQueue:
 
 task_queue = TaskQueue()
 
-# Preview method initialization
-if args.preview_method == latent_preview.LatentPreviewMethod.NoPreviews:
-    environment_utils.set_preview_method(core.get_config()["preview_method"])
-else:
-    logging.warning(
-        "[ComfyUI-Manager] Since --preview-method is set, ComfyUI-Manager's preview method feature will be ignored."
-    )
-
 
 async def task_worker():
     logging.debug("[ComfyUI-Manager] Task worker started")
-    await core.unified_manager.reload(ManagerDatabaseSource.cache.value)
+    core.unified_manager.reload()
 
     async def do_install(params: InstallPackParams) -> str:
         if not security_utils.is_allowed_security_level('middle+'):
             logging.error(SECURITY_MESSAGE_MIDDLE_P)
             return OperationResult.failed.value
 
+        # Note: For install, we use the original case as resolve_node_spec handles lookup
+        # Normalization is applied for uninstall, enable, disable operations
         node_id = params.id
         node_version = params.selected_version
         channel = params.channel
@@ -891,7 +876,75 @@ async def task_worker():
     async def do_enable(params: EnablePackParams) -> str:
         cnr_id = params.cnr_id
         logging.debug("[ComfyUI-Manager] Enabling node: cnr_id=%s", cnr_id)
-        core.unified_manager.unified_enable(cnr_id)
+
+        # Parse node spec if it contains version/hash (e.g., "NodeName@hash")
+        node_name = cnr_id
+        version_spec = None
+        git_hash = None
+
+        if '@' in cnr_id:
+            node_spec = core.unified_manager.resolve_node_spec(cnr_id)
+            if node_spec is not None:
+                parsed_node_name, parsed_version_spec, is_specified = node_spec
+                logging.debug(
+                    "[ComfyUI-Manager] Parsed node spec: name=%s, version=%s",
+                    parsed_node_name,
+                    parsed_version_spec
+                )
+                node_name = parsed_node_name
+                version_spec = parsed_version_spec
+                # If version_spec looks like a git hash (40 hex chars), save it for checkout
+                if parsed_version_spec and len(parsed_version_spec) == 40 and all(c in '0123456789abcdef' for c in parsed_version_spec.lower()):
+                    git_hash = parsed_version_spec
+                    logging.debug("[ComfyUI-Manager] Detected git hash for checkout: %s", git_hash)
+            else:
+                # If parsing fails, try splitting manually
+                parts = cnr_id.split('@')
+                node_name = parts[0]
+                if len(parts) > 1:
+                    version_spec = parts[1]
+                    if len(parts[1]) == 40:
+                        git_hash = parts[1]
+                logging.debug(
+                    "[ComfyUI-Manager] Manual split result: name=%s, version=%s, hash=%s",
+                    node_name,
+                    version_spec,
+                    git_hash
+                )
+
+        # Normalize node_name for case-insensitive matching
+        node_name = cnr_utils.normalize_package_name(node_name)
+
+        # Enable the nodepack with version_spec
+        res = core.unified_manager.unified_enable(node_name, version_spec)
+
+        if not res or not res.result:
+            return f"Failed to enable: '{cnr_id}'"
+
+        # If git hash is specified and enable succeeded, checkout the specific commit
+        if git_hash and res.target_path:
+            try:
+                from . import manager_core
+                checkout_success = manager_core.checkout_git_commit(res.target_path, git_hash)
+                if checkout_success:
+                    logging.info(
+                        "[ComfyUI-Manager] Successfully checked out commit %s for %s",
+                        git_hash[:8],
+                        node_name
+                    )
+                else:
+                    logging.warning(
+                        "[ComfyUI-Manager] Enable succeeded but failed to checkout commit %s for %s",
+                        git_hash[:8],
+                        node_name
+                    )
+            except Exception as e:
+                logging.error(
+                    "[ComfyUI-Manager] Enable succeeded but error during git checkout: %s",
+                    e
+                )
+                traceback.print_exc()
+
         return OperationResult.success.value
 
     async def do_update(params: UpdatePackParams) -> dict[str, str]:
@@ -905,15 +958,38 @@ async def task_worker():
         try:
             res = core.unified_manager.unified_update(node_name, node_ver)
 
-            if res.ver == "unknown":
-                url = core.unified_manager.unknown_active_nodes[node_name][0]
+            # Get active package using modern unified manager
+            active_pack = core.unified_manager.get_active_pack(node_name)
+            
+            if active_pack is None:
+                # Fallback if package not found
+                url = None
+                title = node_name
+            elif res.ver == "unknown":
+                # For unknown packages, use repo_url if available
+                url = active_pack.repo_url
                 try:
-                    title = os.path.basename(url)
+                    title = os.path.basename(url) if url else node_name
                 except Exception:
                     title = node_name
             else:
-                url = core.unified_manager.cnr_map[node_name].get("repository")
-                title = core.unified_manager.cnr_map[node_name]["name"]
+                # For CNR packages, get info from CNR registry
+                try:
+                    from ..common import cnr_utils
+                    compact_url = core.git_utils.compact_url(active_pack.repo_url) if active_pack.repo_url else None
+                    cnr_info = cnr_utils.get_nodepack_by_url(compact_url) if compact_url else None
+                    
+                    if cnr_info:
+                        url = cnr_info.get("repository")
+                        title = cnr_info.get("name", node_name)
+                    else:
+                        # Fallback for CNR packages without registry info
+                        url = active_pack.repo_url
+                        title = node_name
+                except Exception:
+                    # Fallback if CNR lookup fails
+                    url = active_pack.repo_url
+                    title = node_name
 
             manager_util.clear_pip_cache()
 
@@ -1012,17 +1088,13 @@ async def task_worker():
             logging.error(SECURITY_MESSAGE_MIDDLE)
             return OperationResult.failed.value
 
-        node_name = params.node_name
-        is_unknown = params.is_unknown
+        # Normalize node_name for case-insensitive matching
+        node_name = cnr_utils.normalize_package_name(params.node_name)
 
-        logging.debug(
-            "[ComfyUI-Manager] Uninstalling node: name=%s, is_unknown=%s",
-            node_name,
-            is_unknown,
-        )
+        logging.debug("[ComfyUI-Manager] Uninstalling node: name=%s", node_name)
 
         try:
-            res = core.unified_manager.unified_uninstall(node_name, is_unknown)
+            res = core.unified_manager.unified_uninstall(node_name)
 
             if res.result:
                 return OperationResult.success.value
@@ -1038,14 +1110,33 @@ async def task_worker():
     async def do_disable(params: DisablePackParams) -> str:
         node_name = params.node_name
 
-        logging.debug(
-            "[ComfyUI-Manager] Disabling node: name=%s, is_unknown=%s",
-            node_name,
-            params.is_unknown,
-        )
+        logging.debug("[ComfyUI-Manager] Disabling node: name=%s", node_name)
 
         try:
-            res = core.unified_manager.unified_disable(node_name, params.is_unknown)
+            # Parse node spec if it contains version/hash (e.g., "NodeName@hash")
+            # Extract just the node name for disable operation
+            if '@' in node_name:
+                node_spec = core.unified_manager.resolve_node_spec(node_name)
+                if node_spec is not None:
+                    parsed_node_name, version_spec, is_specified = node_spec
+                    logging.debug(
+                        "[ComfyUI-Manager] Parsed node spec: name=%s, version=%s",
+                        parsed_node_name,
+                        version_spec
+                    )
+                    node_name = parsed_node_name
+                else:
+                    # If parsing fails, try splitting manually
+                    node_name = node_name.split('@')[0]
+                    logging.debug(
+                        "[ComfyUI-Manager] Manual split result: name=%s",
+                        node_name
+                    )
+
+            # Normalize node_name for case-insensitive matching
+            node_name = cnr_utils.normalize_package_name(node_name)
+
+            res = core.unified_manager.unified_disable(node_name)
 
             if res:
                 return OperationResult.success.value
@@ -1154,6 +1245,9 @@ async def task_worker():
 
         item, task_index = task
         kind = item.kind
+
+        # Reload installed packages before each task to ensure we have the latest state
+        core.unified_manager.reload()
 
         logging.debug(
             "[ComfyUI-Manager] Processing task: kind=%s, ui_id=%s, client_id=%s, task_index=%d",
@@ -1357,48 +1451,21 @@ async def get_history(request):
             }
             history = filtered_history
 
-        return web.json_response({"history": history}, content_type="application/json")
+        # Convert TaskHistoryItem models to JSON-serializable dicts
+        if isinstance(history, dict):
+            history_json = {
+                task_id: task_data.model_dump(mode="json") if hasattr(task_data, "model_dump") else task_data
+                for task_id, task_data in history.items()
+            }
+        else:
+            history_json = history.model_dump(mode="json") if hasattr(history, "model_dump") else history
+
+        return web.json_response({"history": history_json}, content_type="application/json")
 
     except Exception as e:
         logging.error(f"[ComfyUI-Manager] /v2/manager/queue/history - {e}")
 
     return web.Response(status=400)
-
-
-@routes.get("/v2/customnode/getmappings")
-async def fetch_customnode_mappings(request):
-    """
-    provide unified (node -> node pack) mapping list
-    """
-    mode = request.rel_url.query["mode"]
-
-    nickname_mode = False
-    if mode == "nickname":
-        mode = "local"
-        nickname_mode = True
-
-    json_obj = await core.get_data_by_mode(mode, "extension-node-map.json")
-    json_obj = core.map_to_unified_keys(json_obj)
-
-    if nickname_mode:
-        json_obj = node_pack_utils.nickname_filter(json_obj)
-
-    all_nodes = set()
-    patterns = []
-    for k, x in json_obj.items():
-        all_nodes.update(set(x[0]))
-
-        if "nodename_pattern" in x[1]:
-            patterns.append((x[1]["nodename_pattern"], x[0]))
-
-    missing_nodes = set(nodes.NODE_CLASS_MAPPINGS.keys()) - all_nodes
-
-    for x in missing_nodes:
-        for pat, item in patterns:
-            if re.match(pat, x):
-                item.append(x)
-
-    return web.json_response(json_obj, content_type="application/json")
 
 
 @routes.get("/v2/customnode/fetch_updates")
@@ -1448,44 +1515,22 @@ async def _update_all(params: UpdateAllQueryParams) -> web.Response:
         mode,
     )
 
-    if mode == ManagerDatabaseSource.local.value:
-        channel = "local"
-    else:
-        channel = core.get_config()["channel_url"]
-
-    await core.unified_manager.reload(mode)
-    await core.unified_manager.get_custom_nodes(channel, mode)
-
     update_count = 0
-    for k, v in core.unified_manager.active_nodes.items():
-        if k == "comfyui-manager":
-            # skip updating comfyui-manager if desktop version
-            if os.environ.get("__COMFYUI_DESKTOP_VERSION__"):
-                continue
-
-        update_task = QueueTaskItem(
-            kind=OperationType.update.value,
-            ui_id=f"{base_ui_id}_{k}",  # Use client's base ui_id + node name
-            client_id=client_id,
-            params=UpdatePackParams(node_name=k, node_ver=v[0]),
-        )
-        task_queue.put(update_task)
-        update_count += 1
-
-    for k, v in core.unified_manager.unknown_active_nodes.items():
-        if k == "comfyui-manager":
-            # skip updating comfyui-manager if desktop version
-            if os.environ.get("__COMFYUI_DESKTOP_VERSION__"):
-                continue
-
-        update_task = QueueTaskItem(
-            kind=OperationType.update.value,
-            ui_id=f"{base_ui_id}_{k}",  # Use client's base ui_id + node name
-            client_id=client_id,
-            params=UpdatePackParams(node_name=k, node_ver="unknown"),
-        )
-        task_queue.put(update_task)
-        update_count += 1
+    # Iterate through all installed packages using modern unified manager
+    for packname, package_list in core.unified_manager.installed_node_packages.items():
+        # Find enabled packages for this packname
+        for package in package_list:
+            if package.is_enabled:
+                update_task = QueueTaskItem(
+                    kind=OperationType.update.value,
+                    ui_id=f"{base_ui_id}_{packname}",  # Use client's base ui_id + node name
+                    client_id=client_id,
+                    params=UpdatePackParams(node_name=packname, node_ver=package.version),
+                )
+                task_queue.put(update_task)
+                update_count += 1
+                # Only create one update task per packname (first enabled package)
+                break
 
     logging.debug(
         "[ComfyUI-Manager] Update all queued %d tasks for client_id=%s",
@@ -1505,7 +1550,7 @@ async def is_legacy_manager_ui(request):
 
 
 # freeze imported version
-startup_time_installed_node_packs = core.get_installed_node_packs()
+startup_time_installed_node_packs = core.get_installed_nodepacks()
 
 
 @routes.get("/v2/customnode/installed")
@@ -1515,7 +1560,7 @@ async def installed_list(request):
     if mode == "imported":
         res = startup_time_installed_node_packs
     else:
-        res = core.get_installed_node_packs()
+        res = core.get_installed_nodepacks()
 
     return web.json_response(res, content_type="application/json")
 
@@ -1661,58 +1706,53 @@ async def import_fail_info(request):
 async def import_fail_info_bulk(request):
     try:
         json_data = await request.json()
-        
-        # Validate input using Pydantic model
-        request_data = ImportFailInfoBulkRequest.model_validate(json_data)
-        
-        # Ensure we have either cnr_ids or urls
-        if not request_data.cnr_ids and not request_data.urls:
+
+        # Basic validation - ensure we have either cnr_ids or urls
+        if not isinstance(json_data, dict):
+            return web.Response(status=400, text="Request body must be a JSON object")
+
+        if "cnr_ids" not in json_data and "urls" not in json_data:
             return web.Response(
                 status=400, text="Either 'cnr_ids' or 'urls' field is required"
             )
 
-        await core.unified_manager.reload('cache')
-        await core.unified_manager.get_custom_nodes('default', 'cache')
-
         results = {}
 
-        if request_data.cnr_ids:
-            for cnr_id in request_data.cnr_ids:
+        if "cnr_ids" in json_data:
+            if not isinstance(json_data["cnr_ids"], list):
+                return web.Response(status=400, text="'cnr_ids' must be an array")
+            for cnr_id in json_data["cnr_ids"]:
+                if not isinstance(cnr_id, str):
+                    results[cnr_id] = {"error": "cnr_id must be a string"}
+                    continue
                 module_name = core.unified_manager.get_module_name(cnr_id)
                 if module_name is not None:
                     info = cm_global.error_dict.get(module_name)
                     if info is not None:
-                        # Convert error_dict format to API spec format
-                        results[cnr_id] = {
-                            'error': info.get('msg', ''),
-                            'traceback': info.get('traceback', '')
-                        }
+                        results[cnr_id] = info
                     else:
                         results[cnr_id] = None
                 else:
                     results[cnr_id] = None
 
-        if request_data.urls:
-            for url in request_data.urls:
+        if "urls" in json_data:
+            if not isinstance(json_data["urls"], list):
+                return web.Response(status=400, text="'urls' must be an array")
+            for url in json_data["urls"]:
+                if not isinstance(url, str):
+                    results[url] = {"error": "url must be a string"}
+                    continue
                 module_name = core.unified_manager.get_module_name(url)
                 if module_name is not None:
                     info = cm_global.error_dict.get(module_name)
                     if info is not None:
-                        # Convert error_dict format to API spec format
-                        results[url] = {
-                            'error': info.get('msg', ''),
-                            'traceback': info.get('traceback', '')
-                        }
+                        results[url] = info
                     else:
                         results[url] = None
                 else:
                     results[url] = None
 
-        # Return results directly as JSON
-        return web.json_response(results, content_type="application/json")
-    except ValidationError as e:
-        logging.error(f"[ComfyUI-Manager] Invalid request data: {e}")
-        return web.Response(status=400, text=f"Invalid request data: {e}")
+        return web.json_response(results)
     except Exception as e:
         logging.error(f"[ComfyUI-Manager] Error processing bulk import fail info: {e}")
         return web.Response(status=500, text="Internal server error")
@@ -1993,88 +2033,6 @@ def restart(self):
 async def get_version(request):
     return web.Response(text=core.version_str, status=200)
 
-
-async def _confirm_try_install(sender, custom_node_url, msg):
-    json_obj = await core.get_data_by_mode("default", "custom-node-list.json")
-
-    sender = manager_util.sanitize_tag(sender)
-    msg = manager_util.sanitize_tag(msg)
-    target = core.lookup_customnode_by_url(json_obj, custom_node_url)
-
-    if target is not None:
-        PromptServer.instance.send_sync(
-            "cm-api-try-install-customnode",
-            {"sender": sender, "target": target, "msg": msg},
-        )
-    else:
-        logging.error(
-            f"[ComfyUI Manager API] Failed to try install - Unknown custom node url '{custom_node_url}'"
-        )
-
-
-def confirm_try_install(sender, custom_node_url, msg):
-    asyncio.run(_confirm_try_install(sender, custom_node_url, msg))
-
-
-cm_global.register_api("cm.try-install-custom-node", confirm_try_install)
-
-
-async def default_cache_update():
-    core.refresh_channel_dict()
-    channel_url = core.get_config()["channel_url"]
-
-    async def get_cache(filename):
-        try:
-            if core.get_config()["default_cache_as_channel_url"]:
-                uri = f"{channel_url}/{filename}"
-            else:
-                uri = f"{core.DEFAULT_CHANNEL}/{filename}"
-
-            cache_uri = str(manager_util.simple_hash(uri)) + "_" + filename
-            cache_uri = os.path.join(manager_util.cache_dir, cache_uri)
-
-            json_obj = await manager_util.get_data(uri, True)
-
-            with manager_util.cache_lock:
-                with open(cache_uri, "w", encoding="utf-8") as file:
-                    json.dump(json_obj, file, indent=4, sort_keys=True)
-                    logging.debug(f"[ComfyUI-Manager] default cache updated: {uri}")
-        except Exception as e:
-            logging.error(
-                f"[ComfyUI-Manager] Failed to perform initial fetching '{filename}': {e}"
-            )
-            traceback.print_exc()
-
-    if core.get_config()["network_mode"] != "offline":
-        a = get_cache("custom-node-list.json")
-        b = get_cache("extension-node-map.json")
-        c = get_cache("model-list.json")
-        d = get_cache("alter-list.json")
-        e = get_cache("github-stats.json")
-
-        await asyncio.gather(a, b, c, d, e)
-
-        if core.get_config()["network_mode"] == "private":
-            logging.info(
-                "[ComfyUI-Manager] The private comfyregistry is not yet supported in `network_mode=private`."
-            )
-        else:
-            # load at least once
-            await core.unified_manager.reload(
-                ManagerDatabaseSource.remote.value, dont_wait=False
-            )
-            await core.unified_manager.get_custom_nodes(
-                channel_url, ManagerDatabaseSource.remote.value
-            )
-    else:
-        await core.unified_manager.reload(
-            ManagerDatabaseSource.remote.value, dont_wait=False, update_cnr_map=False
-        )
-
-    logging.info("[ComfyUI-Manager] All startup tasks have been completed.")
-
-
-threading.Thread(target=lambda: asyncio.run(default_cache_update())).start()
 
 if not os.path.exists(context.manager_config_path):
     core.get_config()
