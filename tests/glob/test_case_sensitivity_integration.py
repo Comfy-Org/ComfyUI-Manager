@@ -295,6 +295,9 @@ def test_case_sensitivity_full_workflow(server_url, custom_nodes_path):
     # Step 6: Verify directory naming
     assert verify_directory_naming(custom_nodes_path), "Directory naming verification failed"
 
+    # Step 7: Cleanup after test to prevent pollution
+    cleanup_test_env(custom_nodes_path)
+
     print("\n" + "=" * 60)
     print("✅ ALL CHECKS PASSED")
     print("=" * 60)

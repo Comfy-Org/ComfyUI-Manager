@@ -1816,7 +1816,8 @@ def get_installed_nodepacks():
             if info is None:
                 continue
 
-            is_enabled = not y.endswith('.disabled')
+            # Packages in custom_nodes/ (not in .disabled/) are always enabled
+            is_enabled = True
 
             res[info[0]] = { 'ver': info[1], 'cnr_id': info[2], 'aux_id': info[4], 'enabled': is_enabled }
 
