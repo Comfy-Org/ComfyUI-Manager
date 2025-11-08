@@ -204,7 +204,7 @@ def test_installed_api_shows_disabled_when_no_enabled_exists(
     response = api_client.queue_task(
         kind="disable",
         ui_id="test_disabled_only_disable",
-        params={"id": TEST_PACKAGE_ID},
+        params={"node_name": TEST_PACKAGE_ID},
     )
     assert response.status_code == 200
 
@@ -245,6 +245,17 @@ def test_installed_api_shows_disabled_when_no_enabled_exists(
     assert package_info['enabled'] is False, (
         f"Package should be disabled, got: {package_info}"
     )
+
+    # Cleanup: Re-enable package for other tests
+    response = api_client.queue_task(
+        kind="enable",
+        ui_id="test_disabled_only_cleanup",
+        params={"cnr_id": TEST_PACKAGE_ID},
+    )
+    assert response.status_code == 200
+    response = api_client.start_queue()
+    assert response.status_code in [200, 201]
+    time.sleep(WAIT_TIME_SHORT)
 
 
 def test_installed_api_no_duplicates_across_scenarios(
@@ -306,7 +317,7 @@ def test_installed_api_no_duplicates_across_scenarios(
             response = api_client.queue_task(
                 kind="disable",
                 ui_id=f"test_{scenario_id}_disable",
-                params={"id": TEST_PACKAGE_ID},
+                params={"node_name": TEST_PACKAGE_ID},
             )
             assert response.status_code == 200
             response = api_client.start_queue()
@@ -415,7 +426,7 @@ def test_installed_api_cnr_priority_when_both_disabled(
     response = api_client.queue_task(
         kind="disable",
         ui_id="test_cnr_priority_nightly_disable",
-        params={"id": TEST_PACKAGE_ID},
+        params={"node_name": TEST_PACKAGE_ID},
     )
     assert response.status_code == 200
     response = api_client.start_queue()
