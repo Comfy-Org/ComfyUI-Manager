@@ -101,7 +101,7 @@ echo -e "${YELLOW}[4/5] Running optimized parallel tests...${NC}"
 TEST_START=$(date +%s)
 export TEST_TIMEOUT="${TEST_TIMEOUT}"
 
-bash tests/run_parallel_tests.sh > "${LOG_DIR}/test_exec_${TIMESTAMP}.log" 2>&1
+bash tests/run_parallel_tests.sh 2>&1 | tee "${LOG_DIR}/test_exec_${TIMESTAMP}.log"
 TEST_EXIT=$?
 
 TEST_END=$(date +%s)

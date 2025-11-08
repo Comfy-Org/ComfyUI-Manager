@@ -37,34 +37,28 @@ def setup_cnr_enabled_nightly_disabled(api_client, custom_nodes_path):
     - custom_nodes/ComfyUI_SigmoidOffsetScheduler/ (CNR v1.0.1, enabled)
     - .disabled/comfyui_sigmoidoffsetscheduler@nightly/ (Nightly, disabled)
     """
-    # Install CNR version first
-    response = api_client.queue_task(
-        kind="install",
-        ui_id="setup_cnr_enabled",
-        params={
-            "node_name": TEST_PACKAGE_ID,
-            "version": "1.0.1",
-            "install_type": "cnr",
-        },
-    )
-    assert response.status_code == 200, f"Failed to queue CNR install: {response.text}"
+    import shutil
 
-    response = api_client.start_queue()
-    assert response.status_code in [200, 201], f"Failed to start queue: {response.text}"
-    time.sleep(WAIT_TIME_MEDIUM)
-
-    # Verify CNR is installed and enabled
+    # Clean up any existing package (session fixture may have restored CNR)
     enabled_path = custom_nodes_path / TEST_PACKAGE_ID
-    assert enabled_path.exists(), "CNR should be enabled"
-    assert (enabled_path / ".tracking").exists(), "CNR should have .tracking marker"
+    disabled_path = custom_nodes_path / ".disabled"
 
-    # Install Nightly version (this will disable CNR and enable Nightly)
+    if enabled_path.exists():
+        shutil.rmtree(enabled_path)
+
+    if disabled_path.exists():
+        for item in disabled_path.iterdir():
+            if 'sigmoid' in item.name.lower() and item.is_dir():
+                shutil.rmtree(item)
+
+    # Install Nightly version first
     response = api_client.queue_task(
         kind="install",
         ui_id="setup_nightly_install",
         params={
-            "node_name": TEST_PACKAGE_ID,
-            "install_type": "nightly",
+            "id": TEST_PACKAGE_ID,
+            "version": "nightly",
+            "selected_version": "nightly",
         },
     )
     assert response.status_code == 200, f"Failed to queue Nightly install: {response.text}"
@@ -73,20 +67,30 @@ def setup_cnr_enabled_nightly_disabled(api_client, custom_nodes_path):
     assert response.status_code in [200, 201], f"Failed to start queue: {response.text}"
     time.sleep(WAIT_TIME_MEDIUM)
 
-    # Now disable the Nightly version (CNR should become enabled again)
+    # Verify Nightly is installed and enabled
+    enabled_path = custom_nodes_path / TEST_PACKAGE_ID
+    assert enabled_path.exists(), "Nightly should be enabled"
+    assert (enabled_path / ".git").exists(), "Nightly should have .git directory"
+
+    # Install CNR version (this will disable Nightly and enable CNR)
     response = api_client.queue_task(
-        kind="disable",
-        ui_id="setup_nightly_disable",
-        params={"node_name": TEST_PACKAGE_ID},
+        kind="install",
+        ui_id="setup_cnr_install",
+        params={
+            "id": TEST_PACKAGE_ID,
+            "version": "1.0.1",
+            "selected_version": "latest",
+        },
     )
-    assert response.status_code == 200, f"Failed to queue disable: {response.text}"
+    assert response.status_code == 200, f"Failed to queue CNR install: {response.text}"
 
     response = api_client.start_queue()
     assert response.status_code in [200, 201], f"Failed to start queue: {response.text}"
     time.sleep(WAIT_TIME_MEDIUM)
 
     # Verify final state: CNR enabled, Nightly disabled
-    assert enabled_path.exists(), "CNR should be enabled after Nightly disabled"
+    assert enabled_path.exists(), "CNR should be enabled"
+    assert (enabled_path / ".tracking").exists(), "CNR should have .tracking marker"
 
     disabled_path = custom_nodes_path / ".disabled"
     disabled_nightly = [
@@ -185,9 +189,9 @@ def test_installed_api_shows_disabled_when_no_enabled_exists(
         kind="install",
         ui_id="test_disabled_only_install",
         params={
-            "node_name": TEST_PACKAGE_ID,
+            "id": TEST_PACKAGE_ID,
             "version": "1.0.1",
-            "install_type": "cnr",
+            "selected_version": "latest",
         },
     )
     assert response.status_code == 200
@@ -200,7 +204,7 @@ def test_installed_api_shows_disabled_when_no_enabled_exists(
     response = api_client.queue_task(
         kind="disable",
         ui_id="test_disabled_only_disable",
-        params={"node_name": TEST_PACKAGE_ID},
+        params={"id": TEST_PACKAGE_ID},
     )
     assert response.status_code == 200
 
@@ -273,9 +277,9 @@ def test_installed_api_no_duplicates_across_scenarios(
                 kind="install",
                 ui_id=f"test_{scenario_id}_install",
                 params={
-                    "node_name": TEST_PACKAGE_ID,
+                    "id": TEST_PACKAGE_ID,
                     "version": "1.0.1",
-                    "install_type": "cnr",
+                    "selected_version": "latest",
                 },
             )
             assert response.status_code == 200
@@ -289,8 +293,9 @@ def test_installed_api_no_duplicates_across_scenarios(
                 kind="install",
                 ui_id=f"test_{scenario_id}_nightly",
                 params={
-                    "node_name": TEST_PACKAGE_ID,
-                    "install_type": "nightly",
+                    "id": TEST_PACKAGE_ID,
+                    "version": "nightly",
+                    "selected_version": "nightly",
                 },
             )
             assert response.status_code == 200
@@ -301,7 +306,7 @@ def test_installed_api_no_duplicates_across_scenarios(
             response = api_client.queue_task(
                 kind="disable",
                 ui_id=f"test_{scenario_id}_disable",
-                params={"node_name": TEST_PACKAGE_ID},
+                params={"id": TEST_PACKAGE_ID},
             )
             assert response.status_code == 200
             response = api_client.start_queue()
@@ -315,8 +320,9 @@ def test_installed_api_no_duplicates_across_scenarios(
                 kind="install",
                 ui_id=f"test_{scenario_id}_nightly",
                 params={
-                    "node_name": TEST_PACKAGE_ID,
-                    "install_type": "nightly",
+                    "id": TEST_PACKAGE_ID,
+                    "version": "nightly",
+                    "selected_version": "nightly",
                 },
             )
             assert response.status_code == 200
@@ -380,9 +386,9 @@ def test_installed_api_cnr_priority_when_both_disabled(
         kind="install",
         ui_id="test_cnr_priority_cnr_install",
         params={
-            "node_name": TEST_PACKAGE_ID,
+            "id": TEST_PACKAGE_ID,
             "version": "1.0.1",
-            "install_type": "cnr",
+            "selected_version": "latest",
         },
     )
     assert response.status_code == 200
@@ -395,8 +401,9 @@ def test_installed_api_cnr_priority_when_both_disabled(
         kind="install",
         ui_id="test_cnr_priority_nightly_install",
         params={
-            "node_name": TEST_PACKAGE_ID,
-            "install_type": "nightly",
+            "id": TEST_PACKAGE_ID,
+            "version": "nightly",
+            "selected_version": "nightly",
         },
     )
     assert response.status_code == 200
@@ -408,7 +415,7 @@ def test_installed_api_cnr_priority_when_both_disabled(
     response = api_client.queue_task(
         kind="disable",
         ui_id="test_cnr_priority_nightly_disable",
-        params={"node_name": TEST_PACKAGE_ID},
+        params={"id": TEST_PACKAGE_ID},
     )
     assert response.status_code == 200
     response = api_client.start_queue()

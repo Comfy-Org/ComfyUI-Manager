@@ -165,6 +165,10 @@ def ensure_test_package_exists(server_url, custom_nodes_path, request):
         "test_case_insensitive_operations",
         "test_version_switch_cnr_to_nightly",
         "test_version_switch_between_cnr_versions",
+        # Tests that manage their own package setup/cleanup
+        "test_installed_api_shows_only_enabled_when_both_exist",
+        "test_installed_api_cnr_priority_when_both_disabled",
+        "test_installed_api_shows_disabled_when_no_enabled_exists",
     ]
 
     if request.node.name in skip_tests:
@@ -507,19 +511,8 @@ def setup_cnr_enabled_nightly_disabled(api_client, custom_nodes_path):
     api_client.start_queue()
     time.sleep(WAIT_TIME_MEDIUM)
 
-    # Step 2: Disable Nightly
-    print(f"\n=== Step 2: Disabling Nightly ===")
-    response = api_client.queue_task(
-        kind="disable",
-        ui_id="setup_disable_nightly",
-        params={"node_name": TEST_PACKAGE_ID},
-    )
-    assert response.status_code == 200
-    api_client.start_queue()
-    time.sleep(WAIT_TIME_MEDIUM)
-
-    # Step 3: Install old CNR (enabled)
-    print(f"\n=== Step 3: Installing CNR v{TEST_PACKAGE_OLD_VERSION} ===")
+    # Step 2: Install CNR (this will automatically disable Nightly)
+    print(f"\n=== Step 2: Installing CNR v{TEST_PACKAGE_OLD_VERSION} (will disable Nightly) ===")
     response = api_client.queue_task(
         kind="install",
         ui_id="setup_cnr_enabled",

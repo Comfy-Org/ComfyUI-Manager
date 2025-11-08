@@ -1858,6 +1858,20 @@ def get_installed_nodepacks():
                     # Same GitHub repo is enabled (Nightly)
                     has_enabled_version = True
 
+                # For Nightly packages (has aux_id but empty cnr_id), check if enabled CNR exists
+                # The aux_id pattern is typically "author/PackageName"
+                # The cnr_id is typically "PackageName"
+                if info[4] and not has_enabled_version:
+                    # This is a Nightly package, check if any enabled CNR matches its identity
+                    aux_id_lower = info[4].lower()
+                    package_name = aux_id_lower.split('/')[-1] if '/' in aux_id_lower else aux_id_lower
+
+                    for cnr_id in enabled_cnr_ids:
+                        # Check if this cnr_id matches the package name from aux_id
+                        if cnr_id == package_name:
+                            has_enabled_version = True
+                            break
+
                 # For CNR packages, also check if enabled nightly exists from same repo
                 # CNR packages have cnr_id but may not have aux_id
                 # We need to derive aux_id from cnr_id to match against enabled nightlies
