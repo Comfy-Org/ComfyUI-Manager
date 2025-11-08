@@ -299,7 +299,7 @@ def test_installed_api_no_duplicates_across_scenarios(
             time.sleep(WAIT_TIME_MEDIUM)
 
         elif scenario_id == "cnr_enabled_nightly_disabled":
-            # Install Nightly then disable it
+            # Install Nightly (this auto-disables CNR), then disable Nightly, then enable CNR
             response = api_client.queue_task(
                 kind="install",
                 ui_id=f"test_{scenario_id}_nightly",
@@ -314,10 +314,22 @@ def test_installed_api_no_duplicates_across_scenarios(
             assert response.status_code in [200, 201]
             time.sleep(WAIT_TIME_MEDIUM)
 
+            # Disable Nightly
             response = api_client.queue_task(
                 kind="disable",
-                ui_id=f"test_{scenario_id}_disable",
+                ui_id=f"test_{scenario_id}_disable_nightly",
                 params={"node_name": TEST_PACKAGE_ID},
+            )
+            assert response.status_code == 200
+            response = api_client.start_queue()
+            assert response.status_code in [200, 201]
+            time.sleep(WAIT_TIME_MEDIUM)
+
+            # Re-enable CNR (which was auto-disabled when Nightly was installed)
+            response = api_client.queue_task(
+                kind="enable",
+                ui_id=f"test_{scenario_id}_enable_cnr",
+                params={"cnr_id": TEST_PACKAGE_ID},
             )
             assert response.status_code == 200
             response = api_client.start_queue()
