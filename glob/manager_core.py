@@ -2664,9 +2664,13 @@ def check_state_of_git_node_pack_single(item, do_fetch=False, do_update_check=Tr
 
 
 def get_installed_pip_packages():
-    # extract pip package infos
-    cmd = manager_util.make_pip_cmd(['freeze'])
-    pips = subprocess.check_output(cmd, text=True).split('\n')
+    try:
+        # extract pip package infos
+        cmd = manager_util.make_pip_cmd(['freeze'])
+        pips = subprocess.check_output(cmd, text=True).split('\n')
+    except Exception as e:
+        logging.warning("[ComfyUI-Manager] Could not enumerate pip packages for snapshot: %s", e)
+        return {}
 
     res = {}
     for x in pips:
