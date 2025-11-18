@@ -34947,15 +34947,68 @@
             "description": "A fully automated ComfyUI custom node that uses Joy Caption Alpha Two to generate high-quality image captions. Perfect for: LoRA/model training dataset preparation, Image tagging and organization, NSFW content captioning, Batch processing large image collections"
         },
         {
-            "author": "EricRollei",
-            "title": "Eric's Prompt Enhancers for ComfyUI",
-            "reference": "https://github.com/EricRollei/Local_LLM_Prompt_Enhancer",
-            "files": [
-                "https://github.com/EricRollei/Local_LLM_Prompt_Enhancer"
-            ],
-            "install_type": "git-clone",
-            "description": "A comprehensive suite of AI-powered prompt enhancement nodes for ComfyUI using local LLMs (LM Studio or Ollama). Transform simple prompts into detailed, platform-optimized descriptions for video and image generation."
-        },
+		    "author": "EricRollei",
+		    "title": "HYPIR Image Restoration for ComfyUI",
+		    "reference": "https://github.com/EricRollei/HYPIR-ComfyUI",
+		    "files": [
+		        "https://github.com/EricRollei/HYPIR-ComfyUI"
+		    ],
+		    "install_type": "git-clone",
+		    "description": "Custom ComfyUI nodes for HYPIR image restoration using Stable Diffusion 2.1 and trained models. Restores and upscales scanned or generated images with optional LM Studio prompt enhancement and tiled VAE processing for large resolutions."
+		},
+		{
+		    "author": "EricRollei",
+		    "title": "Erics Image Processing Nodes",
+		    "reference": "https://github.com/EricRollei/Eric_Image_Processing_Nodes",
+		    "files": [
+		        "https://github.com/EricRollei/Eric_Image_Processing_Nodes"
+		    ],
+		    "install_type": "git-clone",
+		    "description": "Advanced image processing nodes featuring GPU-accelerated wavelet denoising, film grain analysis, DeepInv integration, Non-Local Means, frequency domain enhancement, and professional restoration tools with BM3D and adaptive processing."
+		},
+		{
+		    "author": "EricRollei",
+		    "title": "Local LLM Prompt Enhancer for WAN, Qwen, Qwen-Edit, Flux, Pony, Etc.",
+		    "reference": "https://github.com/EricRollei/Local_LLM_Prompt_Enhancer",
+		    "files": [
+		        "https://github.com/EricRollei/Local_LLM_Prompt_Enhancer"
+		    ],
+		    "install_type": "git-clone",
+		    "description": "A comprehensive suite of AI-powered prompt enhancement nodes for ComfyUI using local LLMs (LM Studio or Ollama). Transform simple prompts into detailed, platform-optimized descriptions for video and image generation."
+		},
+		{
+		    "author": "EricRollei",
+		    "title": "PDF Tools - Advanced PDF Processing & OCR",
+		    "reference": "https://github.com/EricRollei/PDF-Tools",
+		    "files": [
+		        "https://github.com/EricRollei/PDF-Tools"
+		    ],
+		    "install_type": "git-clone",
+		    "description": "Comprehensive PDF processing, OCR, and AI vision analysis toolkit. Features: PDF extraction with quality scoring and spread detection, multilingual OCR (90+ languages via Surya, Chinese/Japanese via PaddleOCR), advanced layout analysis (titles, paragraphs, tables), Florence-2 vision model for object detection and captioning, LayoutLMv3 for document understanding. Perfect for document digitization, text extraction, and intelligent document processing workflows.",
+		    "nodename_pattern": "(PDF|OCR|Surya|Florence2|LayoutLM|PaddleOCR)",
+		    "category": "document processing"
+		},
+		{
+		    "author": "EricRollei",
+		    "title": "Metadata System for ComfyUI",
+		    "reference": "https://github.com/EricRollei/AAA_Metadata_System",
+		    "files": [
+		        "https://github.com/EricRollei/AAA_Metadata_System"
+		    ],
+		    "install_type": "git-clone",
+		    "description": "Comprehensive metadata management system with multi-format support (embedded, XMP, text, SQLite). Save and Load PSD, TIFF files with layers and blend modes intact. ICC profile managment. Includes 30+ nodes for image metadata, workflow extraction, PSD layer handling, and batch processing.",
+		    "nodename_pattern": "Eric"
+		},
+		{
+		    "author": "EricRollei",
+		    "title": "HunyuanImage-3.0 ComfyUI Custom Nodes",
+		    "reference": "https://github.com/EricRollei/Comfy_HunyuanImage3",
+		    "files": [
+		        "https://github.com/EricRollei/Comfy_HunyuanImage3"
+		    ],
+		    "install_type": "git-clone",
+		    "description": "Professional ComfyUI nodes for Tencent HunyuanImage-3.0, the 80B parameter native multimodal image generation model. Features: BF16/NF4 loading, multi-GPU support, smart memory management, official prompt enhancement with LLM APIs (DeepSeek/OpenAI/Claude/local), large image generation with CPU offload, organized resolution presets. Requires 24GB+ VRAM for NF4, 80GB+ for BF16."
+		}
         {
             "author": "nomadoor",
             "title": "ComfyUI Temporal Mask Tools",
