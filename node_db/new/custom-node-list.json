@@ -2,6 +2,39 @@
     "custom_nodes": [
         {
             "author": "EricRollei",
+            "title": "HYPIR Image Restoration for ComfyUI",
+            "reference": "https://github.com/EricRollei/HYPIR-ComfyUI",
+            "files": [
+                "https://github.com/EricRollei/HYPIR-ComfyUI"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom ComfyUI nodes for HYPIR image restoration using Stable Diffusion 2.1. Restores and upscales scanned or generated images with optional LM Studio prompt enhancement and tiled VAE processing for large resolutions.",
+            "nodename_pattern": "HYPIR"
+        },
+        {
+            "author": "Writili",
+            "title": "WtlNodes",
+            "id": "wtlnodes",
+            "reference": "https://github.com/Scorpiosis0/ComfyUI-WtlNodes",
+            "files": [
+                "https://github.com/Scorpiosis0/ComfyUI-WtlNodes"
+            ],
+            "install_type": "git-clone",
+            "description": "This node adds improvement over some already existing nodes as well as some custom nodes."
+        },
+        {
+            "author": "rookiestar28",
+            "title": "ComfyUI Text Processor",
+            "id": "ComfyUI_Text_Processor",
+            "reference": "https://github.com/rookiestar28/ComfyUI_Text_Processor",
+            "files": [
+                "https://github.com/rookiestar28/ComfyUI_Text_Processor"
+            ],
+            "install_type": "git-clone",
+            "description": "An advanced text processing node for ComfyUI."
+        },
+        {
+            "author": "EricRollei",
             "title": "AAA_Metadata_System",
             "reference": "https://github.com/EricRollei/AAA_Metadata_System",
             "files": [
@@ -683,48 +716,6 @@
             ],
             "install_type": "git-clone",
             "description": "ComfyUI extension with several convenience nodes."
-        },
-        {
-            "author": "yano",
-            "title": "ComfyUI Fast Mosaic Detector",
-            "id": "comfyui-fast-mosaic-detector",
-            "reference": "https://github.com/yano/comfyui-fast-mosaic-detector",
-            "files": [
-                "https://github.com/yano/comfyui-fast-mosaic-detector"
-            ],
-            "install_type": "git-clone",
-            "description": "High-speed and high-accuracy mosaic detection node for ComfyUI. Supports FAST, ACCURATE, and HYBRID modes with ROI refinement."
-        },
-        {
-            "author": "cedarconnor",
-            "title": "ComfyUI-OmniX",
-            "reference": "https://github.com/cedarconnor/ComfyUI-OmniX",
-            "files": [
-                "https://github.com/cedarconnor/ComfyUI-OmniX"
-            ],
-            "install_type": "git-clone",
-            "description": "Extract comprehensive scene properties from 360-degree equirectangular panoramas, including depth, normals, and PBR materials, using OmniX adapters with Flux."
-        },
-        {
-            "author": "creepybits",
-            "title": "world weaver",
-            "id": "ComfyUI-World_weaver",
-            "reference": "https://github.com/Creepybits/World_weaver",
-            "files": [
-                "https://github.com/Creepybits/World_weaver"
-            ],
-            "install_type": "git-clone",
-            "description": "The World Weaver System: True AI character consistency using Textual Inheritance. Maintain unshakeable character identity (face, body, essence) across radical changes in pose, clothing, and scene without LoRAs, IP-Adapters, or ControlNet. This repo contains the Character Vault and Prompt Helper components."
-        },
-        {
-            "author": "princepainter",
-            "title": "Comfyui-PainterAudioCut",
-            "reference": "https://github.com/princepainter/Comfyui-PainterAudioCut",
-            "files": [
-                "https://github.com/princepainter/Comfyui-PainterAudioCut"
-            ],
-            "install_type": "git-clone",
-            "description": "High-precision audio trimming custom node based on frame rates for ComfyUI - trim audio precisely by frame numbers instead of timestamps, perfectly matching video frame synchronization needs. (Description by CC)"
         }
     ]
 }
