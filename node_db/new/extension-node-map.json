@@ -566,6 +566,7 @@
         [
             "ColorPalette",
             "ColorTransferReinhard",
+            "ExtractPalette",
             "PaletteOptimalTransportTransfer",
             "PaletteRbfTransfer",
             "PaletteTransfer",
@@ -2655,6 +2656,7 @@
     ],
     "https://github.com/Art-xmaster/comfyui-AGSoft": [
         [
+            "AGSoft Loop Lora Strengths",
             "AGSoft Show Text",
             "AGSoft Text Input Switch X2",
             "AGSoft Text Input Switch X4",
@@ -5752,6 +5754,9 @@
         [
             "BoyoAudioEval",
             "BoyoChainBastardLoops",
+            "BoyoCompare",
+            "BoyoForLoopEnd",
+            "BoyoForLoopStart",
             "BoyoFramePackLoRA",
             "BoyoImageCrop",
             "BoyoImageGrab",
@@ -5763,7 +5768,10 @@
             "BoyoLoRAPathForwarder",
             "BoyoLoadImageList",
             "BoyoLoopCollector",
+            "BoyoLoopCounter",
             "BoyoLoopImageSaver",
+            "BoyoLoopReset",
+            "BoyoMathInt",
             "BoyoPairedImageSaver",
             "BoyoPairedSaver",
             "BoyoPromptInjector",
@@ -5779,6 +5787,8 @@
             "BoyoVideoPairedSaver",
             "BoyoVideoSaver",
             "BoyoVision",
+            "BoyoWhileLoopEnd",
+            "BoyoWhileLoopStart",
             "Boyolatent",
             "MandelbrotVideo"
         ],
@@ -7329,6 +7339,15 @@
             "title_aux": "FM_nodes"
         }
     ],
+    "https://github.com/FuryNocturn/ComfyUI-Studio-Fury": [
+        [
+            "StudioFury_AdvancedPrompt",
+            "StudioFury_EmbeddingsSelector"
+        ],
+        {
+            "title_aux": "ComfyUI-Studio-Fury"
+        }
+    ],
     "https://github.com/Fuwuffyi/ComfyUI-VisualArea-Nodes": [
         [
             "VisualAreaPrompt",
@@ -7797,6 +7816,15 @@
         ],
         {
             "title_aux": "Image Saving and Base64 Encoding Script"
+        }
+    ],
+    "https://github.com/Granddyser/wan-video-extender": [
+        [
+            "WanVideoExtenderLowHigh",
+            "WanVideoExtenderNative"
+        ],
+        {
+            "title_aux": "Wan-video-extender"
         }
     ],
     "https://github.com/GreenLandisaLie/AuraSR-ComfyUI": [
@@ -10900,10 +10928,10 @@
     ],
     "https://github.com/Ltamann/ComfyUI-TBG-SAM3": [
         [
-            "SAM3DepthMap",
-            "SAM3ModelDownloader",
-            "SAM3ModelLoader",
-            "SAM3Segmentation"
+            "TBGLoadSAM3Model",
+            "TBGSAM3ModelLoaderAdvanced",
+            "TBGSAM3PromptCollector",
+            "TBGSam3Segmentation"
         ],
         {
             "title_aux": "ComfyUI-TBG-SAM3"
@@ -11078,6 +11106,7 @@
             "AdvancedAudioPreviewAndSave",
             "AdvancedMediaSave",
             "AdvancedTextNode",
+            "Aesthetic_Transformer_Node_MD",
             "AutoLayoutOptimizer",
             "EnhancedAnnotationNode",
             "EnhancedSeedSaver",
@@ -11086,17 +11115,26 @@
             "GPUTemperatureProtectionEnhanced",
             "HybridAdaptiveSigmas",
             "LLMVRAMManager",
+            "MD_ApplyTPG",
             "MD_AudioAutoEQ",
             "MD_AutoMasterNode",
+            "MD_CLIPTokenFinder",
+            "MD_InitNoiseOptimizer",
+            "MD_Qwen_Image_Edit_Object_Replacer_Node",
+            "MD_SelfCrossGuider",
             "MasteringChainNode",
             "NoiseDecayScheduler_Custom",
             "PingPongSamplerNodeFBG",
             "PingPongSampler_Custom_Lite",
             "SceneGeniusAutocreator",
+            "SigmaConcatenate",
+            "SigmaSmooth",
             "SmartColorPaletteManager",
             "SmartFilenameBuilder",
             "TextFileLoader",
             "UniversalRoutingHubAdvanced",
+            "VLM_Confirmation_Gate_Node_MD",
+            "WildcardPromptBuilder",
             "WorkflowSectionOrganizer"
         ],
         {
@@ -13159,6 +13197,7 @@
             "GeomPackPreviewMeshDual",
             "GeomPackPreviewMeshUV",
             "GeomPackPreviewMeshVTK",
+            "GeomPackPreviewMeshVTKBatch",
             "GeomPackReconstructSurface",
             "GeomPackRefineMesh",
             "GeomPackRemesh",
@@ -16056,6 +16095,7 @@
             "StarQwenRegionalPrompter",
             "StarQwenWanRatio",
             "StarRandomImageLoader",
+            "StarSDUpscaleRefiner",
             "StarSampler",
             "StarSaveFolderString",
             "StarSavePanoramaJPEG",
@@ -17085,6 +17125,7 @@
             "Combine Properties",
             "Decorate List",
             "Encode Any Property",
+            "Face Body Aspect Bounds",
             "Filter Existing Files",
             "Filter List",
             "Filter Words",
@@ -17347,6 +17388,14 @@
                 "NNLatentUpscale"
             ],
             "title_aux": "ComfyUI Neural Network Latent Upscale"
+        }
+    ],
+    "https://github.com/TuriSc/comfyui-text-line-selector": [
+        [
+            "TextLineSelectorNode"
+        ],
+        {
+            "title_aux": "Text Line Selector"
         }
     ],
     "https://github.com/TylerZoro/SD3-Scaling": [
@@ -18172,7 +18221,8 @@
             "Qwen25CaptionBatch",
             "Qwen3Caption",
             "Qwen3CaptionBatch",
-            "StringToBbox"
+            "StringToBbox",
+            "StringToSam3Box"
         ],
         {
             "title_aux": "ComfyUI_QwenVL_PromptCaption"
@@ -20871,6 +20921,7 @@
             "Sage_UNETLoaderFromInfo",
             "Sage_UNETSelector",
             "Sage_UnetClipVaeToModelInfo",
+            "Sage_UpscaleImageWithModel",
             "Sage_VAELoaderFromInfo",
             "Sage_VAESelector",
             "Sage_ViewAnything",
@@ -27013,6 +27064,7 @@
     "https://github.com/diffussy69/comfyui-curved_weight_schedule": [
         [
             "Advanced Curved ControlNet Scheduler",
+            "Apply_CN_Extras_Masks",
             "AutoBackgroundMask",
             "AutoPersonMask",
             "Batch_Images_to_Timestep_Keyframes",
@@ -27024,7 +27076,11 @@
             "Multi-ControlNet Curve Coordinator",
             "MultiLayerMaskEditor",
             "MultiLayerMaskEditorSimple",
-            "MultiMaskStrengthCombiner",
+            "MultiMaskCombinerBatch",
+            "MultiMaskCombinerBatch10",
+            "MultiMaskStrengthCombiner10",
+            "MultiMaskStrengthCombiner5",
+            "Redistribute_Keyframe_Percents",
             "RegionalPromptInterpolation",
             "RegionalPrompting"
         ],
@@ -29728,6 +29784,8 @@
         [
             "Bria_Video_Increase_Resolution_fal",
             "CombinedVideoGeneration_fal",
+            "DYWanFun22_fal",
+            "DYWanUpscaler_fal",
             "Dreamina31TextToImage_fal",
             "FluxDev_fal",
             "FluxGeneral_fal",
@@ -29761,8 +29819,10 @@
             "MiniMaxTextToVideo_fal",
             "MiniMax_fal",
             "NanoBananaEdit_fal",
+            "NanoBananaPro_fal",
             "NanoBananaTextToImage_fal",
             "PixverseSwapNode_fal",
+            "QwenImageEditPlusLoRA_fal",
             "QwenImageEdit_fal",
             "Recraft_fal",
             "ReveTextToImage_fal",
@@ -29770,6 +29830,7 @@
             "Sana_fal",
             "SeedEditV3_fal",
             "SeedanceImageToVideo_fal",
+            "SeedanceProImageToVideo_fal",
             "SeedanceTextToVideo_fal",
             "SeedreamV4Edit_fal",
             "Seedvr_Upscale_Video_fal",
@@ -29787,6 +29848,7 @@
             "VideoUpscaler_fal",
             "Wan2214b_animate_move_character_fal",
             "Wan2214b_animate_replace_character_fal",
+            "Wan22VACEFun14b_fal",
             "Wan25_preview_fal",
             "WanLoraTrainer_fal",
             "WanPro_fal",
@@ -29900,13 +29962,17 @@
     "https://github.com/gpdev-Pilcothink/comfyui_pilcothink_VisionSLM": [
         [
             "MergeTextsWithGap",
+            "OllamaConnective",
+            "OllamaGenerator",
             "Pilcothink-RAG",
             "RemoveSpecificPatterns",
             "SLMGenerator",
             "SLMModelSelector",
             "SLMVisionGenerator",
             "SLMVisionModelSelector",
-            "String_Text"
+            "String_Text",
+            "VLLMConnective",
+            "VLLMGenerator"
         ],
         {
             "title_aux": "comfyui_pilcothink_VisionSLM"
@@ -30820,6 +30886,7 @@
             "WWAA_LineCount",
             "WWAA_MetadataSaver",
             "WWAA_NestedLoopCounter",
+            "WWAA_NumberRangeAsString",
             "WWAA_PromptWriter",
             "WWAA_SearchReplaceMulti",
             "WWAA_SearchReplaceText",
@@ -31460,6 +31527,16 @@
             "title_aux": "NSFW Check for ComfyUI"
         }
     ],
+    "https://github.com/icekiub-ai/ComfyUI-IcyHider": [
+        [
+            "IcyLoadImage",
+            "IcyPreviewImage",
+            "IcySaveImage"
+        ],
+        {
+            "title_aux": "ComfyUI-IcyHider"
+        }
+    ],
     "https://github.com/icesun963/ComfyUI_HFDownLoad": [
         [
             "Apply EasyOCR V2",
@@ -31757,6 +31834,7 @@
         [
             "ComfyDeployExternalFloat",
             "ComfyDeployExternalImage",
+            "ComfyDeployExternalImageBatch",
             "ComfyDeployExternalInt",
             "ComfyDeployExternalText"
         ],
@@ -34143,6 +34221,7 @@
             "Intrinsic_lora_sampling",
             "JoinStringMulti",
             "JoinStrings",
+            "LatentInpaintTTM",
             "LazySwitchKJ",
             "LeapfusionHunyuanI2VPatcher",
             "LoadAndResizeImage",
@@ -39475,6 +39554,8 @@
     "https://github.com/nofunstudio/Node_Fun_ComfyUI": [
         [
             "DynamicQueueCounter",
+            "FalAPI_NanoBananaPro",
+            "FalAPI_QwenEditPlus",
             "FalAPI_kling_video",
             "FalAPI_recraft_upscale",
             "FalAPI_seedance_video",
@@ -40950,7 +41031,6 @@
             "ColorIsolationFX",
             "ColourfulnessFX",
             "ContourFX",
-            "EmptyContext",
             "EnableLatent",
             "FaceEnhancementPipeline",
             "FaceEnhancementPipelineWithInjection",
@@ -41000,7 +41080,8 @@
             "Toggle Lora Unet Blocks L2",
             "Video Duration Calculator",
             "VideoLoaderCrawl",
-            "WAN2.2 LoRA Compare Sampler"
+            "WAN2.2 LoRA Compare Sampler",
+            "WanVideoLoraSelectMultiImproved"
         ],
         {
             "author": "chflame",
@@ -41619,6 +41700,7 @@
     ],
     "https://github.com/rainlizard/ComfyUI-Raffle": [
         [
+            "CurvedRescaleCFG",
             "PreviewHistory",
             "Raffle",
             "TagCategoryStrength"
@@ -42399,8 +42481,7 @@
             "TextInput",
             "TextScraper",
             "TextStorage",
-            "Wildcards",
-            "WildcardsAdv"
+            "WildcardsNode"
         ],
         {
             "title_aux": "ComfyUI Text Processor"
@@ -42537,7 +42618,8 @@
     ],
     "https://github.com/ru4ls/ComfyUI_Nano_Banana": [
         [
-            "NanoBanana"
+            "NanoBanana",
+            "NanoBananaGrounding"
         ],
         {
             "title_aux": "ComfyUI_Nano_Banana"
