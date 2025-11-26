@@ -968,6 +968,8 @@ async def task_worker():
                     logging.error("ComfyUI update failed")
                     return "fail"
                 elif res == "updated":
+                    core.install_manager_requirements(repo_path)
+
                     if is_stable:
                         logging.info("ComfyUI is updated to latest stable version.")
                         return "success-stable-" + latest_tag

@@ -1901,6 +1901,27 @@ def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=Fa
     return True
 
 
+def install_manager_requirements(repo_path):
+    """
+    Install packages from manager_requirements.txt if it exists.
+    This is specifically for ComfyUI's manager_requirements.txt.
+    """
+    manager_requirements_path = os.path.join(repo_path, "manager_requirements.txt")
+    if not os.path.exists(manager_requirements_path):
+        return
+
+    logging.info("[ComfyUI-Manager] Installing manager_requirements.txt")
+    with open(manager_requirements_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#'):
+                if '#' in line:
+                    line = line.split('#')[0].strip()
+                if line:
+                    install_cmd = manager_util.make_pip_cmd(["install", line])
+                    subprocess.run(install_cmd)
+
+
 def git_repo_update_check_with(path, do_fetch=False, do_update=False, no_deps=False):
     """
 
@@ -2434,6 +2455,7 @@ def update_to_stable_comfyui(repo_path):
         else:
             logging.info(f"[ComfyUI-Manager] Updating ComfyUI: {current_tag} -> {latest_tag}")
             repo.git.checkout(latest_tag)
+            execute_install_script("ComfyUI", repo_path, instant_execution=False, no_deps=False)
             return 'updated', latest_tag
     except Exception:
         traceback.print_exc()
