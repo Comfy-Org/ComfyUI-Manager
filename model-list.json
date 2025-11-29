@@ -1973,6 +1973,97 @@
       "url": "https://dl.fbaipublicfiles.com/segment_anything/sam_vit_b_01ec64.pth",
       "size": "375.0MB"
     },
+
+    {
+      "name": "sam2.1_hiera_tiny.pt",
+      "type": "sam2.1",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2.1 hiera model (tiny)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2.1_hiera_tiny.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_tiny.pt",
+      "size": "149.0MB"
+    },
+    {
+      "name": "sam2.1_hiera_small.pt",
+      "type": "sam2.1",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2.1 hiera model (small)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2.1_hiera_small.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_small.pt",
+      "size": "176.0MB"
+    },
+    {
+      "name": "sam2.1_hiera_base_plus.pt",
+      "type": "sam2.1",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2.1 hiera model (base+)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2.1_hiera_base_plus.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_base_plus.pt",
+      "size": "309.0MB"
+    },
+    {
+      "name": "sam2.1_hiera_large.pt",
+      "type": "sam2.1",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2.1 hiera model (large)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2.1_hiera_large.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_large.pt",
+      "size": "857.0MB"
+    },
+
+    {
+      "name": "sam2_hiera_tiny.pt",
+      "type": "sam2",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2 hiera model (tiny)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2_hiera_tiny.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_tiny.pt",
+      "size": "149.0MB"
+    },
+    {
+      "name": "sam2_hiera_small.pt",
+      "type": "sam2",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2 hiera model (small)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2_hiera_small.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_small.pt",
+      "size": "176.0MB"
+    },
+    {
+      "name": "sam2_hiera_base_plus.pt",
+      "type": "sam2",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2 hiera model (base+)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2_hiera_base_plus.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_base_plus.pt",
+      "size": "309.0MB"
+    },
+    {
+      "name": "sam2_hiera_large.pt",
+      "type": "sam2",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segmenty Anything SAM 2 hiera model (large)",
+      "reference": "https://github.com/facebookresearch/sam2#model-description",
+      "filename": "sam2_hiera_large.pt",
+      "url": "https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt",
+      "size": "857.0MB"
+    },
+
     {
       "name": "seecoder v1.0",
       "type": "seecoder",
@@ -4007,6 +4098,29 @@
     },
 
     {
+      "name": "Comfy-Org/omnigen2_fp16.safetensors",
+      "type": "diffusion_model",
+      "base": "OmniGen2",
+      "save_path": "default",
+      "description": "OmniGen2 diffusion model. This is required for using OmniGen2.",
+      "reference": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged",
+      "filename": "omnigen2_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/omnigen2_fp16.safetensors",
+      "size": "7.93GB"
+    },
+    {
+      "name": "Comfy-Org/qwen_2.5_vl_fp16.safetensors",
+      "type": "clip",
+      "base": "qwen-2.5",
+      "save_path": "default",
+      "description": "text encoder for OmniGen2",
+      "reference": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged",
+      "filename": "qwen_2.5_vl_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Omnigen2_ComfyUI_repackaged/resolve/main/split_files/text_encoders/qwen_2.5_vl_fp16.safetensors",
+      "size": "7.51GB"
+    },
+
+    {
       "name": "FLUX.1 [Schnell] Diffusion model",
       "type": "diffusion_model",
       "base": "FLUX.1",
@@ -4023,7 +4137,7 @@
       "type": "VAE",
       "base": "FLUX.1",
       "save_path": "vae/FLUX1",
-      "description": "FLUX.1 VAE model",
+      "description": "FLUX.1 VAE model\nNOTE: This VAE model can also be used for image generation with OmniGen2.",
       "reference": "https://huggingface.co/black-forest-labs/FLUX.1-schnell",
       "filename": "ae.safetensors",
       "url": "https://huggingface.co/black-forest-labs/FLUX.1-schnell/resolve/main/ae.safetensors",
@@ -4931,6 +5045,105 @@
       "size": "1.26GB"
     },
 
+    {
+      "name": "Comfy-Org/Wan2.2 i2v high noise 14B (fp16)",
+      "type": "diffusion_model",
+      "base": "Wan2.2",
+      "save_path": "diffusion_models/Wan2.2",
+      "description": "Wan2.2 diffusion model for i2v high noise 14B (fp16)",
+      "reference": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+      "filename": "wan2.2_i2v_high_noise_14B_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp16.safetensors",
+      "size": "28.6GB"
+    },
+    {
+      "name": "Comfy-Org/Wan2.2 i2v high noise 14B (fp8_scaled)",
+      "type": "diffusion_model",
+      "base": "Wan2.2",
+      "save_path": "diffusion_models/Wan2.2",
+      "description": "Wan2.2 diffusion model for i2v high noise 14B (fp8_scaled)",
+      "reference": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+      "filename": "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors",
+      "size": "14.3GB"
+    },
+    {
+      "name": "Comfy-Org/Wan2.2 i2v low noise 14B (fp16)",
+      "type": "diffusion_model",
+      "base": "Wan2.2",
+      "save_path": "diffusion_models/Wan2.2",
+      "description": "Wan2.2 diffusion model for i2v low noise 14B (fp16)",
+      "reference": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+      "filename": "wan2.2_i2v_low_noise_14B_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp16.safetensors",
+      "size": "28.6GB"
+    },
+    {
+      "name": "Comfy-Org/Wan2.2 i2v low noise 14B (fp8_scaled)",
+      "type": "diffusion_model",
+      "base": "Wan2.2",
+      "save_path": "diffusion_models/Wan2.2",
+      "description": "Wan2.2 diffusion model for i2v low noise 14B (fp8_scaled)",
+      "reference": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+      "filename": "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors",
+      "size": "14.3GB"
+    },
+    {
+      "name": "Comfy-Org/Wan2.2 t2v high noise 14B (fp16)",
+      "type": "diffusion_model",
+      "base": "Wan2.2",
+      "save_path": "diffusion_models/Wan2.2",
+      "description": "Wan2.2 diffusion model for t2v high noise 14B (fp16)",
+      "reference": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+      "filename": "wan2.2_t2v_high_noise_14B_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_t2v_high_noise_14B_fp16.safetensors",
+      "size": "28.6GB"
+    },
+    {
+      "name": "Comfy-Org/Wan2.2 t2v high noise 14B (fp8_scaled)",
+      "type": "diffusion_model",
+      "base": "Wan2.2",
+      "save_path": "diffusion_models/Wan2.2",
+      "description": "Wan2.2 diffusion model for t2v high noise 14B (fp8_scaled)",
+      "reference": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+      "filename": "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors",
+      "size": "14.3GB"
+    },
+    {
+      "name": "Comfy-Org/Wan2.2 t2v low noise 14B (fp16)",
+      "type": "diffusion_model",
+      "base": "Wan2.2",
+      "save_path": "diffusion_models/Wan2.2",
+      "description": "Wan2.2 diffusion model for t2v low noise 14B (fp16)",
+      "reference": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+      "filename": "wan2.2_t2v_low_noise_14B_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_t2v_low_noise_14B_fp16.safetensors",
+      "size": "28.6GB"
+    },
+    {
+      "name": "Comfy-Org/Wan2.2 t2v low noise 14B (fp8_scaled)",
+      "type": "diffusion_model",
+      "base": "Wan2.2",
+      "save_path": "diffusion_models/Wan2.2",
+      "description": "Wan2.2 diffusion model for t2v low noise 14B (fp8_scaled)",
+      "reference": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+      "filename": "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors",
+      "size": "14.3GB"
+    },
+    {
+      "name": "Comfy-Org/Wan2.2 ti2v 5B (fp16)",
+      "type": "diffusion_model",
+      "base": "Wan2.2",
+      "save_path": "diffusion_models/Wan2.2",
+      "description": "Wan2.2 diffusion model for ti2v 5B (fp16)",
+      "reference": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged",
+      "filename": "wan2.2_ti2v_5B_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged/resolve/main/split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors",
+      "size": "10.0GB"
+    },
 
     {
       "name": "Comfy-Org/umt5_xxl_fp16.safetensors",
@@ -5034,6 +5247,50 @@
       "size": "15.7GB"
     },
     {
+      "name": "LTX-Video 2B Distilled v0.9.8",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "LTX-Video 2B distilled model v0.9.8 with improved prompt understanding and detail generation.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-2b-0.9.8-distilled.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-2b-0.9.8-distilled.safetensors",
+      "size": "6.34GB"
+    },
+    {
+      "name": "LTX-Video 2B Distilled FP8 v0.9.8",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "Quantized LTX-Video 2B distilled model v0.9.8 with improved prompt understanding and detail generation, optimized for lower VRAM usage.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-2b-0.9.8-distilled-fp8.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-2b-0.9.8-distilled-fp8.safetensors",
+      "size": "4.46GB"
+    },
+    {
+      "name": "LTX-Video 13B Distilled v0.9.8",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "LTX-Video 13B distilled model v0.9.8 with improved prompt understanding and detail generation.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-13b-0.9.8-distilled.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.8-distilled.safetensors",
+      "size": "28.6GB"
+    },
+    {
+      "name": "LTX-Video 13B Distilled FP8 v0.9.8",
+      "type": "checkpoint",
+      "base": "LTX-Video",
+      "save_path": "checkpoints/LTXV",
+      "description": "Quantized LTX-Video 13B distilled model v0.9.8 with improved prompt understanding and detail generation, optimized for lower VRAM usage.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video",
+      "filename": "ltxv-13b-0.9.8-distilled-fp8.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video/resolve/main/ltxv-13b-0.9.8-distilled-fp8.safetensors",
+      "size": "15.7GB"
+    },
+    {
       "name": "LTX-Video 13B Distilled LoRA v0.9.7",
       "type": "lora",
       "base": "LTX-Video",
@@ -5045,6 +5302,50 @@
       "size": "1.33GB"
     },
     {
+      "name": "LTX-Video ICLoRA Depth 13B v0.9.7",
+      "type": "lora",
+      "base": "LTX-Video",
+      "save_path": "loras",
+      "description": "In-Context LoRA (IC LoRA) for depth-controlled video-to-video generation with precise depth conditioning.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-depth-13b-0.9.7",
+      "filename": "ltxv-097-ic-lora-depth-control-comfyui.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-depth-13b-0.9.7/resolve/main/ltxv-097-ic-lora-depth-control-comfyui.safetensors",
+      "size": "81.9MB"
+    },
+    {
+      "name": "LTX-Video ICLoRA Pose 13B v0.9.7",
+      "type": "lora",
+      "base": "LTX-Video",
+      "save_path": "loras",
+      "description": "In-Context LoRA (IC LoRA) for pose-controlled video-to-video generation with precise pose conditioning.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-pose-13b-0.9.7",
+      "filename": "ltxv-097-ic-lora-pose-control-comfyui.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-pose-13b-0.9.7/resolve/main/ltxv-097-ic-lora-pose-control-comfyui.safetensors",
+      "size": "151MB"
+    },
+    {
+      "name": "LTX-Video ICLoRA Canny 13B v0.9.7",
+      "type": "lora",
+      "base": "LTX-Video",
+      "save_path": "loras",
+      "description": "In-Context LoRA (IC LoRA) for canny edge-controlled video-to-video generation with precise edge conditioning.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-canny-13b-0.9.7",
+      "filename": "ltxv-097-ic-lora-canny-control-comfyui.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-canny-13b-0.9.7/resolve/main/ltxv-097-ic-lora-canny-control-comfyui.safetensors",
+      "size": "81.9MB"
+    },
+    {
+      "name": "LTX-Video ICLoRA Detailer 13B v0.9.8",
+      "type": "lora",
+      "base": "LTX-Video",
+      "save_path": "loras",
+      "description": "A video detailer model on top of LTXV_13B_098_DEV trained on custom data using In-Context LoRA (IC LoRA) method.",
+      "reference": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-detailer-13b-0.9.8",
+      "filename": "ltxv-098-ic-lora-detailer-comfyui.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-Video-ICLoRA-detailer-13b-0.9.8/resolve/main/ltxv-098-ic-lora-detailer-comfyui.safetensors",
+      "size": "1.31GB"
+    },
+    {
       "name": "Latent Bridge Matching for Image Relighting",
       "type": "diffusion_model",
       "base": "LBM",
@@ -5054,6 +5355,317 @@
       "filename": "LBM_relighting.safetensors",
       "url": "https://huggingface.co/jasperai/LBM_relighting/resolve/main/model.safetensors",
       "size": "5.02GB"
+    },
+    {
+      "name": "Qwen-Image VAE",
+      "type": "VAE",
+      "base": "Qwen-Image",
+      "save_path": "vae/qwen-image",
+      "description": "VAE model for Qwen-Image",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI",
+      "filename": "qwen_image_vae.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors",
+      "size": "335MB"
+    },
+    {
+      "name": "Qwen 2.5 VL 7B Text Encoder (fp8_scaled)",
+      "type": "clip",
+      "base": "Qwen-2.5-VL",
+      "save_path": "text_encoders/qwen",
+      "description": "Qwen 2.5 VL 7B text encoder model (fp8_scaled)",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI",
+      "filename": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "size": "3.75GB"
+    },
+    {
+      "name": "Qwen 2.5 VL 7B Text Encoder",
+      "type": "clip",
+      "base": "Qwen-2.5-VL",
+      "save_path": "text_encoders/qwen",
+      "description": "Qwen 2.5 VL 7B text encoder model",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI",
+      "filename": "qwen_2.5_vl_7b.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b.safetensors",
+      "size": "7.51GB"
+    },
+    {
+      "name": "Qwen-Image Diffusion Model (fp8_e4m3fn)",
+      "type": "diffusion_model",
+      "base": "Qwen-Image",
+      "save_path": "diffusion_models/qwen-image",
+      "description": "Qwen-Image diffusion model (fp8_e4m3fn)",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI",
+      "filename": "qwen_image_fp8_e4m3fn.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_fp8_e4m3fn.safetensors",
+      "size": "4.89GB"
+    },
+    {
+      "name": "Qwen-Image Diffusion Model (bf16)",
+      "type": "diffusion_model",
+      "base": "Qwen-Image",
+      "save_path": "diffusion_models/qwen-image",
+      "description": "Qwen-Image diffusion model (bf16)",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI",
+      "filename": "qwen_image_bf16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_bf16.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Edit 2509 Diffusion Model (fp8_e4m3fn)",
+      "type": "diffusion_model",
+      "base": "Qwen-Image-Edit",
+      "save_path": "diffusion_models/qwen-image-edit",
+      "description": "Qwen-Image-Edit 2509 diffusion model (fp8_e4m3fn)",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI",
+      "filename": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+      "size": "4.89GB"
+    },
+
+    {
+      "name": "Qwen-Image-Edit 2509 Diffusion Model (bf16)",
+      "type": "diffusion_model",
+      "base": "Qwen-Image-Edit",
+      "save_path": "diffusion_models/qwen-image-edit",
+      "description": "Qwen-Image-Edit 2509 diffusion model (bf16)",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI",
+      "filename": "qwen_image_edit_2509_bf16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2509_bf16.safetensors",
+      "size": "9.78GB"
+    },
+
+    {
+      "name": "Qwen-Image-Edit Diffusion Model (fp8_e4m3fn)",
+      "type": "diffusion_model",
+      "base": "Qwen-Image-Edit",
+      "save_path": "diffusion_models/qwen-image-edit",
+      "description": "Qwen-Image-Edit diffusion model (fp8_e4m3fn)",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI",
+      "filename": "qwen_image_edit_fp8_e4m3fn.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors",
+      "size": "4.89GB"
+    },
+
+    {
+      "name": "Qwen-Image-Edit Diffusion Model (bf16)",
+      "type": "diffusion_model",
+      "base": "Qwen-Image-Edit",
+      "save_path": "diffusion_models/qwen-image-edit",
+      "description": "Qwen-Image-Edit diffusion model (bf16)",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI",
+      "filename": "qwen_image_edit_bf16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_bf16.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 8steps V1.0",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 8-step LoRA model V1.0",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-8steps-V1.0.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-8steps-V1.0.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 4steps V1.0",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 4-step LoRA model V1.0",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-4steps-V1.0.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-4steps-V1.0.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 4steps V1.0 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 4-step LoRA model V1.0 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-4steps-V1.0-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-4steps-V1.0-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 4steps V2.0",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 4-step LoRA model V2.0",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-4steps-V2.0.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-4steps-V2.0.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 4steps V2.0 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 4-step LoRA model V2.0 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-4steps-V2.0-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-4steps-V2.0-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 8steps V1.1",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 8-step LoRA model V1.1",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-8steps-V1.1.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-8steps-V1.1.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 8steps V1.1 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 8-step LoRA model V1.1 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-8steps-V1.1-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-8steps-V1.1-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 8steps V2.0",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 8-step LoRA model V2.0",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-8steps-V2.0.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-8steps-V2.0.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 8steps V2.0 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 8-step LoRA model V2.0 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-8steps-V2.0-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-8steps-V2.0-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-Lightning 4steps V1.0",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-Lightning 4-step LoRA model V1.0",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-Lightning-4steps-V1.0.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-Lightning-4steps-V1.0.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-Lightning 4steps V1.0 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-Lightning 4-step LoRA model V1.0 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-Lightning-4steps-V1.0-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-Lightning-4steps-V1.0-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-Lightning 8steps V1.0",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-Lightning 8-step LoRA model V1.0",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-Lightning-8steps-V1.0.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-Lightning-8steps-V1.0.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-Lightning 8steps V1.0 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-Lightning 8-step LoRA model V1.0 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-Lightning-8steps-V1.0-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-Lightning-8steps-V1.0-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-2509-Lightning 4steps V1.0 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-2509-Lightning 4-step LoRA model V1.0 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-2509-Lightning 4steps V1.0 (fp32)",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-2509-Lightning 4-step LoRA model V1.0 (fp32)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-fp32.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-4steps-V1.0-fp32.safetensors",
+      "size": "39.1GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-2509-Lightning 8steps V1.0 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-2509-Lightning 8-step LoRA model V1.0 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-2509-Lightning 8steps V1.0 (fp32)",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-2509-Lightning 8-step LoRA model V1.0 (fp32)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-2509-Lightning-8steps-V1.0-fp32.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-fp32.safetensors",
+      "size": "39.1GB"
+    },
+    {
+      "name": "Qwen-Image InstantX ControlNet Union",
+      "type": "controlnet",
+      "base": "Qwen-Image",
+      "save_path": "controlnet/qwen-image/instantx",
+      "description": "Qwen-Image InstantX ControlNet Union model",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image-InstantX-ControlNets",
+      "filename": "Qwen-Image-InstantX-ControlNet-Union.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-InstantX-ControlNets/resolve/main/split_files/controlnet/Qwen-Image-InstantX-ControlNet-Union.safetensors",
+      "size": "2.54GB"
+    },
+    {
+      "name": "Qwen-Image InstantX ControlNet Inpainting",
+      "type": "controlnet",
+      "base": "Qwen-Image",
+      "save_path": "controlnet/qwen-image/instantx",
+      "description": "Qwen-Image InstantX ControlNet Inpainting model",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image-InstantX-ControlNets",
+      "filename": "Qwen-Image-InstantX-ControlNet-Inpainting.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-InstantX-ControlNets/resolve/main/split_files/controlnet/Qwen-Image-InstantX-ControlNet-Inpainting.safetensors",
+      "size": "2.54GB"
     }
   ]
 }
