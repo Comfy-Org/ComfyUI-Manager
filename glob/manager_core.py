@@ -40,10 +40,11 @@ import cnr_utils
 import manager_util
 import git_utils
 import manager_downloader
+import manager_migration
 from node_package import InstalledNodePackage
 
 
-version_code = [3, 37, 2]
+version_code = [3, 38]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
@@ -214,9 +215,10 @@ def update_user_directory(user_dir):
     global manager_pip_blacklist_path
     global manager_components_path
 
-    manager_files_path = os.path.abspath(os.path.join(user_dir, 'default', 'ComfyUI-Manager'))
+    manager_files_path = manager_migration.get_manager_path(user_dir)
     if not os.path.exists(manager_files_path):
         os.makedirs(manager_files_path)
+    manager_migration.run_migration_checks(user_dir, manager_files_path)
 
     manager_snapshot_path = os.path.join(manager_files_path, "snapshots")
     if not os.path.exists(manager_snapshot_path):
@@ -1719,7 +1721,7 @@ def read_config():
         manager_util.use_uv = default_conf['use_uv'].lower() == 'true' if 'use_uv' in default_conf else False
         manager_util.bypass_ssl = get_bool('bypass_ssl', False)
 
-        return {
+        result = {
                     'http_channel_enabled': get_bool('http_channel_enabled', False),
                     'preview_method': default_conf.get('preview_method', manager_funcs.get_current_preview_method()).lower(),
                     'git_exe': default_conf.get('git_exe', ''),
@@ -1739,6 +1741,8 @@ def read_config():
                     'security_level': default_conf.get('security_level', 'normal').lower(),
                     'db_mode': default_conf.get('db_mode', 'cache').lower(),
                }
+        manager_migration.force_security_level_if_needed(result)
+        return result
 
     except Exception:
         import importlib.util
@@ -1746,7 +1750,7 @@ def read_config():
         manager_util.use_uv = importlib.util.find_spec("uv") is not None and platform.system() != "Windows"
         manager_util.bypass_ssl = False
 
-        return {
+        result = {
             'http_channel_enabled': False,
             'preview_method': manager_funcs.get_current_preview_method(),
             'git_exe': '',
@@ -1766,6 +1770,8 @@ def read_config():
             'security_level': 'normal', # strong | normal | normal- | weak
             'db_mode': 'cache',         # local | cache | remote
         }
+        manager_migration.force_security_level_if_needed(result)
+        return result
 
 
 def get_config():
@@ -3360,8 +3366,8 @@ def get_comfyui_versions(repo=None):
         repo = git.Repo(comfy_path)
 
     try:
-        remote = get_remote_name(repo)   
-        repo.remotes[remote].fetch()    
+        remote = get_remote_name(repo)
+        repo.remotes[remote].fetch()
     except:
         logging.error("[ComfyUI-Manager] Failed to fetch ComfyUI")
 
