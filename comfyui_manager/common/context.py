@@ -34,7 +34,7 @@ manager_pip_blacklist_path = None
 manager_components_path = None
 manager_batch_history_path = None
 
-def update_user_directory(user_dir):
+def update_user_directory(manager_dir):
     global manager_files_path
     global manager_config_path
     global manager_channel_list_path
@@ -45,7 +45,7 @@ def update_user_directory(user_dir):
     global manager_components_path
     global manager_batch_history_path
 
-    manager_files_path = os.path.abspath(os.path.join(user_dir, 'default', 'ComfyUI-Manager'))
+    manager_files_path = manager_dir
     if not os.path.exists(manager_files_path):
         os.makedirs(manager_files_path)
 
@@ -73,7 +73,7 @@ def update_user_directory(user_dir):
 
 try:
     import folder_paths
-    update_user_directory(folder_paths.get_user_directory())
+    update_user_directory(folder_paths.get_system_user_directory("manager"))
 
 except Exception:
     # fallback:

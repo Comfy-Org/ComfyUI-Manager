@@ -80,7 +80,7 @@ cm_global.register_api('cm.is_import_failed_extension', is_import_failed_extensi
 comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
 
 custom_nodes_base_path = folder_paths.get_folder_paths('custom_nodes')[0]
-manager_files_path = os.path.abspath(os.path.join(folder_paths.get_user_directory(), 'default', 'ComfyUI-Manager'))
+manager_files_path = folder_paths.get_system_user_directory("manager")
 manager_pip_overrides_path = os.path.join(manager_files_path, "pip_overrides.json")
 manager_pip_blacklist_path = os.path.join(manager_files_path, "pip_blacklist.list")
 restore_snapshot_path = os.path.join(manager_files_path, "startup-scripts", "restore-snapshot.json")
@@ -483,7 +483,7 @@ check_bypass_ssl()
 
 # Perform install
 processed_install = set()
-script_list_path = os.path.join(folder_paths.user_directory, "default", "ComfyUI-Manager", "startup-scripts", "install-scripts.txt")
+script_list_path = os.path.join(manager_files_path, "startup-scripts", "install-scripts.txt")
 pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path)
 
 
