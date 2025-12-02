@@ -2519,14 +2519,17 @@ def update_to_stable_comfyui(repo_path):
 
         versions, current_tag, _ = get_comfyui_versions(repo)
         
-        if len(versions) == 0 or (len(versions) == 1 and versions[0] == 'nightly'):
+        def pick_latest_semver(tags):
+            for tag in tags:
+                if re.match(r'^v\d+\.\d+\.\d+$', tag):
+                    return tag
+            return None
+
+        latest_tag = pick_latest_semver(versions)
+
+        if latest_tag is None:
             logging.info("[ComfyUI-Manager] Unable to update to the stable ComfyUI version.")
             return "fail", None
-            
-        if versions[0] == 'nightly':
-            latest_tag = versions[1]
-        else:
-            latest_tag = versions[0]
 
         if current_tag == latest_tag:
             return "skip", None
@@ -3356,35 +3359,65 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
 
 
 def get_comfyui_versions(repo=None):
-    if repo is None:
-        repo = git.Repo(comfy_path)
+    repo = repo or git.Repo(comfy_path)
 
     try:
-        remote = get_remote_name(repo)   
-        repo.remotes[remote].fetch()    
-    except:
+        remote = get_remote_name(repo)
+        repo.remotes[remote].fetch()
+    except Exception:
         logging.error("[ComfyUI-Manager] Failed to fetch ComfyUI")
 
-    versions = [x.name for x in repo.tags if x.name.startswith('v')]
+    def parse_semver(tag_name):
+        match = re.match(r'^v(\d+)\.(\d+)\.(\d+)$', tag_name)
+        return tuple(int(x) for x in match.groups()) if match else None
 
-    # nearest tag
-    versions = sorted(versions, key=lambda v: repo.git.log('-1', '--format=%ct', v), reverse=True)
-    versions = versions[:4]
+    def normalize_describe(tag_name):
+        if not tag_name:
+            return None
+        base = tag_name.split('-', 1)[0]
+        return base if parse_semver(base) else None
 
-    current_tag = repo.git.describe('--tags')
+    # Collect semver tags and sort descending (highest first)
+    semver_tags = []
+    for tag in repo.tags:
+        semver = parse_semver(tag.name)
+        if semver:
+            semver_tags.append((semver, tag.name))
+    semver_tags.sort(key=lambda x: x[0], reverse=True)
+    semver_tags = [name for _, name in semver_tags]
+    semver_tag_set = set(semver_tags)
 
-    if current_tag not in versions:
-        versions = sorted(versions + [current_tag], key=lambda v: repo.git.log('-1', '--format=%ct', v), reverse=True)
-        versions = versions[:4]
+    try:
+        raw_current_tag = repo.git.describe('--tags')
+    except Exception:
+        raw_current_tag = ''
 
-    main_branch = repo.heads.master
-    latest_commit = main_branch.commit
-    latest_tag = repo.git.describe('--tags', latest_commit.hexsha)
+    normalized_current = normalize_describe(raw_current_tag)
+    has_normalized_tag = normalized_current in semver_tag_set
+    current_tag = normalized_current if has_normalized_tag else raw_current_tag
 
-    if latest_tag != versions[0]:
-        versions.insert(0, 'nightly')
-    else:
-        versions[0] = 'nightly'
+    if has_normalized_tag and normalized_current not in semver_tags:
+        semver_tags.append(normalized_current)
+        semver_tags.sort(key=lambda t: parse_semver(t) or (0, 0, 0), reverse=True)
+
+    semver_tags = semver_tags[:4]
+
+    non_semver_current = None
+    if current_tag and not has_normalized_tag and current_tag not in semver_tags:
+        non_semver_current = current_tag
+
+    try:
+        latest_tag = repo.git.describe('--tags', repo.heads.master.commit.hexsha)
+    except Exception:
+        latest_tag = None
+
+    versions = ['nightly']
+    if non_semver_current:
+        versions.append(non_semver_current)
+    versions.extend(semver_tags)
+    versions = versions[:5]
+
+    if not current_tag:
         current_tag = 'nightly'
 
     return versions, current_tag, latest_tag
