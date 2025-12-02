@@ -2517,25 +2517,22 @@ def update_to_stable_comfyui(repo_path):
                 logging.error('\t'+branch.name)
             return "fail", None
 
-        versions, current_tag, _ = get_comfyui_versions(repo)
-        
-        def pick_latest_semver(tags):
-            for tag in tags:
-                if re.match(r'^v\d+\.\d+\.\d+$', tag):
-                    return tag
-            return None
-
-        latest_tag = pick_latest_semver(versions)
+        versions, current_tag, latest_tag = get_comfyui_versions(repo)
 
         if latest_tag is None:
             logging.info("[ComfyUI-Manager] Unable to update to the stable ComfyUI version.")
             return "fail", None
 
-        if current_tag == latest_tag:
+        tag_ref = next((t for t in repo.tags if t.name == latest_tag), None)
+        if tag_ref is None:
+            logging.info(f"[ComfyUI-Manager] Unable to locate tag '{latest_tag}' in repository.")
+            return "fail", None
+
+        if repo.head.commit == tag_ref.commit:
             return "skip", None
         else:
             logging.info(f"[ComfyUI-Manager] Updating ComfyUI: {current_tag} -> {latest_tag}")
-            repo.git.checkout(latest_tag)
+            repo.git.checkout(tag_ref)
             execute_install_script("ComfyUI", repo_path, instant_execution=False, no_deps=False)
             return 'updated', latest_tag
     except:
@@ -3385,40 +3382,41 @@ def get_comfyui_versions(repo=None):
             semver_tags.append((semver, tag.name))
     semver_tags.sort(key=lambda x: x[0], reverse=True)
     semver_tags = [name for _, name in semver_tags]
-    semver_tag_set = set(semver_tags)
+
+    latest_tag = semver_tags[0] if semver_tags else None
 
     try:
-        raw_current_tag = repo.git.describe('--tags')
+        described = repo.git.describe('--tags')
     except Exception:
-        raw_current_tag = ''
-
-    normalized_current = normalize_describe(raw_current_tag)
-    has_normalized_tag = normalized_current in semver_tag_set
-    current_tag = normalized_current if has_normalized_tag else raw_current_tag
-
-    if has_normalized_tag and normalized_current not in semver_tags:
-        semver_tags.append(normalized_current)
-        semver_tags.sort(key=lambda t: parse_semver(t) or (0, 0, 0), reverse=True)
-
-    semver_tags = semver_tags[:4]
-
-    non_semver_current = None
-    if current_tag and not has_normalized_tag and current_tag not in semver_tags:
-        non_semver_current = current_tag
+        described = ''
 
     try:
-        latest_tag = repo.git.describe('--tags', repo.heads.master.commit.hexsha)
+        exact_tag = repo.git.describe('--tags', '--exact-match')
     except Exception:
-        latest_tag = None
+        exact_tag = ''
+
+    nearest_semver = normalize_describe(described)
+    exact_semver = exact_tag if parse_semver(exact_tag) else None
+
+    current_tag = exact_tag or described or 'nightly'
+
+    # Prepare semver list for display: top 4 plus the current/nearest semver if missing
+    display_semver_tags = semver_tags[:4]
+    if exact_semver and exact_semver not in display_semver_tags:
+        display_semver_tags.append(exact_semver)
+    elif nearest_semver and nearest_semver not in display_semver_tags:
+        display_semver_tags.append(nearest_semver)
 
     versions = ['nightly']
-    if non_semver_current:
-        versions.append(non_semver_current)
-    versions.extend(semver_tags)
-    versions = versions[:5]
 
-    if not current_tag:
-        current_tag = 'nightly'
+    if current_tag and not exact_semver and current_tag not in versions and current_tag not in display_semver_tags:
+        versions.append(current_tag)
+
+    for tag in display_semver_tags:
+        if tag not in versions:
+            versions.append(tag)
+
+    versions = versions[:6]
 
     return versions, current_tag, latest_tag
 
