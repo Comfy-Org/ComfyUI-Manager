@@ -7,7 +7,7 @@ import {
 	fetchData, md5, icons, show_message, customConfirm, customAlert, customPrompt,
 	sanitizeHTML, infoToast, showTerminal, setNeedRestart,
 	storeColumnWidth, restoreColumnWidth, getTimeAgo, copyText, loadCss,
-	showPopover, hidePopover
+	showPopover, hidePopover, handle403Response
 } from  "./common.js";
 
 // https://cenfun.github.io/turbogrid/api.html
@@ -1528,7 +1528,16 @@ export class CustomNodesManager {
 				errorMsg = `'${item.title}': `;
 
 				if(res.status == 403) {
-					errorMsg += `This action is not allowed with this security level configuration.\n`;
+					try {
+						const data = await res.json();
+						if(data.error === 'comfyui_outdated') {
+							errorMsg += `ComfyUI version is outdated. Please update ComfyUI to use Manager normally.\n`;
+						} else {
+							errorMsg += `This action is not allowed with this security level configuration.\n`;
+						}
+					} catch {
+						errorMsg += `This action is not allowed with this security level configuration.\n`;
+					}
 				} else if(res.status == 404) {
 					errorMsg += `With the current security level configuration, only custom nodes from the <B>"default channel"</B> can be installed.\n`;
 				} else {

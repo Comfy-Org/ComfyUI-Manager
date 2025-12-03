@@ -2062,6 +2062,7 @@
     ],
     "https://github.com/IgPoly/ComfyUI-igTools": [
         [
+            "IGT_ImageTilesCalc",
             "IGT_SimpleTilesCalc"
         ],
         {
@@ -2439,18 +2440,37 @@
     ],
     "https://github.com/LSDJesus/ComfyUI-Luna-Collection": [
         [
-            "LunaAdvancedUpscaler",
+            "LunaAssembler",
+            "LunaBasePrompt",
             "LunaCacheManager",
             "LunaCheckpointLoader",
+            "LunaCivitaiBatchScraper",
+            "LunaCivitaiScraper",
+            "LunaConditionals",
+            "LunaConnectionEditor",
+            "LunaConnectionMatcher",
+            "LunaConnectionStats",
+            "LunaDaemonConfig",
+            "LunaDaemonConfigFromLoaders",
+            "LunaDaemonModelSwitch",
+            "LunaDaemonStatus",
             "LunaEmbeddingCache",
             "LunaEmbeddingManager",
             "LunaEmbeddingManagerRandom",
+            "LunaExpanders",
+            "LunaExpressionBatchSaver",
+            "LunaExpressionList",
+            "LunaExpressionPromptBuilder",
+            "LunaExpressionSheetSlicer",
             "LunaListPreprocessedPrompts",
+            "LunaLoRALinker",
+            "LunaLoRARandomizer",
             "LunaLoRAStacker",
             "LunaLoRAStackerRandom",
             "LunaLoadParameters",
             "LunaLoadPreprocessedPrompt",
-            "LunaMediaPipeDetailer",
+            "LunaLogicResolver",
+            "LunaModifiers",
             "LunaModifyPreprocessedPrompt",
             "LunaMultiSaver",
             "LunaOptimizedPreprocessedLoader",
@@ -2464,19 +2484,26 @@
             "LunaSampler",
             "LunaSaveNegativePrompt",
             "LunaSelectPromptFolder",
-            "LunaSimpleUpscaler",
+            "LunaSharedCLIPEncode",
+            "LunaSharedCLIPEncodeDual",
+            "LunaSharedCLIPEncodeSDXL",
+            "LunaSharedVAEDecode",
+            "LunaSharedVAEEncode",
             "LunaSinglePromptProcessor",
+            "LunaSmartLoRALinker",
             "LunaTextProcessor",
             "LunaUnifiedPromptProcessor",
+            "LunaWildcardBuilder",
             "LunaWildcardPromptGenerator",
+            "LunaYAMLInjector",
+            "LunaYAMLPathExplorer",
+            "LunaYAMLWildcard",
+            "LunaYAMLWildcardBatch",
+            "LunaYAMLWildcardExplorer",
             "Luna_Advanced_Upscaler",
             "Luna_Detailer",
-            "Luna_MediaPipe_Detailer",
-            "Luna_MediaPipe_Segs",
             "Luna_SimpleUpscaler",
-            "Luna_UltimateSDUpscale",
-            "Luna_YOLO_Annotation_Exporter",
-            "luna_image_caption"
+            "Luna_UltimateSDUpscale"
         ],
         {
             "title_aux": "ComfyUI-Pyrite-Core [WIP]"
@@ -3438,14 +3465,6 @@
             "title_aux": "CADabra [WIP]"
         }
     ],
-    "https://github.com/PozzettiAndrea/ComfyUI-CameraAnalysis": [
-        [
-            "CameraAnalysis"
-        ],
-        {
-            "title_aux": "ComfyUI-CameraAnalysis"
-        }
-    ],
     "https://github.com/PozzettiAndrea/ComfyUI-Hunyuan3D-Part": [
         [
             "ClearAllModelCaches",
@@ -3621,6 +3640,7 @@
     "https://github.com/Randomwalkforest/Comfyui-Koi-Toolkit": [
         [
             "AliyunChat",
+            "AliyunVLChat",
             "Florence2CoordinateExtractor",
             "Florence2JsonShow",
             "ImageDesaturateEdgeBinarize",
@@ -3631,6 +3651,7 @@
             "PreviewSVG",
             "SVGToImage",
             "SaveSVG",
+            "SearchIconFreepik",
             "SimpleImageStitch",
             "TextSplitLines",
             "imageStitchForICImproved",
@@ -4303,9 +4324,7 @@
             "Color Cast Detector",
             "Color Harmony Analyzer",
             "Color Temperature Estimator",
-            "ColorTemperatureEstimator",
             "Contrast Analysis",
-            "ContrastAnalysis",
             "Defocus Analysis",
             "Edge Density Analysis",
             "Entropy Analysis",
@@ -5868,6 +5887,7 @@
         [
             "AdaptiveTessellate",
             "BarycentricWarp",
+            "BidirectionalFlowExtractor",
             "DepthEstimator",
             "FlowSRRefine",
             "FlowToSTMap",
@@ -7588,7 +7608,6 @@
     ],
     "https://github.com/grinlau18/ComfyUI_XISER_Nodes": [
         [
-            "CreatePointsString",
             "XISER_Canvas",
             "XIS_BooleanSwitch",
             "XIS_CanvasConfig",
@@ -7615,13 +7634,14 @@
             "XIS_ImageAdjustAndBlend",
             "XIS_ImageManager",
             "XIS_ImageMaskMirror",
-            "XIS_ImageStitcher",
+            "XIS_ImagePuzzle",
             "XIS_ImageSwitch",
             "XIS_IntSwitch",
             "XIS_InvertMask",
             "XIS_IsThereAnyData",
             "XIS_KSamplerSettingsNode",
             "XIS_KSamplerSettingsUnpackNode",
+            "XIS_LLMOrchestrator",
             "XIS_Label",
             "XIS_LatentBlendNode",
             "XIS_LoadImage",
@@ -7643,7 +7663,8 @@
             "XIS_SetColor",
             "XIS_ShapeAndText",
             "XIS_ShapeData",
-            "XIS_StringSwitch"
+            "XIS_StringSwitch",
+            "XIS_UnpackImages"
         ],
         {
             "title_aux": "Xiser_Nodes [WIP]"
@@ -9326,7 +9347,7 @@
             "LF_BlurImages",
             "LF_Boolean",
             "LF_Brightness",
-            "LF_CaptionImageWD14",
+            "LF_CaptionImageWD14Onnx",
             "LF_CharacterImpersonator",
             "LF_CheckpointSelector",
             "LF_CivitAIMetadataSetup",
@@ -9381,6 +9402,7 @@
             "LF_LoadLoraTags",
             "LF_LoadMetadata",
             "LF_LoadWD14Model",
+            "LF_LoadWD14Onnx",
             "LF_LoraAndEmbeddingSelector",
             "LF_LoraSelector",
             "LF_MarkdownDocGenerator",
@@ -11119,6 +11141,7 @@
     "https://github.com/silveroxides/ComfyUI_SamplingUtils": [
         [
             "GetJsonKeyValue",
+            "Image_Color_Noise",
             "SamplingParameters"
         ],
         {
@@ -12104,6 +12127,8 @@
         [
             "ConditionalTagProcessorNode",
             "LoadTextFile",
+            "ParsePromptCustom",
+            "ParsePromptFull",
             "ProcessWildcard",
             "PromptsFromTextbox",
             "RemoveComments",

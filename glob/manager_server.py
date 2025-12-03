@@ -22,6 +22,7 @@ import asyncio
 import queue
 
 import manager_downloader
+import manager_migration
 
 
 logging.info(f"### Loading: ComfyUI-Manager ({core.version_str})")
@@ -274,6 +275,13 @@ import aiohttp
 import json
 import zipfile
 import urllib.request
+
+
+def security_403_response():
+    """Return appropriate 403 response based on ComfyUI version."""
+    if not manager_migration.has_system_user_api():
+        return web.json_response({"error": "comfyui_outdated"}, status=403)
+    return web.json_response({"error": "security_level"}, status=403)
 
 
 def get_model_dir(data, show_log=False):
@@ -732,7 +740,7 @@ async def fetch_updates(request):
 async def update_all(request):
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
-        return web.Response(status=403)
+        return security_403_response()
 
     with task_worker_lock:
         is_processing = task_worker_thread is not None and task_worker_thread.is_alive()
@@ -965,7 +973,7 @@ async def get_snapshot_list(request):
 async def remove_snapshot(request):
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
-        return web.Response(status=403)
+        return security_403_response()
 
     try:
         target = request.rel_url.query["target"]
@@ -983,7 +991,7 @@ async def remove_snapshot(request):
 async def restore_snapshot(request):
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
-        return web.Response(status=403)
+        return security_403_response()
 
     try:
         target = request.rel_url.query["target"]
@@ -1302,7 +1310,7 @@ async def fix_custom_node(request):
 async def install_custom_node_git_url(request):
     if not is_allowed_security_level('high'):
         logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
-        return web.Response(status=403)
+        return security_403_response()
 
     url = await request.text()
     res = await core.gitclone_install(url)
@@ -1322,7 +1330,7 @@ async def install_custom_node_git_url(request):
 async def install_custom_node_pip(request):
     if not is_allowed_security_level('high'):
         logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
-        return web.Response(status=403)
+        return security_403_response()
 
     packages = await request.text()
     core.pip_install(packages.split(' '))
@@ -1594,6 +1602,16 @@ async def get_notice(request):
                     except:
                         pass
 
+                    # Prepend startup notices from manager_migration
+                    for message, level in reversed(manager_migration.startup_notices):
+                        if level == 'error':
+                            style = 'color:red; background-color:white; font-weight:bold'
+                        elif level == 'warning':
+                            style = 'color:orange; background-color:white; font-weight:bold'
+                        else:
+                            style = 'color:blue; background-color:white'
+                        markdown_content = f'<P style="{style}">{message}</P>' + markdown_content
+
                     return web.Response(text=markdown_content, status=200)
                 else:
                     return web.Response(text="Unable to retrieve Notice", status=200)
@@ -1601,11 +1619,35 @@ async def get_notice(request):
                 return web.Response(text="Unable to retrieve Notice", status=200)
 
 
+@routes.get("/manager/startup_alerts")
+async def get_startup_alerts(request):
+    """Return startup alerts for customAlert display on page load.
+
+    Returns JSON array of alerts that should be shown to user immediately.
+    All startup notices (error, warning, info) are returned.
+    """
+    alerts = []
+
+    # Return all startup notices for alert display
+    for message, level in manager_migration.startup_notices:
+        # Convert HTML BR to newlines for customAlert
+        text = message.replace('<BR>', '\n').replace('<br>', '\n')
+        # Add [ComfyUI-Manager] prefix for customAlert (notice board shows in Manager UI anyway)
+        text = text.replace('[Security Alert]', '[ComfyUI-Manager] Security Alert:')
+        text = text.replace('[MIGRATION]', '[ComfyUI-Manager] Migration:')
+        alerts.append({
+            'message': text,
+            'level': level
+        })
+
+    return web.json_response(alerts)
+
+
 @routes.get("/manager/reboot")
 def restart(self):
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
-        return web.Response(status=403)
+        return security_403_response()
 
     try:
         sys.stdout.close_log()

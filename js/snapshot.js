@@ -1,7 +1,7 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js"
 import { ComfyDialog, $el } from "../../scripts/ui.js";
-import { manager_instance, rebootAPI, show_message } from  "./common.js";
+import { manager_instance, rebootAPI, show_message, handle403Response } from  "./common.js";
 
 
 async function restore_snapshot(target) {
@@ -10,7 +10,7 @@ async function restore_snapshot(target) {
 			const response = await api.fetchApi(`/snapshot/restore?target=${target}`, { cache: "no-store" });
 
 			if(response.status == 403) {
-				show_message('This action is not allowed with this security level configuration.');
+				await handle403Response(response);
 				return false;
 			}
 
@@ -38,7 +38,7 @@ async function remove_snapshot(target) {
 			const response = await api.fetchApi(`/snapshot/remove?target=${target}`, { cache: "no-store" });
 
 			if(response.status == 403) {
-				show_message('This action is not allowed with this security level configuration.');
+				await handle403Response(response);
 				return false;
 			}
 
@@ -145,8 +145,8 @@ export class SnapshotManager extends ComfyDialog {
 		if(btn_id) {
 			const rebootButton = document.getElementById(btn_id);
 			const self = this;
-			rebootButton.onclick = function() {
-				if(rebootAPI()) {
+			rebootButton.onclick = async function() {
+				if(await rebootAPI()) {
 					self.close();
 					self.manager_dialog.close();
 				}

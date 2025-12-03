@@ -14,7 +14,7 @@ import { OpenArtShareDialog } from "./comfyui-share-openart.js";
 import {
 	free_models, install_pip, install_via_git_url, manager_instance,
 	rebootAPI, setManagerInstance, show_message, customAlert, customPrompt,
-	infoToast, showTerminal, setNeedRestart
+	infoToast, showTerminal, setNeedRestart, handle403Response
 } from "./common.js";
 import { ComponentBuilderDialog, getPureName, load_components, set_component_policy } from "./components-manager.js";
 import { CustomNodesManager } from "./custom-nodes-manager.js";
@@ -753,9 +753,9 @@ async function onQueueStatus(event) {
 
 		const rebootButton = document.getElementById('cm-reboot-button5');
 		rebootButton?.addEventListener("click",
-			function() {
-				if(rebootAPI()) {
-					manager_dialog.close();
+			async function() {
+				if(await rebootAPI()) {
+					manager_instance.close();
 				}
 			});
 	}
@@ -780,8 +780,13 @@ async function updateAll(update_comfyui) {
 
 	const response = await api.fetchApi(`/manager/queue/update_all?mode=${mode}`);
 
-	if (response.status == 401) {
+	if (response.status == 403) {
+		await handle403Response(response);
+		reset_action_buttons();
+	}
+	else if (response.status == 401) {
 		customAlert('Another task is already in progress. Please stop the ongoing task first.');
+		reset_action_buttons();
 	}
 	else if(response.status == 200) {
 		is_updating = true;
@@ -1452,6 +1457,31 @@ app.registerExtension({
 		};
 
 		load_components();
+
+		// Fetch and show startup alerts (critical errors like outdated ComfyUI)
+		// Poll until extensionManager.toast is ready (set in Vue onMounted)
+		const showStartupAlerts = async () => {
+			let toastWaitCount = 0;
+			const waitForToast = () => {
+				if (window['app']?.extensionManager?.toast) {
+					fetch('/manager/startup_alerts')
+						.then(response => response.ok ? response.json() : [])
+						.then(alerts => {
+							for (const alert of alerts) {
+								customAlert(alert.message);
+							}
+						})
+						.catch(e => console.warn('[ComfyUI-Manager] Failed to fetch startup alerts:', e));
+				} else if (toastWaitCount < 300) {  // Max 30 seconds (300 * 100ms)
+					toastWaitCount++;
+					setTimeout(waitForToast, 100);
+				} else {
+					console.warn('[ComfyUI-Manager] Timeout waiting for toast. Startup alerts skipped.');
+				}
+			};
+			waitForToast();
+		};
+		showStartupAlerts();
 
 		const menu = document.querySelector(".comfy-menu");
 		const separator = document.createElement("hr");
