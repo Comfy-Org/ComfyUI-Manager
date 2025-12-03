@@ -3395,10 +3395,23 @@ def get_comfyui_versions(repo=None):
     except Exception:
         exact_tag = ''
 
+    head_is_default = False
+    remote_name = get_remote_name(repo)
+    if remote_name:
+        try:
+            default_head_ref = repo.refs[f'{remote_name}/HEAD']
+            default_commit = default_head_ref.reference.commit
+            head_is_default = repo.head.commit == default_commit
+        except Exception:
+            head_is_default = False
+
     nearest_semver = normalize_describe(described)
     exact_semver = exact_tag if parse_semver(exact_tag) else None
 
-    current_tag = exact_tag or described or 'nightly'
+    if head_is_default and not exact_tag:
+        current_tag = 'nightly'
+    else:
+        current_tag = exact_tag or described or 'nightly'
 
     # Prepare semver list for display: top 4 plus the current/nearest semver if missing
     display_semver_tags = semver_tags[:4]
