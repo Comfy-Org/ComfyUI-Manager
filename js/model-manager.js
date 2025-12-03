@@ -1,9 +1,9 @@
 import { app } from "../../scripts/app.js";
 import { $el } from "../../scripts/ui.js";
-import { 
-	manager_instance, rebootAPI, 
+import {
+	manager_instance, rebootAPI,
 	fetchData, md5, icons, show_message, customAlert, infoToast, showTerminal,
-	storeColumnWidth, restoreColumnWidth, loadCss
+	storeColumnWidth, restoreColumnWidth, loadCss, handle403Response
 } from  "./common.js";
 import { api } from "../../scripts/api.js";
 
@@ -477,7 +477,16 @@ export class ModelManager {
 				errorMsg = `'${item.name}': `;
 
 				if(res.status == 403) {
-					errorMsg += `This action is not allowed with this security level configuration.\n`;
+					try {
+						const data = await res.json();
+						if(data.error === 'comfyui_outdated') {
+							errorMsg += `ComfyUI version is outdated. Please update ComfyUI to use Manager normally.\n`;
+						} else {
+							errorMsg += `This action is not allowed with this security level configuration.\n`;
+						}
+					} catch {
+						errorMsg += `This action is not allowed with this security level configuration.\n`;
+					}
 				} else {
 					errorMsg += await res.text() + '\n';
 				}

@@ -2831,8 +2831,8 @@
             "GoogleImagenEditNode",
             "GoogleImagenNode",
             "NanoBananaNode",
-            "Veo3VideoGenerator",
-            "VeoGeminiVideoGenerator"
+            "VeoGeminiVideoGenerator",
+            "VeoVertexVideoGenerator"
         ],
         {
             "title_aux": "ComfyUI-ExternalAPI-Helpers"
@@ -6287,6 +6287,7 @@
             "Multi-LoRA Loader Qwen",
             "Multi-LoRA Loader Wan-i2v",
             "Multi-LoRA Loader Wan-t2v",
+            "Multi-LoRA Loader Z-Image",
             "Multi-LoRA Loader [PLATFORM_NAME]",
             "Multi-LoRA Loader v02",
             "MyCustomNode",
@@ -6306,6 +6307,7 @@
     ],
     "https://github.com/EricRollei/Comfy_HunyuanImage3": [
         [
+            "HunyuanImage3ClearDownstream",
             "HunyuanImage3ForceUnload",
             "HunyuanImage3FullGPULoader",
             "HunyuanImage3FullLoader",
@@ -13828,10 +13830,12 @@
             "GeomPackFixNormals",
             "GeomPackFixSelfIntersectionsByPerturbation",
             "GeomPackFixSelfIntersectionsByRemoval",
+            "GeomPackGetMeshFilename",
             "GeomPackLoadMesh",
             "GeomPackLoadMeshBatch",
             "GeomPackLoadMeshBlend",
             "GeomPackLoadMeshFBX",
+            "GeomPackMergeVertices",
             "GeomPackMeshFromSkeleton",
             "GeomPackMeshInfo",
             "GeomPackMeshQuality",
@@ -13848,6 +13852,7 @@
             "GeomPackRemesh",
             "GeomPackRemeshSelfIntersections",
             "GeomPackRemeshWithTexture",
+            "GeomPackRemoveDegenerateFaces",
             "GeomPackSaveMesh",
             "GeomPackSaveMeshBatch",
             "GeomPackTextureToGeometry",
@@ -14400,6 +14405,8 @@
     ],
     "https://github.com/Rizzlord/ComfyUI-RizzNodes": [
         [
+            "BatchImagesToGrid",
+            "LoadMultiviewImages",
             "RizzAlphaMargin",
             "RizzBatchImageLoader",
             "RizzBlur",
@@ -14414,7 +14421,10 @@
             "RizzModelBatchLoader",
             "RizzPasteAndUnscale",
             "RizzUpscaleImageBatch",
-            "SimplifyMesh"
+            "SaveMultiviewImages",
+            "SimplifyMesh",
+            "SplitImageBatch",
+            "VideoSecondsToLength"
         ],
         {
             "title_aux": "ComfyUI-RizzNodes"
@@ -18907,6 +18917,7 @@
     ],
     "https://github.com/WingeD123/ComfyUI_QwenVL_PromptCaption": [
         [
+            "Ovis25Run",
             "Qwen25Caption",
             "Qwen25CaptionBatch",
             "Qwen3Caption",
@@ -23320,6 +23331,7 @@
     ],
     "https://github.com/bradsec/ComfyUI_StringEssentials": [
         [
+            "StringConditionalAppend",
             "StringMultiReplace",
             "StringPreview",
             "StringStrip",
@@ -26204,6 +26216,11 @@
             "KlingImageGenerationNode",
             "KlingLipSyncAudioToVideoNode",
             "KlingLipSyncTextToVideoNode",
+            "KlingOmniProEditVideoNode",
+            "KlingOmniProFirstLastFrameNode",
+            "KlingOmniProImageToVideoNode",
+            "KlingOmniProTextToVideoNode",
+            "KlingOmniProVideoToVideoNode",
             "KlingSingleImageVideoEffectNode",
             "KlingStartEndFrameNode",
             "KlingTextToVideoNode",
@@ -29102,6 +29119,7 @@
             "HunyuanVideoPromptExpander",
             "HunyuanVideoTextEncoder",
             "HunyuanVideoVisionLoader",
+            "LLMOutputParser",
             "PromptKeyFilter",
             "QwenDebugController",
             "QwenEliGenEntityControl",
@@ -29126,9 +29144,11 @@
             "QwenVLTextEncoder",
             "QwenVLTextEncoderAdvanced",
             "TemplateInfluenceAnalyzer",
+            "ZImageEmptyLatent",
             "ZImageTextEncoder",
             "ZImageTextEncoderSimple",
-            "ZImageTurnBuilder"
+            "ZImageTurnBuilder",
+            "ZImageWanVAEDecode"
         ],
         {
             "title_aux": "ComfyUI-QwenImageWanBridge"
@@ -30634,6 +30654,10 @@
             "Kling21Pro_fal",
             "Kling25TurboPro_fal",
             "KlingMaster_fal",
+            "KlingOmniImageToVideo_fal",
+            "KlingOmniReferenceToVideo_fal",
+            "KlingOmniVideoToVideoEdit_fal",
+            "KlingOmniVideoToVideoReference_fal",
             "KlingPro10_fal",
             "KlingPro16_fal",
             "Kling_fal",
@@ -31806,10 +31830,9 @@
     ],
     "https://github.com/hobinrude/ComfyUI_DWposeDeluxe": [
         [
-            "DWposeKeypointConverter",
-            "DWposeWeightOptions",
             "FrameNumberNode",
             "KeypointConverter",
+            "LoadPoseKeypoints",
             "WeightOptions"
         ],
         {
@@ -36486,7 +36509,9 @@
         [
             "QwenImageEditScale",
             "QwenImageEditSimpleScale",
-            "TextEncodeQwenImageEditAdv"
+            "TextEncodeQwenImageEditAdv",
+            "TextEncodeQwenImageEditInfAdv",
+            "TextEncodeQwenImageEditPlusAdv"
         ],
         {
             "title_aux": "comfyui_qwen_image_edit_adv"
@@ -38480,6 +38505,7 @@
             "EasyResize",
             "EasyWan22Prompt",
             "Easy_Version",
+            "KoolookLoadCameraPosesAbsolute",
             "easy_ImageBatch"
         ],
         {
@@ -42821,6 +42847,12 @@
             "WaveSpeedAI Flux Kontext Max",
             "WaveSpeedAI Flux Kontext Pro",
             "WaveSpeedAI Google Nano Banana Edit",
+            "WaveSpeedAI Google Nano Banana Pro Edit",
+            "WaveSpeedAI Google Nano Banana Pro Edit Multi",
+            "WaveSpeedAI Google Nano Banana Pro Edit Ultra",
+            "WaveSpeedAI Google Nano Banana Pro Text to Image",
+            "WaveSpeedAI Google Nano Banana Pro Text to Image Multi",
+            "WaveSpeedAI Google Nano Banana Pro Text to Image Ultra",
             "WaveSpeedAI Google Nano Banana Text to Image",
             "WaveSpeedAI Google VEO 3.1 Fast Image-to-Video",
             "WaveSpeedAI Google VEO 3.1 Fast Text-to-Video",
@@ -45260,8 +45292,11 @@
     ],
     "https://github.com/smthemex/ComfyUI_DiffuEraser": [
         [
-            "DiffuEraserLoader",
-            "DiffuEraserSampler"
+            "DiffuEraser_Loader",
+            "DiffuEraser_PreData",
+            "DiffuEraser_Sampler",
+            "Propainter_Loader",
+            "Propainter_Sampler"
         ],
         {
             "title_aux": "ComfyUI_DiffuEraser"
