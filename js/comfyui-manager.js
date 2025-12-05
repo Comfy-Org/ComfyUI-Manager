@@ -329,8 +329,7 @@ const style = `
 
 .cm-menu-combo {
 	cursor: pointer;
-	width: 310px;
-	box-sizing: border-box;
+
 }
 
 .cm-small-button {
@@ -891,7 +890,6 @@ class ManagerMenuDialog extends ComfyDialog {
 							if(!CustomNodesManager.instance) {
 								CustomNodesManager.instance = new CustomNodesManager(app, self);
 							}
-							this.close();
 							CustomNodesManager.instance.show(CustomNodesManager.ShowMode.NORMAL);
 						}
 				}),
@@ -904,7 +902,6 @@ class ManagerMenuDialog extends ComfyDialog {
 							if(!CustomNodesManager.instance) {
 								CustomNodesManager.instance = new CustomNodesManager(app, self);
 							}
-							this.close()
 							CustomNodesManager.instance.show(CustomNodesManager.ShowMode.MISSING);
 						}
 				}),
@@ -917,7 +914,6 @@ class ManagerMenuDialog extends ComfyDialog {
 							if(!CustomNodesManager.instance) {
 								CustomNodesManager.instance = new CustomNodesManager(app, self);
 							}
-							this.close()
 							CustomNodesManager.instance.show(CustomNodesManager.ShowMode.IN_WORKFLOW);
 						}
 				}),
@@ -931,7 +927,6 @@ class ManagerMenuDialog extends ComfyDialog {
 							if(!ModelManager.instance) {
 								ModelManager.instance = new ModelManager(app, self);
 							}
-							this.close()
 							ModelManager.instance.show();
 						}
 				}),
@@ -970,7 +965,7 @@ class ManagerMenuDialog extends ComfyDialog {
 
 		this.datasrc_combo = document.createElement("select");
 		this.datasrc_combo.setAttribute("title", "Configure where to retrieve node/model information. If set to 'local,' the channel is ignored, and if set to 'channel (remote),' it fetches the latest information each time the list is opened.");
-		this.datasrc_combo.className = "p-select p-component p-inputwrapper p-inputwrapper-filled";
+		this.datasrc_combo.className = "cm-menu-combo p-select p-component p-inputwrapper p-inputwrapper-filled ";
 		this.datasrc_combo.appendChild($el('option', { value: 'cache', text: 'Channel (1day cache)' }, []));
 		this.datasrc_combo.appendChild($el('option', { value: 'local', text: 'Local' }, []));
 		this.datasrc_combo.appendChild($el('option', { value: 'remote', text: 'Channel (remote)' }, []));
@@ -988,7 +983,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		// preview method
 		let preview_combo = document.createElement("select");
 		preview_combo.setAttribute("title", "Configure how latent variables will be decoded during preview in the sampling process.");
-		preview_combo.className = "p-select p-component p-inputwrapper p-inputwrapper-filled";
+		preview_combo.className = "cm-menu-combo p-select p-component p-inputwrapper p-inputwrapper-filled";
 		preview_combo.appendChild($el('option', { value: 'auto', text: 'Auto' }, []));
 		preview_combo.appendChild($el('option', { value: 'taesd', text: 'TAESD (slow)' }, []));
 		preview_combo.appendChild($el('option', { value: 'latent2rgb', text: 'Latent2RGB (fast)' }, []));
@@ -1007,7 +1002,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		// channel
 		let channel_combo = document.createElement("select");
 		channel_combo.setAttribute("title", "Configure the channel for retrieving data from the Custom Node list (including missing nodes) or the Model list.");
-		channel_combo.className = "p-select p-component p-inputwrapper p-inputwrapper-filled";
+		channel_combo.className = "cm-menu-combo p-select p-component p-inputwrapper p-inputwrapper-filled";
 		api.fetchApi('/manager/channel_url_list')
 			.then(response => response.json())
 			.then(async data => {
@@ -1037,7 +1032,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		// share
 		let share_combo = document.createElement("select");
 		share_combo.setAttribute("title", "Hide the share button in the main menu or set the default action upon clicking it. Additionally, configure the default share site when sharing via the context menu's share button.");
-		share_combo.className = "p-select p-component p-inputwrapper p-inputwrapper-filled";
+		share_combo.className = "cm-menu-combo p-select p-component p-inputwrapper p-inputwrapper-filled";
 		const share_options = [
 			['none', 'None'],
 			['openart', 'OpenArt AI'],
@@ -1074,7 +1069,7 @@ class ManagerMenuDialog extends ComfyDialog {
 
 		let component_policy_combo = document.createElement("select");
 		component_policy_combo.setAttribute("title", "When loading the workflow, configure which version of the component to use.");
-		component_policy_combo.className = "p-select p-component p-inputwrapper p-inputwrapper-filled";
+		component_policy_combo.className = "cm-menu-combo p-select p-component p-inputwrapper p-inputwrapper-filled";
 		component_policy_combo.appendChild($el('option', { value: 'workflow', text: 'Use workflow version' }, []));
 		component_policy_combo.appendChild($el('option', { value: 'higher', text: 'Use higher version' }, []));
 		component_policy_combo.appendChild($el('option', { value: 'mine', text: 'Use my version' }, []));
@@ -1095,7 +1090,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		update_policy_combo = document.createElement("select");
 		
 		update_policy_combo.setAttribute("title", "Sets the policy to be applied when performing an update.");
-		update_policy_combo.className = "p-select p-component p-inputwrapper p-inputwrapper-filled";
+		update_policy_combo.className = "cm-menu-combo p-select p-component p-inputwrapper p-inputwrapper-filled";
 		update_policy_combo.appendChild($el('option', { value: 'stable-comfyui', text: 'ComfyUI Stable Version' }, []));
 		update_policy_combo.appendChild($el('option', { value: 'nightly-comfyui', text: 'ComfyUI Nightly Version' }, []));
 		api.fetchApi('/manager/policy/update')
