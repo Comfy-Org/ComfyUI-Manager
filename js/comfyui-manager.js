@@ -44,10 +44,14 @@ docStyle.innerHTML = `
 
 #cm-manager-dialog {
 	width: 1000px;
-	height: 455px;
+	height: auto;
 	box-sizing: content-box;
 	z-index: 1000;
 	overflow-y: auto;
+}
+
+#cm-manager-dialog br {
+	margin-bottom: 1em;
 }
 
 .cb-widget {
@@ -80,6 +84,7 @@ docStyle.innerHTML = `
 }
 
 .cm-menu-container {
+	padding : calc(var(--spacing)*2);
 	column-gap: 20px;
 	display: flex;
 	flex-wrap: wrap;
@@ -140,8 +145,8 @@ docStyle.innerHTML = `
 }
 
 .cm-notice-board {
-	width: 287px;
-	height: 230px;
+	width: auto;
+	height: 280px;
 	overflow: auto;
 	color: var(--input-text);
 	border: 1px solid var(--descrip-text);
@@ -238,26 +243,14 @@ var is_updating = false;
 // copied style from https://github.com/pythongosssss/ComfyUI-Custom-Scripts
 const style = `
 #workflowgallery-button {
-	width: 310px;
-	height: 27px;
+	height: 50px;
 	padding: 0px !important;
-	position: relative;
-	overflow: hidden;
-	font-size: 17px !important;
 }
 #cm-nodeinfo-button {
-	width: 310px;
-	height: 27px;
-	padding: 0px !important;
-	position: relative;
-	overflow: hidden;
-	font-size: 17px !important;
+	
 }
 #cm-manual-button {
-	width: 310px;
-	height: 27px;
-	position: relative;
-	overflow: hidden;
+
 }
 
 .cm-column-button {
@@ -265,41 +258,36 @@ const style = `
 }
 
 .cm-button {
-	width: 310px;
-	height: 30px;
+	width: auto;
 	position: relative;
 	overflow: hidden;
-	font-size: 17px !important;
+	background-color: #2b2a33;
+	border-color: #444454;
+	color: #ddd;
+}
+
+.cm-button:hover {
+	background-color: #52525e;
 }
 
 .cm-button-red {
-	width: 310px;
-	height: 30px;
-	position: relative;
-	overflow: hidden;
-	font-size: 17px !important;
 	background-color: #500000 !important;
+	border-color: #88181b !important;
 	color: white !important;
 }
 
+.cm-button-red:hover {
+	background-color: #88181b !important;
+}
 
 .cm-button-orange {
-	width: 310px;
-	height: 30px;
-	position: relative;
-	overflow: hidden;
-	font-size: 17px !important;
 	font-weight: bold;
 	background-color: orange !important;
 	color: black !important;
 }
 
 .cm-experimental-button {
-	width: 290px;
-	height: 30px;
-	position: relative;
-	overflow: hidden;
-	font-size: 17px !important;
+	width: 100%;
 }
 
 .cm-experimental {
@@ -329,7 +317,10 @@ const style = `
 
 .cm-menu-combo {
 	cursor: pointer;
-
+	padding: 0.5em 0.5em;
+	border: 1px solid #52525b;
+	border-radius: 6px;
+	background: #09090b;
 }
 
 .cm-small-button {
@@ -833,7 +824,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		const isElectron = 'electronAPI' in window;
 		
 		update_comfyui_button =
-			$el("button.cm-button.cm-column-button", {
+			$el("button.p-button.p-component.cm-button.cm-column-button", {
 				type: "button",
 				textContent: "Update ComfyUI",
 				style: {
@@ -844,7 +835,7 @@ class ManagerMenuDialog extends ComfyDialog {
 			});
 
 		switch_comfyui_button =
-			$el("button.cm-button.cm-column-button", {
+			$el("button.p-button.p-component.cm-button.cm-column-button", {
 				type: "button",
 				textContent: "Switch ComfyUI",
 				style: {
@@ -855,7 +846,7 @@ class ManagerMenuDialog extends ComfyDialog {
 			});
 
 		restart_stop_button =
-			$el("button.cm-column-button.cm-button-red", {
+			$el("button.p-button.p-component.cm-column-button.cm-button-red", {
 				type: "button",
 				textContent: "Restart",
 				onclick: () => restartOrStop()
@@ -863,7 +854,7 @@ class ManagerMenuDialog extends ComfyDialog {
 
 		if(isElectron) {
 			update_all_button =
-				$el("button.cm-button.cm-column-button", {
+				$el("button.p-button.p-component.cm-button.cm-column-button", {
 					type: "button",
 					textContent: "Update All Custom Nodes",
 					onclick:
@@ -872,7 +863,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		}
 		else {
 			update_all_button =
-				$el("button.cm-button.cm-column-button", {
+				$el("button.p-button.p-component.cm-button.cm-column-button", {
 					type: "button",
 					textContent: "Update All",
 					onclick:
@@ -882,7 +873,7 @@ class ManagerMenuDialog extends ComfyDialog {
 
 		const res =
 			[
-				$el("button.cm-button.cm-column-button", {
+				$el("button.p-button.p-component.cm-button.cm-column-button", {
 					type: "button",
 					textContent: "Custom Nodes Manager",
 					onclick:
@@ -894,7 +885,7 @@ class ManagerMenuDialog extends ComfyDialog {
 						}
 				}),
 
-				$el("button.cm-button.cm-column-button", {
+				$el("button.p-button.p-component.cm-button.cm-column-button", {
 					type: "button",
 					textContent: "Install Missing Custom Nodes",
 					onclick:
@@ -906,7 +897,7 @@ class ManagerMenuDialog extends ComfyDialog {
 						}
 				}),
 
-				$el("button.cm-button.cm-column-button", {
+				$el("button.p-button.p-component.cm-button.cm-column-button", {
 					type: "button",
 					textContent: "Custom Nodes In Workflow",
 					onclick:
@@ -919,7 +910,7 @@ class ManagerMenuDialog extends ComfyDialog {
 				}),
 				
 				$el("br", {}, []),
-				$el("button.cm-button.cm-column-button", {
+				$el("button.p-button.p-component.cm-button.cm-column-button", {
 					type: "button",
 					textContent: "Model Manager",
 					onclick:
@@ -931,7 +922,7 @@ class ManagerMenuDialog extends ComfyDialog {
 						}
 				}),
 
-				$el("button.cm-button.cm-column-button", {
+				$el("button.p-button.p-component.cm-button.cm-column-button", {
 					type: "button",
 					textContent: "Install via Git URL",
 					onclick: async () => {
@@ -1109,19 +1100,19 @@ class ManagerMenuDialog extends ComfyDialog {
 			updateSetttingItem.style.display = 'none';
 
 		return [
-			$el("br", {}, []),
+			// $el("br", {}, []),
 			dbRetrievalSetttingItem,
 			channelSetttingItem,
 			previewSetttingItem,
 			shareSetttingItem,
 			componentSetttingItem,
 			updateSetttingItem,
-			$el("br", {}, []),
+			// $el("br", {}, []),
 
-			$el("br", {}, []),
-			$el("filedset.cm-experimental", {}, [
+			// $el("br", {}, []),
+			$el("filedset.cm-experimental.mt-auto", {}, [
 					$el("legend.cm-experimental-legend", {}, ["EXPERIMENTAL"]),
-					$el("button.cm-experimental-button.cm-column-button", {
+					$el("button.p-button.p-component.cm-button.cm-experimental-button.cm-column-button", {
 						type: "button",
 						textContent: "Snapshot Manager",
 						onclick:
@@ -1131,7 +1122,7 @@ class ManagerMenuDialog extends ComfyDialog {
 								SnapshotManager.instance.show();
 							}
 					}),
-					$el("button.cm-experimental-button.cm-column-button", {
+					$el("button.p-button.p-component.cm-button.cm-experimental-button", {
 						type: "button",
 						textContent: "Install PIP packages",
 						onclick:
@@ -1149,7 +1140,7 @@ class ManagerMenuDialog extends ComfyDialog {
 
 	createControlsRight() {
 		const elts = [
-				$el("button.cm-button.cm-column-button", {
+				$el("button.p-button.p-component.cm-button.cm-column-button", {
 					id: 'cm-manual-button',
 					type: "button",
 					textContent: "Community Manual",
@@ -1200,11 +1191,11 @@ class ManagerMenuDialog extends ComfyDialog {
 					})
 				]),
 
-				$el("button.cm-column-button", {
+				$el("button.p-button.p-component.cm-button.cm-column-button", {
 					id: 'workflowgallery-button',
 					type: "button",
 					style: {
-						...(localStorage.getItem("wg_last_visited") ? {height: '50px'} : {})
+						// ...(localStorage.getItem("wg_last_visited") ? {height: '50px'} : {})
 					},
 					onclick: (e) => {
 						const last_visited_site = localStorage.getItem("wg_last_visited")
@@ -1227,7 +1218,7 @@ class ManagerMenuDialog extends ComfyDialog {
 					}, [
 						$el("p", {
 							id: 'workflowgallery-button-last-visited-label',
-							textContent: `(${localStorage.getItem("wg_last_visited") ? localStorage.getItem("wg_last_visited").split('/')[2] : ''})`,
+							textContent: `(${localStorage.getItem("wg_last_visited") ? localStorage.getItem("wg_last_visited").split('/')[2] : 'none selected'})`,
 							style: {
 								'text-align': 'center',
 								'color': 'var(--input-text)',
@@ -1243,13 +1234,12 @@ class ManagerMenuDialog extends ComfyDialog {
 					})
 				]),
 
-				$el("button.cm-button.cm-column-button", {
+				$el("button.p-button.p-component.cm-button.cm-column-button", {
 					id: 'cm-nodeinfo-button',
 					type: "button",
 					textContent: "Nodes Info",
 					onclick: () => { window.open("https://ltdrdata.github.io/", "comfyui-node-info"); }
 				}),
-				$el("br", {}, []),
 		];
 
 		var textarea = document.createElement("div");
@@ -1371,8 +1361,6 @@ class ManagerMenuDialog extends ComfyDialog {
 						$el("div.cm-menu-column", [...this.createControlsMid()]),
 						$el("div.cm-menu-column", [...this.createControlsRight()])
 					]),
-
-				$el("br", {}, []),
 			]
 		);
 
