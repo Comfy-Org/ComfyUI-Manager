@@ -140,7 +140,7 @@ docStyle.innerHTML = `
 }
 
 .cm-notice-board {
-	width: 290px;
+	width: 287px;
 	height: 230px;
 	overflow: auto;
 	color: var(--input-text);
@@ -260,6 +260,10 @@ const style = `
 	overflow: hidden;
 }
 
+.cm-column-button {
+	margin-bottom: calc(var(--spacing)*2);
+}
+
 .cm-button {
 	width: 310px;
 	height: 30px;
@@ -299,7 +303,6 @@ const style = `
 }
 
 .cm-experimental {
-	width: 310px;
 	border: 1px solid #555;
 	border-radius: 5px;
 	padding: 10px;
@@ -831,7 +834,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		const isElectron = 'electronAPI' in window;
 		
 		update_comfyui_button =
-			$el("button.cm-button", {
+			$el("button.cm-button.cm-column-button", {
 				type: "button",
 				textContent: "Update ComfyUI",
 				style: {
@@ -842,7 +845,7 @@ class ManagerMenuDialog extends ComfyDialog {
 			});
 
 		switch_comfyui_button =
-			$el("button.cm-button", {
+			$el("button.cm-button.cm-column-button", {
 				type: "button",
 				textContent: "Switch ComfyUI",
 				style: {
@@ -853,7 +856,7 @@ class ManagerMenuDialog extends ComfyDialog {
 			});
 
 		restart_stop_button =
-			$el("button.cm-button-red", {
+			$el("button.cm-column-button.cm-button-red", {
 				type: "button",
 				textContent: "Restart",
 				onclick: () => restartOrStop()
@@ -861,7 +864,7 @@ class ManagerMenuDialog extends ComfyDialog {
 
 		if(isElectron) {
 			update_all_button =
-				$el("button.cm-button", {
+				$el("button.cm-button.cm-column-button", {
 					type: "button",
 					textContent: "Update All Custom Nodes",
 					onclick:
@@ -870,7 +873,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		}
 		else {
 			update_all_button =
-				$el("button.cm-button", {
+				$el("button.cm-button.cm-column-button", {
 					type: "button",
 					textContent: "Update All",
 					onclick:
@@ -880,7 +883,7 @@ class ManagerMenuDialog extends ComfyDialog {
 
 		const res =
 			[
-				$el("button.cm-button", {
+				$el("button.cm-button.cm-column-button", {
 					type: "button",
 					textContent: "Custom Nodes Manager",
 					onclick:
@@ -888,11 +891,12 @@ class ManagerMenuDialog extends ComfyDialog {
 							if(!CustomNodesManager.instance) {
 								CustomNodesManager.instance = new CustomNodesManager(app, self);
 							}
+							this.close();
 							CustomNodesManager.instance.show(CustomNodesManager.ShowMode.NORMAL);
 						}
 				}),
 
-				$el("button.cm-button", {
+				$el("button.cm-button.cm-column-button", {
 					type: "button",
 					textContent: "Install Missing Custom Nodes",
 					onclick:
@@ -900,11 +904,12 @@ class ManagerMenuDialog extends ComfyDialog {
 							if(!CustomNodesManager.instance) {
 								CustomNodesManager.instance = new CustomNodesManager(app, self);
 							}
+							this.close()
 							CustomNodesManager.instance.show(CustomNodesManager.ShowMode.MISSING);
 						}
 				}),
 
-				$el("button.cm-button", {
+				$el("button.cm-button.cm-column-button", {
 					type: "button",
 					textContent: "Custom Nodes In Workflow",
 					onclick:
@@ -912,12 +917,13 @@ class ManagerMenuDialog extends ComfyDialog {
 							if(!CustomNodesManager.instance) {
 								CustomNodesManager.instance = new CustomNodesManager(app, self);
 							}
+							this.close()
 							CustomNodesManager.instance.show(CustomNodesManager.ShowMode.IN_WORKFLOW);
 						}
 				}),
 				
 				$el("br", {}, []),
-				$el("button.cm-button", {
+				$el("button.cm-button.cm-column-button", {
 					type: "button",
 					textContent: "Model Manager",
 					onclick:
@@ -925,11 +931,12 @@ class ManagerMenuDialog extends ComfyDialog {
 							if(!ModelManager.instance) {
 								ModelManager.instance = new ModelManager(app, self);
 							}
+							this.close()
 							ModelManager.instance.show();
 						}
 				}),
 
-				$el("button.cm-button", {
+				$el("button.cm-button.cm-column-button", {
 					type: "button",
 					textContent: "Install via Git URL",
 					onclick: async () => {
@@ -960,12 +967,13 @@ class ManagerMenuDialog extends ComfyDialog {
 		let self = this;
 
 		// db mode
+
 		this.datasrc_combo = document.createElement("select");
 		this.datasrc_combo.setAttribute("title", "Configure where to retrieve node/model information. If set to 'local,' the channel is ignored, and if set to 'channel (remote),' it fetches the latest information each time the list is opened.");
-		this.datasrc_combo.className = "cm-menu-combo";
-		this.datasrc_combo.appendChild($el('option', { value: 'cache', text: 'DB: Channel (1day cache)' }, []));
-		this.datasrc_combo.appendChild($el('option', { value: 'local', text: 'DB: Local' }, []));
-		this.datasrc_combo.appendChild($el('option', { value: 'remote', text: 'DB: Channel (remote)' }, []));
+		this.datasrc_combo.className = "p-select p-component p-inputwrapper p-inputwrapper-filled";
+		this.datasrc_combo.appendChild($el('option', { value: 'cache', text: 'Channel (1day cache)' }, []));
+		this.datasrc_combo.appendChild($el('option', { value: 'local', text: 'Local' }, []));
+		this.datasrc_combo.appendChild($el('option', { value: 'remote', text: 'Channel (remote)' }, []));
 
 		api.fetchApi('/manager/db_mode')
 			.then(response => response.text())
@@ -975,14 +983,16 @@ class ManagerMenuDialog extends ComfyDialog {
 			api.fetchApi(`/manager/db_mode?value=${event.target.value}`);
 		});
 
+		const dbRetrievalSetttingItem = this.createSettingsCombo("DB", this.datasrc_combo);
+
 		// preview method
 		let preview_combo = document.createElement("select");
 		preview_combo.setAttribute("title", "Configure how latent variables will be decoded during preview in the sampling process.");
-		preview_combo.className = "cm-menu-combo";
-		preview_combo.appendChild($el('option', { value: 'auto', text: 'Preview method: Auto' }, []));
-		preview_combo.appendChild($el('option', { value: 'taesd', text: 'Preview method: TAESD (slow)' }, []));
-		preview_combo.appendChild($el('option', { value: 'latent2rgb', text: 'Preview method: Latent2RGB (fast)' }, []));
-		preview_combo.appendChild($el('option', { value: 'none', text: 'Preview method: None (very fast)' }, []));
+		preview_combo.className = "p-select p-component p-inputwrapper p-inputwrapper-filled";
+		preview_combo.appendChild($el('option', { value: 'auto', text: 'Auto' }, []));
+		preview_combo.appendChild($el('option', { value: 'taesd', text: 'TAESD (slow)' }, []));
+		preview_combo.appendChild($el('option', { value: 'latent2rgb', text: 'Latent2RGB (fast)' }, []));
+		preview_combo.appendChild($el('option', { value: 'none', text: 'None (very fast)' }, []));
 
 		api.fetchApi('/manager/preview_method')
 			.then(response => response.text())
@@ -992,10 +1002,12 @@ class ManagerMenuDialog extends ComfyDialog {
 			api.fetchApi(`/manager/preview_method?value=${event.target.value}`);
 		});
 
+		const previewSetttingItem = this.createSettingsCombo("Preview method", preview_combo);
+
 		// channel
 		let channel_combo = document.createElement("select");
 		channel_combo.setAttribute("title", "Configure the channel for retrieving data from the Custom Node list (including missing nodes) or the Model list.");
-		channel_combo.className = "cm-menu-combo";
+		channel_combo.className = "p-select p-component p-inputwrapper p-inputwrapper-filled";
 		api.fetchApi('/manager/channel_url_list')
 			.then(response => response.json())
 			.then(async data => {
@@ -1004,7 +1016,7 @@ class ManagerMenuDialog extends ComfyDialog {
 					for (let i in urls) {
 						if (urls[i] != '') {
 							let name_url = urls[i].split('::');
-							channel_combo.appendChild($el('option', { value: name_url[0], text: `Channel: ${name_url[0]}` }, []));
+							channel_combo.appendChild($el('option', { value: name_url[0], text: `${name_url[0]}` }, []));
 						}
 					}
 
@@ -1019,11 +1031,13 @@ class ManagerMenuDialog extends ComfyDialog {
 				}
 			});
 
+		const channelSetttingItem = this.createSettingsCombo("Channel", channel_combo);
+
 
 		// share
 		let share_combo = document.createElement("select");
 		share_combo.setAttribute("title", "Hide the share button in the main menu or set the default action upon clicking it. Additionally, configure the default share site when sharing via the context menu's share button.");
-		share_combo.className = "cm-menu-combo";
+		share_combo.className = "p-select p-component p-inputwrapper p-inputwrapper-filled";
 		const share_options = [
 			['none', 'None'],
 			['openart', 'OpenArt AI'],
@@ -1034,7 +1048,7 @@ class ManagerMenuDialog extends ComfyDialog {
 			['all', 'All'],
 		];
 		for (const option of share_options) {
-			share_combo.appendChild($el('option', { value: option[0], text: `Share: ${option[1]}` }, []));
+			share_combo.appendChild($el('option', { value: option[0], text: `${option[1]}` }, []));
 		}
 
 		api.fetchApi('/manager/share_option')
@@ -1056,12 +1070,14 @@ class ManagerMenuDialog extends ComfyDialog {
 			}
 		});
 
+		const shareSetttingItem = this.createSettingsCombo("Share", share_combo);
+
 		let component_policy_combo = document.createElement("select");
 		component_policy_combo.setAttribute("title", "When loading the workflow, configure which version of the component to use.");
-		component_policy_combo.className = "cm-menu-combo";
-		component_policy_combo.appendChild($el('option', { value: 'workflow', text: 'Component: Use workflow version' }, []));
-		component_policy_combo.appendChild($el('option', { value: 'higher', text: 'Component: Use higher version' }, []));
-		component_policy_combo.appendChild($el('option', { value: 'mine', text: 'Component: Use my version' }, []));
+		component_policy_combo.className = "p-select p-component p-inputwrapper p-inputwrapper-filled";
+		component_policy_combo.appendChild($el('option', { value: 'workflow', text: 'Use workflow version' }, []));
+		component_policy_combo.appendChild($el('option', { value: 'higher', text: 'Use higher version' }, []));
+		component_policy_combo.appendChild($el('option', { value: 'mine', text: 'Use my version' }, []));
 		api.fetchApi('/manager/policy/component')
 			.then(response => response.text())
 			.then(data => {
@@ -1074,15 +1090,14 @@ class ManagerMenuDialog extends ComfyDialog {
 			set_component_policy(event.target.value);
 		});
 
-		update_policy_combo = document.createElement("select");
+		const componentSetttingItem = this.createSettingsCombo("Component", component_policy_combo);
 
-		if(isElectron)
-			update_policy_combo.style.display = 'none';
+		update_policy_combo = document.createElement("select");
 		
 		update_policy_combo.setAttribute("title", "Sets the policy to be applied when performing an update.");
-		update_policy_combo.className = "cm-menu-combo";
-		update_policy_combo.appendChild($el('option', { value: 'stable-comfyui', text: 'Update: ComfyUI Stable Version' }, []));
-		update_policy_combo.appendChild($el('option', { value: 'nightly-comfyui', text: 'Update: ComfyUI Nightly Version' }, []));
+		update_policy_combo.className = "p-select p-component p-inputwrapper p-inputwrapper-filled";
+		update_policy_combo.appendChild($el('option', { value: 'stable-comfyui', text: 'ComfyUI Stable Version' }, []));
+		update_policy_combo.appendChild($el('option', { value: 'nightly-comfyui', text: 'ComfyUI Nightly Version' }, []));
 		api.fetchApi('/manager/policy/update')
 			.then(response => response.text())
 			.then(data => {
@@ -1093,20 +1108,25 @@ class ManagerMenuDialog extends ComfyDialog {
 			api.fetchApi(`/manager/policy/update?value=${event.target.value}`);
 		});
 
+		const updateSetttingItem = this.createSettingsCombo("Update", update_policy_combo);
+		
+		if(isElectron)
+			updateSetttingItem.style.display = 'none';
+
 		return [
 			$el("br", {}, []),
-			this.datasrc_combo,
-			channel_combo,
-			preview_combo,
-			share_combo,
-			component_policy_combo,
-			update_policy_combo,
+			dbRetrievalSetttingItem,
+			channelSetttingItem,
+			previewSetttingItem,
+			shareSetttingItem,
+			componentSetttingItem,
+			updateSetttingItem,
 			$el("br", {}, []),
 
 			$el("br", {}, []),
 			$el("filedset.cm-experimental", {}, [
 					$el("legend.cm-experimental-legend", {}, ["EXPERIMENTAL"]),
-					$el("button.cm-experimental-button", {
+					$el("button.cm-experimental-button.cm-column-button", {
 						type: "button",
 						textContent: "Snapshot Manager",
 						onclick:
@@ -1116,7 +1136,7 @@ class ManagerMenuDialog extends ComfyDialog {
 								SnapshotManager.instance.show();
 							}
 					}),
-					$el("button.cm-experimental-button", {
+					$el("button.cm-experimental-button.cm-column-button", {
 						type: "button",
 						textContent: "Install PIP packages",
 						onclick:
@@ -1134,7 +1154,7 @@ class ManagerMenuDialog extends ComfyDialog {
 
 	createControlsRight() {
 		const elts = [
-				$el("button.cm-button", {
+				$el("button.cm-button.cm-column-button", {
 					id: 'cm-manual-button',
 					type: "button",
 					textContent: "Community Manual",
@@ -1185,7 +1205,7 @@ class ManagerMenuDialog extends ComfyDialog {
 					})
 				]),
 
-				$el("button", {
+				$el("button.cm-column-button", {
 					id: 'workflowgallery-button',
 					type: "button",
 					style: {
@@ -1228,7 +1248,7 @@ class ManagerMenuDialog extends ComfyDialog {
 					})
 				]),
 
-				$el("button.cm-button", {
+				$el("button.cm-button.cm-column-button", {
 					id: 'cm-nodeinfo-button',
 					type: "button",
 					textContent: "Nodes Info",
@@ -1246,6 +1266,36 @@ class ManagerMenuDialog extends ComfyDialog {
 		return elts;
 	}
 
+	createSettingsCombo(label, content) {
+		const settingItem = $el("div.setting-item.mb-4", {}, [
+			$el("div.flex.flex-row.items-center.gap-2",[
+					$el("div.form-label.flex.grow.items-center", [
+						$el("span.text-muted", { textContent: label },)
+					]),
+					$el("div.form-input.flex.justify-end",
+						[content]
+					)
+				]
+			)
+		]);
+		return settingItem;
+	}
+
+	createSettingsButton(label, content) {
+		const settingItem = $el("div.setting-item.mb-4", {}, [
+			$el("div.flex.flex-row.items-center.gap-2",[
+					$el("div.form-label.flex.grow.items-center", [
+						$el("span.text-muted", { textContent: label },)
+					]),
+					$el("div.form-input.flex.justify-end",
+						[content]
+					)
+				]
+			)
+		]);
+		return settingItem;
+	}
+
 	constructor() {
 		super();
 
@@ -1261,9 +1311,13 @@ class ManagerMenuDialog extends ComfyDialog {
 				justifyContent: "center",
 				alignItems: "center",
 				pointerEvents: "auto",
-				zIndex: "3203"
+				zIndex: "1000"
 			},
-			// [FIXME] Make clicking the mask close the dialog
+			onclick: (e) => {
+				if (e.target === dialog_mask) {
+					this.close();
+				}
+			}
 			// data-pc-section="mask"
 		});
 
@@ -1289,17 +1343,12 @@ class ManagerMenuDialog extends ComfyDialog {
 			}
 		);
 
-		const dialog_header = $el("div.p-dialog-header", {
-			// [FIXME]
-			// data-pc-section:"header"
-			},
+		const dialog_header = $el("div.p-dialog-header", 
 			[
 				$el("div", [
 					$el("div",
 						{
 							id: "cm-manager",
-							// [FIXME]
-							// data-v-#########:""
 						},
 						[
 							$el("h2.px-4", [
