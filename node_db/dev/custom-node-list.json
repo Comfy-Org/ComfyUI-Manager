@@ -1,6 +1,97 @@
 {
     "custom_nodes": [
         {
+            "author": "anilstream",
+            "title": "ComfyUI-NanoBananaPro",
+            "reference": "https://github.com/anilstream/ComfyUI-NanoBananaPro",
+            "files": [
+                "https://github.com/anilstream/ComfyUI-NanoBananaPro"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI node implementing basic functionality with NanoBananaBasicNode. (Description by CC)"
+        },
+        {
+            "author": "Toxic1228",
+            "title": "Eleven-labs-comfyui-sts",
+            "reference": "https://github.com/Toxic1228/Eleven-labs-comfyui-sts",
+            "files": [
+                "https://github.com/Toxic1228/Eleven-labs-comfyui-sts"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI integration node for Eleven Labs text-to-speech service (requires API key). (Description by CC)"
+        },
+        {
+            "author": "NeoTech",
+            "title": "comfyui-laserprep",
+            "reference": "https://github.com/NeoTech/comfyui-laserprep",
+            "files": [
+                "https://github.com/NeoTech/comfyui-laserprep"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI node implementing laser preparation functionality with LaserPrep node. (Description by CC)"
+        },        
+        {
+            "author": "Enferlain",
+            "title": "ComfyUI-extra-schedulers [WIP]",
+            "reference": "https://github.com/Enferlain/ComfyUI-extra-schedulers",
+            "files": [
+                "https://github.com/Enferlain/ComfyUI-extra-schedulers"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI custom nodes providing additional scheduler implementations for advanced sampling control. (Description by CC)\nNOTE: The files in the repo are not organized."
+        },
+        {
+            "author": "tiange-tree",
+            "title": "BLUEAI_ComfyUI_OpenAI",
+            "reference": "https://github.com/tiange-tree/BLUEAI_ComfyUI_OpenAI",
+            "files": [
+                "https://github.com/tiange-tree/BLUEAI_ComfyUI_OpenAI"
+            ],
+            "install_type": "git-clone",
+            "description": "NODES: BLUEAI_OpenAI_Node"
+        },
+        {
+            "author": "nestflow",
+            "title": "ComfyUI-WanPlus",
+            "reference": "https://github.com/nestflow/ComfyUI-WanPlus",
+            "files": [
+                "https://github.com/nestflow/ComfyUI-WanPlus"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI nodes for video frame manipulation and image-to-video conversion. (Description by CC)"
+        },
+        {
+            "author": "twdockery",
+            "title": "ComfyUI_Prompt_Batch_Generator",
+            "reference": "https://github.com/twdockery/ComfyUI_Prompt_Batch_Generator",
+            "files": [
+                "https://github.com/twdockery/ComfyUI_Prompt_Batch_Generator"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom nodes for batch image generation with Stable Diffusion 1.5, optimized for low VRAM systems. (Description by CC)"
+        },
+        {
+            "author": "tuxiansheng-ld",
+            "title": "Comfyui-tuxiansheng-nodes",
+            "reference": "https://github.com/tuxiansheng-ld/Comfyui-tuxiansheng-nodes",
+            "files": [
+                "https://github.com/tuxiansheng-ld/Comfyui-tuxiansheng-nodes"
+            ],
+            "install_type": "git-clone",
+            "description": "NODES: StringToListNode"
+        },
+        {
+            "author": "krakenunbound",
+            "title": "Kraken Discord Bot",
+            "id": "kraken-discord-bot",
+            "reference": "https://github.com/krakenunbound/kraken-discord-bot",
+            "files": [
+                "https://github.com/krakenunbound/kraken-discord-bot"
+            ],
+            "install_type": "git-clone",
+            "description": "All-in-one Discord bot node for AI image generation. Simple setup - just add token, select model, and queue. Includes style presets, rate limiting, and queue management."
+        },
+        {
             "author": "quinteroac",
             "title": "comfyui_api_executor_nodes",
             "reference": "https://github.com/quinteroac/comfyui_api_executor_nodes",
@@ -59,16 +150,6 @@
             ],
             "install_type": "git-clone",
             "description": "ComfyUI node for tracking and displaying LoRA parameters. (Description by CC)"
-        },
-        {
-            "author": "anilsathyan7",
-            "title": "ComfyUI-Crystal-Upscaler",
-            "reference": "https://github.com/anilsathyan7/ComfyUI-Crystal-Upscaler",
-            "files": [
-                "https://github.com/anilsathyan7/ComfyUI-Crystal-Upscaler"
-            ],
-            "install_type": "git-clone",
-            "description": "ComfyUI custom node for image upscaling using crystal upscaling technology. (Description by CC)"
         },
         {
             "author": "SleazySleaze",
@@ -429,16 +510,6 @@
             ],
             "install_type": "git-clone",
             "description": "Integrated Qwen-Image node for ComfyUI with all-in-one model loading, 4 LoRA slots, memory optimization via BlockSwap reducing VRAM usage by 30-60%, and multiple quantization options.\nNOTE: The files in the repo are not organized."
-        },
-        {
-            "author": "nohikomiso",
-            "title": "ComfyUI-ImageFolderPicker [UNSAFE]",
-            "reference": "https://github.com/nohikomiso/ComfyUI-ImageFolderPicker",
-            "files": [
-                "https://github.com/nohikomiso/ComfyUI-ImageFolderPicker"
-            ],
-            "install_type": "git-clone",
-            "description": "Custom ComfyUI node for browsing local server folders and selecting images via thumbnail display in a grid interface. (Description by CC)[w/This nodepack has a vulnerability that allows it to retrieve a list of files from arbitrary paths.]"
         },
         {
             "author": "tori29umai0123",
@@ -1172,16 +1243,6 @@
             ],
             "install_type": "git-clone",
             "description": "ComfyUI-CC-ImageLoader is an enhanced image loading node designed for ComfyUI. It is developed based on two excellent projects: ComfyUI-Thumbnails and ComfyUI_Local_Media_Manager.[w/This nodepack includes an endpoint that access files from arbitrary paths.]"
-        },
-        {
-            "author": "rzasharp79",
-            "title": "ComfyUI--SolarFlare",
-            "reference": "https://github.com/rzasharp79/ComfyUI--SolarFlare",
-            "files": [
-                "https://github.com/rzasharp79/ComfyUI--SolarFlare"
-            ],
-            "install_type": "git-clone",
-            "description": "NODES: Qwen Image, ..."
         },
         {
             "author": "A1rCHAN",
