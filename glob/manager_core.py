@@ -44,7 +44,7 @@ import manager_migration
 from node_package import InstalledNodePackage
 
 
-version_code = [3, 38]
+version_code = [3, 38, 1]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 

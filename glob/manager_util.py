@@ -55,7 +55,7 @@ def get_pip_cmd(force_uv=False):
             subprocess.check_output(test_cmd, stderr=subprocess.DEVNULL, timeout=5)
             return [sys.executable] + (['-s'] if embedded else []) + ['-m', 'pip']
         except Exception:
-            logging.warning("[ComfyUI-Manager] python -m pip not available. Falling back to uv.")
+            logging.warning("[ComfyUI-Manager] `python -m pip` not available. Falling back to `uv`.")
 
     # Try uv (either forced or pip failed)
     import shutil
@@ -64,19 +64,19 @@ def get_pip_cmd(force_uv=False):
     try:
         test_cmd = [sys.executable] + (['-s'] if embedded else []) + ['-m', 'uv', '--version']
         subprocess.check_output(test_cmd, stderr=subprocess.DEVNULL, timeout=5)
-        logging.info("[ComfyUI-Manager] Using uv as Python module for pip operations.")
+        logging.info("[ComfyUI-Manager] Using `uv` as Python module for pip operations.")
         return [sys.executable] + (['-s'] if embedded else []) + ['-m', 'uv', 'pip']
     except Exception:
         pass
 
     # Try standalone uv
     if shutil.which('uv'):
-        logging.info("[ComfyUI-Manager] Using standalone uv for pip operations.")
+        logging.info("[ComfyUI-Manager] Using standalone `uv` for pip operations.")
         return ['uv', 'pip']
 
     # Nothing worked
-    logging.error("[ComfyUI-Manager] Neither python -m pip nor uv are available. Cannot proceed with package operations.")
-    raise Exception("Neither pip nor uv are available for package management")
+    logging.error("[ComfyUI-Manager] Neither `python -m pip` nor `uv` are available. Cannot proceed with package operations.")
+    raise Exception("Neither `pip` nor `uv` are available for package management")
 
 
 def make_pip_cmd(cmd):

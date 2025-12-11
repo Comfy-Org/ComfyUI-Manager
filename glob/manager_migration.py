@@ -93,7 +93,7 @@ def check_legacy_backup(manager_files_path):
 
     # Notice board output
     add_startup_notice(
-        "Legacy ComfyUI-Manager data backup exists. Please verify and remove when no longer needed.",
+        "Legacy ComfyUI-Manager data backup exists. Please verify and remove when no longer needed. See terminal for details.",
         level='info'
     )
 
