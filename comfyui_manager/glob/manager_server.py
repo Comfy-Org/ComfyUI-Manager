@@ -20,9 +20,11 @@ import threading
 import traceback
 import urllib.request
 import uuid
+import time
 import zipfile
-from datetime import datetime, timedelta
 from typing import Any, Optional
+
+from comfyui_manager.common.timestamp_utils import get_timestamp_for_filename, get_now
 
 import folder_paths
 import latent_preview
@@ -267,9 +269,9 @@ class TaskQueue:
     def _start_new_batch(self) -> None:
         """Start a new batch session for tracking operations."""
         self.batch_id = (
-            f"batch_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+            f"batch_{get_timestamp_for_filename()}_{uuid.uuid4().hex[:8]}"
         )
-        self.batch_start_time = datetime.now().isoformat()
+        self.batch_start_time = get_now().isoformat()
         self.batch_state_before = self._capture_system_state()
         logging.debug("[ComfyUI-Manager] Started new batch: %s", self.batch_id)
 
@@ -300,7 +302,7 @@ class TaskQueue:
                 MessageTaskStarted(
                     ui_id=item.ui_id,
                     kind=item.kind,
-                    timestamp=datetime.now(),
+                    timestamp=get_now(),
                     state=self.get_current_state(),
                 ),
                 client_id=item.client_id,  # Send task started only to the client that requested it
@@ -317,8 +319,7 @@ class TaskQueue:
         """Mark task as completed and add to history"""
 
         with self.mutex:
-            now = datetime.now()
-            timestamp = now.isoformat()
+            now = get_now()
 
             # Remove task from running_tasks using the task_index
             self.running_tasks.pop(task_index, None)
@@ -383,7 +384,7 @@ class TaskQueue:
                 result=result_msg,
                 kind=item.kind,
                 status=status,
-                timestamp=datetime.fromisoformat(timestamp),
+                timestamp=now,
                 state=self.get_current_state(),
             ),
             client_id=item.client_id,  # Send completion only to the client that requested it
@@ -494,7 +495,7 @@ class TaskQueue:
             )
 
             try:
-                end_time = datetime.now().isoformat()
+                end_time = get_now().isoformat()
                 state_after = self._capture_system_state()
                 operations = self._extract_batch_operations()
 
@@ -562,7 +563,7 @@ class TaskQueue:
         """Capture current ComfyUI system state for batch record."""
         logging.debug("[ComfyUI-Manager] Capturing system state for batch record")
         return ComfyUISystemState(
-            snapshot_time=datetime.now().isoformat(),
+            snapshot_time=get_now().isoformat(),
             comfyui_version=self._get_comfyui_version_info(),
             frontend_version=self._get_frontend_version(),
             python_version=platform.python_version(),
@@ -789,8 +790,8 @@ class TaskQueue:
         to avoid disrupting normal operations.
         """
         try:
-            cutoff = datetime.now() - timedelta(days=16)
-            cutoff_timestamp = cutoff.timestamp()
+            # 16 days in seconds
+            cutoff_timestamp = time.time() - (16 * 24 * 60 * 60)
 
             pattern = os.path.join(context.manager_batch_history_path, "batch_*.json")
             removed_count = 0

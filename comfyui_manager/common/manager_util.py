@@ -8,13 +8,13 @@ import aiohttp
 import json
 import threading
 import os
-from datetime import datetime
 import subprocess
 import sys
 import re
 import logging
 import platform
 import shlex
+import time
 from functools import lru_cache
 
 
@@ -176,7 +176,7 @@ def is_file_created_within_one_day(file_path):
         return False
 
     file_creation_time = os.path.getctime(file_path)
-    current_time = datetime.now().timestamp()
+    current_time = time.time()
     time_difference = current_time - file_creation_time
 
     return time_difference <= 86400

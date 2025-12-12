@@ -12,9 +12,9 @@ import re
 import shutil
 import configparser
 import platform
-from datetime import datetime
 
 import git
+from comfyui_manager.common.timestamp_utils import get_timestamp_for_path, get_backup_branch_name
 from git.remote import RemoteProgress
 from urllib.parse import urlparse
 from tqdm.auto import tqdm
@@ -2000,7 +2000,15 @@ def git_repo_update_check_with(path, do_fetch=False, do_update=False, no_deps=Fa
                 return False, True
 
             try:
-                remote.pull()
+                try:
+                    repo.git.pull('--ff-only')
+                except git.GitCommandError:
+                    backup_name = get_backup_branch_name(repo)
+                    repo.create_head(backup_name)
+                    logging.info(f"[ComfyUI-Manager] Cannot fast-forward. Backup created: {backup_name}")
+                    repo.git.reset('--hard', f'{remote_name}/{branch_name}')
+                    logging.info(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
+
                 repo.git.submodule('update', '--init', '--recursive')
                 new_commit_hash = repo.head.commit.hexsha
 
@@ -2169,9 +2177,17 @@ def git_pull(path):
 
         current_branch = repo.active_branch
         remote_name = current_branch.tracking_branch().remote_name
-        remote = repo.remote(name=remote_name)
+        branch_name = current_branch.name
 
-        remote.pull()
+        try:
+            repo.git.pull('--ff-only')
+        except git.GitCommandError:
+            backup_name = get_backup_branch_name(repo)
+            repo.create_head(backup_name)
+            logging.info(f"[ComfyUI-Manager] Cannot fast-forward. Backup created: {backup_name}")
+            repo.git.reset('--hard', f'{remote_name}/{branch_name}')
+            logging.info(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
+
         repo.git.submodule('update', '--init', '--recursive')
 
         repo.close()
@@ -2681,9 +2697,7 @@ async def get_current_snapshot(custom_nodes_only = False):
 
 async def save_snapshot_with_postfix(postfix, path=None, custom_nodes_only = False):
     if path is None:
-        now = datetime.now()
-
-        date_time_format = now.strftime("%Y-%m-%d_%H-%M-%S")
+        date_time_format = get_timestamp_for_path()
         file_name = f"{date_time_format}_{postfix}"
 
         path = os.path.join(context.manager_snapshot_path, f"{file_name}.json")

@@ -16,24 +16,10 @@ from .common import security_check
 from .common import manager_util
 from .common import cm_global
 from .common import manager_downloader
+from .common.timestamp_utils import current_timestamp
 import folder_paths
 
 manager_util.add_python_path_to_env()
-
-import datetime as dt
-
-if hasattr(dt, 'datetime'):
-    from datetime import datetime as dt_datetime
-    
-    def current_timestamp():
-        return dt_datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-else:
-    # NOTE: Occurs in some Mac environments.
-    import time
-    logging.error(f"[ComfyUI-Manager] fallback timestamp mode\n                  datetime module is invalid: '{dt.__file__}'")
-    
-    def current_timestamp():
-        return str(time.time()).split('.')[0]
 
 
 cm_global.pip_blacklist = {'torch', 'torchaudio', 'torchsde', 'torchvision'}
