@@ -2538,7 +2538,7 @@ def update_to_stable_comfyui(repo_path):
             return "skip", None
         else:
             logging.info(f"[ComfyUI-Manager] Updating ComfyUI: {current_tag} -> {latest_tag}")
-            repo.git.checkout(tag_ref)
+            repo.git.checkout(tag_ref.name)
             execute_install_script("ComfyUI", repo_path, instant_execution=False, no_deps=False)
             return 'updated', latest_tag
     except:
@@ -3364,9 +3364,10 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
 def get_comfyui_versions(repo=None):
     repo = repo or git.Repo(comfy_path)
 
+    remote_name = None
     try:
-        remote = get_remote_name(repo)
-        repo.remotes[remote].fetch()
+        remote_name = get_remote_name(repo)
+        repo.remotes[remote_name].fetch()
     except:
         logging.error("[ComfyUI-Manager] Failed to fetch ComfyUI")
 
@@ -3402,7 +3403,6 @@ def get_comfyui_versions(repo=None):
         exact_tag = ''
 
     head_is_default = False
-    remote_name = get_remote_name(repo)
     if remote_name:
         try:
             default_head_ref = repo.refs[f'{remote_name}/HEAD']
