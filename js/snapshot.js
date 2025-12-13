@@ -1,8 +1,10 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js"
 import { ComfyDialog, $el } from "../../scripts/ui.js";
-import { manager_instance, rebootAPI, show_message, handle403Response } from  "./common.js";
+import { manager_instance, rebootAPI, show_message, handle403Response, loadCss } from  "./common.js";
+import { buildGuiFrame } from "./comfyui-gui-builder.js";
 
+loadCss("./snapshot.css");
 
 async function restore_snapshot(target) {
 	if(SnapshotManager.instance) {
@@ -27,7 +29,7 @@ async function restore_snapshot(target) {
 		}
 		finally {
 			await SnapshotManager.instance.invalidateControl();
-			SnapshotManager.instance.updateMessage("<BR>To apply the snapshot, please <button id='cm-reboot-button2' class='cm-small-button'>RESTART</button> ComfyUI. And refresh browser.", 'cm-reboot-button2');
+			SnapshotManager.instance.updateMessage("<BR>To apply the snapshot, please <button id='cm-reboot-button2' class='p-button p-component'>RESTART</button> ComfyUI. And refresh browser.", 'cm-reboot-button2');
 		}
 	}
 }
@@ -88,6 +90,8 @@ export class SnapshotManager extends ComfyDialog {
 	message_box = null;
 	data = null;
 
+	content = $el("div.snapshot-manager");
+
 	clear() {
 		this.restore_buttons = [];
 		this.message_box = null;
@@ -96,9 +100,18 @@ export class SnapshotManager extends ComfyDialog {
 
 	constructor(app, manager_dialog) {
 		super();
-		this.manager_dialog = manager_dialog;
+		// this.manager_dialog = manager_dialog;
 		this.search_keyword = '';
-		this.element = $el("div.comfy-modal", { parent: document.body }, []);
+
+		const frame = buildGuiFrame(
+			'snapshot-manager-dialog', // dialog id
+			'Snapshot Manager', // title
+			'i.mdi.mdi-puzzle', // icon class
+			this.content, // dialog content element
+			this
+		);	// send this so we can attach close functions
+
+		this.element = frame;
 	}
 
 	async remove_item() {
@@ -109,7 +122,7 @@ export class SnapshotManager extends ComfyDialog {
 
 	createControls() {
 		return [
-			$el("button.cm-small-button", {
+			$el("button.p-button.p-component", {
 				type: "button",
 				textContent: "Close",
 				onclick: () => { this.close(); }
@@ -132,8 +145,8 @@ export class SnapshotManager extends ComfyDialog {
 		this.clear();
 		this.data = (await getSnapshotList()).items;
 
-		while (this.element.children.length) {
-			this.element.removeChild(this.element.children[0]);
+		while (this.content.children.length) {
+			this.content.removeChild(this.content.children[0]);
 		}
 
 		await this.createGrid();
@@ -204,20 +217,21 @@ export class SnapshotManager extends ComfyDialog {
 				data2.innerHTML = `&nbsp;${data}`;
 				var data_button = document.createElement('td');
 				data_button.style.textAlign = "center";
+				data_button.className = "data-btns";
 
 				var restoreBtn = document.createElement('button');
+				restoreBtn.className = "snapshot-restore-btn p-button p-component";
 				restoreBtn.innerHTML = 'Restore';
 				restoreBtn.style.width = "100px";
-				restoreBtn.style.backgroundColor = 'blue';
 
 				restoreBtn.addEventListener('click', function() {
 					restore_snapshot(data);
 				});
 
 				var removeBtn = document.createElement('button');
+				removeBtn.className = "snapshot-remove-btn p-button p-component";
 				removeBtn.innerHTML = 'Remove';
 				removeBtn.style.width = "100px";
-				removeBtn.style.backgroundColor = 'red';
 
 				removeBtn.addEventListener('click', function() {
 					remove_snapshot(data);
@@ -241,13 +255,14 @@ export class SnapshotManager extends ComfyDialog {
 		let self = this;
 		const panel = document.createElement('div');
 		panel.style.width = "100%";
+		panel.style.height = "100%";
 		panel.appendChild(grid);
 
 		function handleResize() {
 		  const parentHeight = self.element.clientHeight;
 		  const gridHeight = parentHeight - 200;
 
-		  grid.style.height = gridHeight + "px";
+		//   grid.style.height = gridHeight + "px";
 		}
 		window.addEventListener("resize", handleResize);
 
@@ -256,25 +271,17 @@ export class SnapshotManager extends ComfyDialog {
 		grid.style.width = "100%";
 		grid.style.height = "100%";
 		grid.style.overflowY = "scroll";
-		this.element.style.height = "85%";
-		this.element.style.width = "80%";
-		this.element.appendChild(panel);
+
+		this.content.appendChild(panel);
 
 		handleResize();
 	}
 
 	async createBottomControls() {
-		var close_button = document.createElement("button");
-		close_button.className = "cm-small-button";
-		close_button.innerHTML = "Close";
-		close_button.onclick = () => { this.close(); }
-		close_button.style.display = "inline-block";
-
 		var save_button = document.createElement("button");
-		save_button.className = "cm-small-button";
+		save_button.className = "p-button p-component";
 		save_button.innerHTML = "Save snapshot";
 		save_button.onclick = () => { save_current_snapshot(); }
-		save_button.style.display = "inline-block";
 		save_button.style.horizontalAlign = "right";
 		save_button.style.width = "170px";
 
@@ -282,15 +289,19 @@ export class SnapshotManager extends ComfyDialog {
 		this.message_box.style.height = '60px';
 		this.message_box.style.verticalAlign = 'middle';
 
-		this.element.appendChild(this.message_box);
-		this.element.appendChild(close_button);
-		this.element.appendChild(save_button);
+		const footer = $el("div.snapshot-footer");
+		const spacer = $el("div.cn-flex-auto");
+		footer.appendChild(spacer);
+		footer.appendChild(save_button);
+
+		this.content.appendChild(this.message_box);
+		this.content.appendChild(footer);
 	}
 
 	async show() {
 		try {
 			this.invalidateControl();
-			this.element.style.display = "block";
+			this.element.style.display = "flex";
 			this.element.style.zIndex = 1099;
 		}
 		catch(exception) {
