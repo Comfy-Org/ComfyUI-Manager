@@ -377,7 +377,7 @@ def extract_nodes_from_repo(repo_path: Path, verbose: bool = False, force_rescan
                 # Extract metadata from this file
                 metadata = extract_metadata_only(str(py_file))
                 all_metadata.update(metadata)
-        except Exception as e:
+        except Exception:
             # Silently skip files that can't be read
             continue
 

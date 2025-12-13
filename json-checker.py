@@ -82,7 +82,7 @@ def validate_required_fields(entry: Dict, entry_index: int, required_fields: Lis
         elif isinstance(entry[field], str) and not entry[field].strip():
             errors.append(f"Field '{field}' is empty")
         elif field == 'files' and not entry[field]:  # Empty array
-            errors.append(f"Field 'files' is empty array")
+            errors.append("Field 'files' is empty array")
 
     return errors
 
