@@ -1107,7 +1107,7 @@ class ManagerMenuDialog extends ComfyDialog {
 			shareSetttingItem,
 			componentSetttingItem,
 			updateSetttingItem,
-			
+			//[TODO] replace mt-2 with wrapper div with flex column gap
 			$el("filedset.cm-experimental.mt-auto", {}, [
 					$el("legend.cm-experimental-legend", {}, ["EXPERIMENTAL"]),
 					$el("button.p-button.p-component.cm-button.cm-experimental-button", {
@@ -1120,7 +1120,7 @@ class ManagerMenuDialog extends ComfyDialog {
 								SnapshotManager.instance.show();
 							}
 					}),
-					$el("button.p-button.p-component.cm-button.cm-experimental-button", {
+					$el("button.p-button.p-component.cm-button.cm-experimental-button.mt-2", {
 						type: "button",
 						textContent: "Install PIP packages",
 						onclick:

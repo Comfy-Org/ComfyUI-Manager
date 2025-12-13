@@ -77,7 +77,7 @@ export function buildGuiFrame(dialogId, title, iconClass, content, owner) {
 			$el("div", [
 				$el("div",
 					{
-						id: "cm-manager",
+						id: "frame-title-container",
 					},
 					[
 						$el("h2.px-4", [
@@ -182,7 +182,7 @@ export function buildGuiFrameCustomHeader(dialogId, customHeader, content, owner
 			$el("div", [
 				$el("div",
 					{
-						id: "cm-manager",
+						id: "frame-title-container",
 					},
 					Array.isArray(_customHeader) ? _customHeader : [_customHeader]
 					)
