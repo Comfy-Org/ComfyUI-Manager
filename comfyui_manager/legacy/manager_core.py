@@ -3297,7 +3297,7 @@ def get_comfyui_versions(repo=None):
     try:
         remote_name = get_remote_name(repo)
         repo.remotes[remote_name].fetch()
-    except:
+    except Exception:
         logging.error("[ComfyUI-Manager] Failed to fetch ComfyUI")
 
     def parse_semver(tag_name):
@@ -3338,7 +3338,12 @@ def get_comfyui_versions(repo=None):
             default_commit = default_head_ref.reference.commit
             head_is_default = repo.head.commit == default_commit
         except Exception:
-            head_is_default = False
+            # Fallback: compare directly with master branch
+            try:
+                if 'master' in [h.name for h in repo.heads]:
+                    head_is_default = repo.head.commit == repo.heads.master.commit
+            except Exception:
+                head_is_default = False
 
     nearest_semver = normalize_describe(described)
     exact_semver = exact_tag if parse_semver(exact_tag) else None
