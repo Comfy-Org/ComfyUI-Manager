@@ -384,8 +384,10 @@ class UnifiedManager:
     def get_module_name(self, x):
         info = self.active_nodes.get(x)
         if info is None:
+            # Try to find in unknown_active_nodes by comparing normalized URLs
+            normalized_x = git_utils.normalize_url(x)
             for url, fullpath in self.unknown_active_nodes.values():
-                if url == x:
+                if url is not None and git_utils.normalize_url(url) == normalized_x:
                     return os.path.basename(fullpath)
         else:
             return os.path.basename(info[1])
@@ -700,11 +702,11 @@ class UnifiedManager:
         import folder_paths
 
         self.custom_node_map_cache = {}
-        self.cnr_inactive_nodes = {}      # node_id -> node_version -> fullpath
-        self.nightly_inactive_nodes = {}  # node_id -> fullpath
+        self.cnr_inactive_nodes = NormalizedKeyDict()      # node_id -> node_version -> fullpath
+        self.nightly_inactive_nodes = NormalizedKeyDict()  # node_id -> fullpath
         self.unknown_inactive_nodes = {}  # node_id -> repo url * fullpath
         self.unknown_active_nodes = {}    # node_id -> repo url * fullpath
-        self.active_nodes = {}            # node_id -> node_version * fullpath
+        self.active_nodes = NormalizedKeyDict()            # node_id -> node_version * fullpath
 
         if get_config()['network_mode'] != 'public' or manager_util.is_manager_pip_package():
             dont_wait = True

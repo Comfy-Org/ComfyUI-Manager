@@ -74,6 +74,12 @@ def normalize_to_github_id(url) -> str:
 
         return f"{author}/{repo_name}"
 
+    # Handle short format like "author/repo" (aux_id format)
+    if '/' in url and not url.startswith('http'):
+        parts = url.split('/')
+        if len(parts) == 2 and parts[0] and parts[1]:
+            return url
+
     return None
 
 
