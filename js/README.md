@@ -9,6 +9,7 @@ This directory contains the JavaScript frontend implementation for ComfyUI-Manag
 - **model-manager.js**: Handles the model management interface for downloading and organizing AI models.
 - **components-manager.js**: Manages reusable workflow components system.
 - **snapshot.js**: Implements the snapshot system for backing up and restoring installations.
+- **node-usage-analyzer.js**: Implements the UI for analyzing node usage in workflows.
 
 ## Sharing Components
 
@@ -46,5 +47,6 @@ The frontend follows a modular component-based architecture:
 CSS files are included for specific components:
 - **custom-nodes-manager.css**: Styling for the node management UI
 - **model-manager.css**: Styling for the model management UI
+- **node-usage-analyzer.css**: Styling for the node usage analyzer UI
 
 This frontend implementation provides a comprehensive yet user-friendly interface for managing the ComfyUI ecosystem.

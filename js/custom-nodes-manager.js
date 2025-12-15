@@ -7,7 +7,7 @@ import {
 	fetchData, md5, icons, show_message, customConfirm, customAlert, customPrompt,
 	sanitizeHTML, infoToast, showTerminal, setNeedRestart,
 	storeColumnWidth, restoreColumnWidth, getTimeAgo, copyText, loadCss,
-	showPopover, hidePopover, handle403Response
+	showPopover, hidePopover, getWorkflowNodeTypes, findPackageByCnrId, analyzeWorkflowUsage, createFlyover
 } from  "./common.js";
 
 // https://cenfun.github.io/turbogrid/api.html
@@ -54,6 +54,8 @@ const ShowMode = {
 	FAVORITES: "Favorites",
 	ALTERNATIVES: "Alternatives",
 	IN_WORKFLOW: "In Workflow",
+	USED_IN_ANY_WORKFLOW: "Used In Any Workflow",
+	NOT_USED_IN_ANY_WORKFLOW: "Installed and Unused",
 };
 
 export class CustomNodesManager {
@@ -267,6 +269,14 @@ export class CustomNodesManager {
 		}, {
 			label: "In Workflow",
 			value: ShowMode.IN_WORKFLOW,
+			hasData: false
+		}, {
+			label: "Used In Any Workflow",
+			value: ShowMode.USED_IN_ANY_WORKFLOW,
+			hasData: false
+		}, {
+			label: "Installed and Unused",
+			value: ShowMode.NOT_USED_IN_ANY_WORKFLOW,
 			hasData: false
 		}, {
 			label: "Missing",
@@ -518,7 +528,11 @@ export class CustomNodesManager {
 		const grid = new TG.Grid(container);
 		this.grid = grid;
 
-		this.flyover = this.createFlyover(container);
+		this.flyover = createFlyover(container, {
+			enableHover: true,
+			hoverHandler: this.handleFlyoverHover.bind(this),
+			context: this
+		});
 		
 		let prevViewRowsLength = -1;
 		grid.bind('onUpdated', (e, d) => {
@@ -1061,143 +1075,63 @@ export class CustomNodesManager {
 		hidePopover();
 	}
 
-	createFlyover(container) {
-		const $flyover = document.createElement("div");
-		$flyover.className = "cn-flyover";
-		$flyover.innerHTML = `<div class="cn-flyover-header">
-			<div class="cn-flyover-close">${icons.arrowRight}</div>
-			<div class="cn-flyover-title"></div>
-			<div class="cn-flyover-close">${icons.close}</div>
-			</div>
-			<div class="cn-flyover-body"></div>`
-		container.appendChild($flyover);
-
-		const $flyoverTitle = $flyover.querySelector(".cn-flyover-title");
-		const $flyoverBody = $flyover.querySelector(".cn-flyover-body");
-		
-		let width = '50%';
-		let visible = false;
-
-		let timeHide;
-		const closeHandler = (e) => {
-            if ($flyover === e.target || $flyover.contains(e.target)) {
-                return;
-            }
-			clearTimeout(timeHide);
-			timeHide = setTimeout(() => {
-				flyover.hide();
-			}, 100);
-		}
-
-		const hoverHandler = (e) => {
-			if(e.type === "mouseenter") {
-				if(e.target.classList.contains("cn-nodes-name")) {
-					this.showNodePreview(e.target);
-				}
-				return;
-			}
-			this.hideNodePreview();
-		}
-
-		const displayHandler = () => {
-			if (visible) {
-				$flyover.classList.remove("cn-slide-in-right");
-			} else {
-				$flyover.classList.remove("cn-slide-out-right");
-				$flyover.style.width = '0px';
-				$flyover.style.display = "none";
-			}
-		}
-
-		const flyover = {
-			show: (titleHtml, bodyHtml) => {
-				clearTimeout(timeHide);
-				this.element.removeEventListener("click", closeHandler);
-				$flyoverTitle.innerHTML = titleHtml;
-				$flyoverBody.innerHTML = bodyHtml;
-				$flyover.style.display = "block";
-				$flyover.style.width = width;
-				if(!visible) {
-					$flyover.classList.add("cn-slide-in-right");
-				}
-				visible = true;
-				setTimeout(() => {
-					this.element.addEventListener("click", closeHandler);
-				}, 100);
-			},
-			hide: (now) => {
-				visible = false;
-				this.element.removeEventListener("click", closeHandler);
-				if(now) {
-					displayHandler();
-					return;
-				}
-				$flyover.classList.add("cn-slide-out-right");
-			}
-		}
-
-		$flyover.addEventListener("animationend", (e) => {
-			displayHandler();
-		});
-
-		$flyover.addEventListener("mouseenter", hoverHandler, true);
-		$flyover.addEventListener("mouseleave", hoverHandler, true);
-
-		$flyover.addEventListener("click", (e) => {
-
+	handleFlyoverHover(e) {
+		if(e.type === "mouseenter") {
 			if(e.target.classList.contains("cn-nodes-name")) {
-				const nodeName = e.target.innerText;
-				const nodeItem = this.nodeMap[nodeName];
-				if (!nodeItem) {
-					copyText(nodeName).then((res) => {
-						if (res) {
-							e.target.setAttribute("action", "Copied");
-							e.target.classList.add("action");
-							setTimeout(() => {
-								e.target.classList.remove("action");
-								e.target.removeAttribute("action");
-							}, 1000);
-						}
-					});
-					return;
-				}
+				this.showNodePreview(e.target);
+			}
+			return;
+		}
+		this.hideNodePreview();
+	}
 
-				const [x, y, w, h] = app.canvas.ds.visible_area;
-				const dpi = Math.max(window.devicePixelRatio ?? 1, 1);
-				const node = window.LiteGraph?.createNode(
-					nodeItem.name,
-					nodeItem.display_name,
-					{
-						pos: [x + (w-300) / dpi / 2, y]
+	handleFlyoverClick(e) {
+		if(e.target.classList.contains("cn-nodes-name")) {
+			const nodeName = e.target.innerText;
+			const nodeItem = this.nodeMap[nodeName];
+			if (!nodeItem) {
+				copyText(nodeName).then((res) => {
+					if (res) {
+						e.target.setAttribute("action", "Copied");
+						e.target.classList.add("action");
+						setTimeout(() => {
+							e.target.classList.remove("action");
+							e.target.removeAttribute("action");
+						}, 1000);
 					}
-				);
-				if (node) {
-					app.graph.add(node);
-					e.target.setAttribute("action", "Added to Workflow");
-					e.target.classList.add("action");
-					setTimeout(() => {
-						e.target.classList.remove("action");
-						e.target.removeAttribute("action");
-					}, 1000);
-				}
-				
+				});
 				return;
 			}
-			if(e.target.classList.contains("cn-nodes-pack")) {
-				const hash = e.target.getAttribute("hash");
-				const rowItem = this.grid.getRowItemBy("hash", hash);
-				//console.log(rowItem);
-				this.grid.scrollToRow(rowItem);
-				this.addHighlight(rowItem);
-				return;
-			}
-			if(e.target.classList.contains("cn-flyover-close")) {
-				flyover.hide();
-				return;
-			}
-		});
 
-		return flyover;
+			const [x, y, w, h] = app.canvas.ds.visible_area;
+			const dpi = Math.max(window.devicePixelRatio ?? 1, 1);
+			const node = window.LiteGraph?.createNode(
+				nodeItem.name,
+				nodeItem.display_name,
+				{
+					pos: [x + (w-300) / dpi / 2, y]
+				}
+			);
+			if (node) {
+				app.graph.add(node);
+				e.target.setAttribute("action", "Added to Workflow");
+				e.target.classList.add("action");
+				setTimeout(() => {
+					e.target.classList.remove("action");
+					e.target.removeAttribute("action");
+				}, 1000);
+			}
+			
+			return;
+		}
+		if(e.target.classList.contains("cn-nodes-pack")) {
+			const hash = e.target.getAttribute("hash");
+			const rowItem = this.grid.getRowItemBy("hash", hash);
+				//console.log(rowItem);
+			this.grid.scrollToRow(rowItem);
+			this.addHighlight(rowItem);
+			return;
+		}
 	}
 
 	showNodes(d) {
@@ -1872,7 +1806,10 @@ export class CustomNodesManager {
 		for(let k in allUsedNodes) {
 			var item;
 			if(allUsedNodes[k].properties.cnr_id) {
-				item = this.custom_nodes[allUsedNodes[k].properties.cnr_id];
+				const foundPackage = findPackageByCnrId(allUsedNodes[k].properties.cnr_id, this.custom_nodes, false);
+				if (foundPackage) {
+					item = foundPackage.pack;
+				}
 			}
 			else if(allUsedNodes[k].properties.aux_id) {
 				item = aux_id_to_pack[allUsedNodes[k].properties.aux_id];
@@ -1917,6 +1854,48 @@ export class CustomNodesManager {
 		}
 	
 		return hashMap;
+	}
+
+	async getUsedInAnyWorkflow() {
+		this.showStatus(`Loading workflow usage analysis ...`);
+		
+		const result = await analyzeWorkflowUsage(this.custom_nodes);
+		
+		if (!result.success) {
+			this.showError(`Failed to get workflow data: ${result.error}`);
+			return {};
+		}
+		
+		const hashMap = {};
+		
+		// Convert usage map keys to hash map
+		result.usageMap.forEach((count, packageKey) => {
+			const pack = this.custom_nodes[packageKey];
+			if (pack && pack.hash) {
+				hashMap[pack.hash] = true;
+			}
+		});
+		
+		return hashMap;
+	}
+
+	async getNotUsedInAnyWorkflow() {
+		this.showStatus(`Loading workflow usage analysis ...`);
+		
+		// Get the used packages first using common utility
+		const usedHashMap = await this.getUsedInAnyWorkflow();
+		const notUsedHashMap = {};
+		
+		// Find all installed packages that are NOT in the used list
+		for(let k in this.custom_nodes) {
+			let nodepack = this.custom_nodes[k];
+			// Only consider installed packages
+			if (nodepack.state !== "not-installed" && !usedHashMap[nodepack.hash]) {
+				notUsedHashMap[nodepack.hash] = true;
+			}
+		}
+		
+		return notUsedHashMap;
 	}
 
 	async loadData(show_mode = ShowMode.NORMAL) {
@@ -1988,6 +1967,10 @@ export class CustomNodesManager {
 				hashMap = await this.getFavorites();
 			} else if(this.show_mode == ShowMode.IN_WORKFLOW) {
 				hashMap = await this.getNodepackInWorkflow();
+			} else if(this.show_mode == ShowMode.USED_IN_ANY_WORKFLOW) {
+				hashMap = await this.getUsedInAnyWorkflow();
+			} else if(this.show_mode == ShowMode.NOT_USED_IN_ANY_WORKFLOW) {
+				hashMap = await this.getNotUsedInAnyWorkflow();
 			}
 			filterItem.hashMap = hashMap;
 

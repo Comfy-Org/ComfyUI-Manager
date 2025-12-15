@@ -11,7 +11,10 @@ import threading
 import re
 import shutil
 import git
+import glob
+import json
 from datetime import datetime
+from contextlib import contextmanager
 
 from server import PromptServer
 import manager_core as core
@@ -734,6 +737,86 @@ async def fetch_updates(request):
     except:
         traceback.print_exc()
         return web.Response(status=400)
+    
+@routes.get("/customnode/get_node_types_in_workflows")
+async def get_node_types_in_workflows(request):
+    try:
+        # get our username from the request header
+        user_id = PromptServer.instance.user_manager.get_request_user_id(request)
+
+        # get the base workflow directory (TODO: figure out if non-standard directories are possible, and how to find them)
+        workflow_files_base_path = os.path.abspath(os.path.join(folder_paths.get_user_directory(), user_id, "workflows"))
+
+        logging.debug(f"workflows base path: {workflow_files_base_path}")
+
+        # workflow directory doesn't actually exist, return 204 (No Content)
+        if not os.path.isdir(workflow_files_base_path):
+            logging.debug("workflows base path doesn't exist - nothing to do...")
+            return web.Response(status=204)
+        
+        # get all JSON files under the workflow directory
+        workflow_file_relative_paths: list[str] = glob.glob(pathname="**/*.json", root_dir=workflow_files_base_path, recursive=True)
+
+        logging.debug(f"found the following workflows: {workflow_file_relative_paths}")
+
+        # set up our list of workflow/node-lists
+        workflow_node_mappings: list[dict[str, str | list[str]]] = []
+
+        # iterate over each found JSON file
+        for workflow_file_path in workflow_file_relative_paths:
+
+            try:
+                workflow_file_absolute_path = os.path.abspath(os.path.join(workflow_files_base_path, workflow_file_path))
+                logging.debug(f"starting work on {workflow_file_absolute_path}")
+                # load the JSON file
+                workflow_file_data = json.load(open(workflow_file_absolute_path, "r"))
+
+                # make sure there's a nodes key (otherwise this might not actually be a workflow file)
+                if "nodes" not in workflow_file_data:
+                    logging.warning(f"{workflow_file_path} has no 'nodes' key (possibly invalid?) - skipping...")
+                    # skip to next file
+                    continue
+
+                # now this looks like a valid file, so let's get to work
+                new_mapping = {"workflow_file_name": workflow_file_path}
+                # we can't use an actual set, because you can't use dicts as set members
+                node_set = []
+
+                # iterate over each node in the workflow
+                for node in workflow_file_data["nodes"]:
+                    if "id" not in node:
+                        logging.warning(f"Found a node with no ID - possibly corrupt/invalid workflow?")
+                        continue
+                    # if there's no type, throw a warning
+                    if "type" not in node:
+                        logging.warning(f"Node type not found in {workflow_file_path} for node ID {node['id']}")
+                        # skip to next node
+                        continue
+
+                    node_data_to_return = {"type": node["type"]}
+                    if "properties" not in node:
+                        logging.warning(f"Node ${node['id']} has no properties field - can't determine cnr_id")
+                    else:
+                        for property_key in ["cnr_id", "ver"]:
+                            if property_key in node["properties"]:
+                                node_data_to_return[property_key] = node["properties"][property_key]                  
+                    
+                    # add it to the list for this workflow
+                    if not node_data_to_return in node_set:
+                        node_set.append(node_data_to_return)
+
+                # annoyingly, Python can't serialize sets to JSON
+                new_mapping["node_types"] = list(node_set)
+                workflow_node_mappings.append(new_mapping)            
+
+            except Exception as e:
+                logging.warning(f"Couldn't open {workflow_file_path}: {e}")
+
+        return web.json_response(workflow_node_mappings, content_type='application/json')
+    
+    except:
+        traceback.print_exc()
+        return web.Response(status=500)
 
 
 @routes.get("/manager/queue/update_all")
