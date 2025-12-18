@@ -22,7 +22,7 @@ if comfy_base_path is None:
     comfy_base_path = comfy_path
 
 channel_list_template_path = os.path.join(manager_util.comfyui_manager_path, 'channels.list.template')
-git_script_path = os.path.join(manager_util.comfyui_manager_path, "git_helper.py")
+git_script_path = os.path.join(manager_util.comfyui_manager_path, "common", "git_helper.py")
 
 manager_files_path = None
 manager_config_path = None
