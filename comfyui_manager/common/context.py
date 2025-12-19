@@ -31,7 +31,6 @@ manager_startup_script_path:str = None
 manager_snapshot_path = None
 manager_pip_overrides_path = None
 manager_pip_blacklist_path = None
-manager_components_path = None
 manager_batch_history_path = None
 
 def update_user_directory(manager_dir):
@@ -42,7 +41,6 @@ def update_user_directory(manager_dir):
     global manager_snapshot_path
     global manager_pip_overrides_path
     global manager_pip_blacklist_path
-    global manager_components_path
     global manager_batch_history_path
 
     manager_files_path = manager_dir
@@ -61,7 +59,6 @@ def update_user_directory(manager_dir):
     manager_channel_list_path = os.path.join(manager_files_path, 'channels.list')
     manager_pip_overrides_path = os.path.join(manager_files_path, "pip_overrides.json")
     manager_pip_blacklist_path = os.path.join(manager_files_path, "pip_blacklist.list")
-    manager_components_path = os.path.join(manager_files_path, "components")
     manager_util.cache_dir = os.path.join(manager_files_path, "cache")
     manager_batch_history_path = os.path.join(manager_files_path, "batch_history")
 

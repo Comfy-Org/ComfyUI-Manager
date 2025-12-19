@@ -5,8 +5,6 @@ import traceback
 
 from comfyui_manager.common import context
 import folder_paths
-from comfy.cli_args import args
-import latent_preview
 
 from comfyui_manager.glob import manager_core as core
 from comfyui_manager.common import cm_global
@@ -93,19 +91,6 @@ def print_comfyui_version():
             )
 
 
-def set_preview_method(method):
-    if method == "auto":
-        args.preview_method = latent_preview.LatentPreviewMethod.Auto
-    elif method == "latent2rgb":
-        args.preview_method = latent_preview.LatentPreviewMethod.Latent2RGB
-    elif method == "taesd":
-        args.preview_method = latent_preview.LatentPreviewMethod.TAESD
-    else:
-        args.preview_method = latent_preview.LatentPreviewMethod.NoPreviews
-
-    core.get_config()["preview_method"] = method
-
-
 def set_update_policy(mode):
     core.get_config()["update_policy"] = mode
 
@@ -135,7 +120,6 @@ def initialize_environment():
     #     manager_util.comfyui_manager_path, "extension-node-map.json"
     # )
 
-    set_preview_method(core.get_config()["preview_method"])
     print_comfyui_version()
     setup_environment()
 

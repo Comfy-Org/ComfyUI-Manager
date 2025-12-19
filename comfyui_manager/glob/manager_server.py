@@ -27,7 +27,6 @@ from typing import Any, Optional
 from comfyui_manager.common.timestamp_utils import get_timestamp_for_filename, get_now
 
 import folder_paths
-import latent_preview
 import nodes
 from aiohttp import web
 from comfy.cli_args import args
@@ -131,16 +130,6 @@ def error_response(
 
 
 class ManagerFuncsInComfyUI(core.ManagerFuncs):
-    def get_current_preview_method(self):
-        if args.preview_method == latent_preview.LatentPreviewMethod.Auto:
-            return "auto"
-        elif args.preview_method == latent_preview.LatentPreviewMethod.Latent2RGB:
-            return "latent2rgb"
-        elif args.preview_method == latent_preview.LatentPreviewMethod.TAESD:
-            return "taesd"
-        else:
-            return "none"
-
     def run_script(self, cmd, cwd="."):
         if len(cmd) > 0 and cmd[0].startswith("#"):
             logging.error(f"[ComfyUI-Manager] Unexpected behavior: `{cmd}`")
@@ -704,8 +693,6 @@ class TaskQueue:
                 cli_args["listen"] = args.listen
             if hasattr(args, "port"):
                 cli_args["port"] = args.port
-            if hasattr(args, "preview_method"):
-                cli_args["preview_method"] = str(args.preview_method)
             if hasattr(args, "enable_manager_legacy_ui"):
                 cli_args["enable_manager_legacy_ui"] = args.enable_manager_legacy_ui
             if hasattr(args, "front_end_version"):
@@ -818,14 +805,6 @@ class TaskQueue:
 
 
 task_queue = TaskQueue()
-
-# Preview method initialization
-if args.preview_method == latent_preview.LatentPreviewMethod.NoPreviews:
-    environment_utils.set_preview_method(core.get_config()["preview_method"])
-else:
-    logging.warning(
-        "[ComfyUI-Manager] Since --preview-method is set, ComfyUI-Manager's preview method feature will be ignored."
-    )
 
 
 async def task_worker():

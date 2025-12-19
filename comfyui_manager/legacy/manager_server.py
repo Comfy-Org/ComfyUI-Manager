@@ -61,7 +61,6 @@ def handle_stream(stream, prefix):
 
 
 from comfy.cli_args import args
-import latent_preview
 
 def is_loopback(address):
     import ipaddress
@@ -146,16 +145,6 @@ async def get_risky_level(files, pip_packages):
 
 
 class ManagerFuncsInComfyUI(core.ManagerFuncs):
-    def get_current_preview_method(self):
-        if args.preview_method == latent_preview.LatentPreviewMethod.Auto:
-            return "auto"
-        elif args.preview_method == latent_preview.LatentPreviewMethod.Latent2RGB:
-            return "latent2rgb"
-        elif args.preview_method == latent_preview.LatentPreviewMethod.TAESD:
-            return "taesd"
-        else:
-            return "none"
-
     def run_script(self, cmd, cwd='.'):
         if len(cmd) > 0 and cmd[0].startswith("#"):
             logging.error(f"[ComfyUI-Manager] Unexpected behavior: `{cmd}`")
@@ -187,25 +176,6 @@ local_db_alter = os.path.join(manager_util.comfyui_manager_path, "alter-list.jso
 local_db_custom_node_list = os.path.join(manager_util.comfyui_manager_path, "custom-node-list.json")
 local_db_extension_node_mappings = os.path.join(manager_util.comfyui_manager_path, "extension-node-map.json")
 
-
-def set_preview_method(method):
-    if method == 'auto':
-        args.preview_method = latent_preview.LatentPreviewMethod.Auto
-    elif method == 'latent2rgb':
-        args.preview_method = latent_preview.LatentPreviewMethod.Latent2RGB
-    elif method == 'taesd':
-        args.preview_method = latent_preview.LatentPreviewMethod.TAESD
-    else:
-        args.preview_method = latent_preview.LatentPreviewMethod.NoPreviews
-
-    core.get_config()['preview_method'] = method
-
-
-set_preview_method(core.get_config()['preview_method'])
-
-
-def set_component_policy(mode):
-    core.get_config()['component_policy'] = mode
 
 def set_update_policy(mode):
     core.get_config()['update_policy'] = mode
@@ -1725,17 +1695,6 @@ async def _install_model(json_data):
     return web.Response(status=200)
 
 
-@routes.get("/v2/manager/preview_method")
-async def preview_method(request):
-    if "value" in request.rel_url.query:
-        set_preview_method(request.rel_url.query['value'])
-        core.write_config()
-    else:
-        return web.Response(text=core.manager_funcs.get_current_preview_method(), status=200)
-
-    return web.Response(status=200)
-
-
 @routes.get("/v2/manager/db_mode")
 async def db_mode(request):
     if "value" in request.rel_url.query:
@@ -1743,18 +1702,6 @@ async def db_mode(request):
         core.write_config()
     else:
         return web.Response(text=core.get_config()['db_mode'], status=200)
-
-    return web.Response(status=200)
-
-
-
-@routes.get("/v2/manager/policy/component")
-async def component_policy(request):
-    if "value" in request.rel_url.query:
-        set_component_policy(request.rel_url.query['value'])
-        core.write_config()
-    else:
-        return web.Response(text=core.get_config()['component_policy'], status=200)
 
     return web.Response(status=200)
 
@@ -1895,61 +1842,6 @@ def restart(self):
     print(f"Command: {cmds}", flush=True)
 
     return os.execv(sys.executable, cmds)
-
-
-@routes.post("/v2/manager/component/save")
-async def save_component(request):
-    try:
-        data = await request.json()
-        name = data['name']
-        workflow = data['workflow']
-
-        if not os.path.exists(context.manager_components_path):
-            os.mkdir(context.manager_components_path)
-
-        if 'packname' in workflow and workflow['packname'] != '':
-            sanitized_name = manager_util.sanitize_filename(workflow['packname']) + '.pack'
-        else:
-            sanitized_name = manager_util.sanitize_filename(name) + '.json'
-
-        filepath = os.path.join(context.manager_components_path, sanitized_name)
-        components = {}
-        if os.path.exists(filepath):
-            with open(filepath) as f:
-                components = json.load(f)
-
-        components[name] = workflow
-
-        with open(filepath, 'w') as f:
-            json.dump(components, f, indent=4, sort_keys=True)
-        return web.Response(text=filepath, status=200)
-    except Exception:
-        return web.Response(status=400)
-
-
-@routes.post("/v2/manager/component/loads")
-async def load_components(request):
-    if os.path.exists(context.manager_components_path):
-        try:
-            json_files = [f for f in os.listdir(context.manager_components_path) if f.endswith('.json')]
-            pack_files = [f for f in os.listdir(context.manager_components_path) if f.endswith('.pack')]
-
-            components = {}
-            for json_file in json_files + pack_files:
-                file_path = os.path.join(context.manager_components_path, json_file)
-                with open(file_path, 'r') as file:
-                    try:
-                        # When there is a conflict between the .pack and the .json, the pack takes precedence and overrides.
-                        components.update(json.load(file))
-                    except json.JSONDecodeError as e:
-                        logging.error(f"[ComfyUI-Manager] Error decoding component file in file {json_file}: {e}")
-
-            return web.json_response(components)
-        except Exception as e:
-            logging.error(f"[ComfyUI-Manager] failed to load components\n{e}")
-            return web.Response(status=400)
-    else:
-        return web.json_response({})
 
 
 @routes.get("/v2/manager/version")

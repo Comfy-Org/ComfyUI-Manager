@@ -16,7 +16,6 @@ import {
 	rebootAPI, setManagerInstance, show_message, customAlert, customPrompt,
 	infoToast, showTerminal, setNeedRestart, generateUUID
 } from "./common.js";
-import { ComponentBuilderDialog, load_components, set_component_policy } from "./components-manager.js";
 import { CustomNodesManager } from "./custom-nodes-manager.js";
 import { ModelManager } from "./model-manager.js";
 import { SnapshotManager } from "./snapshot.js";
@@ -957,25 +956,6 @@ class ManagerMenuDialog extends ComfyDialog {
 
 		const dbRetrievalSetttingItem = createSettingsCombo("DB", this.datasrc_combo);
 
-		// preview method
-		let preview_combo = document.createElement("select");
-		preview_combo.setAttribute("title", "Configure how latent variables will be decoded during preview in the sampling process.");
-		preview_combo.className = "cm-menu-combo p-select p-component p-inputwrapper p-inputwrapper-filled";
-		preview_combo.appendChild($el('option', { value: 'auto', text: 'Auto' }, []));
-		preview_combo.appendChild($el('option', { value: 'taesd', text: 'TAESD (slow)' }, []));
-		preview_combo.appendChild($el('option', { value: 'latent2rgb', text: 'Latent2RGB (fast)' }, []));
-		preview_combo.appendChild($el('option', { value: 'none', text: 'None (very fast)' }, []));
-
-		api.fetchApi('/v2/manager/preview_method')
-			.then(response => response.text())
-			.then(data => { preview_combo.value = data; });
-
-		preview_combo.addEventListener('change', function (event) {
-			api.fetchApi(`/v2/manager/preview_method?value=${event.target.value}`);
-		});
-
-		const previewSetttingItem = createSettingsCombo("Preview method", preview_combo);
-
 		// channel
 		let channel_combo = document.createElement("select");
 		channel_combo.setAttribute("title", "Configure the channel for retrieving data from the Custom Node list (including missing nodes) or the Model list.");
@@ -1044,26 +1024,6 @@ class ManagerMenuDialog extends ComfyDialog {
 
 		const shareSetttingItem = createSettingsCombo("Share", share_combo);
 
-		let component_policy_combo = document.createElement("select");
-		component_policy_combo.setAttribute("title", "When loading the workflow, configure which version of the component to use.");
-		component_policy_combo.className = "cm-menu-combo p-select p-component p-inputwrapper p-inputwrapper-filled";
-		component_policy_combo.appendChild($el('option', { value: 'workflow', text: 'Use workflow version' }, []));
-		component_policy_combo.appendChild($el('option', { value: 'higher', text: 'Use higher version' }, []));
-		component_policy_combo.appendChild($el('option', { value: 'mine', text: 'Use my version' }, []));
-		api.fetchApi('/v2/manager/policy/component')
-			.then(response => response.text())
-			.then(data => {
-				component_policy_combo.value = data;
-				set_component_policy(data);
-			});
-
-		component_policy_combo.addEventListener('change', function (event) {
-			api.fetchApi(`/v2/manager/policy/component?value=${event.target.value}`);
-			set_component_policy(event.target.value);
-		});
-
-		const componentSetttingItem = createSettingsCombo("Component", component_policy_combo);
-
 		update_policy_combo = document.createElement("select");
 		
 		update_policy_combo.setAttribute("title", "Sets the policy to be applied when performing an update.");
@@ -1088,9 +1048,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		return [
 			dbRetrievalSetttingItem,
 			channelSetttingItem,
-			previewSetttingItem,
 			shareSetttingItem,
-			componentSetttingItem,
 			updateSetttingItem,
 			//[TODO] replace mt-2 with wrapper div with flex column gap
 			$el("filedset.cm-experimental.mt-auto", {}, [
@@ -1430,14 +1388,6 @@ app.registerExtension({
 		});
 	},
 	async setup() {
-		let orig_clear = app.graph.clear;
-		app.graph.clear = function () {
-			orig_clear.call(app.graph);
-			load_components();
-		};
-
-		load_components();
-
 		const menu = document.querySelector(".comfy-menu");
 		const separator = document.createElement("hr");
 
@@ -1565,19 +1515,6 @@ app.registerExtension({
 		node.prototype.cm_menu_added = true;
 		node.prototype.getExtraMenuOptions = function (_, options) {
 			origGetExtraMenuOptions?.apply?.(this, arguments);
-
-			if (node.category.startsWith('group nodes>')) {
-				options.push({
-					content: "Save As Component",
-					callback: (obj) => {
-						if (!ComponentBuilderDialog.instance) {
-							ComponentBuilderDialog.instance = new ComponentBuilderDialog();
-						}
-						ComponentBuilderDialog.instance.target_node = node;
-						ComponentBuilderDialog.instance.show();
-					}
-				}, null);
-			}
 
 			if (isOutputNode(node)) {
 				const { potential_outputs } = getPotentialOutputsAndOutputNodes([this]);

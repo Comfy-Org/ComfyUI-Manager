@@ -1574,9 +1574,6 @@ class ManagerFuncs:
     def __init__(self):
         pass
 
-    def get_current_preview_method(self):
-        return "none"
-
     def run_script(self, cmd, cwd='.'):
         if len(cmd) > 0 and cmd[0].startswith("#"):
             print(f"[ComfyUI-Manager] Unexpected behavior: `{cmd}`")
@@ -1594,14 +1591,12 @@ def write_config():
     config = configparser.ConfigParser(strict=False)
 
     config['default'] = {
-        'preview_method': manager_funcs.get_current_preview_method(),
         'git_exe': get_config()['git_exe'],
         'use_uv': get_config()['use_uv'],
         'channel_url': get_config()['channel_url'],
         'share_option': get_config()['share_option'],
         'bypass_ssl': get_config()['bypass_ssl'],
         "file_logging": get_config()['file_logging'],
-        'component_policy': get_config()['component_policy'],
         'update_policy': get_config()['update_policy'],
         'windows_selector_event_loop_policy': get_config()['windows_selector_event_loop_policy'],
         'model_download_by_agent': get_config()['model_download_by_agent'],
@@ -1634,7 +1629,6 @@ def read_config():
 
         return {
                     'http_channel_enabled': get_bool('http_channel_enabled', False),
-                    'preview_method': default_conf.get('preview_method', manager_funcs.get_current_preview_method()).lower(),
                     'git_exe': default_conf.get('git_exe', ''),
                     'use_uv': get_bool('use_uv', True),
                     'channel_url': default_conf.get('channel_url', DEFAULT_CHANNEL),
@@ -1642,7 +1636,6 @@ def read_config():
                     'share_option': default_conf.get('share_option', 'all').lower(),
                     'bypass_ssl': get_bool('bypass_ssl', False),
                     'file_logging': get_bool('file_logging', True),
-                    'component_policy': default_conf.get('component_policy', 'workflow').lower(),
                     'update_policy': default_conf.get('update_policy', 'stable-comfyui').lower(),
                     'windows_selector_event_loop_policy': get_bool('windows_selector_event_loop_policy', False),
                     'model_download_by_agent': get_bool('model_download_by_agent', False),
@@ -1661,7 +1654,6 @@ def read_config():
 
         return {
             'http_channel_enabled': False,
-            'preview_method': manager_funcs.get_current_preview_method(),
             'git_exe': '',
             'use_uv': manager_util.use_uv,
             'channel_url': DEFAULT_CHANNEL,
@@ -1669,7 +1661,6 @@ def read_config():
             'share_option': 'all',
             'bypass_ssl': manager_util.bypass_ssl,
             'file_logging': True,
-            'component_policy': 'workflow',
             'update_policy': 'stable-comfyui',
             'windows_selector_event_loop_policy': False,
             'model_download_by_agent': False,
