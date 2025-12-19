@@ -260,7 +260,7 @@ const style = `
 	overflow: hidden;
 	background-color: var(--comfy-menu-secondary-bg);
 	border-color: var(--border-color);
-	color: color: var(--input-text);
+	color: var(--input-text);
 }
 
 .cm-button:hover {
