@@ -55,9 +55,10 @@ def should_be_disabled(fullpath:str) -> bool:
 def get_client_ip(request):
     peername = request.transport.get_extra_info("peername")
     if peername is not None:
-        host, port = peername
+        # Grab the first two values - there can be more, ie. with --listen
+        host, port = peername[:2]
         return host
-    
+
     return "unknown"
 
 
