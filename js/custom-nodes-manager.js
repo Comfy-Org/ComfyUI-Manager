@@ -1,6 +1,7 @@
 import { app } from "../../scripts/app.js";
 import { ComfyDialog, $el } from "../../scripts/ui.js";
 import { api } from "../../scripts/api.js";
+import { buildGuiFrameCustomHeader,  createSettingsCombo } from "./comfyui-gui-builder.js";
 
 import {
 	manager_instance, rebootAPI, install_via_git_url,
@@ -18,32 +19,19 @@ loadCss("./custom-nodes-manager.css");
 const gridId = "node";
 
 const pageHtml = `
-<div class="cn-manager-header">
-	<label>Filter
-		<select class="cn-manager-filter"></select>
-	</label>
-	<input class="cn-manager-keywords" type="search" placeholder="Search" />
-	<div class="cn-manager-status"></div>
-	<div class="cn-flex-auto"></div>
-	<div class="cn-manager-channel"></div>
-</div>
-<div class="cn-manager-grid"></div>
-<div class="cn-manager-selection"></div>
-<div class="cn-manager-message"></div>
-<div class="cn-manager-footer">
-	<button class="cn-manager-back">
-		<svg class="arrow-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-			<path d="M2 8H18M2 8L8 2M2 8L8 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-		</svg>
-		Back
-	</button>
-	<button class="cn-manager-restart">Restart</button>
-	<button class="cn-manager-stop">Stop</button>
-	<div class="cn-flex-auto"></div>
-	<button class="cn-manager-used-in-workflow">Used In Workflow</button>
-	<button class="cn-manager-check-update">Check Update</button>
-	<button class="cn-manager-check-missing">Check Missing</button>
-	<button class="cn-manager-install-url">Install via Git URL</button>
+<div class="cn-manager cn-manager-dark">
+	<div class="cn-manager-grid"></div>
+	<div class="cn-manager-selection"></div>
+	<div class="cn-manager-message"></div>
+	<div class="cn-manager-footer">
+		<button class="cn-manager-restart p-button p-component">Restart</button>
+		<button class="cn-manager-stop p-button p-component">Stop</button>
+		<div class="cn-flex-auto"></div>
+		<button class="cn-manager-used-in-workflow p-button p-component">Used In Workflow</button>
+		<button class="cn-manager-check-update p-button p-component">Check Update</button>
+		<button class="cn-manager-check-missing p-button p-component">Check Missing</button>
+		<button class="cn-manager-install-url p-button p-component">Install via Git URL</button>
+	</div>
 </div>
 `;
 
@@ -89,11 +77,26 @@ export class CustomNodesManager {
 	}
 
 	init() {
-		this.element = $el("div", {
-			parent: document.body,
-			className: "comfy-modal cn-manager"
-		});
-		this.element.innerHTML = pageHtml;
+		const header = $el("div.cn-manager-header.px-2", {}, [
+			// $el("label", {}, [
+			// 	$el("span", { textContent: "Filter" }),
+			// 	$el("select.cn-manager-filter")
+			// ]),
+			createSettingsCombo("Filter", $el("select.cn-manager-filter")),
+			$el("input.cn-manager-keywords.p-inputtext.p-component", { type: "search", placeholder: "Search" }),
+			$el("div.cn-manager-status"),
+			$el("div.cn-flex-auto"),
+			$el("div.cn-manager-channel")
+		]);
+
+		const frame = buildGuiFrameCustomHeader(
+			'cn-manager-dialog', // dialog id
+			header, // custom header element
+			pageHtml, // dialog content element
+			this
+		);	// send this so we can attach close functions
+
+		this.element = frame;
 		this.element.setAttribute("tabindex", 0);
 		this.element.focus();
 
@@ -372,7 +375,7 @@ export class CustomNodesManager {
 
 		return list.map(id => {
 			const bt = buttons[id];
-			return `<button class="cn-btn-${id}" group="${action}" mode="${bt.mode}">${bt.label}</button>`;
+			return `<button class="cn-btn-${id} p-button p-component" group="${action}" mode="${bt.mode}">${bt.label}</button>`;
 		}).join("");
 	}
 
@@ -655,7 +658,6 @@ export class CustomNodesManager {
 	}
 
 	renderGrid() {
-
 		// update theme
 		const globalStyle = window.getComputedStyle(document.body);
 		this.colorVars = {
