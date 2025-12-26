@@ -69,7 +69,10 @@ async def _get_cnr_data(cache_mode=True, dont_wait=True):
                 form_factor = 'git-linux'
             else:
                 form_factor = 'other'
-        
+
+        from comfyui_manager.glob import manager_core
+        verbose = manager_core.get_config().get('verbose', False)
+
         while remained:
             # Add comfyui_version and form_factor to the API request
             sub_uri = f'{base_url}/nodes?page={page}&limit=30&comfyui_version={comfyui_ver}&form_factor={form_factor}'
@@ -79,7 +82,7 @@ async def _get_cnr_data(cache_mode=True, dont_wait=True):
             for x in sub_json_obj['nodes']:
                 full_nodes[x['id']] = x
 
-            if page % 5 == 0:
+            if page % 5 == 0 and verbose:
                 logging.info(f"FETCH ComfyRegistry Data: {page}/{sub_json_obj['totalPages']}")
 
             page += 1

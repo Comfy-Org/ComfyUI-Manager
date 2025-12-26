@@ -49,6 +49,8 @@ version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' i
 DEFAULT_CHANNEL = "https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/main"
 DEFAULT_CHANNEL_LEGACY = "https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main"
 
+# SSH git URL pattern (e.g., git@github.com:user/repo.git)
+SSH_URL_PATTERN = re.compile(r"^(.+@|ssh://).+:.+$")
 
 default_custom_nodes_path = None
 
@@ -2069,16 +2071,15 @@ class GitProgress(RemoteProgress):
 
 
 def is_valid_url(url):
-    try:
-        # Check for HTTP/HTTPS URL format
-        result = urlparse(url)
-        if all([result.scheme, result.netloc]):
-            return True
-    finally:
-        # Check for SSH git URL format
-        pattern = re.compile(r"^(.+@|ssh://).+:.+$")
-        if pattern.match(url):
-            return True
+    # Check for HTTP/HTTPS URL format
+    result = urlparse(url)
+    if result.scheme and result.netloc:
+        return True
+
+    # Check for SSH git URL format
+    if SSH_URL_PATTERN.match(url):
+        return True
+
     return False
 
 

@@ -48,6 +48,8 @@ version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' i
 DEFAULT_CHANNEL = "https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main"
 DEFAULT_CHANNEL_LEGACY = "https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main"
 
+# SSH git URL pattern (e.g., git@github.com:user/repo.git)
+SSH_URL_PATTERN = re.compile(r"^(.+@|ssh://).+:.+$")
 
 default_custom_nodes_path = None
 
@@ -382,15 +384,24 @@ class UnifiedManager:
         self.processed_install = set()
 
     def get_module_name(self, x):
+        # 1. Direct cnr_id lookup
         info = self.active_nodes.get(x)
-        if info is None:
-            # Try to find in unknown_active_nodes by comparing normalized URLs
-            normalized_x = git_utils.normalize_url(x)
-            for url, fullpath in self.unknown_active_nodes.values():
-                if url is not None and git_utils.normalize_url(url) == normalized_x:
-                    return os.path.basename(fullpath)
-        else:
+        if info is not None:
             return os.path.basename(info[1])
+
+        # 2. URL/aux_id → cnr_id conversion via repo_cnr_map
+        cnr_info = self.get_cnr_by_repo(x)
+        if cnr_info is not None:
+            cnr_id = cnr_info['id']
+            info = self.active_nodes.get(cnr_id)
+            if info is not None:
+                return os.path.basename(info[1])
+
+        # 3. Fallback: search unknown_active_nodes by URL
+        normalized_x = git_utils.normalize_url(x)
+        for url, fullpath in self.unknown_active_nodes.values():
+            if url is not None and git_utils.normalize_url(url) == normalized_x:
+                return os.path.basename(fullpath)
 
         return None
 
@@ -1605,6 +1616,7 @@ def write_config():
         'always_lazy_install': get_config()['always_lazy_install'],
         'network_mode': get_config()['network_mode'],
         'db_mode': get_config()['db_mode'],
+        'verbose': get_config()['verbose'],
     }
 
     directory = os.path.dirname(context.manager_config_path)
@@ -1644,6 +1656,7 @@ def read_config():
                     'network_mode': default_conf.get('network_mode', NetworkMode.PUBLIC.value).lower(),
                     'security_level': default_conf.get('security_level', SecurityLevel.NORMAL.value).lower(),
                     'db_mode': default_conf.get('db_mode', DBMode.CACHE.value).lower(),
+                    'verbose': get_bool('verbose', False),
                }
 
     except Exception:
@@ -1669,6 +1682,7 @@ def read_config():
             'network_mode': NetworkMode.PUBLIC.value,
             'security_level': SecurityLevel.NORMAL.value,
             'db_mode': DBMode.CACHE.value,
+            'verbose': False,
         }
 
 
@@ -2058,16 +2072,15 @@ class GitProgress(RemoteProgress):
 
 
 def is_valid_url(url):
-    try:
-        # Check for HTTP/HTTPS URL format
-        result = urlparse(url)
-        if all([result.scheme, result.netloc]):
-            return True
-    finally:
-        # Check for SSH git URL format
-        pattern = re.compile(r"^(.+@|ssh://).+:.+$")
-        if pattern.match(url):
-            return True
+    # Check for HTTP/HTTPS URL format
+    result = urlparse(url)
+    if result.scheme and result.netloc:
+        return True
+
+    # Check for SSH git URL format
+    if SSH_URL_PATTERN.match(url):
+        return True
+
     return False
 
 
