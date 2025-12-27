@@ -22,6 +22,7 @@ import asyncio
 import queue
 
 import manager_downloader
+import manager_migration
 
 
 logging.info(f"### Loading: ComfyUI-Manager ({core.version_str})")
@@ -36,6 +37,25 @@ SECURITY_MESSAGE_GENERAL = "ERROR: This installation is not allowed in this secu
 SECURITY_MESSAGE_NORMAL_MINUS_MODEL = "ERROR: Downloading models that are not in '.safetensors' format is only allowed for models registered in the 'default' channel at this security level. If you want to download this model, set the security level to 'normal-' or lower."
 
 routes = PromptServer.instance.routes
+
+
+def has_per_queue_preview():
+    """
+    Check if ComfyUI PR #11261 (per-queue live preview override) is merged
+
+    Returns:
+        bool: True if ComfyUI has per-queue preview feature
+    """
+    try:
+        import latent_preview
+        return hasattr(latent_preview, 'set_preview_method')
+    except ImportError:
+        return False
+
+
+# Detect ComfyUI per-queue preview override feature (PR #11261)
+COMFYUI_HAS_PER_QUEUE_PREVIEW = has_per_queue_preview()
+
 
 def handle_stream(stream, prefix):
     stream.reconfigure(encoding=locale.getpreferredencoding(), errors='replace')
@@ -181,10 +201,19 @@ def set_preview_method(method):
     core.get_config()['preview_method'] = method
 
 
-if args.preview_method == latent_preview.LatentPreviewMethod.NoPreviews:
+if COMFYUI_HAS_PER_QUEUE_PREVIEW:
+    logging.info(
+        "[ComfyUI-Manager] ComfyUI per-queue preview override detected (PR #11261). "
+        "Manager's preview method feature is disabled. "
+        "Use ComfyUI's --preview-method CLI option or 'Settings > Execution > Live preview method'."
+    )
+elif args.preview_method == latent_preview.LatentPreviewMethod.NoPreviews:
     set_preview_method(core.get_config()['preview_method'])
 else:
-    logging.warning("[ComfyUI-Manager] Since --preview-method is set, ComfyUI-Manager's preview method feature will be ignored.")
+    logging.warning(
+        "[ComfyUI-Manager] Since --preview-method is set, "
+        "ComfyUI-Manager's preview method feature will be ignored."
+    )
 
 
 def set_component_policy(mode):
@@ -274,6 +303,13 @@ import aiohttp
 import json
 import zipfile
 import urllib.request
+
+
+def security_403_response():
+    """Return appropriate 403 response based on ComfyUI version."""
+    if not manager_migration.has_system_user_api():
+        return web.json_response({"error": "comfyui_outdated"}, status=403)
+    return web.json_response({"error": "security_level"}, status=403)
 
 
 def get_model_dir(data, show_log=False):
@@ -732,7 +768,7 @@ async def fetch_updates(request):
 async def update_all(request):
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
-        return web.Response(status=403)
+        return security_403_response()
 
     with task_worker_lock:
         is_processing = task_worker_thread is not None and task_worker_thread.is_alive()
@@ -965,7 +1001,7 @@ async def get_snapshot_list(request):
 async def remove_snapshot(request):
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
-        return web.Response(status=403)
+        return security_403_response()
 
     try:
         target = request.rel_url.query["target"]
@@ -983,7 +1019,7 @@ async def remove_snapshot(request):
 async def restore_snapshot(request):
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
-        return web.Response(status=403)
+        return security_403_response()
 
     try:
         target = request.rel_url.query["target"]
@@ -1302,7 +1338,7 @@ async def fix_custom_node(request):
 async def install_custom_node_git_url(request):
     if not is_allowed_security_level('high'):
         logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
-        return web.Response(status=403)
+        return security_403_response()
 
     url = await request.text()
     res = await core.gitclone_install(url)
@@ -1322,7 +1358,7 @@ async def install_custom_node_git_url(request):
 async def install_custom_node_pip(request):
     if not is_allowed_security_level('high'):
         logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
-        return web.Response(status=403)
+        return security_403_response()
 
     packages = await request.text()
     core.pip_install(packages.split(' '))
@@ -1474,13 +1510,25 @@ async def install_model(request):
 
 @routes.get("/manager/preview_method")
 async def preview_method(request):
+    # Setting change request
     if "value" in request.rel_url.query:
+        # Reject setting change if per-queue preview feature is available
+        if COMFYUI_HAS_PER_QUEUE_PREVIEW:
+            return web.Response(text="DISABLED", status=403)
+
+        # Process normally if not available
         set_preview_method(request.rel_url.query['value'])
         core.write_config()
-    else:
-        return web.Response(text=core.manager_funcs.get_current_preview_method(), status=200)
+        return web.Response(status=200)
 
-    return web.Response(status=200)
+    # Status query request
+    else:
+        # Return DISABLED if per-queue preview feature is available
+        if COMFYUI_HAS_PER_QUEUE_PREVIEW:
+            return web.Response(text="DISABLED", status=200)
+
+        # Return current value if not available
+        return web.Response(text=core.manager_funcs.get_current_preview_method(), status=200)
 
 
 @routes.get("/manager/db_mode")
@@ -1594,6 +1642,16 @@ async def get_notice(request):
                     except:
                         pass
 
+                    # Prepend startup notices from manager_migration
+                    for message, level in reversed(manager_migration.startup_notices):
+                        if level == 'error':
+                            style = 'color:red; background-color:white; font-weight:bold'
+                        elif level == 'warning':
+                            style = 'color:orange; background-color:white; font-weight:bold'
+                        else:
+                            style = 'color:blue; background-color:white'
+                        markdown_content = f'<P style="{style}">{message}</P>' + markdown_content
+
                     return web.Response(text=markdown_content, status=200)
                 else:
                     return web.Response(text="Unable to retrieve Notice", status=200)
@@ -1601,11 +1659,35 @@ async def get_notice(request):
                 return web.Response(text="Unable to retrieve Notice", status=200)
 
 
+@routes.get("/manager/startup_alerts")
+async def get_startup_alerts(request):
+    """Return startup alerts for customAlert display on page load.
+
+    Returns JSON array of alerts that should be shown to user immediately.
+    All startup notices (error, warning, info) are returned.
+    """
+    alerts = []
+
+    # Return all startup notices for alert display
+    for message, level in manager_migration.startup_notices:
+        # Convert HTML BR to newlines for customAlert
+        text = message.replace('<BR>', '\n').replace('<br>', '\n')
+        # Add [ComfyUI-Manager] prefix for customAlert (notice board shows in Manager UI anyway)
+        text = text.replace('[Security Alert]', '[ComfyUI-Manager] Security Alert:')
+        text = text.replace('[MIGRATION]', '[ComfyUI-Manager] Migration:')
+        alerts.append({
+            'message': text,
+            'level': level
+        })
+
+    return web.json_response(alerts)
+
+
 @routes.get("/manager/reboot")
 def restart(self):
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
-        return web.Response(status=403)
+        return security_403_response()
 
     try:
         sys.stdout.close_log()

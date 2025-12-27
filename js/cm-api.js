@@ -1,6 +1,6 @@
 import { api } from "../../scripts/api.js";
 import { app } from "../../scripts/app.js";
-import { sleep, customConfirm, customAlert } from "./common.js";
+import { sleep, customConfirm, customAlert, handle403Response, show_message } from "./common.js";
 
 async function tryInstallCustomNode(event) {
 	let msg = '-= [ComfyUI Manager] extension installation request =-\n\n';
@@ -42,7 +42,7 @@ async function tryInstallCustomNode(event) {
 									});
 
 			if(response.status == 403) {
-				show_message('This action is not allowed with this security level configuration.');
+				await handle403Response(response);
 				return false;
 			}
 			else if(response.status == 400) {
@@ -54,7 +54,7 @@ async function tryInstallCustomNode(event) {
 
 		let response = await api.fetchApi("/manager/reboot");
 		if(response.status == 403) {
-			show_message('This action is not allowed with this security level configuration.');
+			await handle403Response(response);
 			return false;
 		}
 

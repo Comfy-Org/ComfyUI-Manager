@@ -100,6 +100,19 @@ export function show_message(msg) {
 	app.ui.dialog.element.style.zIndex = 1100;
 }
 
+export async function handle403Response(res, defaultMessage) {
+	try {
+		const data = await res.json();
+		if(data.error === 'comfyui_outdated') {
+			show_message('ComfyUI version is outdated.<BR>Please update ComfyUI to use Manager normally.');
+		} else {
+			show_message(defaultMessage || 'This action is not allowed with this security level configuration.');
+		}
+	} catch {
+		show_message(defaultMessage || 'This action is not allowed with this security level configuration.');
+	}
+}
+
 export async function sleep(ms) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -163,20 +176,23 @@ export async function customPrompt(title, message) {
 }
 
 
-export function rebootAPI() {
+export async function rebootAPI() {
 	if ('electronAPI' in window) {
 			window.electronAPI.restartApp();
 			return true;
 	}
 
-	customConfirm("Are you sure you'd like to reboot the server?").then((isConfirmed) => {
-		if (isConfirmed) {
-			try {
-				api.fetchApi("/manager/reboot");
+	const isConfirmed = await customConfirm("Are you sure you'd like to reboot the server?");
+	if (isConfirmed) {
+		try {
+			const response = await api.fetchApi("/manager/reboot");
+			if (response.status == 403) {
+				await handle403Response(response);
+				return false;
 			}
-			catch(exception) {}
 		}
-	});
+		catch(exception) {}
+	}
 
 	return false;
 }
@@ -216,7 +232,7 @@ export async function install_pip(packages) {
 	});
 
 	if(res.status == 403) {
-		show_message('This action is not allowed with this security level configuration.');
+		await handle403Response(res);
 		return;
 	}
 
@@ -251,7 +267,7 @@ export async function install_via_git_url(url, manager_dialog) {
 	});
 
 	if(res.status == 403) {
-		show_message('This action is not allowed with this security level configuration.');
+		await handle403Response(res);
 		return;
 	}
 
@@ -262,9 +278,9 @@ export async function install_via_git_url(url, manager_dialog) {
 		const self = this;
 
 		rebootButton.addEventListener("click",
-			function() {
-				if(rebootAPI()) {
-					manager_dialog.close();
+			async function() {
+				if(await rebootAPI()) {
+					manager_instance.close();
 				}
 			});
 	}
