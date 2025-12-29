@@ -2761,6 +2761,7 @@
             "LunaModelRouter",
             "LunaMultiSaver",
             "LunaNF4Loader",
+            "LunaNativeCanvasDownscale",
             "LunaOptimizedWeightsManager",
             "LunaPipeExpander",
             "LunaPromptCraft",
@@ -3681,13 +3682,19 @@
         [
             "BFParameters",
             "BFParametersSimple",
+            "CheckpointComboParameter",
+            "DetailerSchedulerComboParameter",
             "IntegerPicker",
+            "KsamplerSamplersComboParameter",
+            "KsamplerSchedulersComboParameter",
             "OuputDirByModelName",
             "RandomImageSizeAdvanced",
             "RandomImageSizeAdvancedYAML",
             "RandomInteger",
+            "UnetComboParameter",
             "UniqueStringList",
-            "UniqueStringListAdvanced"
+            "UniqueStringListAdvanced",
+            "VAEComboParameter"
         ],
         {
             "title_aux": "comfyui-random-image-size"
@@ -3965,10 +3972,9 @@
             "SAM3DExportPLYBatch",
             "SAM3DExtractMesh",
             "SAM3DGaussianDecode",
+            "SAM3DGenerateSLAT",
             "SAM3DMeshDecode",
             "SAM3DRenderSingle",
-            "SAM3DSLATGen",
-            "SAM3DSparseGen",
             "SAM3DTextureBake",
             "SAM3DVisualizer",
             "SAM3D_DepthEstimate",
@@ -8914,6 +8920,14 @@
             "title_aux": "comfyui_alta_nodes"
         }
     ],
+    "https://github.com/huyl3-cpu/ComfyUI_A100_Ultimate_Optimizer": [
+        [
+            "A100MonsterBatch"
+        ],
+        {
+            "title_aux": "ComfyUI_A100_Ultimate_Optimizer"
+        }
+    ],
     "https://github.com/hy134300/comfyui-hb-node": [
         [
             "generate story",
@@ -11574,6 +11588,21 @@
             "title_aux": "ComfyUI-HDRConversion [WIP]"
         }
     ],
+    "https://github.com/raohammad/ComfyUI-VTUtilNodes": [
+        [
+            "JSONKeyExtractor",
+            "JSONListIterator",
+            "JSONQueue",
+            "JSONQueueOutput",
+            "JSONQueueSignal",
+            "SignalCounter",
+            "SimpleCounter",
+            "TextToJSON"
+        ],
+        {
+            "title_aux": "ComfyUI-VTUtilNodes [WIP]"
+        }
+    ],
     "https://github.com/realm-weaver/ComfyUI-tile-seamstress-360": [
         [
             "RW_EquirectangularMask",
@@ -13602,6 +13631,14 @@
             "title_aux": "ComfyUI-Direct3DS2 [WIP]"
         }
     ],
+    "https://github.com/yamanacn/ComfyUI-ImageMask-Random-Sync-Picker": [
+        [
+            "ImageMaskRandomSelector"
+        ],
+        {
+            "title_aux": "ComfyUI-ImageMask-Random-Sync-Picker"
+        }
+    ],
     "https://github.com/yamanacn/ComfyUI-QwenVL3-image": [
         [
             "QwenVL3_image",
@@ -13768,14 +13805,6 @@
         ],
         {
             "title_aux": "ComfyUI-Dropbox-API [WIP]"
-        }
-    ],
-    "https://github.com/yutrodimitri-ship-it/ComfyUI-YUTRO-CastingStudio-v2": [
-        [
-            "YUTROWardrobePreset"
-        ],
-        {
-            "title_aux": "ComfyUI-YUTRO-CastingStudio-v2 [WIP]"
         }
     ],
     "https://github.com/yuvraj108c/ComfyUI-HYPIR": [
