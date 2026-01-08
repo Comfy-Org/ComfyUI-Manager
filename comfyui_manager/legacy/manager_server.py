@@ -814,8 +814,13 @@ async def get_history_list(request):
 @routes.get("/v2/manager/queue/history")
 async def get_history(request):
     try:
-        json_name = request.rel_url.query["id"]+'.json'
-        batch_path = os.path.join(context.manager_batch_history_path, json_name)
+        history_id = request.rel_url.query["id"]
+
+        # Prevent path traversal attacks
+        batch_path = manager_security.get_safe_file_path(history_id, context.manager_batch_history_path)
+        if batch_path is None:
+            logging.warning(f"[Security] Invalid history id rejected: {history_id}")
+            return web.Response(text="Invalid history id", status=400)
 
         with open(batch_path, 'r', encoding='utf-8') as file:
             json_str = file.read()
@@ -1159,7 +1164,12 @@ async def remove_snapshot(request):
     try:
         target = request.rel_url.query["target"]
 
-        path = os.path.join(context.manager_snapshot_path, f"{target}.json")
+        # Prevent path traversal attacks
+        path = manager_security.get_safe_file_path(target, context.manager_snapshot_path)
+        if path is None:
+            logging.warning(f"[Security] Invalid snapshot target rejected: {target}")
+            return web.Response(text="Invalid target", status=400)
+
         if os.path.exists(path):
             os.remove(path)
 
@@ -1177,7 +1187,12 @@ async def restore_snapshot(request):
     try:
         target = request.rel_url.query["target"]
 
-        path = os.path.join(context.manager_snapshot_path, f"{target}.json")
+        # Prevent path traversal attacks
+        path = manager_security.get_safe_file_path(target, context.manager_snapshot_path)
+        if path is None:
+            logging.warning(f"[Security] Invalid snapshot target rejected: {target}")
+            return web.Response(text="Invalid target", status=400)
+
         if os.path.exists(path):
             if not os.path.exists(context.manager_startup_script_path):
                 os.makedirs(context.manager_startup_script_path)

@@ -1,14 +1,14 @@
 from comfyui_manager.glob import manager_core as core
 from comfy.cli_args import args
 from comfyui_manager.data_models import SecurityLevel, RiskLevel, ManagerDatabaseSource
+from comfyui_manager.common.manager_security import (
+    is_loopback,
+    is_safe_path_target,
+    get_safe_file_path,
+)
 
-
-def is_loopback(address):
-    import ipaddress
-    try:
-        return ipaddress.ip_address(address).is_loopback
-    except ValueError:
-        return False
+# Re-export for backward compatibility
+__all__ = ['is_loopback', 'is_safe_path_target', 'get_safe_file_path', 'is_allowed_security_level', 'get_risky_level']
 
 
 def is_allowed_security_level(level):

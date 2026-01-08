@@ -1294,11 +1294,17 @@ async def get_history(request):
     try:
         # Handle file-based batch history
         if "id" in request.rel_url.query:
-            json_name = request.rel_url.query["id"] + ".json"
-            batch_path = os.path.join(context.manager_batch_history_path, json_name)
+            history_id = request.rel_url.query["id"]
+
+            # Prevent path traversal attacks
+            batch_path = security_utils.get_safe_file_path(history_id, context.manager_batch_history_path)
+            if batch_path is None:
+                logging.warning(f"[Security] Invalid history id rejected: {history_id}")
+                return web.Response(text="Invalid history id", status=400)
+
             logging.debug(
                 "[ComfyUI-Manager] Fetching batch history: id=%s",
-                request.rel_url.query["id"],
+                history_id,
             )
 
             with open(batch_path, "r", encoding="utf-8") as file:
@@ -1520,7 +1526,11 @@ async def remove_snapshot(request):
     try:
         target = request.rel_url.query["target"]
 
-        path = os.path.join(context.manager_snapshot_path, f"{target}.json")
+        path = security_utils.get_safe_file_path(target, context.manager_snapshot_path)
+        if path is None:
+            logging.warning(f"[Security] Invalid snapshot target rejected: {target}")
+            return web.Response(text="Invalid target", status=400)
+
         if os.path.exists(path):
             os.remove(path)
 
@@ -1538,7 +1548,11 @@ async def restore_snapshot(request):
     try:
         target = request.rel_url.query["target"]
 
-        path = os.path.join(context.manager_snapshot_path, f"{target}.json")
+        path = security_utils.get_safe_file_path(target, context.manager_snapshot_path)
+        if path is None:
+            logging.warning(f"[Security] Invalid snapshot target rejected: {target}")
+            return web.Response(text="Invalid target", status=400)
+
         if os.path.exists(path):
             if not os.path.exists(context.manager_startup_script_path):
                 os.makedirs(context.manager_startup_script_path)

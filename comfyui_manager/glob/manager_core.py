@@ -41,7 +41,7 @@ from ..common.enums import NetworkMode, SecurityLevel, DBMode
 from ..common import context
 
 
-version_code = [4, 0, 4]
+version_code = [4, 0, 5]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
@@ -1618,6 +1618,11 @@ def write_config():
         'db_mode': get_config()['db_mode'],
         'verbose': get_config()['verbose'],
     }
+
+    # Sanitize all string values to prevent CRLF injection attacks
+    for key, value in config['default'].items():
+        if isinstance(value, str):
+            config['default'][key] = value.replace('\r', '').replace('\n', '').replace('\x00', '')
 
     directory = os.path.dirname(context.manager_config_path)
     if not os.path.exists(directory):
