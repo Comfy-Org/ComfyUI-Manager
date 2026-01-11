@@ -178,7 +178,7 @@ def is_file_created_within_one_day(file_path):
     return time_difference <= 86400
 
 
-async def get_data(uri, silent=False):
+async def get_data(uri, silent=True):
     if not silent:
         print(f"FETCH DATA from: {uri}", end="")
 
@@ -225,7 +225,7 @@ def get_cache_state(uri):
     return "expired"
 
 
-def save_to_cache(uri, json_obj, silent=False):
+def save_to_cache(uri, json_obj, silent=True):
     cache_uri = get_cache_path(uri)
 
     with cache_lock:
@@ -235,7 +235,7 @@ def save_to_cache(uri, json_obj, silent=False):
                 logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
 
 
-async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=False, dont_cache=False):
+async def get_data_with_cache(uri, silent=True, cache_mode=True, dont_wait=False, dont_cache=False):
     cache_uri = get_cache_path(uri)
 
     if cache_mode and dont_wait:

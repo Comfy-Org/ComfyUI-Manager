@@ -25,7 +25,7 @@ async def get_cnr_data(cache_mode=True, dont_wait=True):
         print("A timeout occurred during the fetch process from ComfyRegistry.")
         return await _get_cnr_data(cache_mode=True, dont_wait=True)  # timeout fallback
 
-async def _get_cnr_data(cache_mode=True, dont_wait=True):
+async def _get_cnr_data(cache_mode=True, dont_wait=True, silent=True):
     global is_cache_loading
 
     uri = f'{base_url}/nodes'
@@ -78,12 +78,14 @@ async def _get_cnr_data(cache_mode=True, dont_wait=True):
                 full_nodes[x['id']] = x
 
             if page % 5 == 0:
-                print(f"FETCH ComfyRegistry Data: {page}/{sub_json_obj['totalPages']}")
+                if not silent:
+                    print(f"FETCH ComfyRegistry Data: {page}/{sub_json_obj['totalPages']}")
 
             page += 1
             time.sleep(0.5)
 
-        print("FETCH ComfyRegistry Data [DONE]")
+        if not silent:
+            print("FETCH ComfyRegistry Data [DONE]")
 
         for v in full_nodes.values():
             if 'latest_version' not in v:
