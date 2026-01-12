@@ -997,6 +997,15 @@ async def get_snapshot_list(request):
     return web.json_response({'items': items}, content_type='application/json')
 
 
+def get_safe_snapshot_path(target):
+    """
+    Safely construct a snapshot file path, preventing path traversal attacks.
+    """
+    if '/' in target or '\\' in target or '..' in target or '\x00' in target:
+        return None
+    return os.path.join(core.manager_snapshot_path, f"{target}.json")
+
+
 @routes.get("/snapshot/remove")
 async def remove_snapshot(request):
     if not is_allowed_security_level('middle'):
@@ -1005,8 +1014,12 @@ async def remove_snapshot(request):
 
     try:
         target = request.rel_url.query["target"]
+        path = get_safe_snapshot_path(target)
 
-        path = os.path.join(core.manager_snapshot_path, f"{target}.json")
+        if path is None:
+            logging.error(f"[ComfyUI-Manager] Invalid snapshot target: {target}")
+            return web.Response(text="Invalid snapshot target", status=400)
+
         if os.path.exists(path):
             os.remove(path)
 
@@ -1023,8 +1036,12 @@ async def restore_snapshot(request):
 
     try:
         target = request.rel_url.query["target"]
+        path = get_safe_snapshot_path(target)
 
-        path = os.path.join(core.manager_snapshot_path, f"{target}.json")
+        if path is None:
+            logging.error(f"[ComfyUI-Manager] Invalid snapshot target: {target}")
+            return web.Response(text="Invalid snapshot target", status=400)
+
         if os.path.exists(path):
             if not os.path.exists(core.manager_startup_script_path):
                 os.makedirs(core.manager_startup_script_path)
