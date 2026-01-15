@@ -1,6 +1,6 @@
-git clone https://github.com/comfyanonymous/ComfyUI
+git clone https://github.com/Comfy-Org/ComfyUI
 cd ComfyUI/custom_nodes
-git clone https://github.com/ltdrdata/ComfyUI-Manager comfyui-manager
+git clone https://github.com/Comfy-Org/ComfyUI-Manager comfyui-manager
 git clone https://github.com/city96/ComfyUI-GGUF ComfyUI-GGUF
 git clone https://github.com/ProGamerGov/ComfyUI_pytorch360convert ComfyUI_pytorch360convert
 git clone https://github.com/ProGamerGov/ComfyUI_pytorch360convert_video ComfyUI_pytorch360convert_video
