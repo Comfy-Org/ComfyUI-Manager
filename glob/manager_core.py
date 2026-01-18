@@ -921,7 +921,7 @@ class UnifiedManager:
         except:
             return version.parse("0.0.0")
 
-    def execute_install_script(self, url, repo_path, instant_execution=False, lazy_mode=False, no_deps=False):
+    def execute_install_script(self, url, repo_path, instant_execution=False, lazy_mode=False, no_deps=False, selected_dependencies=None):
         install_script_path = os.path.join(repo_path, "install.py")
         requirements_path = os.path.join(repo_path, "requirements.txt")
 
@@ -933,8 +933,19 @@ class UnifiedManager:
             if os.path.exists(requirements_path) and not no_deps:
                 print("Install: pip packages")
                 pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path)
+                
+                # Create a set of selected dependency lines for quick lookup
+                selected_lines = set()
+                if selected_dependencies:
+                    for dep in selected_dependencies:
+                        selected_lines.add(dep.get('line', '').strip())
+                
                 lines = manager_util.robust_readlines(requirements_path)
                 for line in lines:
+                    # Skip if selected_dependencies is provided and this line is not in the selected list
+                    if selected_dependencies is not None and line.strip() not in selected_lines:
+                        continue
+                    
                     package_name = remap_pip_package(line.strip())
                     if package_name and not package_name.startswith('#') and package_name not in self.processed_install:
                         self.processed_install.add(package_name)
@@ -1342,7 +1353,7 @@ class UnifiedManager:
 
         return result
 
-    def repo_install(self, url: str, repo_path: str, instant_execution=False, no_deps=False, return_postinstall=False):
+    def repo_install(self, url: str, repo_path: str, instant_execution=False, no_deps=False, return_postinstall=False, selected_dependencies=None):
         result = ManagedResult('install-git')
         result.append(url)
 
@@ -1369,7 +1380,7 @@ class UnifiedManager:
                 repo.close()
 
             def postinstall():
-                return self.execute_install_script(url, repo_path, instant_execution=instant_execution, no_deps=no_deps)
+                return self.execute_install_script(url, repo_path, instant_execution=instant_execution, no_deps=no_deps, selected_dependencies=selected_dependencies)
 
             if return_postinstall:
                 return result.with_postinstall(postinstall)
@@ -1468,7 +1479,7 @@ class UnifiedManager:
         else:
             return self.cnr_switch_version(node_id, instant_execution=instant_execution, no_deps=no_deps, return_postinstall=return_postinstall).with_ver('cnr')
 
-    async def install_by_id(self, node_id: str, version_spec=None, channel=None, mode=None, instant_execution=False, no_deps=False, return_postinstall=False):
+    async def install_by_id(self, node_id: str, version_spec=None, channel=None, mode=None, instant_execution=False, no_deps=False, return_postinstall=False, selected_dependencies=None):
         """
         priority if version_spec == None
         1. CNR latest
@@ -1519,7 +1530,7 @@ class UnifiedManager:
                     self.unified_disable(node_id, False)
 
             to_path = os.path.abspath(os.path.join(get_default_custom_nodes_path(), node_id))
-            res = self.repo_install(repo_url, to_path, instant_execution=instant_execution, no_deps=no_deps, return_postinstall=return_postinstall)
+            res = self.repo_install(repo_url, to_path, instant_execution=instant_execution, no_deps=no_deps, return_postinstall=return_postinstall, selected_dependencies=selected_dependencies)
             if res.result:
                 if version_spec == 'unknown':
                     self.unknown_active_nodes[node_id] = repo_url, to_path
@@ -1968,7 +1979,7 @@ def __win_check_git_pull(path):
     process.wait()
 
 
-def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=False, no_deps=False):
+def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=False, no_deps=False, selected_dependencies=None):
     # import ipdb; ipdb.set_trace()
     install_script_path = os.path.join(repo_path, "install.py")
     requirements_path = os.path.join(repo_path, "requirements.txt")
@@ -1980,6 +1991,13 @@ def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=Fa
         if os.path.exists(requirements_path) and not no_deps:
             print("Install: pip packages")
             pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path)
+            
+            # Create a set of selected dependency lines for quick lookup
+            selected_lines = set()
+            if selected_dependencies:
+                for dep in selected_dependencies:
+                    selected_lines.add(dep.get('line', '').strip())
+            
             with open(requirements_path, "r") as requirements_file:
                 for line in requirements_file:
                     #handle comments
@@ -1989,6 +2007,10 @@ def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=Fa
                             continue
                         else:
                             line = line.split('#')[0].strip()
+
+                    # Skip if selected_dependencies is provided and this line is not in the selected list
+                    if selected_dependencies is not None and line.strip() not in selected_lines:
+                        continue
 
                     package_name = remap_pip_package(line.strip())
 
