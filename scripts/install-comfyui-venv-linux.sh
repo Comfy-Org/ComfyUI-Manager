@@ -9,7 +9,7 @@ git clone https://github.com/ssitu/ComfyUI_UltimateSDUpscale ComfyUI_UltimateSDU
 cd ..
 python -m venv venv
 source venv/bin/activate
-python -m pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu121
+python -m pip install torch torchvision torchaudio --extra-index-url https://download.pytorch.org/whl/cu128
 python -m pip install -r requirements.txt
 python -m pip install -r custom_nodes/comfyui-manager/requirements.txt
 python -m pip install --no-dependencies pytorch360convert
