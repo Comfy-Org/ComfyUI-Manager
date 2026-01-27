@@ -15,8 +15,6 @@ import git
 import importlib
 
 
-from ..common import manager_util
-
 # read env vars
 # COMFYUI_FOLDERS_BASE_PATH is not required in cm-cli.py
 # `comfy_path` should be resolved before importing manager_core
@@ -35,11 +33,12 @@ if not os.path.exists(os.path.join(comfy_path, 'folder_paths.py')):
 
 
 import utils.extra_config
-from ..common import cm_global
-from ..legacy import manager_core as core
-from ..common import context
-from ..legacy.manager_core import unified_manager
-from ..common import cnr_utils
+from comfyui_manager.common import manager_util
+from comfyui_manager.common import cm_global
+from comfyui_manager.legacy import manager_core as core
+from comfyui_manager.common import context
+from comfyui_manager.legacy.manager_core import unified_manager
+from comfyui_manager.common import cnr_utils
 
 comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
 
@@ -967,31 +966,6 @@ def simple_show(
     else:
         show_list(arg, True)
 
-
-@app.command('cli-only-mode', help="Set whether to use ComfyUI-Manager in CLI-only mode.")
-def cli_only_mode(
-        mode: str = typer.Argument(
-            ..., help="[enable|disable]"
-        ),
-        user_directory: str = typer.Option(
-            None,
-            help="user directory"
-        )
-):
-    cmd_ctx.set_user_directory(user_directory)
-    cli_mode_flag = os.path.join(cmd_ctx.manager_files_directory, '.enable-cli-only-mode')
-
-    if mode.lower() == 'enable':
-        with open(cli_mode_flag, 'w'):
-            pass
-        print("\nINFO: `cli-only-mode` is enabled\n")
-    elif mode.lower() == 'disable':
-        if os.path.exists(cli_mode_flag):
-            os.remove(cli_mode_flag)
-        print("\nINFO: `cli-only-mode` is disabled\n")
-    else:
-        print(f"\n[bold red]Invalid value for cli-only-mode: {mode}[/bold red]\n")
-        exit(1)
 
 
 @app.command(
