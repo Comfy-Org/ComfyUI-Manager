@@ -7,7 +7,7 @@
 -= ComfyUI-Manager CLI (V2.24) =-
 
 
-python cm-cli.py [OPTIONS]
+cm-cli [OPTIONS]
 
 OPTIONS:
     [install|reinstall|uninstall|update|disable|enable|fix] node_name ... ?[--channel <channel name>] ?[--mode [remote|local|cache]]
@@ -15,32 +15,27 @@ OPTIONS:
     [simple-show|show] [installed|enabled|not-installed|disabled|all|snapshot|snapshot-list] ?[--channel <channel name>] ?[--mode [remote|local|cache]]
     save-snapshot ?[--output <snapshot .json/.yaml>]
     restore-snapshot <snapshot .json/.yaml> ?[--pip-non-url] ?[--pip-non-local-url] ?[--pip-local-url]
-    cli-only-mode [enable|disable]
     restore-dependencies
     clear
 ```
 
 ## How To Use?
-* You can execute it via `python cm-cli.py`.
+* You can execute it via the `cm-cli` command.
 * For example, if you want to update all custom nodes:
-    * In the ComfyUI-Manager directory, you can execute the command `python cm-cli.py update all`.
-    * If running from the ComfyUI directory, you can specify the path to cm-cli.py like this: `python custom_nodes/ComfyUI-Manager/cm-cli.py update all`.
+    * `cm-cli update all`
 
 ## Prerequisite
 * It must be run in the same Python environment as the one running ComfyUI.
     * If using a venv, you must run it with the venv activated.
     * If using a portable version, and you are in the directory with the run_nvidia_gpu.bat file, you should execute the command as follows:
-        `.\python_embeded\python.exe ComfyUI\custom_nodes\ComfyUI-Manager\cm-cli.py update all`
-* The path for ComfyUI can be set with the COMFYUI_PATH environment variable. If omitted, a warning message will appear, and the path will be set relative to the installed location of ComfyUI-Manager:
-        ```
-        WARN: The `COMFYUI_PATH` environment variable is not set. Assuming `custom_nodes/ComfyUI-Manager/../../` as the ComfyUI path.
-        ```
+        `.\python_embeded\python.exe -m cm_cli update all`
+* The path for ComfyUI must be set with the `COMFYUI_PATH` environment variable.
 
 ## Features
 
 ### 1. --channel, --mode
 * For viewing information and managing custom nodes, you can set the information database through --channel and --mode.
-* For instance, executing the command `python cm-cli.py update all --channel recent --mode remote` will operate based on the latest information from remote rather than local data embedded in the current ComfyUI-Manager repo and will only target the list in the recent channel.
+* For instance, executing the command `cm-cli update all --channel recent --mode remote` will operate based on the latest information from remote rather than local data embedded in the current ComfyUI-Manager repo and will only target the list in the recent channel.
 * --channel, --mode are only available with the commands `simple-show, show, install, uninstall, update, disable, enable, fix`.
 
 ### 2. Viewing Management Information
@@ -49,7 +44,7 @@ OPTIONS:
 
 * `[show|simple-show]` - `show` provides detailed information, while `simple-show` displays information more simply.
 
-Executing a command like `python cm-cli.py show installed` will display detailed information about the installed custom nodes.
+Executing a command like `cm-cli show installed` will display detailed information about the installed custom nodes.
 
 ```
 -= ComfyUI-Manager CLI (V2.24) =-
@@ -66,7 +61,7 @@ FETCH DATA from: https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main
 [    DISABLED   ]  ComfyUI-Loopchain                                 (author: Fannovel16)
 ```
 
-Using a command like `python cm-cli.py simple-show installed` will simply display information about the installed custom nodes.
+Using a command like `cm-cli simple-show installed` will simply display information about the installed custom nodes.
 
 ```
 -= ComfyUI-Manager CLI (V2.24) =-
@@ -95,7 +90,7 @@ ComfyUI-Loopchain
 
 `[install|reinstall|uninstall|update|disable|enable|fix] node_name ... ?[--channel <channel name>] ?[--mode [remote|local|cache]]`
 
-* You can apply management functions by listing the names of custom nodes, such as `python cm-cli.py install ComfyUI-Impact-Pack ComfyUI-Inspire-Pack ComfyUI_experiments`.
+* You can apply management functions by listing the names of custom nodes, such as `cm-cli install ComfyUI-Impact-Pack ComfyUI-Inspire-Pack ComfyUI_experiments`.
 * The names of the custom nodes are as shown by `show` and are the names of the git repositories.
 (Plans are to update the use of nicknames in the future.)
 
@@ -114,9 +109,9 @@ ComfyUI-Loopchain
 
 
 ### 4. Snapshot Management
-* `python cm-cli.py save-snapshot [--output <snapshot .json/.yaml>]`: Saves the current snapshot.
+* `cm-cli save-snapshot [--output <snapshot .json/.yaml>]`: Saves the current snapshot.
   * With `--output`, you can save a file in .yaml format to any specified path.
-* `python cm-cli.py restore-snapshot <snapshot .json/.yaml>`: Restores to the specified snapshot.
+* `cm-cli restore-snapshot <snapshot .json/.yaml>`: Restores to the specified snapshot.
   * If a file exists at the snapshot path, that snapshot is loaded.
   * If no file exists at the snapshot path, it is implicitly assumed to be in ComfyUI-Manager/snapshots.
   * `--pip-non-url`: Restore for pip packages registered on PyPI.
@@ -125,16 +120,7 @@ ComfyUI-Loopchain
   * `--user-directory`: Set the user directory.
   * `--restore-to`: The path where the restored custom nodes will be installed. (When this option is applied, only the custom nodes installed in the target path are recognized as installed.)
 
-### 5. CLI Only Mode
-
-You can set whether to use ComfyUI-Manager solely via CLI.
-
-`cli-only-mode [enable|disable]`
-
-* This mode can be used if you want to restrict the use of ComfyUI-Manager through the GUI for security or policy reasons.
-    * When CLI only mode is enabled, ComfyUI-Manager is loaded in a very restricted state, the internal web API is disabled, and the Manager button is not displayed in the main menu.
-
-### 6. Dependency Restoration
+### 5. Dependency Restoration
 
 `restore-dependencies`
 
@@ -142,6 +128,6 @@ You can set whether to use ComfyUI-Manager solely via CLI.
 * It is useful when starting a new cloud instance, like Colab, where dependencies need to be reinstalled and installation scripts re-executed.
 * It can also be utilized if ComfyUI is reinstalled and only the custom_nodes path has been backed up and restored.
 
-### 7. Clear
+### 6. Clear
 
 In the GUI, installations, updates, or snapshot restorations are scheduled to execute the next time ComfyUI is launched. The `clear` command clears this scheduled state, ensuring no pre-execution actions are applied.
