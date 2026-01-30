@@ -42766,6 +42766,17 @@
             ],
             "install_type": "unzip",
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
+        },
+        {
+            "author": "bkpaine1",
+            "title": "HALO Debug Pack",
+            "id": "halo-pack",
+            "reference": "https://github.com/bkpaine1/halo_pack",
+            "files": [
+                "https://github.com/bkpaine1/halo_pack"
+            ],
+            "install_type": "git-clone",
+            "description": "AMD ROCm bf16 diagnostic tools for ComfyUI. Fixes black image issues caused by numpy's lack of bfloat16 support. Includes FP32 VAE decode/encode and debug nodes for latent, conditioning, and model inspection. Useful for AMD Strix Halo, older NVIDIA cards, Apple Silicon, and unified memory systems."
         }
     ]
 }
