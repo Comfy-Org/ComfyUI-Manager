@@ -1,0 +1,20 @@
+# Base packages for pip_util integration tests
+# These packages are installed initially to test various scenarios
+# All versions verified using: pip install --dry-run --ignore-installed
+
+# Scenario 1: Dependency Version Protection (requests + urllib3)
+# Purpose: Pin prevents urllib3 1.26.15 → 2.5.0 major upgrade
+urllib3==1.26.15          # OLD stable version (prevent 2.x upgrade)
+certifi==2023.7.22        # OLD version (prevent 2025.x upgrade)
+charset-normalizer==3.2.0 # OLD version (prevent 3.4.x upgrade)
+# Note: idna is NOT pre-installed (will be added by requests)
+
+# Scenario 2: Package Deletion and Restore (six)
+# Purpose: Restore policy reinstalls deleted packages
+six==1.16.0               # Will be deleted and restored to 1.16.0
+attrs==23.1.0             # Bystander package
+packaging==23.1           # Bystander package (NOT 23.1.0, not 25.0)
+
+# Scenario 3: Version Change and Restore (urllib3)
+# Purpose: Restore policy reverts version changes
+# urllib3==1.26.15 (same as Scenario 1, will be upgraded to 2.5.0 then restored)
