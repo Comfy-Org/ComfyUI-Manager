@@ -88,6 +88,11 @@ def read_uv_mode():
     if 'use_uv' in default_conf:
         manager_util.use_uv = default_conf['use_uv'].lower() == 'true'
 
+
+def read_unified_resolver_mode():
+    if 'use_unified_resolver' in default_conf:
+        manager_util.use_unified_resolver = default_conf['use_unified_resolver'].lower() == 'true'
+
 def check_file_logging():
     global enable_file_logging
     if 'file_logging' in default_conf and default_conf['file_logging'].lower() == 'false':
@@ -96,8 +101,13 @@ def check_file_logging():
 
 read_config()
 read_uv_mode()
+read_unified_resolver_mode()
 security_check.security_check()
 check_file_logging()
+
+# Module-level flag set by startup batch resolver when it succeeds.
+# Used by execute_lazy_install_script() to skip per-node pip installs.
+_unified_resolver_succeeded = False
 
 cm_global.pip_overrides = {}
 
@@ -581,7 +591,8 @@ def execute_lazy_install_script(repo_path, executable):
     install_script_path = os.path.join(repo_path, "install.py")
     requirements_path = os.path.join(repo_path, "requirements.txt")
 
-    if os.path.exists(requirements_path):
+    if os.path.exists(requirements_path) and not _unified_resolver_succeeded:
+        # Per-node pip install: only runs if unified resolver is disabled or failed
         print(f"Install: pip packages for '{repo_path}'")
 
         lines = manager_util.robust_readlines(requirements_path)
@@ -750,6 +761,35 @@ def execute_startup_script():
     print("\n[ComfyUI-Manager] Startup script completed.")
     print("#######################################################################\n")
 
+
+# --- Unified dependency resolver: batch resolution at startup ---
+# Runs unconditionally when enabled, independent of install-scripts.txt existence.
+if manager_util.use_unified_resolver:
+    try:
+        from .common.unified_dep_resolver import (
+            UnifiedDepResolver,
+            UvNotAvailableError,
+            collect_base_requirements,
+            collect_node_pack_paths,
+        )
+
+        _resolver = UnifiedDepResolver(
+            node_pack_paths=collect_node_pack_paths(folder_paths.get_folder_paths('custom_nodes')),
+            base_requirements=collect_base_requirements(comfy_path),
+            blacklist=set(),
+            overrides={},
+            downgrade_blacklist=[],
+        )
+        _result = _resolver.resolve_and_install()
+        if _result.success:
+            _unified_resolver_succeeded = True
+            logging.info("[UnifiedDepResolver] startup batch resolution succeeded")
+        else:
+            logging.warning("[UnifiedDepResolver] startup batch failed: %s, falling back to per-node pip", _result.error)
+    except UvNotAvailableError:
+        logging.warning("[UnifiedDepResolver] uv not available at startup, falling back to per-node pip")
+    except Exception as e:
+        logging.warning("[UnifiedDepResolver] startup error: %s, falling back to per-node pip", e)
 
 # Check if script_list_path exists
 if os.path.exists(script_list_path):

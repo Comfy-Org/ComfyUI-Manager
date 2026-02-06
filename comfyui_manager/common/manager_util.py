@@ -25,6 +25,7 @@ comfyui_manager_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '
 cache_dir = os.path.join(comfyui_manager_path, '.cache')  # This path is also updated together in **manager_core.update_user_directory**.
 
 use_uv = False
+use_unified_resolver = False
 bypass_ssl = False
 
 def is_manager_pip_package():
