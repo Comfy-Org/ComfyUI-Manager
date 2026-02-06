@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Set, Dict, Optional
 
 # Scanner version for cache invalidation
-SCANNER_VERSION = "2.0.12"  # Add dict comprehension + export list detection
+SCANNER_VERSION = "2.0.13"  # Add fallback for dynamic v3 node_id
 
 # Cache for extract_nodes and extract_nodes_enhanced results
 _extract_nodes_cache: Dict[str, Set[str]] = {}
@@ -936,6 +936,9 @@ def extract_v3_nodes(code_text):
                 node_id = extract_node_id_from_schema(node)
                 if node_id:
                     nodes.add(node_id)
+                else:
+                    # Fallback: use class name when node_id is dynamic/empty
+                    nodes.add(node.name)
 
     return nodes
 
