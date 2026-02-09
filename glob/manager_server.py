@@ -38,6 +38,25 @@ SECURITY_MESSAGE_NORMAL_MINUS_MODEL = "ERROR: Downloading models that are not in
 
 routes = PromptServer.instance.routes
 
+
+def has_per_queue_preview():
+    """
+    Check if ComfyUI PR #11261 (per-queue live preview override) is merged
+
+    Returns:
+        bool: True if ComfyUI has per-queue preview feature
+    """
+    try:
+        import latent_preview
+        return hasattr(latent_preview, 'set_preview_method')
+    except ImportError:
+        return False
+
+
+# Detect ComfyUI per-queue preview override feature (PR #11261)
+COMFYUI_HAS_PER_QUEUE_PREVIEW = has_per_queue_preview()
+
+
 def handle_stream(stream, prefix):
     stream.reconfigure(encoding=locale.getpreferredencoding(), errors='replace')
     for msg in stream:
@@ -182,10 +201,19 @@ def set_preview_method(method):
     core.get_config()['preview_method'] = method
 
 
-if args.preview_method == latent_preview.LatentPreviewMethod.NoPreviews:
+if COMFYUI_HAS_PER_QUEUE_PREVIEW:
+    logging.info(
+        "[ComfyUI-Manager] ComfyUI per-queue preview override detected (PR #11261). "
+        "Manager's preview method feature is disabled. "
+        "Use ComfyUI's --preview-method CLI option or 'Settings > Execution > Live preview method'."
+    )
+elif args.preview_method == latent_preview.LatentPreviewMethod.NoPreviews:
     set_preview_method(core.get_config()['preview_method'])
 else:
-    logging.warning("[ComfyUI-Manager] Since --preview-method is set, ComfyUI-Manager's preview method feature will be ignored.")
+    logging.warning(
+        "[ComfyUI-Manager] Since --preview-method is set, "
+        "ComfyUI-Manager's preview method feature will be ignored."
+    )
 
 
 def set_component_policy(mode):
@@ -969,6 +997,15 @@ async def get_snapshot_list(request):
     return web.json_response({'items': items}, content_type='application/json')
 
 
+def get_safe_snapshot_path(target):
+    """
+    Safely construct a snapshot file path, preventing path traversal attacks.
+    """
+    if '/' in target or '\\' in target or '..' in target or '\x00' in target:
+        return None
+    return os.path.join(core.manager_snapshot_path, f"{target}.json")
+
+
 @routes.get("/snapshot/remove")
 async def remove_snapshot(request):
     if not is_allowed_security_level('middle'):
@@ -977,8 +1014,12 @@ async def remove_snapshot(request):
 
     try:
         target = request.rel_url.query["target"]
+        path = get_safe_snapshot_path(target)
 
-        path = os.path.join(core.manager_snapshot_path, f"{target}.json")
+        if path is None:
+            logging.error(f"[ComfyUI-Manager] Invalid snapshot target: {target}")
+            return web.Response(text="Invalid snapshot target", status=400)
+
         if os.path.exists(path):
             os.remove(path)
 
@@ -995,8 +1036,12 @@ async def restore_snapshot(request):
 
     try:
         target = request.rel_url.query["target"]
+        path = get_safe_snapshot_path(target)
 
-        path = os.path.join(core.manager_snapshot_path, f"{target}.json")
+        if path is None:
+            logging.error(f"[ComfyUI-Manager] Invalid snapshot target: {target}")
+            return web.Response(text="Invalid snapshot target", status=400)
+
         if os.path.exists(path):
             if not os.path.exists(core.manager_startup_script_path):
                 os.makedirs(core.manager_startup_script_path)
@@ -1482,13 +1527,25 @@ async def install_model(request):
 
 @routes.get("/manager/preview_method")
 async def preview_method(request):
+    # Setting change request
     if "value" in request.rel_url.query:
+        # Reject setting change if per-queue preview feature is available
+        if COMFYUI_HAS_PER_QUEUE_PREVIEW:
+            return web.Response(text="DISABLED", status=403)
+
+        # Process normally if not available
         set_preview_method(request.rel_url.query['value'])
         core.write_config()
-    else:
-        return web.Response(text=core.manager_funcs.get_current_preview_method(), status=200)
+        return web.Response(status=200)
 
-    return web.Response(status=200)
+    # Status query request
+    else:
+        # Return DISABLED if per-queue preview feature is available
+        if COMFYUI_HAS_PER_QUEUE_PREVIEW:
+            return web.Response(text="DISABLED", status=200)
+
+        # Return current value if not available
+        return web.Response(text=core.manager_funcs.get_current_preview_method(), status=200)
 
 
 @routes.get("/manager/db_mode")
