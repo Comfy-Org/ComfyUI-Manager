@@ -2283,13 +2283,9 @@
     ],
     "https://github.com/HuangYuChuh/ComfyUI-LLMs-Toolkit": [
         [
-            "DeepSeekImageAnalyst",
-            "DeepSeekImageGeneration",
-            "DeepSeekModelLoader",
             "ImagePreprocessor",
             "LLM_Loader",
-            "OpenAICompatibleLoader",
-            "VideoFileUploader"
+            "OpenAICompatibleLoader"
         ],
         {
             "title_aux": "ComfyUI-LLMs-Toolkit [WIP]"
@@ -3125,11 +3121,14 @@
             "MpiCombo8",
             "MpiCombo9",
             "MpiComboMaker",
+            "MpiCompare",
+            "MpiConvert",
             "MpiDisplayPrompt",
             "MpiDoubleLora",
             "MpiFloat",
             "MpiFromCheckpoint",
             "MpiGetImageAtIndex",
+            "MpiGridDimensions",
             "MpiHasOptions",
             "MpiIfElse",
             "MpiIfElseInverted",
@@ -3160,6 +3159,8 @@
             "MpiRandPromptGenOverrideList",
             "MpiRandPromptGenOverrideSection",
             "MpiRandPromptGenSave",
+            "MpiRoundToMultiple",
+            "MpiRoundToMultipleRes",
             "MpiScaledDimensions",
             "MpiSimpleBoolean",
             "MpiString",
@@ -3167,7 +3168,9 @@
             "MpiText",
             "MpiTextListJoin",
             "MpiTextListReplace",
-            "MpiToChekPoint"
+            "MpiToChekPoint",
+            "MpiWanFrames",
+            "MpiWanSeconds"
         ],
         {
             "title_aux": "ComfyUi-MpiNodes [WIP]"
@@ -4684,6 +4687,7 @@
     ],
     "https://github.com/SlackinJack/multigpu_diffusion_comfyui": [
         [
+            "AdvancedFMSchedulerSelector",
             "AdvancedSchedulerSelector",
             "ApplyPipeline",
             "AsyncDiffConfig",
@@ -4694,18 +4698,25 @@
             "CompileConfig",
             "CreateHost",
             "EncodePromptWithCompel",
+            "GroupOffloadConfig",
             "LoraSelector",
             "ModelSelector",
             "MultiLoraJoiner",
+            "OffloadConfig",
             "OffloadPipeline",
+            "QTOQuantizationConfig",
             "QuantizationConfig",
             "SDSampler",
+            "SDSamplerPrompt",
             "SDUpscaleSampler",
+            "SNQQuantizationConfig",
             "SVDSampler",
             "SchedulerSelector",
             "TAOQuantizationConfig",
             "TorchConfig",
-            "UnsafeModelSelector"
+            "UnsafeModelSelector",
+            "WanSampler",
+            "ZImageSampler"
         ],
         {
             "title_aux": "multigpu_diffusion_comfyui"
@@ -8278,8 +8289,10 @@
     ],
     "https://github.com/endman100/ComfyUI_tensor_script": [
         [
+            "DictGetItem",
             "LatentSqueeze",
             "LatentUnsqueeze",
+            "ListGetIndex",
             "TensorEmpty",
             "TensorGetShape",
             "TensorShowShape",
@@ -8533,6 +8546,7 @@
             "SAMPreprocessNHWC",
             "SceneCreate",
             "SceneInput",
+            "SceneMaskDefinition",
             "SceneOutput",
             "ScenePromptManager",
             "SceneSave",
@@ -13513,7 +13527,10 @@
     ],
     "https://github.com/teskor-hub/comfyui-teskors-utils": [
         [
-            "TSDWposeSmootherAndRender"
+            "TSLoadPoseDataPickle",
+            "TSLoadVideoBatchListFromDir",
+            "TSPoseDataSmoother",
+            "TSSavePoseDataAsPickle"
         ],
         {
             "title_aux": "comfyui-teskors-utils [WIP]"
