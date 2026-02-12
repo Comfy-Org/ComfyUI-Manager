@@ -718,11 +718,15 @@
     ],
     "https://github.com/5agado/ComfyUI-Sagado-Nodes": [
         [
+            "SGD_Any_Type_Switch",
             "SGD_Call_Ollama",
             "SGD_Film_Grain",
+            "SGD_Get_Llama_Cpp_Model",
+            "SGD_Get_Llm_Response",
             "SGD_Get_Num_Frames",
             "SGD_Get_Resolution",
             "SGD_Image_Loader",
+            "SGD_Step_Every_N",
             "SGD_Video_Loader"
         ],
         {
@@ -3921,7 +3925,11 @@
     "https://github.com/BlackSnowSkill/wd14_batch_tagger": [
         [
             "BSS_LoadImagesFolder",
-            "BSS_WD14BatchTagger"
+            "BSS_SaveCaptions",
+            "BSS_TagAnalytics",
+            "BSS_TagsPostprocess",
+            "BSS_WD14BatchTagger",
+            "BSS_WD14TaggerBatch"
         ],
         {
             "title_aux": "BSS WD14 Batch Tagger"
@@ -5082,6 +5090,8 @@
             "GlifVariable",
             "HFHubEmbeddingLoader",
             "HFHubLoraLoader",
+            "ImageBatchToImageList",
+            "ImageListToImageBatch",
             "ImageScaleDownBy",
             "ImageToMultipleOf",
             "KikoFilmGrain",
@@ -5090,6 +5100,8 @@
             "KikoPurgeVRAM",
             "KikoSaveImage",
             "KikoWorkflowTimer",
+            "LatentBatchToLatentList",
+            "LatentListToLatentBatch",
             "LoRAFolderBatch",
             "PlotParameters+",
             "ResolutionCalculator",
@@ -6990,9 +7002,11 @@
             "Load3x3GridSeries",
             "LoadImageSeries",
             "LoadImageSeriesWithPrompts",
+            "LoadTextFiles",
             "OllamaChat",
             "PlaySound",
             "PreviewImagePassthrough",
+            "RGBAFlatten",
             "SaveImagePassthrough",
             "SimpleTextInput",
             "SizePicker",
@@ -7169,11 +7183,14 @@
     ],
     "https://github.com/EricRollei/Comfy_HunyuanImage3": [
         [
+            "HunyuanCacheStatusV2",
+            "HunyuanEmergencyCleanup",
             "HunyuanImage3ClearDownstream",
             "HunyuanImage3ForceUnload",
             "HunyuanImage3FullGPULoader",
             "HunyuanImage3FullLoader",
             "HunyuanImage3Generate",
+            "HunyuanImage3GenerateHighRes",
             "HunyuanImage3GenerateLarge",
             "HunyuanImage3GenerateLargeBudget",
             "HunyuanImage3GenerateLowVRAM",
@@ -7181,11 +7198,20 @@
             "HunyuanImage3GenerateTelemetry",
             "HunyuanImage3Int8Loader",
             "HunyuanImage3Int8LoaderBudget",
+            "HunyuanImage3MoETest",
             "HunyuanImage3NF4LoaderLowVRAMBudget",
             "HunyuanImage3QuantizedLoader",
             "HunyuanImage3SoftUnload",
             "HunyuanImage3Unload",
-            "HunyuanPromptRewriter"
+            "HunyuanInstructGenerate",
+            "HunyuanInstructImageEdit",
+            "HunyuanInstructLoader",
+            "HunyuanInstructMultiFusion",
+            "HunyuanInstructUnload",
+            "HunyuanPromptRewriter",
+            "HunyuanUnifiedV2",
+            "HunyuanUnloadV2",
+            "HunyuanVRAMCalculatorV2"
         ],
         {
             "title_aux": "Comfy_HunyuanImage3"
@@ -10372,6 +10398,7 @@
     ],
     "https://github.com/IXIWORKS-KIMJUNGHO/ComfyUI-VideoDescription": [
         [
+            "AttentionToMask",
             "BatchStartMarker",
             "BuildCharacterPromptNode",
             "BuildPromptNode",
@@ -10383,10 +10410,14 @@
             "EmptyLatentRatio",
             "ImageToList",
             "JsonParserNode",
+            "KSamplerLayered",
+            "LayerExporter",
+            "LayerSeparator",
             "LoadImageList",
             "LoraLoaderAdvanced",
             "MergeStringsNode",
             "ModelProgressTracker",
+            "ModelStructureDebug",
             "PromptPoseFilter",
             "PromptStyleFilter",
             "SaveText",
@@ -16021,6 +16052,7 @@
     ],
     "https://github.com/PozzettiAndrea/ComfyUI-CameraPack": [
         [
+            "CameraIntrinsics",
             "CreateLoad3DCamera",
             "DA3ToLoad3DCamera"
         ],
@@ -16889,6 +16921,10 @@
         [
             "Runware 3D Inference",
             "Runware 3D Inference Inputs",
+            "Runware 3D Inference Settings",
+            "Runware 3D Inference Settings Shape Slat",
+            "Runware 3D Inference Settings Sparse Structure",
+            "Runware 3D Inference Settings Tex Slat",
             "Runware API Manager",
             "Runware Accelerator Options",
             "Runware Alibaba Provider Settings",
@@ -16946,6 +16982,8 @@
             "Runware Save 3D",
             "Runware Save Image",
             "Runware Settings",
+            "Runware Sourceful Provider Settings",
+            "Runware Sourceful Provider Settings Fonts",
             "Runware Speech Inputs Combine",
             "Runware Sync Provider Settings",
             "Runware Sync Segment",
@@ -16968,6 +17006,10 @@
             "Runware xAI Provider Settings",
             "Runware3DInference",
             "Runware3DInferenceInputs",
+            "Runware3DInferenceSettings",
+            "Runware3DInferenceSettingsShapeSlat",
+            "Runware3DInferenceSettingsSparseStructure",
+            "Runware3DInferenceSettingsTexSlat",
             "RunwareAlibabaProviderSettings",
             "RunwareAudioInferenceInputs",
             "RunwareAudioInput",
@@ -16990,6 +17032,8 @@
             "RunwareSafetyInputs",
             "RunwareSave3D",
             "RunwareSettings",
+            "RunwareSourcefulProviderSettings",
+            "RunwareSourcefulProviderSettingsFonts",
             "RunwareSpeechInput",
             "RunwareSpeechInputCombine",
             "RunwareSyncProviderSettings",
@@ -18199,6 +18243,7 @@
     ],
     "https://github.com/Shiba-2-shiba/comfyui-color-ascii-art-node": [
         [
+            "ASCIIArtCustomFont",
             "ASCIIArtNodeV3"
         ],
         {
@@ -18592,6 +18637,9 @@
             "ApplyTrainedLora",
             "ClippyRebornImageLoader",
             "FLUXSelectiveLoRALoader",
+            "FluxKleinDeepDebiaser",
+            "FluxVAEDebiaser",
+            "FluxVAEInspector",
             "ImageOfDayLoader",
             "LoRALoaderWithAnalysis",
             "LoRALoaderWithAnalysisV2",
@@ -18602,6 +18650,10 @@
             "MusubiWanLoraTrainer",
             "MusubiZImageBaseLoraTrainer",
             "MusubiZImageLoraTrainer",
+            "Qwen3_4BTextEncoderDebiaser",
+            "Qwen3_4BTextEncoderInspector",
+            "Qwen3_8BTextEncoderDebiaser",
+            "Qwen3_8BTextEncoderInspector",
             "QwenSelectiveLoRALoader",
             "RealtimeLoraTrainer",
             "SD15LoraTrainer",
@@ -18609,6 +18661,7 @@
             "SDXLSelectiveLoRALoader",
             "ScheduledLoRALoader",
             "WanSelectiveLoRALoader",
+            "ZImageDeepDebiaser",
             "ZImageSelectiveLoRALoader"
         ],
         {
@@ -30629,6 +30682,7 @@
             "KlingCameraControlT2VNode",
             "KlingCameraControls",
             "KlingDualCharacterVideoEffectNode",
+            "KlingFirstLastFrameNode",
             "KlingImage2VideoNode",
             "KlingImageGenerationNode",
             "KlingImageToVideoWithAudio",
@@ -30646,6 +30700,7 @@
             "KlingTextToVideoNode",
             "KlingTextToVideoWithAudio",
             "KlingVideoExtendNode",
+            "KlingVideoNode",
             "KlingVirtualTryOnNode",
             "LTXAVTextEncoderLoader",
             "LTXVAddGuide",
@@ -33120,8 +33175,10 @@
             "ClaudeConversation",
             "ClaudeConversationInfo",
             "ClaudePromptEnhancer",
+            "ClaudeStructuredOutput",
             "ClaudeTextGeneration",
             "ClaudeTokenCounter",
+            "ClaudeToolDefinition",
             "ClaudeUsageStats",
             "ClaudeVisionAnalysis",
             "ERPK Foreground Refinement (BlurFusion)",
@@ -33659,7 +33716,8 @@
             "Character Prompt Builder Male Person",
             "Character Prompt Builder Male Poses",
             "Character Prompt Builder Person",
-            "Character Prompt Builder Scene"
+            "Character Prompt Builder Scene",
+            "renderPrompt"
         ],
         {
             "title_aux": "comfyui-character-prompt-builder"
@@ -37290,7 +37348,11 @@
         [
             "AdaptiveResolution",
             "ColabKeepAlive",
+            "File List Loader",
+            "MP3 Embed In Image",
+            "MP3 Path To Audio",
             "RAMCleanup",
+            "Set Value For Dancing",
             "Set Value With Path",
             "SetValuesFromPanel",
             "TunnelAutoReconnect",
@@ -50944,6 +51006,7 @@
             "FlexAudioVisualizerCircular",
             "FlexAudioVisualizerContour",
             "FlexAudioVisualizerLine",
+            "FlexExpressionEditor",
             "FlexImageBloom",
             "FlexImageChromaticAberration",
             "FlexImageColorGrade",
@@ -51000,13 +51063,13 @@
             "LocationFromPoint",
             "LocationTransform",
             "MIDIFeatureExtractor",
-            "MIDILoadAndExtract",
             "MIDILoader",
             "MIDIToAudio",
             "ManualFeatureFromPipe",
             "ManualFeatureNode",
             "ManualFeaturePipe",
             "ManualWhisperAlignmentData",
+            "MaskCompositePlus",
             "MaskMath",
             "MaskMorph",
             "MaskRings",
@@ -53685,6 +53748,7 @@
         [
             "TagCategory",
             "TagCategoryEnhance",
+            "TagColorChanger",
             "TagComparator",
             "TagDetector",
             "TagEmpty",
@@ -55591,6 +55655,7 @@
     ],
     "https://github.com/vaishnav-vn/va1": [
         [
+            "ImageMaskComparer",
             "RandomAspectRatioMask"
         ],
         {
@@ -56245,7 +56310,8 @@
             "WanFirstMiddleLastFrameToVideo",
             "WanFourFrameReferenceUltimate",
             "WanMultiFrameRefToVideo",
-            "WanMultiImageLoader"
+            "WanMultiImageLoader",
+            "WanSVIProAdvancedI2V"
         ],
         {
             "title_aux": "ComfyUI-Wan22FMLF"
