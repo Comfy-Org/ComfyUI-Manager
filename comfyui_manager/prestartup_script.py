@@ -785,10 +785,13 @@ if manager_util.use_unified_resolver:
             _unified_resolver_succeeded = True
             logging.info("[UnifiedDepResolver] startup batch resolution succeeded")
         else:
+            manager_util.use_unified_resolver = False
             logging.warning("[UnifiedDepResolver] startup batch failed: %s, falling back to per-node pip", _result.error)
     except UvNotAvailableError:
+        manager_util.use_unified_resolver = False
         logging.warning("[UnifiedDepResolver] uv not available at startup, falling back to per-node pip")
     except Exception as e:
+        manager_util.use_unified_resolver = False
         logging.warning("[UnifiedDepResolver] startup error: %s, falling back to per-node pip", e)
 
 # Check if script_list_path exists
