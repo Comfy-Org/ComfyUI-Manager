@@ -1646,7 +1646,9 @@ def read_config():
             return default_conf[key].lower() == 'true' if key in default_conf else False
 
         manager_util.use_uv = default_conf['use_uv'].lower() == 'true' if 'use_uv' in default_conf else False
-        manager_util.use_unified_resolver = default_conf['use_unified_resolver'].lower() == 'true' if 'use_unified_resolver' in default_conf else False
+        # Don't override use_unified_resolver here: prestartup_script.py already reads config
+        # and sets this flag, then may reset it to False on resolver fallback.
+        # Re-reading from config would undo the fallback.
         manager_util.bypass_ssl = get_bool('bypass_ssl', False)
 
         return {
