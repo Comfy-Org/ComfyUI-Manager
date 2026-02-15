@@ -250,6 +250,30 @@ paths:
                     type: object
                     additionalProperties:
                       $ref: '#/components/schemas/NodePackageMetadata'
+
+  /customnode/get_node_types_in_workflows:
+    get:
+      summary: List node types used by all user workflows
+      description: Scan through all workflows in the Comfy user directory, and return a list of all node types used in each one.
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    workflow_file_name:
+                      type: string
+                    node_types:
+                      type: array
+                      items:
+                        type: string
+                    
+        '500':
+          description: Error occurred
                       
   /customnode/alternatives:
     get:
