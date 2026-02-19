@@ -887,25 +887,34 @@
             "TS_BatchPromptLoader",
             "TS_Color_Grade",
             "TS_DeflickerNode",
+            "TS_FileBrowser",
             "TS_FilePathLoader",
             "TS_FilmGrain",
             "TS_Film_Emulation",
             "TS_FloatSlider",
             "TS_Free_Video_Memory",
+            "TS_GetImageMegapixels",
+            "TS_GetImageSizeSide",
+            "TS_ImageBatchToImageList",
+            "TS_ImageListToImageBatch",
             "TS_ImageResize",
+            "TS_ImageTileMerger",
+            "TS_ImageTileSplitter",
             "TS_Int_Slider",
             "TS_LTX_FirstLastFrame",
             "TS_ModelConverter",
             "TS_ModelConverterAdvanced",
             "TS_Qwen3",
             "TS_Qwen3_VL",
+            "TS_Qwen3_VL_V3",
             "TS_QwenCanvas",
             "TS_QwenSafeResize",
             "TS_Qwen_3VL_GGUF",
             "TS_Qwen_3VL_V2",
-            "TS_SmartImageBatch",
+            "TS_ResolutionSelector",
             "TS_Smart_Image_Switch",
             "TS_Smart_Switch",
+            "TS_StylePromptSelector",
             "TS_VideoDepthNode",
             "TS_Video_Upscale_With_Model",
             "TS_WAN_SafeResize"
@@ -1610,16 +1619,6 @@
             "title_aux": "ComfyUI Node Switcher"
         }
     ],
-    "https://github.com/Dehypnotic/comfyui-save-mp3": [
-        [
-            "SaveAudioMP3Dehypnotic",
-            "SaveImagesDehypnotic",
-            "SaveVideoDehypnotic"
-        ],
-        {
-            "title_aux": "Save MP3 node for ComfyUI [UNSAFE]"
-        }
-    ],
     "https://github.com/DenRakEiw/Comfyui-Aspect-Ratio-Processor": [
         [
             "AspectRatioProcessor"
@@ -2261,6 +2260,15 @@
             "title_aux": "ComfyUI-Mask2JSON"
         }
     ],
+    "https://github.com/Hanmingsan/ComfyUI-Model-Downloader": [
+        [
+            "CivitaiDownloader",
+            "HFDownloader"
+        ],
+        {
+            "title_aux": "ComfyUI-Model-Downloader"
+        }
+    ],
     "https://github.com/Hapseleg/ComfyUI-This-n-That": [
         [
             "Show Prompt (Hapse)",
@@ -2284,8 +2292,16 @@
     "https://github.com/HuangYuChuh/ComfyUI-LLMs-Toolkit": [
         [
             "ImagePreprocessor",
+            "JSONBuilderLarge",
+            "JSONBuilderMedium",
+            "JSONBuilderSimple",
+            "JSONCombine",
+            "JSONExtractor",
+            "JSONFixer",
+            "LLMTranslator",
             "LLM_Loader",
-            "OpenAICompatibleLoader"
+            "OpenAICompatibleLoader",
+            "StringTemplate"
         ],
         {
             "title_aux": "ComfyUI-LLMs-Toolkit [WIP]"
@@ -4026,8 +4042,8 @@
             "SAM3D_DepthEstimate",
             "SAM3D_PoseOptimization",
             "SAM3D_PreviewPointCloud",
-            "SAM3D_ScenePoseOptimize",
-            "SAM3D_UnloadModel"
+            "SAM3D_ProjectionOverlay",
+            "SAM3D_ScenePoseOptimize"
         ],
         {
             "title_aux": "SAM3DObjects [UNSAFE]"
@@ -7078,6 +7094,8 @@
             "BatchMasksNode",
             "BetaSamplingScheduler",
             "BriaImageEditNode",
+            "BriaRemoveImageBackground",
+            "BriaRemoveVideoBackground",
             "ByteDanceFirstLastFrameNode",
             "ByteDanceImageNode",
             "ByteDanceImageReferenceNode",
@@ -7254,6 +7272,7 @@
             "KlingCameraControlT2VNode",
             "KlingCameraControls",
             "KlingDualCharacterVideoEffectNode",
+            "KlingFirstLastFrameNode",
             "KlingImage2VideoNode",
             "KlingImageGenerationNode",
             "KlingImageToVideoWithAudio",
@@ -7271,6 +7290,7 @@
             "KlingTextToVideoNode",
             "KlingTextToVideoWithAudio",
             "KlingVideoExtendNode",
+            "KlingVideoNode",
             "KlingVirtualTryOnNode",
             "LTXAVTextEncoderLoader",
             "LTXVAddGuide",
@@ -7394,6 +7414,7 @@
             "MoonvalleyTxt2VideoNode",
             "MoonvalleyVideo2VideoNode",
             "Morphology",
+            "NAGuidance",
             "NormalizeVideoLatentStart",
             "OpenAIChatConfig",
             "OpenAIChatNode",
@@ -7546,7 +7567,10 @@
             "T5TokenizerOptions",
             "TCFG",
             "TemporalScoreRescaling",
+            "Tencent3DPartNode",
+            "Tencent3DTextureEditNode",
             "TencentImageToModelNode",
+            "TencentModelTo3DUVNode",
             "TencentTextToModelNode",
             "TestAccumulateNode",
             "TestAccumulationGetItemNode",
@@ -7639,6 +7663,7 @@
             "VPScheduler",
             "Veo3FirstLastFrameNode",
             "VeoVideoGenerationNode",
+            "Video Slice",
             "VideoLinearCFGGuidance",
             "VideoTriangleCFGGuidance",
             "Vidu2ImageToVideoNode",
@@ -7726,10 +7751,12 @@
     ],
     "https://github.com/comfyscript/ComfyUI-CloudClient": [
         [
-            "ClientImageCompressorNode",
             "ClientImageDownloadNode",
             "ClientVideoDownloadNode",
-            "ServerMemoryImageNode"
+            "RemoteImageLoader",
+            "ServerMemoryImageNode",
+            "TemporaryImagePreview",
+            "UniversalDataToImage"
         ],
         {
             "title_aux": "ComfyUI-CloudClient"
@@ -9743,15 +9770,6 @@
             "title_aux": "ComfyUI-Midjourney"
         }
     ],
-    "https://github.com/jluo-github/comfyui-easy-resize": [
-        [
-            "EasyImageSize",
-            "EasyImageSizeLatent"
-        ],
-        {
-            "title_aux": "comfyui-easy-resize [WIP]"
-        }
-    ],
     "https://github.com/jn-jairo/jn_node_suite_comfyui": [
         [
             "JN_AreaInfo",
@@ -9827,20 +9845,6 @@
         ],
         {
             "title_aux": "jn_node_suite_comfyui [WIP]"
-        }
-    ],
-    "https://github.com/joe002/comfyui-rtx-remix": [
-        [
-            "RTXRemixBatchLoader",
-            "RTXRemixGeneratePBR",
-            "RTXRemixHashLookup",
-            "RTXRemixIterateTextures",
-            "RTXRemixLoadCapture",
-            "RTXRemixProjectInfo",
-            "RTXRemixSaveToMod"
-        ],
-        {
-            "title_aux": "comfyui-rtx-remix [UNSAFE]"
         }
     ],
     "https://github.com/jonathan-bryant/ComfyUI-ImageStraightener": [
@@ -10014,7 +10018,6 @@
             "CollectVideosNode",
             "ConformAudio",
             "ConformVideo",
-            "ExtendVideoNearestFrame",
             "ImageDelay",
             "IntToString",
             "KlingVideoHandler",
@@ -10022,6 +10025,7 @@
             "LoadVideoWithFilename",
             "PairSwitchNode",
             "PreviewImageLimited",
+            "ResampleVideoNearest",
             "StringSplitSelect",
             "Unbroken-Video-Handler",
             "VideoHandler",
@@ -10543,11 +10547,15 @@
     ],
     "https://github.com/lihaoyun6/ComfyUI-lhyNodes": [
         [
+            "BlockifyMask_lhy",
             "CSVRandomPicker",
             "CSVRandomPickerAdv",
             "CudaDevicePatcher",
+            "DrawMaskOnImage_lhy",
+            "GrowMask_lhy",
             "ImageBatchtoImageList",
             "ImageBatchtoImages",
+            "ImageOverlay_lhy",
             "KSamplerConfig",
             "KSamplerSchedulerFallback",
             "LoadImageBatch",
@@ -10560,6 +10568,7 @@
             "SaveTextAsZip",
             "StrFormat",
             "StrFormatAdv",
+            "WanAnimateMaskPreprocessor",
             "YoloFaceReformer",
             "detailerKSamplerSchedulerFallback",
             "effKSamplerSchedulerFallback",
@@ -11690,7 +11699,8 @@
     "https://github.com/obisin/ComfyUI-FSampler": [
         [
             "FSampler",
-            "FSamplerAdvanced"
+            "FSamplerAdvanced",
+            "FSamplerSelect"
         ],
         {
             "title_aux": "FSampler for ComfyUI \u2014 Fast Skips via Epsilon Extrapolation [WIP]"
@@ -12868,6 +12878,7 @@
             "ImageBlendByMask",
             "Image_Color_Noise",
             "InstructPromptPresets",
+            "JoinerPadding",
             "LlTokenizerOptions",
             "ModifyMask",
             "SU_LoadImageDirectory",
@@ -12878,7 +12889,8 @@
             "TextEncodeKleinSystemPrompt",
             "TextEncodeSystemPrompt",
             "TextEncodeZITSystemPrompt",
-            "UnFrakturPad"
+            "UnFrakturPad",
+            "UnifiedPresets"
         ],
         {
             "title_aux": "Sampling Utility Toolkit"
@@ -13094,6 +13106,10 @@
     "https://github.com/stalkervr/ComfyUI-StalkerVr": [
         [
             "AnyCollector",
+            "ConsoleLog",
+            "CreateProjectStructure",
+            "DebugConditioningStructure",
+            "FormatDatePath",
             "ImageBatchCrop",
             "ImageGridCropper",
             "ImageRatioResizer",
@@ -13103,6 +13119,8 @@
             "JsonFieldRemover",
             "JsonFieldReplaceAdvanced",
             "JsonFieldValueExtractor",
+            "JsonFormat",
+            "JsonMinify",
             "JsonPairInput",
             "JsonPathLoader",
             "JsonPromptToTextPromptConverter",
@@ -13110,15 +13128,27 @@
             "JsonSerializeObject",
             "JsonToString",
             "ListItemExtractor",
+            "LoadImageWithMetadata",
+            "LoadImagesWithMetadata",
             "LogValue",
             "LoopAny",
+            "PipeIn",
+            "PipeOut",
             "PromptPartJoin",
+            "SaveImageWithMetadata",
+            "SaveTextFile",
             "StringBuilder",
             "StringCollector",
             "StringConcatenation",
             "StringListToString",
             "StringWrapper",
-            "WanVideoMultiPrompt"
+            "WanVideoEnhanceMotionAdvanced",
+            "WanVideoEnhanceMotionAdvancedKJ",
+            "WanVideoEnhanceSVI",
+            "WanVideoMultiPrompt",
+            "WanVideoSVIProEmbeds_EnhancedMotion",
+            "YAMLLoadPrompt",
+            "YAMLSavePrompt"
         ],
         {
             "title_aux": "ComfyUI-StalkerVr"
@@ -13291,6 +13321,7 @@
         [
             "Auto Image Selector",
             "Image Resize And Crop",
+            "Image Trim Edges",
             "OpenCVDenoiseColored",
             "Simple Image Rotate"
         ],
@@ -13523,17 +13554,6 @@
         ],
         {
             "title_aux": "ComfyUI-CacheImageNode"
-        }
-    ],
-    "https://github.com/teskor-hub/comfyui-teskors-utils": [
-        [
-            "TSLoadPoseDataPickle",
-            "TSLoadVideoBatchListFromDir",
-            "TSPoseDataSmoother",
-            "TSSavePoseDataAsPickle"
-        ],
-        {
-            "title_aux": "comfyui-teskors-utils [WIP]"
         }
     ],
     "https://github.com/tfernd/ComfyUI-AutoCPUOffload": [
@@ -13892,8 +13912,11 @@
     ],
     "https://github.com/usrname0/ComfyUI-AllergicPack": [
         [
-            "FolderFileCounter_Allergic",
+            "AudioAnalyzerNode",
+            "AudioAnalyzerUploadNode",
+            "FolderFileCounter",
             "IncrementorPlus",
+            "MasterBatcher",
             "RememberMeNode"
         ],
         {
