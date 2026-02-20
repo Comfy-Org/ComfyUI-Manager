@@ -43507,6 +43507,38 @@
             ],
             "install_type": "unzip",
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
+        },
+        {
+            "author": "PaoloC68",
+            "title": "ComfyUI-PuLID-Flux-Chroma",
+            "id": "comfyui-pulid-flux-chroma",
+            "reference": "https://github.com/PaoloC68/ComfyUI-PuLID-Flux-Chroma",
+            "files": [
+              "https://github.com/PaoloC68/ComfyUI-PuLID-Flux-Chroma"
+            ],
+            "install_type": "git-clone",
+            "description": "The first PuLID (face identity preservation) implementation with full Chroma model support for ComfyUI. Automatically detects and adapts to both FLUX and Chroma models. Fork of PuLID-Flux-Enhanced with comprehensive Chroma compatibility fixes.",
+            "stars": 0,
+            "last_update": "2025-06-15 00:00:00",
+            "preemptions": [
+              "ApplyPulidFlux",
+              "PulidFluxModelLoader",
+              "PulidFluxInsightFaceLoader",
+              "PulidFluxEvaClipLoader"
+            ],
+            "nodename_pattern": "PulidFlux",
+            "badges": [
+              "Chroma",
+              "Face Identity"
+            ],
+            "dependencies": [
+              "insightface",
+              "onnxruntime"
+            ],
+            "pip": [
+              "insightface",
+              "onnxruntime"
+            ]
         }
     ]
 }
