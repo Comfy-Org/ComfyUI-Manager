@@ -43082,15 +43082,18 @@
             "description": "Sidebar browser for SWORKS_TEAM LoRAs from Civitai. Browse, download, and apply LoRAs with image previews and tag filtering."
         },
         {
-            "author": "SWORKS_TEAM",
-            "title": "SEngine",
-            "id": "sengine",
-            "reference": "https://github.com/sworksteam/SEngine",
+            "author": "huchukato",
+            "title": "QwenVL-Mod: Enhanced Vision-Language",
+            "id": "qwenvl-mod",
+            "reference": "https://github.com/huchukato/ComfyUI-QwenVL-Mod",
             "files": [
-                "https://github.com/sworksteam/SEngine"
+                "https://github.com/huchukato/ComfyUI-QwenVL-Mod"
             ],
             "install_type": "git-clone",
-            "description": "Sidebar browser for SWORKS_TEAM LoRAs from Civitai. Browse, download, and apply LoRAs with image previews and tag filtering."
+            "description": "Enhanced QwenVL node with Smart Prompt Caching, multilingual WAN 2.2 presets, comprehensive visual style detection, and NSFW support. Latest v2.2.2 with bug fixes and stability improvements for professional multimodal workflows.",
+            "category": "image",
+            "tags": ["vision", "language", "multimodal", "qwen", "smart_caching", "prompt_caching", "multilingual", "style_detection", "performance", "wan2.2", "video", "i2v", "t2v", "cinematography", "abliterated", "nsfw", "enhanced", "fork", "stable"],
+            "version": "2.2.2"
         },
         {
             "author": "huchukato",
@@ -43620,24 +43623,10 @@
             "id": "img2halftone",
             "reference": "https://civitai.com/models/143293/image2halftone-node-for-comfyui",
             "files": [
-                "https://civitai.com/api/download/models/31591",
-                "https://civitai.com/api/download/models/29773",
-                "https://civitai.com/api/download/models/29774",
-                "https://civitai.com/api/download/models/29755",
-                "https://civitai.com/api/download/models/29750"
-            ]
-        },
-        {
-            "author": "huchukato",
-            "title": "ComfyUI-HuggingFace",
-            "reference": "https://github.com/huchukato/ComfyUI-HuggingFace",
-            "files": [
-                "https://github.com/huchukato/ComfyUI-HuggingFace/archive/refs/heads/main.zip"
+                "https://civitai.com/api/download/models/158997"
             ],
-            "install_type": "zip",
-            "description": "ComfyUI extension for browsing, searching, and downloading models from HuggingFace Hub directly in the UI. Features include model search with filters, detailed model information, and support for both repository downloads and single file downloads.",
-            "tags": ["huggingface", "models", "download", "search", "ui"],
-            "id": "ComfyUI-HuggingFace"
+            "install_type": "unzip",
+            "description": "This is a node to convert an image into a CMYK Halftone dot image."
         }
     ]
 }
