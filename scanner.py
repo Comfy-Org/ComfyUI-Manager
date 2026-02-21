@@ -2,6 +2,8 @@ import ast
 import re
 import os
 import json
+import threading
+from collections import defaultdict
 from git import Repo
 import concurrent
 import datetime
@@ -194,6 +196,82 @@ g = None
 
 
 parse_cnt = 0
+
+# Thread-safe git error state
+_git_error_lock = threading.Lock()
+_git_errors: defaultdict = defaultdict(list)  # category -> list[{'repo': str, 'op': str, 'msg': str}]
+
+# Ordered categories: (key, display label, compiled regex). First match wins.
+# Single source of truth — add new categories here only.
+_GIT_ERROR_CATEGORIES = [
+    ('repository_not_found', 'Repository Not Found', re.compile(
+        r'repository\s+not\s+found|does\s+not\s+exist|\b404\b|remote:\s*repository\s+not\s+found',
+        re.IGNORECASE
+    )),
+    ('divergent_branch', 'Divergent Branch', re.compile(
+        r'divergent\s+branches|need\s+to\s+specify\s+how\s+to\s+reconcile\s+divergent\s+branches',
+        re.IGNORECASE
+    )),
+    ('auth_failed', 'Authentication Failed', re.compile(
+        r'authentication\s+failed|could\s+not\s+read\s+username|invalid\s+username|invalid\s+password|auth\s+failed',
+        re.IGNORECASE
+    )),
+    ('network_error', 'Network Error', re.compile(
+        r'could\s+not\s+resolve\s+host|connection\s+refused|timed?\s*out|failed\s+to\s+connect|'
+        r'network\s+is\s+unreachable|temporary\s+failure\s+in\s+name\s+resolution',
+        re.IGNORECASE
+    )),
+    ('merge_conflict', 'Merge Conflict', re.compile(
+        r'merge\s+conflict|\bCONFLICT\b|automatic\s+merge\s+failed',
+        re.IGNORECASE
+    )),
+    ('permission_denied', 'Permission Denied', re.compile(
+        r'permission\s+denied|access\s+denied|operation\s+not\s+permitted|publickey',
+        re.IGNORECASE
+    )),
+]
+
+
+def _categorize_git_error(error_str: str) -> str:
+    """Classify a git error string into a category. First match wins."""
+    for category, _label, pattern in _GIT_ERROR_CATEGORIES:
+        if pattern.search(error_str):
+            return category
+    return 'other'
+
+
+def _record_git_error(repo_name: str, op: str, error: Exception) -> None:
+    """Record a git error in the thread-safe collector."""
+    category = _categorize_git_error(str(error))
+    with _git_error_lock:
+        _git_errors[category].append({'repo': repo_name, 'op': op, 'msg': str(error)})
+
+
+def _report_git_errors() -> None:
+    """Print a grouped summary of git errors by category."""
+    if not _git_errors:
+        return
+
+    total = sum(len(v) for v in _git_errors.values())
+    print(f"\n{'='*60}")
+    print(f"Git Operation Errors Summary: {total} failure(s)")
+    print(f"{'='*60}")
+
+    for category, label, _pattern in _GIT_ERROR_CATEGORIES:
+        entries = _git_errors.get(category, [])
+        if not entries:
+            continue
+        print(f"\n[{label}] ({len(entries)} repo(s))")
+        for entry in entries:
+            print(f"  • {entry['repo']} ({entry['op']}): {entry['msg']}")
+
+    other_entries = _git_errors.get('other', [])
+    if other_entries:
+        print(f"\n[Other] ({len(other_entries)} repo(s))")
+        for entry in other_entries:
+            print(f"  • {entry['repo']} ({entry['op']}): {entry['msg']}")
+
+    print(f"{'='*60}\n")
 
 
 def extract_nodes(code_text):
@@ -1160,7 +1238,7 @@ def clone_or_pull_git_repository(git_url):
     repo_name = git_url.split("/")[-1]
     if repo_name.endswith(".git"):
         repo_name = repo_name[:-4]
-        
+
     repo_dir = os.path.join(temp_dir, repo_name)
 
     if os.path.exists(repo_dir):
@@ -1172,12 +1250,14 @@ def clone_or_pull_git_repository(git_url):
             print(f"Pulling {repo_name}...")
         except Exception as e:
             print(f"Failed to pull '{repo_name}': {e}")
+            _record_git_error(repo_name, 'pull', e)
     else:
         try:
             Repo.clone_from(git_url, repo_dir, recursive=True)
             print(f"Cloning {repo_name}...")
         except Exception as e:
             print(f"Failed to clone '{repo_name}': {e}")
+            _record_git_error(repo_name, 'clone', e)
 
 
 def update_custom_nodes(scan_only_mode=False, url_list_file=None):
@@ -1328,10 +1408,17 @@ def update_custom_nodes(scan_only_mode=False, url_list_file=None):
     if not skip_stat_update:
         process_git_stats(git_url_titles_preemptions)
 
+    # Reset error collector before this run
+    with _git_error_lock:
+        _git_errors.clear()
+
     # Git clone/pull for all repositories
     with concurrent.futures.ThreadPoolExecutor(11) as executor:
         for url, title, preemptions, node_pattern in git_url_titles_preemptions:
             executor.submit(process_git_url_title, url, title, preemptions, node_pattern)
+
+    # Report any git errors grouped by category (after all workers complete)
+    _report_git_errors()
 
     # .py file download (skip in scan-only mode - only process git repos)
     if not scan_only_mode:
