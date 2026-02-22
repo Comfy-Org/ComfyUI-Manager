@@ -922,17 +922,19 @@ async def fetch_customnode_alternatives(request):
 
 
 def check_model_installed(json_obj):
-    def is_exists(model_dir_name, filename, url):
+    def get_installed_model_paths(model_dir_name, filename, url):
         if filename == '<huggingface>':
             filename = os.path.basename(url)
 
         dirs = folder_paths.get_folder_paths(model_dir_name)
 
+        full_paths = []
         for x in dirs:
-            if os.path.exists(os.path.join(x, filename)):
-                return True
+            full_path = os.path.join(x, filename)
+            if os.path.exists(full_path):
+                full_paths.append(full_path)
 
-        return False
+        return full_paths
 
     model_dir_names = ['checkpoints', 'loras', 'vae', 'text_encoders', 'diffusion_models', 'clip_vision', 'embeddings',
                        'diffusers', 'vae_approx', 'controlnet', 'gligen', 'upscale_models', 'hypernetworks',
@@ -944,33 +946,59 @@ def check_model_installed(json_obj):
             total_models_files.add(y)
 
     def process_model_phase(item):
+        def add_to_full_paths(path):
+            if 'full_paths' in item:
+                item['full_paths'].append(path)
+            else:
+                item['full_paths'] = [ path ]
+
         if 'diffusion' not in item['filename'] and 'pytorch' not in item['filename'] and 'model' not in item['filename']:
+            model_dir_name = model_dir_name_map.get(item['type'].lower())
+
             # non-general name case
             if item['filename'] in total_models_files:
+                full_paths = get_installed_model_paths(model_dir_name, item['filename'], item['url'])
+
                 item['installed'] = 'True'
+                item['full_paths'] = full_paths
                 return
 
         if item['save_path'] == 'default':
             model_dir_name = model_dir_name_map.get(item['type'].lower())
             if model_dir_name is not None:
-                item['installed'] = str(is_exists(model_dir_name, item['filename'], item['url']))
+                full_paths = get_installed_model_paths(model_dir_name, item['filename'], item['url'])
+
+                item['installed'] = str(len(fulls_paths) > 0)
+                item['full_paths'] = full_paths
             else:
                 item['installed'] = 'False'
         else:
             model_dir_name = item['save_path'].split('/')[0]
             if model_dir_name in folder_paths.folder_names_and_paths:
-                if is_exists(model_dir_name, item['filename'], item['url']):
+                full_paths = get_installed_model_paths(model_dir_name, item['filename'], item['url'])
+
+                if len(full_paths) > 0:
                     item['installed'] = 'True'
+                    item['full_paths'] = full_paths
 
             if 'installed' not in item:
+                item['installed'] = 'False'
+
                 if item['filename'] == '<huggingface>':
                     filename = os.path.basename(item['url'])
                 else:
                     filename = item['filename']
 
-                fullpath = os.path.join(folder_paths.models_dir, item['save_path'], filename)
+                if model_dir_name in folder_paths.folder_names_and_paths:
+                    paths = folder_paths.folder_names_and_paths[model_dir_name][0]
 
-                item['installed'] = 'True' if os.path.exists(fullpath) else 'False'
+                    for folder_path in paths:
+                        base_path = os.path.split(folder_path)[0]
+                        fullpath = os.path.join(base_path, item['save_path'], filename)
+
+                        if os.path.exists(fullpath):
+                            item['installed'] = 'True'
+                            add_to_full_paths(fullpath)
 
     with concurrent.futures.ThreadPoolExecutor(8) as executor:
         for item in json_obj['models']:
