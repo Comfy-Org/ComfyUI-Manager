@@ -332,6 +332,7 @@ The following features can be configured using environment variables:
 * **HF_ENDPOINT**: Reverse proxy configuration for environments with limited access to Hugging Face
 * **COMFY_MANAGER_PASSKEY**: User password to access ComfyUI-Manager
 * **COMFY_MODLES**: Reverse models download location 
+* **COMFY_LIBS**: Override default libraries installation directory with "libs" folder 
 
 
 ### Example 1:
