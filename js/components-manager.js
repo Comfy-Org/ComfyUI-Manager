@@ -678,7 +678,7 @@ export class ComponentBuilderDialog extends ComfyDialog {
 
 let orig_handleFile = app.handleFile;
 
-async function handleFile(file) {
+async function handleFile(file, ...args) {
 	if (file.name?.endsWith(".json") || file.name?.endsWith(".pack")) {
 		const reader = new FileReader();
 		reader.onload = async () => {
@@ -694,7 +694,7 @@ async function handleFile(file) {
 				await handle_import_components(jsonContent);
 			}
 			else {
-				orig_handleFile.call(app, file);
+				orig_handleFile.call(app, file, ...args);
 			}
 		};
 		reader.readAsText(file);
@@ -702,7 +702,7 @@ async function handleFile(file) {
 		return;
 	}
 
-	orig_handleFile.call(app, file);
+	orig_handleFile.call(app, file, ...args);
 }
 
 app.handleFile = handleFile;
