@@ -2,6 +2,7 @@ import subprocess
 import sys
 import os
 import traceback
+import time
 
 import git
 import json
@@ -219,7 +220,14 @@ def gitpull(path):
             repo.close()
             return
 
-        remote.pull()
+        try:
+            repo.git.pull('--ff-only')
+        except git.GitCommandError:
+            backup_name = f'backup_{time.strftime("%Y%m%d_%H%M%S")}'
+            repo.create_head(backup_name)
+            print(f"[ComfyUI-Manager] Cannot fast-forward. Backup created: {backup_name}")
+            repo.git.reset('--hard', f'{remote_name}/{branch_name}')
+            print(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
 
         repo.git.submodule('update', '--init', '--recursive')
         new_commit_hash = repo.head.commit.hexsha

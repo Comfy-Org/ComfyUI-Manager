@@ -5,6 +5,7 @@
 ![menu](https://raw.githubusercontent.com/ltdrdata/ComfyUI-extension-tutorials/refs/heads/Main/ComfyUI-Manager/images/dialog.jpg)
 
 ## NOTICE
+* V3.38: **Security patch** - Manager data migrated to protected path. See [Migration Guide](docs/en/v3.38-userdata-security-migration.md).
 * V3.16: Support for `uv` has been added. Set `use_uv` in `config.ini`.
 * V3.10: `double-click feature` is removed
   * This feature has been moved to https://github.com/ltdrdata/comfyui-connection-helper
@@ -140,20 +141,27 @@ This repository provides Colab notebooks that allow you to install and use Comfy
 
 
 ## Paths
-In `ComfyUI-Manager` V3.0 and later, configuration files and dynamically generated files are located under `<USER_DIRECTORY>/default/ComfyUI-Manager/`.
+Starting from V3.38, Manager uses a protected system path for enhanced security.
 
-* <USER_DIRECTORY>  
-  * If executed without any options, the path defaults to ComfyUI/user.  
-  * It can be set using --user-directory <USER_DIRECTORY>.  
+* <USER_DIRECTORY>
+  * If executed without any options, the path defaults to ComfyUI/user.
+  * It can be set using --user-directory <USER_DIRECTORY>.
 
-* Basic config files: `<USER_DIRECTORY>/default/ComfyUI-Manager/config.ini`
-* Configurable channel lists: `<USER_DIRECTORY>/default/ComfyUI-Manager/channels.ini`
-* Configurable pip overrides: `<USER_DIRECTORY>/default/ComfyUI-Manager/pip_overrides.json`
-* Configurable pip blacklist: `<USER_DIRECTORY>/default/ComfyUI-Manager/pip_blacklist.list`
-* Configurable pip auto fix: `<USER_DIRECTORY>/default/ComfyUI-Manager/pip_auto_fix.list`
-* Saved snapshot files: `<USER_DIRECTORY>/default/ComfyUI-Manager/snapshots`
-* Startup script files: `<USER_DIRECTORY>/default/ComfyUI-Manager/startup-scripts`
-* Component files: `<USER_DIRECTORY>/default/ComfyUI-Manager/components`
+| ComfyUI Version | Manager Path |
+|-----------------|--------------|
+| v0.3.76+ (with System User API) | `<USER_DIRECTORY>/__manager/` |
+| Older versions | `<USER_DIRECTORY>/default/ComfyUI-Manager/` |
+
+* Basic config files: `config.ini`
+* Configurable channel lists: `channels.list`
+* Configurable pip overrides: `pip_overrides.json`
+* Configurable pip blacklist: `pip_blacklist.list`
+* Configurable pip auto fix: `pip_auto_fix.list`
+* Saved snapshot files: `snapshots/`
+* Startup script files: `startup-scripts/`
+* Component files: `components/`
+
+> **Note**: See [Migration Guide](docs/en/v3.38-userdata-security-migration.md) for upgrade details.
 
 
 ## `extra_model_paths.yaml` Configuration

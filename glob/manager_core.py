@@ -40,10 +40,11 @@ import cnr_utils
 import manager_util
 import git_utils
 import manager_downloader
+import manager_migration
 from node_package import InstalledNodePackage
 
 
-version_code = [3, 37, 2]
+version_code = [3, 39, 2]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
@@ -214,9 +215,10 @@ def update_user_directory(user_dir):
     global manager_pip_blacklist_path
     global manager_components_path
 
-    manager_files_path = os.path.abspath(os.path.join(user_dir, 'default', 'ComfyUI-Manager'))
+    manager_files_path = manager_migration.get_manager_path(user_dir)
     if not os.path.exists(manager_files_path):
         os.makedirs(manager_files_path)
+    manager_migration.run_migration_checks(user_dir, manager_files_path)
 
     manager_snapshot_path = os.path.join(manager_files_path, "snapshots")
     if not os.path.exists(manager_snapshot_path):
@@ -1699,6 +1701,11 @@ def write_config():
         'db_mode': get_config()['db_mode'],
     }
 
+    # Sanitize all string values to prevent CRLF injection attacks
+    for key, value in config['default'].items():
+        if isinstance(value, str):
+            config['default'][key] = value.replace('\r', '').replace('\n', '').replace('\x00', '')
+
     directory = os.path.dirname(manager_config_path)
     if not os.path.exists(directory):
         os.makedirs(directory)
@@ -1719,7 +1726,7 @@ def read_config():
         manager_util.use_uv = default_conf['use_uv'].lower() == 'true' if 'use_uv' in default_conf else False
         manager_util.bypass_ssl = get_bool('bypass_ssl', False)
 
-        return {
+        result = {
                     'http_channel_enabled': get_bool('http_channel_enabled', False),
                     'preview_method': default_conf.get('preview_method', manager_funcs.get_current_preview_method()).lower(),
                     'git_exe': default_conf.get('git_exe', ''),
@@ -1739,6 +1746,8 @@ def read_config():
                     'security_level': default_conf.get('security_level', 'normal').lower(),
                     'db_mode': default_conf.get('db_mode', 'cache').lower(),
                }
+        manager_migration.force_security_level_if_needed(result)
+        return result
 
     except Exception:
         import importlib.util
@@ -1746,7 +1755,7 @@ def read_config():
         manager_util.use_uv = importlib.util.find_spec("uv") is not None and platform.system() != "Windows"
         manager_util.bypass_ssl = False
 
-        return {
+        result = {
             'http_channel_enabled': False,
             'preview_method': manager_funcs.get_current_preview_method(),
             'git_exe': '',
@@ -1766,6 +1775,8 @@ def read_config():
             'security_level': 'normal', # strong | normal | normal- | weak
             'db_mode': 'cache',         # local | cache | remote
         }
+        manager_migration.force_security_level_if_needed(result)
+        return result
 
 
 def get_config():
@@ -2247,9 +2258,17 @@ def git_pull(path):
 
         current_branch = repo.active_branch
         remote_name = current_branch.tracking_branch().remote_name
-        remote = repo.remote(name=remote_name)
 
-        remote.pull()
+        try:
+            repo.git.pull('--ff-only')
+        except git.GitCommandError:
+            branch_name = current_branch.name
+            backup_name = f'backup_{time.strftime("%Y%m%d_%H%M%S")}'
+            repo.create_head(backup_name)
+            logging.info(f"[ComfyUI-Manager] Cannot fast-forward. Backup created: {backup_name}")
+            repo.git.reset('--hard', f'{remote_name}/{branch_name}')
+            logging.info(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
+
         repo.git.submodule('update', '--init', '--recursive')
 
         repo.close()
@@ -2517,22 +2536,22 @@ def update_to_stable_comfyui(repo_path):
                 logging.error('\t'+branch.name)
             return "fail", None
 
-        versions, current_tag, _ = get_comfyui_versions(repo)
-        
-        if len(versions) == 0 or (len(versions) == 1 and versions[0] == 'nightly'):
+        versions, current_tag, latest_tag = get_comfyui_versions(repo)
+
+        if latest_tag is None:
             logging.info("[ComfyUI-Manager] Unable to update to the stable ComfyUI version.")
             return "fail", None
-            
-        if versions[0] == 'nightly':
-            latest_tag = versions[1]
-        else:
-            latest_tag = versions[0]
 
-        if current_tag == latest_tag:
+        tag_ref = next((t for t in repo.tags if t.name == latest_tag), None)
+        if tag_ref is None:
+            logging.info(f"[ComfyUI-Manager] Unable to locate tag '{latest_tag}' in repository.")
+            return "fail", None
+
+        if repo.head.commit == tag_ref.commit:
             return "skip", None
         else:
             logging.info(f"[ComfyUI-Manager] Updating ComfyUI: {current_tag} -> {latest_tag}")
-            repo.git.checkout(latest_tag)
+            repo.git.checkout(tag_ref.name)
             execute_install_script("ComfyUI", repo_path, instant_execution=False, no_deps=False)
             return 'updated', latest_tag
     except:
@@ -3356,36 +3375,80 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
 
 
 def get_comfyui_versions(repo=None):
-    if repo is None:
-        repo = git.Repo(comfy_path)
+    repo = repo or git.Repo(comfy_path)
 
+    remote_name = None
     try:
-        remote = get_remote_name(repo)   
-        repo.remotes[remote].fetch()    
+        remote_name = get_remote_name(repo)
+        repo.remotes[remote_name].fetch()
     except:
         logging.error("[ComfyUI-Manager] Failed to fetch ComfyUI")
 
-    versions = [x.name for x in repo.tags if x.name.startswith('v')]
+    def parse_semver(tag_name):
+        match = re.match(r'^v(\d+)\.(\d+)\.(\d+)$', tag_name)
+        return tuple(int(x) for x in match.groups()) if match else None
 
-    # nearest tag
-    versions = sorted(versions, key=lambda v: repo.git.log('-1', '--format=%ct', v), reverse=True)
-    versions = versions[:4]
+    def normalize_describe(tag_name):
+        if not tag_name:
+            return None
+        base = tag_name.split('-', 1)[0]
+        return base if parse_semver(base) else None
 
-    current_tag = repo.git.describe('--tags')
+    # Collect semver tags and sort descending (highest first)
+    semver_tags = []
+    for tag in repo.tags:
+        semver = parse_semver(tag.name)
+        if semver:
+            semver_tags.append((semver, tag.name))
+    semver_tags.sort(key=lambda x: x[0], reverse=True)
+    semver_tags = [name for _, name in semver_tags]
 
-    if current_tag not in versions:
-        versions = sorted(versions + [current_tag], key=lambda v: repo.git.log('-1', '--format=%ct', v), reverse=True)
-        versions = versions[:4]
+    latest_tag = semver_tags[0] if semver_tags else None
 
-    main_branch = repo.heads.master
-    latest_commit = main_branch.commit
-    latest_tag = repo.git.describe('--tags', latest_commit.hexsha)
+    try:
+        described = repo.git.describe('--tags')
+    except Exception:
+        described = ''
 
-    if latest_tag != versions[0]:
-        versions.insert(0, 'nightly')
-    else:
-        versions[0] = 'nightly'
+    try:
+        exact_tag = repo.git.describe('--tags', '--exact-match')
+    except Exception:
+        exact_tag = ''
+
+    head_is_default = False
+    if remote_name:
+        try:
+            default_head_ref = repo.refs[f'{remote_name}/HEAD']
+            default_commit = default_head_ref.reference.commit
+            head_is_default = repo.head.commit == default_commit
+        except Exception:
+            head_is_default = False
+
+    nearest_semver = normalize_describe(described)
+    exact_semver = exact_tag if parse_semver(exact_tag) else None
+
+    if head_is_default and not exact_tag:
         current_tag = 'nightly'
+    else:
+        current_tag = exact_tag or described or 'nightly'
+
+    # Prepare semver list for display: top 4 plus the current/nearest semver if missing
+    display_semver_tags = semver_tags[:4]
+    if exact_semver and exact_semver not in display_semver_tags:
+        display_semver_tags.append(exact_semver)
+    elif nearest_semver and nearest_semver not in display_semver_tags:
+        display_semver_tags.append(nearest_semver)
+
+    versions = ['nightly']
+
+    if current_tag and not exact_semver and current_tag not in versions and current_tag not in display_semver_tags:
+        versions.append(current_tag)
+
+    for tag in display_semver_tags:
+        if tag not in versions:
+            versions.append(tag)
+
+    versions = versions[:6]
 
     return versions, current_tag, latest_tag
 
