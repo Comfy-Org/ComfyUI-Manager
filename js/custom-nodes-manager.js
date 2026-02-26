@@ -1314,13 +1314,22 @@ export class CustomNodesManager {
 			}
 			cList.forEach(key => {
 				const nodeItem = node_packs[key];
+				if(!nodeItem || !nodeItem.nodesMap) {
+					return;
+				}
 				const extItem = nodeItem.nodesMap[extName];
+				if(!extItem) {
+					return;
+				}
 				if(!extItem.conflicts) {
 					extItem.conflicts = []
 				}
 				const conflictsList = cList.filter(k => k !== key);
 				conflictsList.forEach(k => {
 					const nItem = node_packs[k];
+					if(!nItem) {
+						return;
+					}
 					extItem.conflicts.push({
 						key: k,
 						title: nItem.title, 
