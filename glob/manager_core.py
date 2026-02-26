@@ -192,6 +192,8 @@ if comfy_path is None:
 if comfy_base_path is None:
     comfy_base_path = comfy_path
 
+manager_util.ensure_comfy_libs_path(os.path.join(comfy_base_path, 'custom_nodes'))
+
 
 channel_list_template_path = os.path.join(manager_util.comfyui_manager_path, 'channels.list.template')
 git_script_path = os.path.join(manager_util.comfyui_manager_path, "git_helper.py")
@@ -939,9 +941,10 @@ class UnifiedManager:
                     if package_name and not package_name.startswith('#') and package_name not in self.processed_install:
                         self.processed_install.add(package_name)
                         clean_package_name = package_name.split('#')[0].strip()
-                        install_cmd = manager_util.make_pip_cmd(["install", clean_package_name])
+                        install_cmd = manager_util.make_pip_install_cmd(clean_package_name, get_default_custom_nodes_path())
                         if clean_package_name != "" and not clean_package_name.startswith('#'):
-                            res = res and try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
+                            if install_cmd is not None:
+                                res = res and try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
 
                 pip_fixer.fix_broken()
 
@@ -1993,14 +1996,11 @@ def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=Fa
                     package_name = remap_pip_package(line.strip())
 
                     if package_name and not package_name.startswith('#'):
-                        if '--index-url' in package_name:
-                            s = package_name.split('--index-url')
-                            install_cmd = manager_util.make_pip_cmd(["install", s[0].strip(), '--index-url', s[1].strip()])
-                        else:
-                            install_cmd = manager_util.make_pip_cmd(["install", package_name])
+                        install_cmd = manager_util.make_pip_install_cmd(package_name, get_default_custom_nodes_path())
 
                         if package_name.strip() != "" and not package_name.startswith('#'):
-                            try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
+                            if install_cmd is not None:
+                                try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
             pip_fixer.fix_broken()
 
         if os.path.exists(install_script_path):

@@ -239,6 +239,123 @@ var update_policy_combo = null;
 
 let share_option = 'all';
 var is_updating = false;
+let managerAccessVerified = false;
+
+
+function promptManagerPasskey() {
+	return new Promise((resolve) => {
+		const overlay = document.createElement("div");
+		overlay.style.position = "fixed";
+		overlay.style.top = "0";
+		overlay.style.left = "0";
+		overlay.style.width = "100%";
+		overlay.style.height = "100%";
+		overlay.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+		overlay.style.display = "flex";
+		overlay.style.alignItems = "center";
+		overlay.style.justifyContent = "center";
+		overlay.style.zIndex = "1102";
+
+		const dialog = document.createElement("div");
+		dialog.style.backgroundColor = "#222";
+		dialog.style.color = "#fff";
+		dialog.style.padding = "18px";
+		dialog.style.borderRadius = "8px";
+		dialog.style.width = "min(420px, 90vw)";
+		dialog.style.boxSizing = "border-box";
+
+		const title = document.createElement("h3");
+		title.textContent = "Manager Access Required";
+		title.style.margin = "0 0 12px 0";
+
+		const message = document.createElement("div");
+		message.textContent = "Enter the manager passkey.";
+		message.style.marginBottom = "10px";
+
+		const input = document.createElement("input");
+		input.type = "password";
+		input.placeholder = "Passkey";
+		input.style.width = "100%";
+		input.style.padding = "8px";
+		input.style.marginBottom = "12px";
+		input.style.boxSizing = "border-box";
+
+		const buttonRow = document.createElement("div");
+		buttonRow.style.display = "flex";
+		buttonRow.style.justifyContent = "flex-end";
+		buttonRow.style.gap = "8px";
+
+		const cancelButton = document.createElement("button");
+		cancelButton.textContent = "Cancel";
+
+		const confirmButton = document.createElement("button");
+		confirmButton.textContent = "Unlock";
+
+		const close = (value) => {
+			document.body.removeChild(overlay);
+			resolve(value);
+		};
+
+		cancelButton.onclick = () => close(null);
+		confirmButton.onclick = () => close(input.value);
+		input.addEventListener("keydown", (event) => {
+			if (event.key === "Enter") {
+				close(input.value);
+			}
+		});
+
+		buttonRow.append(cancelButton, confirmButton);
+		dialog.append(title, message, input, buttonRow);
+		overlay.appendChild(dialog);
+		document.body.appendChild(overlay);
+		input.focus();
+	});
+}
+
+
+async function ensureManagerAccess() {
+	if (managerAccessVerified) {
+		return true;
+	}
+
+	let res;
+	try {
+		res = await api.fetchApi("/manager/auth");
+	} catch {
+		// Fallback to legacy behavior when auth endpoint isn't available.
+		return true;
+	}
+
+	if (res.status !== 200) {
+		return true;
+	}
+
+	const info = await res.json();
+	if (!info?.required) {
+		managerAccessVerified = true;
+		return true;
+	}
+
+	while (true) {
+		const password = await promptManagerPasskey();
+		if (password === null) {
+			return false;
+		}
+
+		const verifyRes = await api.fetchApi("/manager/auth", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ password }),
+		});
+
+		if (verifyRes.status === 200) {
+			managerAccessVerified = true;
+			return true;
+		}
+
+		customAlert("Invalid manager passkey.");
+	}
+}
 
 
 // copied style from https://github.com/pythongosssss/ComfyUI-Custom-Scripts
@@ -1487,7 +1604,11 @@ app.registerExtension({
 		id: "Comfy.Manager.Menu.ToggleVisibility",
 		label: "Toggle Manager Menu Visibility",
 		icon: "mdi mdi-puzzle",
-		function: () => {
+		function: async () => {
+			if (!(await ensureManagerAccess())) {
+				return;
+			}
+
 			if (!manager_instance) {
 				setManagerInstance(new ManagerMenuDialog());
 				manager_instance.show();
@@ -1500,7 +1621,11 @@ app.registerExtension({
 		id: "Comfy.Manager.CustomNodesManager.ToggleVisibility",
 		label: "Toggle Custom Nodes Manager Visibility",
 		icon: "pi pi-server",
-		function: () => {
+		function: async () => {
+			if (!(await ensureManagerAccess())) {
+				return;
+			}
+
 			if (CustomNodesManager.instance?.isVisible) {
 				CustomNodesManager.instance.close();
 				return;
@@ -1570,7 +1695,11 @@ app.registerExtension({
 			let cmGroup = new (await import("../../scripts/ui/components/buttonGroup.js")).ComfyButtonGroup(
 				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
 					icon: "puzzle",
-					action: () => {
+					action: async () => {
+						if (!(await ensureManagerAccess())) {
+							return;
+						}
+
 						if(!manager_instance)
 							setManagerInstance(new ManagerMenuDialog());
 						manager_instance.show();
@@ -1581,7 +1710,11 @@ app.registerExtension({
 				}).element,
 				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
 					icon: "star",
-					action: () => {
+					action: async () => {
+						if (!(await ensureManagerAccess())) {
+							return;
+						}
+
 						if(!manager_instance)
 							setManagerInstance(new ManagerMenuDialog());
 
@@ -1638,7 +1771,11 @@ app.registerExtension({
 		// old style Manager button
 		const managerButton = document.createElement("button");
 		managerButton.textContent = "Manager";
-		managerButton.onclick = () => {
+		managerButton.onclick = async () => {
+				if (!(await ensureManagerAccess())) {
+					return;
+				}
+
 				if(!manager_instance)
 					setManagerInstance(new ManagerMenuDialog());
 				manager_instance.show();
