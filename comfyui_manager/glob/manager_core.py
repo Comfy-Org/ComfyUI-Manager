@@ -843,7 +843,10 @@ class UnifiedManager:
             install_cmd = ["#LAZY-INSTALL-SCRIPT", sys.executable]
             return try_install_script(url, repo_path, install_cmd)
         else:
-            if os.path.exists(requirements_path) and not no_deps:
+            if not no_deps and manager_util.use_unified_resolver:
+                # Unified mode: skip per-node pip install (deps resolved at startup batch)
+                logging.info("[UnifiedDepResolver] deps deferred to startup batch resolution for %s", repo_path)
+            elif os.path.exists(requirements_path) and not no_deps:
                 print("Install: pip packages")
                 pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), context.comfy_path, context.manager_files_path)
                 lines = manager_util.robust_readlines(requirements_path)
@@ -1604,6 +1607,7 @@ def write_config():
     config['default'] = {
         'git_exe': get_config()['git_exe'],
         'use_uv': get_config()['use_uv'],
+        'use_unified_resolver': get_config()['use_unified_resolver'],
         'channel_url': get_config()['channel_url'],
         'share_option': get_config()['share_option'],
         'bypass_ssl': get_config()['bypass_ssl'],
@@ -1642,12 +1646,16 @@ def read_config():
             return default_conf[key].lower() == 'true' if key in default_conf else False
 
         manager_util.use_uv = default_conf['use_uv'].lower() == 'true' if 'use_uv' in default_conf else False
+        # Don't override use_unified_resolver here: prestartup_script.py already reads config
+        # and sets this flag, then may reset it to False on resolver fallback.
+        # Re-reading from config would undo the fallback.
         manager_util.bypass_ssl = get_bool('bypass_ssl', False)
 
         return {
                     'http_channel_enabled': get_bool('http_channel_enabled', False),
                     'git_exe': default_conf.get('git_exe', ''),
                     'use_uv': get_bool('use_uv', True),
+                    'use_unified_resolver': get_bool('use_unified_resolver', False),
                     'channel_url': default_conf.get('channel_url', DEFAULT_CHANNEL),
                     'default_cache_as_channel_url': get_bool('default_cache_as_channel_url', False),
                     'share_option': default_conf.get('share_option', 'all').lower(),
@@ -1668,12 +1676,14 @@ def read_config():
         import importlib.util
         # temporary disable `uv` on Windows by default (https://github.com/Comfy-Org/ComfyUI-Manager/issues/1969)
         manager_util.use_uv = importlib.util.find_spec("uv") is not None and platform.system() != "Windows"
+        manager_util.use_unified_resolver = False
         manager_util.bypass_ssl = False
 
         return {
             'http_channel_enabled': False,
             'git_exe': '',
             'use_uv': manager_util.use_uv,
+            'use_unified_resolver': False,
             'channel_url': DEFAULT_CHANNEL,
             'default_cache_as_channel_url': False,
             'share_option': 'all',
@@ -1871,7 +1881,6 @@ def __win_check_git_pull(path):
 
 
 def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=False, no_deps=False):
-    # import ipdb; ipdb.set_trace()
     install_script_path = os.path.join(repo_path, "install.py")
     requirements_path = os.path.join(repo_path, "requirements.txt")
 
@@ -1879,7 +1888,10 @@ def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=Fa
         install_cmd = ["#LAZY-INSTALL-SCRIPT",  sys.executable]
         try_install_script(url, repo_path, install_cmd)
     else:
-        if os.path.exists(requirements_path) and not no_deps:
+        if not no_deps and manager_util.use_unified_resolver:
+            # Unified mode: skip per-node pip install (deps resolved at startup batch)
+            logging.info("[UnifiedDepResolver] deps deferred to startup batch resolution for %s", repo_path)
+        elif os.path.exists(requirements_path) and not no_deps:
             print("Install: pip packages")
             pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), context.comfy_path, context.manager_files_path)
             with open(requirements_path, "r") as requirements_file:
