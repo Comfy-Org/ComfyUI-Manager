@@ -21,9 +21,11 @@ use_unified_resolver = true
 Node pack installation at runtime uses the task queue API:
 
 ```
-POST http://localhost:8188/v2/manager/queue/task
+POST http://localhost:8199/v2/manager/queue/task
 Content-Type: application/json
 ```
+
+> **Port**: E2E tests use port 8199 to avoid conflicts with running ComfyUI instances. Replace with your actual port if different.
 
 **Payload** (`QueueTaskItem`):
 
@@ -186,7 +188,7 @@ chmod -R u+w "$(python -c 'import site; print(site.getsitepackages()[0])')"
 **Steps**:
 1. While ComfyUI is running, install a node pack that has both `install.py` and `requirements.txt` via API:
 ```bash
-curl -X POST http://localhost:8188/v2/manager/queue/task \
+curl -X POST http://localhost:8199/v2/manager/queue/task \
   -H "Content-Type: application/json" \
   -d '{
     "ui_id": "test-installpy",
@@ -334,7 +336,7 @@ private-pkg --index-url https://user:token123@pypi.private.com/simple
 1. Start ComfyUI and confirm batch resolution succeeds
 2. While ComfyUI is running, install a new node pack via API:
 ```bash
-curl -X POST http://localhost:8188/v2/manager/queue/task \
+curl -X POST http://localhost:8199/v2/manager/queue/task \
   -H "Content-Type: application/json" \
   -d '{
     "ui_id": "test-defer-1",
@@ -377,7 +379,7 @@ Verify both code locations that guard per-node pip install behave correctly in u
 **Path 1 — Runtime API install (class method)**:
 ```bash
 # While ComfyUI is running:
-curl -X POST http://localhost:8188/v2/manager/queue/task \
+curl -X POST http://localhost:8199/v2/manager/queue/task \
   -H "Content-Type: application/json" \
   -d '{
     "ui_id": "test-path1",
@@ -426,7 +428,7 @@ echo "['$COMFY_ROOT/custom_nodes/test_pack_lazy', '#LAZY-INSTALL-SCRIPT', '$PYTH
 1. Set up conflicting deps (as in TC-4) and start ComfyUI (resolver fails, flag reset to `False`)
 2. While still running, install a new node pack via API:
 ```bash
-curl -X POST http://localhost:8188/v2/manager/queue/task \
+curl -X POST http://localhost:8199/v2/manager/queue/task \
   -H "Content-Type: application/json" \
   -d '{
     "ui_id": "test-postfallback",
@@ -478,6 +480,101 @@ chmod u+r "$COMFY_ROOT/custom_nodes"
 
 ---
 
+## TC-17: Restart Dependency Detection [P0]
+
+**Precondition**: `use_unified_resolver = true`, automated E2E scripts available
+
+This test verifies that the resolver correctly detects and installs dependencies for node packs added between restarts, incrementally building the dependency set.
+
+**Steps**:
+1. Boot ComfyUI with no custom node packs (Boot 1 — baseline)
+2. Verify baseline deps only (Manager's own deps)
+3. Stop ComfyUI
+4. Clone `ComfyUI-Impact-Pack` into `custom_nodes/`
+5. Restart ComfyUI (Boot 2)
+6. Verify Impact Pack deps are installed (`cv2`, `skimage`, `dill`, `scipy`, `matplotlib`)
+7. Stop ComfyUI
+8. Clone `ComfyUI-Inspire-Pack` into `custom_nodes/`
+9. Restart ComfyUI (Boot 3)
+10. Verify Inspire Pack deps are installed (`cachetools`, `webcolors`)
+
+**Expected log (each boot)**:
+```
+[UnifiedDepResolver] Collected N deps from M sources (skipped S)
+[UnifiedDepResolver] running: ... uv pip compile ...
+[UnifiedDepResolver] running: ... uv pip install ...
+[UnifiedDepResolver] startup batch resolution succeeded
+```
+
+**Verify**:
+- Boot 1: ~10 deps from ~10 sources; `cv2`, `dill`, `cachetools` are NOT installed
+- Boot 2: ~19 deps from ~18 sources; `cv2`, `skimage`, `dill`, `scipy`, `matplotlib` all importable
+- Boot 3: ~24 deps from ~21 sources; `cachetools`, `webcolors` also importable
+- Both packs show as loaded in logs
+
+**Automation**: Use `tests/e2e/scripts/` (setup → start → stop) with node pack cloning between boots.
+
+---
+
+## TC-18: Real Node Pack Integration [P0]
+
+**Precondition**: `use_unified_resolver = true`, network access to GitHub + PyPI
+
+Full pipeline test with real-world node packs (`ComfyUI-Impact-Pack` + `ComfyUI-Inspire-Pack`) to verify the resolver handles production requirements.txt files correctly.
+
+**Steps**:
+1. Set up E2E environment
+2. Clone both Impact Pack and Inspire Pack into `custom_nodes/`
+3. Direct-mode: instantiate `UnifiedDepResolver`, call `collect_requirements()` and `resolve_and_install()`
+4. Boot-mode: start ComfyUI and verify via logs
+
+**Expected behavior (direct mode)**:
+```
+--- Discovered node packs (3) ---     # Manager, Impact, Inspire
+  ComfyUI-Impact-Pack
+  ComfyUI-Inspire-Pack
+  ComfyUI-Manager
+
+--- Phase 1: Collect Requirements ---
+  Total requirements: ~24
+  Skipped: 1                          # SAM2 git+https:// URL
+  Extra index URLs: set()
+```
+
+**Verify**:
+- `git+https://github.com/facebookresearch/sam2.git` is correctly rejected with "rejected path separator"
+- All other dependencies are collected and resolved
+- After install, `cv2`, `PIL`, `scipy`, `skimage`, `matplotlib` are all importable
+- No conflicting version errors during compile
+
+**Automation**: Use `tests/e2e/scripts/` (setup → clone packs → start) with direct-mode resolver invocation.
+
+---
+
+## Validated Behaviors (from E2E Testing)
+
+The following behaviors were confirmed during manual E2E testing:
+
+### Resolver Pipeline
+- **3-phase pipeline**: Collect → `uv pip compile` → `uv pip install` works end-to-end
+- **Incremental detection**: Resolver discovers new node packs on each restart without reinstalling existing deps
+- **Dependency deduplication**: Overlapping deps from multiple packs are resolved to compatible versions
+
+### Security & Filtering
+- **`git+https://` rejection**: URLs like `git+https://github.com/facebookresearch/sam2.git` are rejected with "rejected path separator" — SAM2 is the only dependency skipped from Impact Pack
+- **Blacklist filtering**: `PackageRequirement` objects have `.name`, `.spec`, `.source` attributes; `collected.skipped` returns `[(spec_string, reason_string)]` tuples
+
+### Manager Integration
+- **Manager v4 endpoints**: All endpoints use `/v2/` prefix (e.g., `/v2/manager/queue/status`)
+- **`Blocked by policy`**: Expected when Manager is pip-installed and also symlinked in `custom_nodes/`; prevents legacy double-loading
+- **config.ini path**: Must be at `$COMFY_ROOT/user/__manager/config.ini`, not in the symlinked Manager dir
+
+### Environment
+- **PYTHONPATH requirement**: `comfy` is a local package (not pip-installed); `comfyui_manager` imports from `comfy`, so both require `PYTHONPATH=$COMFY_ROOT`
+- **HOME isolation**: `HOME=$E2E_ROOT/home` prevents host config contamination during boot
+
+---
+
 ## Summary
 
 | TC | P | Scenario | Key Verification |
@@ -498,6 +595,8 @@ chmod u+r "$COMFY_ROOT/custom_nodes"
 | 14 | P0 | Both unified resolver paths | runtime API (class method) + startup lazy install |
 | 15 | P1 | Post-fallback behavior | Per-node pip resumes in same process |
 | 16 | P1 | Generic exception fallback | Distinct from uv-absent and batch-failed |
+| 17 | P0 | Restart dependency detection | Incremental node pack discovery across restarts |
+| 18 | P0 | Real node pack integration | Impact + Inspire Pack full pipeline |
 
 ### Traceability
 
@@ -513,3 +612,6 @@ chmod u+r "$COMFY_ROOT/custom_nodes"
 | Fallback behavior | TC-3, TC-4, TC-5, TC-15, TC-16 |
 | Disabled node pack exclusion | TC-11 |
 | Runtime defer behavior | TC-13, TC-14 |
+| FR-8: Restart discovery | TC-17 |
+| FR-9: Real-world compatibility | TC-17, TC-18 |
+| FR-2: Input sanitization (git URLs) | TC-8, TC-18 |
