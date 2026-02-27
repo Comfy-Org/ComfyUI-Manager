@@ -354,6 +354,30 @@ class TestIndexUrlSeparation:
         assert deps.requirements[0].name == "torch"
         assert "https://download.pytorch.org/whl/cu121" in deps.extra_index_urls
 
+    def test_multiple_index_urls_on_single_line(self, tmp_path):
+        """Multiple --extra-index-url / --index-url on the same line."""
+        p = _make_node_pack(
+            str(tmp_path), "pack_a",
+            "torch --extra-index-url https://url1.example.com "
+            "--index-url https://url2.example.com\n",
+        )
+        r = _resolver([p])
+        deps = r.collect_requirements()
+        assert len(deps.requirements) == 1
+        assert deps.requirements[0].name == "torch"
+        assert "https://url1.example.com" in deps.extra_index_urls
+        assert "https://url2.example.com" in deps.extra_index_urls
+
+    def test_bare_index_url_no_value(self, tmp_path):
+        """Bare ``--index-url`` with no URL value must not become a package."""
+        p = _make_node_pack(str(tmp_path), "pack_a",
+                             "--index-url\nnumpy>=1.20\n")
+        r = _resolver([p])
+        deps = r.collect_requirements()
+        assert len(deps.requirements) == 1
+        assert deps.requirements[0].name == "numpy"
+        assert deps.extra_index_urls == []
+
 
 # ===========================================================================
 # Downgrade blacklist

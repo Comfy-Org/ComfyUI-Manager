@@ -261,6 +261,13 @@ class UnifiedDepResolver:
         sources: dict[str, list[str]] = defaultdict(list)
         extra_index_urls: list[str] = []
 
+        # Snapshot installed packages once to avoid repeated subprocess calls.
+        # Skip when downgrade_blacklist is empty (the common default).
+        installed_snapshot = (
+            manager_util.get_installed_packages()
+            if self.downgrade_blacklist else {}
+        )
+
         for pack_path in self.node_pack_paths:
             # Exclude disabled node packs (directory-based mechanism).
             if self._is_disabled_path(pack_path):
@@ -287,9 +294,8 @@ class UnifiedDepResolver:
                 # 1. Separate --index-url / --extra-index-url handling
                 #    (before path separator check, because URLs contain '/')
                 if '--index-url' in line or '--extra-index-url' in line:
-                    pkg_spec, index_url = self._split_index_url(line)
-                    if index_url:
-                        extra_index_urls.append(index_url)
+                    pkg_spec, index_urls = self._split_index_url(line)
+                    extra_index_urls.extend(index_urls)
                     line = pkg_spec
                     if not line:
                         # Standalone option line (no package prefix)
@@ -317,7 +323,8 @@ class UnifiedDepResolver:
                     continue
 
                 # 5. Downgrade blacklist check
-                if self._is_downgrade_blacklisted(pkg_name, pkg_spec):
+                if self._is_downgrade_blacklisted(pkg_name, pkg_spec,
+                                                  installed_snapshot):
                     skipped.append((pkg_spec, "downgrade blacklisted"))
                     continue
 
@@ -510,20 +517,53 @@ class UnifiedDepResolver:
         return manager_util.robust_readlines(filepath)
 
     @staticmethod
-    def _split_index_url(line: str) -> tuple[str, str | None]:
-        """Split ``'package --index-url URL'`` → ``(package, URL)``.
+    def _split_index_url(line: str) -> tuple[str, list[str]]:
+        """Split index-url options from a requirement line.
 
-        Also handles standalone ``--index-url URL`` and
-        ``--extra-index-url URL`` lines (with no package prefix).
+        Handles lines with one or more ``--index-url`` / ``--extra-index-url``
+        options.  Returns ``(package_spec, [url, ...])``.
+
+        Examples::
+
+            "torch --extra-index-url U1 --index-url U2"
+            → ("torch", ["U1", "U2"])
+
+            "--index-url URL"
+            → ("", ["URL"])
         """
-        # Handle --extra-index-url first (contains '--index-url' as substring)
-        for option in ('--extra-index-url', '--index-url'):
-            if option in line:
-                parts = line.split(option, 1)
-                pkg_spec = parts[0].strip()
-                url = parts[1].strip() if len(parts) == 2 else None
-                return pkg_spec, url
-        return line, None
+        urls: list[str] = []
+        remainder_tokens: list[str] = []
+
+        # Regex: match --extra-index-url or --index-url followed by its value
+        option_re = re.compile(
+            r'(--(?:extra-)?index-url)\s+(\S+)'
+        )
+
+        # Pattern for bare option flags without a URL value
+        bare_option_re = re.compile(r'^--(?:extra-)?index-url$')
+
+        last_end = 0
+        for m in option_re.finditer(line):
+            # Text before this option is part of the package spec
+            before = line[last_end:m.start()].strip()
+            if before:
+                remainder_tokens.append(before)
+            urls.append(m.group(2))
+            last_end = m.end()
+
+        # Trailing text after last option
+        trailing = line[last_end:].strip()
+        if trailing:
+            remainder_tokens.append(trailing)
+
+        # Strip any bare option flags that leaked into remainder tokens
+        # (e.g. "--index-url" with no URL value after it)
+        remainder_tokens = [
+            t for t in remainder_tokens if not bare_option_re.match(t)
+        ]
+
+        pkg_spec = " ".join(remainder_tokens).strip()
+        return pkg_spec, urls
 
     def _remap_package(self, pkg: str) -> str:
         """Apply ``pip_overrides`` remapping."""
@@ -539,15 +579,19 @@ class UnifiedDepResolver:
         name = re.split(r'[><=!~;\[@ ]', spec)[0].strip()
         return name.lower().replace('-', '_')
 
-    def _is_downgrade_blacklisted(self, pkg_name: str, pkg_spec: str) -> bool:
+    def _is_downgrade_blacklisted(self, pkg_name: str, pkg_spec: str,
+                                      installed: dict) -> bool:
         """Reproduce the downgrade logic from ``is_blacklisted()``.
 
         Uses ``manager_util.StrictVersion`` — **not** ``packaging.version``.
+
+        Args:
+            installed: Pre-fetched snapshot from
+                ``manager_util.get_installed_packages()``.
         """
         if pkg_name not in self.downgrade_blacklist:
             return False
 
-        installed = manager_util.get_installed_packages()
         match = _VERSION_SPEC_PATTERN.search(pkg_spec)
 
         if match is None:
