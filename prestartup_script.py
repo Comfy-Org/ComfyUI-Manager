@@ -85,6 +85,7 @@ cm_global.register_api('cm.is_import_failed_extension', is_import_failed_extensi
 comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
 
 custom_nodes_base_path = folder_paths.get_folder_paths('custom_nodes')[0]
+manager_util.ensure_comfy_libs_path(custom_nodes_base_path)
 
 # Check for System User API availability (PR #10966)
 _has_system_user_api = hasattr(folder_paths, 'get_system_user_directory')
@@ -642,13 +643,10 @@ def execute_lazy_install_script(repo_path, executable):
             package_name = remap_pip_package(line.strip())
             package_name = package_name.split('#')[0].strip()
             if package_name and not is_installed(package_name):
-                if '--index-url' in package_name:
-                    s = package_name.split('--index-url')
-                    install_cmd = manager_util.make_pip_cmd(["install", s[0].strip(), '--index-url', s[1].strip()])
-                else:
-                    install_cmd = manager_util.make_pip_cmd(["install", package_name])
+                install_cmd = manager_util.make_pip_install_cmd(package_name, custom_nodes_base_path)
 
-                process_wrap(install_cmd, repo_path)
+                if install_cmd is not None:
+                    process_wrap(install_cmd, repo_path)
 
     if os.path.exists(install_script_path) and f'{repo_path}/install.py' not in processed_install:
         processed_install.add(f'{repo_path}/install.py')
