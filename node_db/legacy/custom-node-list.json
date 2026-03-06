@@ -1,6 +1,148 @@
 {
     "custom_nodes": [
         {
+            "author": "MTheUnexpected-1",
+            "title": "ModuSnap-ComfyUI-Manager [REMOVED]",
+            "reference": "https://github.com/MTheUnexpected-1/ModuSnap-ComfyUI-Manager",
+            "files": [
+                "https://github.com/MTheUnexpected-1/ModuSnap-ComfyUI-Manager"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom-node bridge between ComfyUI and Modusnap Engine manager APIs"
+        },
+        {
+            "author": "da2el-ai",
+            "title": "D2 Steps [REMOVED]",
+            "id": "d2steps",
+            "reference": "https://github.com/da2el-ai/ComfyUI-d2-steps",
+            "files": [
+                "https://github.com/da2el-ai/ComfyUI-d2-steps"
+            ],
+            "install_type": "git-clone",
+            "description": "A handy custom node for using Refiner (switching to a different checkpoint midway) When you specify the end of the base checkpoint, you can extract refiner_start which is end + 1. The output is fixed as an INT, so it can be passed to the handy custom node, Anything Everywhere? Since it only outputs a numerical value, it can also be used for other purposes."
+        },
+        {
+            "author": "da2el-ai",
+            "title": "D2 Size Selector [REMOVED]",
+            "id": "size-selector",
+            "reference": "https://github.com/da2el-ai/ComfyUI-d2-size-selector",
+            "files": [
+                "https://github.com/da2el-ai/ComfyUI-d2-size-selector"
+            ],
+            "install_type": "git-clone",
+            "description": "This is a custom node that allows you to easily call up and set image size presets. Settings can be made by editing the included config.yaml. It is almost identical to Comfyroll Studio's CR AspectRatio. I created it because I wanted to easily edit the presets."
+        },
+        {
+            "author": "da2el-ai",
+            "title": "D2 XYPlot Utils [REMOVED]",
+            "reference": "https://github.com/da2el-ai/ComfyUI-d2-xyplot-utils",
+            "files": [
+                "https://github.com/da2el-ai/ComfyUI-d2-xyplot-utils"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom node for using Prompt S/R in XY Plot\nAlso includes nodes for listing generic parameters like seed and cfg\nEasy to manipulate as elements are separated by line breaks\nDesigned for use with the XY Plot custom node qq-nodes-comfyui, but may work with other custom nodes as well"
+        },
+        {
+            "author": "Lavah000",
+            "title": "ComfyUI Advanced Generation Pack (AGP) [REMOVED]",
+            "reference": "https://github.com/Lavah000/ComfyUI-AdvGenPack",
+            "files": [
+                "https://github.com/Lavah000/ComfyUI-AdvGenPack"
+            ],
+            "install_type": "git-clone",
+            "description": "Production-ready custom nodes for advanced diffusion workflows. Modular implementation grounded in proven techniques from leading ComfyUI repositories."
+        },
+        {
+            "author": "itom0717",
+            "title": "ComfyUI-Prompt-Selector [REMOVED]",
+            "reference": "https://github.com/itom0717/ComfyUI-Prompt-Selector",
+            "files": [
+                "https://github.com/itom0717/ComfyUI-Prompt-Selector"
+            ],
+            "install_type": "git-clone",
+            "description": "No ComfyUI nodes detected. May not be a ComfyUI custom node repository."
+        },
+        {
+            "author": "xela-io",
+            "title": "ComfyUI-HairDetailer [REMOVED]",
+            "reference": "https://github.com/xela-io/ComfyUI-HairDetailer",
+            "files": [
+                "https://github.com/xela-io/ComfyUI-HairDetailer"
+            ],
+            "install_type": "git-clone",
+            "description": "Comprehensive custom node pack for detecting hair regions, creating precise masks, and enhancing hair details in images with 6 specialized nodes for various hair processing workflows. (Description by CC)"
+        },
+        {
+            "author": "xela-io",
+            "title": "ComfyUI-RegionalPrompting [REMOVED]",
+            "reference": "https://github.com/xela-io/ComfyUI-RegionalPrompting",
+            "files": [
+                "https://github.com/xela-io/ComfyUI-RegionalPrompting"
+            ],
+            "install_type": "git-clone",
+            "description": "Regional Prompting for ComfyUI - assign different prompts to different image areas."
+        },
+        {
+            "author": "andygill",
+            "title": "comfyui-sunflower-nodes [REMOVED]",
+            "reference": "https://github.com/andygill/comfyui-sunflower-nodes",
+            "files": [
+                "https://github.com/andygill/comfyui-sunflower-nodes"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI nodes for 3D visualization."
+        },
+        {
+            "author": "CarlMarkswx",
+            "title": "ComfyUI-Mirror-Download [UNSAFE/REMOVED]",
+            "reference": "https://github.com/CarlMarkswx/ComfyUI-Mirror-Download",
+            "files": [
+                "https://github.com/CarlMarkswx/ComfyUI-Mirror-Download"
+            ],
+            "install_type": "git-clone",
+            "description": "Plugin that adds a mirror download button for accessing Hugging Face models via Chinese mirror, with automatic detection and progress tracking. (Description by CC)[w/This nodepack contains a node that has a vulnerability allowing write to arbitrary file paths.]"
+        },
+        {
+            "author": "anilstream",
+            "title": "ComfyUI-NanoBananaPro [REMOVED]",
+            "reference": "https://github.com/anilstream/ComfyUI-NanoBananaPro",
+            "files": [
+                "https://github.com/anilstream/ComfyUI-NanoBananaPro"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI node implementing basic functionality with NanoBananaBasicNode. (Description by CC)"
+        },
+        {
+            "author": "anilstream",
+            "title": "ComfyUI-Ideogram-Character [REMOVED]",
+            "reference": "https://github.com/anilstream/ComfyUI-Ideogram-Character",
+            "files": [
+                "https://github.com/anilstream/ComfyUI-Ideogram-Character"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom ComfyUI node for generating consistent character images using Ideogram API v3's character reference feature. (Description by CC)"
+        },
+        {
+            "author": "FemReiyaDev",
+            "title": "ComfyUI-ReiyaNodes [REMOVED]",
+            "reference": "https://github.com/FemReiyaDev/ComfyUI-ReiyaNodes",
+            "files": [
+                "https://github.com/FemReiyaDev/ComfyUI-ReiyaNodes"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom ComfyUI nodes for image stitching"
+        },
+        {
+            "author": "ncky",
+            "title": "ComfyUI-Qwen3-TTS [REMOVED]",
+            "reference": "https://github.com/ncky/ComfyUI-Qwen3-TTS",
+            "files": [
+                "https://github.com/ncky/ComfyUI-Qwen3-TTS"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom node that wraps Qwen3-TTS voice cloning for synthesizing speech in a cloned voice. (Description by CC)"
+        },
+        {
             "author": "artokun",
             "title": "ComfyUI-Stereo-Gaussian [REMOVED]",
             "reference": "https://github.com/artokun/ComfyUI-Stereo-Gaussian",
