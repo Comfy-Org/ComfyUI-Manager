@@ -94,10 +94,27 @@ class ResolveResult:
 
 _TMP_PREFIX = "comfyui_resolver_"
 
-# Security: reject dangerous requirement patterns.
+# Security: reject dangerous requirement patterns at line start.
+# NOTE: This regex is intentionally kept alongside _INLINE_DANGEROUS_OPTIONS
+# because it covers ``@ file://`` via ``.*@\s*file://`` which relies on the
+# ``^`` anchor.  Both regexes share responsibility for option rejection:
+# this one catches line-start patterns; _INLINE_DANGEROUS_OPTIONS catches
+# options appearing after a package name.
 _DANGEROUS_PATTERNS = re.compile(
     r'^(-r\b|--requirement\b|-e\b|--editable\b|-c\b|--constraint\b'
     r'|--find-links\b|-f\b|.*@\s*file://)',
+    re.IGNORECASE,
+)
+
+# Security: reject dangerous pip options appearing anywhere in the line
+# (supplements the ^-anchored _DANGEROUS_PATTERNS which only catches line-start).
+# The ``(?:^|\s)`` prefix prevents false positives on hyphenated package names
+# (e.g. ``re-crypto``, ``package[extra-c]``) while still catching concatenated
+# short-flag attacks like ``-fhttps://evil.com``.
+_INLINE_DANGEROUS_OPTIONS = re.compile(
+    r'(?:^|\s)(--find-links\b|--constraint\b|--requirement\b|--editable\b'
+    r'|--trusted-host\b|--global-option\b|--install-option\b'
+    r'|-f|-r|-e|-c)',
     re.IGNORECASE,
 )
 
@@ -293,13 +310,26 @@ class UnifiedDepResolver:
 
                 # 1. Separate --index-url / --extra-index-url handling
                 #    (before path separator check, because URLs contain '/')
+                #    URLs are staged but NOT committed until the line passes
+                #    all validation (prevents URL injection from rejected lines).
+                pending_urls: list[str] = []
                 if '--index-url' in line or '--extra-index-url' in line:
-                    pkg_spec, index_urls = self._split_index_url(line)
-                    extra_index_urls.extend(index_urls)
+                    pkg_spec, pending_urls = self._split_index_url(line)
                     line = pkg_spec
                     if not line:
-                        # Standalone option line (no package prefix)
+                        # Standalone option line (no package prefix) — safe
+                        extra_index_urls.extend(pending_urls)
                         continue
+
+                # 1b. Reject dangerous pip options appearing after package name
+                #     (--index-url/--extra-index-url already extracted above)
+                if _INLINE_DANGEROUS_OPTIONS.search(line):
+                    skipped.append((line, f"rejected: inline pip option in {pack_path}"))
+                    logger.warning(
+                        "[UnifiedDepResolver] rejected inline pip option: '%s' from %s",
+                        line, pack_path,
+                    )
+                    continue
 
                 # Reject path separators in package name portion
                 pkg_name_part = re.split(r'[><=!~;]', line)[0]
@@ -333,6 +363,10 @@ class UnifiedDepResolver:
                     PackageRequirement(name=pkg_name, spec=pkg_spec, source=pack_path)
                 )
                 sources[pkg_name].append(pack_path)
+
+                # Commit staged index URLs only after all validation passed.
+                if pending_urls:
+                    extra_index_urls.extend(pending_urls)
 
         return CollectedDeps(
             requirements=requirements,
