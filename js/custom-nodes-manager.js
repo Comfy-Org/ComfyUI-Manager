@@ -67,6 +67,7 @@ export class CustomNodesManager {
 		this.filter = '';
 		this.keywords = '';
 		this.restartMap = {};
+		this.analyzeDependenciesBeforeInstall = false; // Default: false
 
 		this.init();
 
@@ -77,6 +78,36 @@ export class CustomNodesManager {
 	}
 
 	init() {
+		// Create checkbox for dependency analysis
+		const analyzeDepsCheckbox = $el("input", {
+			type: "checkbox",
+			id: "cn-analyze-deps-checkbox",
+			checked: this.analyzeDependenciesBeforeInstall,
+			onchange: (e) => {
+				this.analyzeDependenciesBeforeInstall = e.target.checked;
+			},
+			style: {
+				marginRight: "6px",
+				cursor: "pointer"
+			}
+		});
+		
+		const analyzeDepsLabel = $el("label", {
+			for: "cn-analyze-deps-checkbox",
+			style: {
+				display: "flex",
+				alignItems: "center",
+				cursor: "pointer",
+				color: "#fff",
+				fontSize: "12px",
+				marginRight: "10px",
+				whiteSpace: "nowrap"
+			}
+		}, [
+			analyzeDepsCheckbox,
+			$el("span", { textContent: "Analyse dependencies before node installation" })
+		]);
+
 		const header = $el("div.cn-manager-header.px-2", {}, [
 			// $el("label", {}, [
 			// 	$el("span", { textContent: "Filter" }),
@@ -84,6 +115,7 @@ export class CustomNodesManager {
 			// ]),
 			createSettingsCombo("Filter", $el("select.cn-manager-filter")),
 			$el("input.cn-manager-keywords.p-inputtext.p-component", { type: "search", placeholder: "Search" }),
+			analyzeDepsLabel,
 			$el("div.cn-manager-status"),
 			$el("div.cn-flex-auto"),
 			$el("div.cn-manager-channel")
@@ -103,6 +135,421 @@ export class CustomNodesManager {
 		this.initFilter();
 		this.bindEvents();
 		this.initGrid();
+	}
+
+	showDependencySelectorDialog(dependencies, onSelect) {
+		const dialog = new ComfyDialog();
+		dialog.element.style.zIndex = 1100;
+		dialog.element.style.width = "900px";
+		dialog.element.style.maxHeight = "80vh";
+		dialog.element.style.padding = "0";
+		dialog.element.style.backgroundColor = "#2a2a2a";
+		dialog.element.style.border = "1px solid #3a3a3a";
+		dialog.element.style.borderRadius = "8px";
+		dialog.element.style.boxSizing = "border-box";
+		dialog.element.style.overflow = "hidden";
+
+		const contentStyle = {
+			width: "100%",
+			display: "flex",
+			flexDirection: "column",
+			padding: "20px",
+			boxSizing: "border-box",
+			gap: "15px"
+		};
+
+		// Create scrollable table container with sticky header
+		const tableContainer = $el("div", {
+			style: {
+				maxHeight: "500px",
+				overflowY: "auto",
+				border: "1px solid #4a4a4a",
+				borderRadius: "4px",
+				backgroundColor: "#1a1a1a",
+				position: "relative"
+			}
+		});
+
+		// Create table
+		const table = $el("table", {
+			style: {
+				width: "100%",
+				borderCollapse: "separate",
+				borderSpacing: "0",
+				fontSize: "14px"
+			}
+		});
+
+		// Create table header with sticky positioning
+		const thead = $el("thead", {
+			style: {
+				position: "sticky",
+				top: "0",
+				zIndex: "10",
+				backgroundColor: "#2a2a2a",
+				boxShadow: "0 2px 4px rgba(0,0,0,0.3)"
+			}
+		}, [
+			$el("tr", {
+				style: {
+					backgroundColor: "#2a2a2a",
+					borderBottom: "2px solid #4a4a4a"
+				}
+			}, [
+				$el("th", {
+					textContent: "",
+					style: {
+						padding: "10px",
+						textAlign: "left",
+						width: "40px",
+						color: "#fff"
+					}
+				}),
+				$el("th", {
+					textContent: "Dependency Name",
+					style: {
+						padding: "10px",
+						textAlign: "left",
+						color: "#fff",
+						fontWeight: "bold"
+					}
+				}),
+				$el("th", {
+					textContent: "Current Version",
+					style: {
+						padding: "10px",
+						textAlign: "left",
+						color: "#fff",
+						fontWeight: "bold"
+					}
+				}),
+				$el("th", {
+					textContent: "Incoming Version",
+					style: {
+						padding: "10px",
+						textAlign: "left",
+						color: "#fff",
+						fontWeight: "bold"
+					}
+				})
+			])
+		]);
+
+		// Create table body
+		const tbody = $el("tbody", {});
+
+		// Create table rows for each dependency and its subdependencies
+		let rowIndex = 0;
+		dependencies.forEach((dep) => {
+			// Ensure name is not null/undefined and clean it
+			let depName = dep.name;
+			if (!depName || depName === 'null' || depName === 'None') {
+				// Fallback: extract from line
+				if (dep.line) {
+					depName = dep.line.split(/[=<>!~]/)[0].trim();
+				} else {
+					depName = "Unknown";
+				}
+			}
+			// Remove any "null" suffix that might have been appended
+			depName = String(depName).replace(/null$/i, '').trim();
+			
+			const isInstalled = dep.status === 'installed';
+			const incomingVersion = dep.version || "NA";
+			const currentVersion = dep.currentVersion || "NA";
+			
+			// Main dependency row
+			const row = $el("tr", {
+				style: {
+					backgroundColor: rowIndex % 2 === 0 ? "#1a1a1a" : "#222222",
+					borderBottom: "1px solid #3a3a3a"
+				}
+			}, [
+				$el("td", {
+					style: {
+						padding: "10px",
+						textAlign: "center"
+					}
+				}, [
+					$el("input", {
+						type: "checkbox",
+						checked: dep.selected,
+						onchange: (e) => {
+							dep.selected = e.target.checked;
+						},
+						style: {
+							cursor: "pointer",
+							width: "18px",
+							height: "18px"
+						}
+					})
+				]),
+				$el("td", {
+					style: {
+						padding: "10px",
+						color: isInstalled ? "#888" : "#fff"
+					}
+				}, [
+					$el("span", {
+						textContent: depName,
+						style: {
+							fontWeight: "500",
+							marginRight: isInstalled ? "8px" : "0"
+						}
+					}),
+					isInstalled ? $el("span", {
+						textContent: "Installed",
+						style: {
+							display: "inline-block",
+							backgroundColor: "#2a4a2a",
+							color: "#4a9",
+							padding: "2px 6px",
+							borderRadius: "3px",
+							fontSize: "10px",
+							fontWeight: "bold",
+							border: "1px solid #4a9"
+						}
+					}) : ''
+				]),
+				$el("td", {
+					textContent: currentVersion,
+					style: {
+						padding: "10px",
+						color: isInstalled ? "#4a9" : "#aaa",
+						fontFamily: "monospace"
+					}
+				}),
+				$el("td", {
+					textContent: incomingVersion,
+					style: {
+						padding: "10px",
+						color: "#fff",
+						fontFamily: "monospace"
+					}
+				})
+			]);
+			
+			tbody.appendChild(row);
+			rowIndex++;
+			
+			// Add subdependencies as indented rows
+			if(dep.subdependencies && dep.subdependencies.length > 0) {
+				dep.subdependencies.forEach((subdep) => {
+					// Ensure subdependency name is not null/undefined and clean it
+					let subdepName = subdep.name;
+					if (!subdepName || subdepName === 'null' || subdepName === 'None') {
+						subdepName = "Unknown";
+					}
+					// Remove any "null" suffix that might have been appended
+					subdepName = String(subdepName).replace(/null$/i, '').trim();
+					
+					const subIsInstalled = subdep.status === 'installed';
+					const subIncomingVersion = subdep.version || "NA";
+					const subCurrentVersion = subdep.currentVersion || "NA";
+					
+					const subRow = $el("tr", {
+						style: {
+							backgroundColor: rowIndex % 2 === 0 ? "#1a1a1a" : "#222222",
+							borderBottom: "1px solid #3a3a3a"
+						}
+					}, [
+						$el("td", {
+							style: {
+								padding: "10px",
+								textAlign: "center"
+							}
+						}, [
+							$el("input", {
+								type: "checkbox",
+								checked: subdep.selected,
+								onchange: (e) => {
+									subdep.selected = e.target.checked;
+								},
+								style: {
+									cursor: "pointer",
+									width: "18px",
+									height: "18px"
+								}
+							})
+						]),
+						$el("td", {
+							style: {
+								padding: "10px 10px 10px 30px",
+								color: subIsInstalled ? "#888" : "#aaa",
+								fontSize: "13px"
+							}
+						}, [
+							$el("span", {
+								textContent: "└─ " + subdepName,
+								style: {
+									fontWeight: "400",
+									marginRight: subIsInstalled ? "8px" : "0"
+								}
+							}),
+							subIsInstalled ? $el("span", {
+								textContent: "Installed",
+								style: {
+									display: "inline-block",
+									backgroundColor: "#2a4a2a",
+									color: "#4a9",
+									padding: "2px 6px",
+									borderRadius: "3px",
+									fontSize: "10px",
+									fontWeight: "bold",
+									border: "1px solid #4a9"
+								}
+							}) : ''
+						]),
+						$el("td", {
+							textContent: subCurrentVersion,
+							style: {
+								padding: "10px",
+								color: subIsInstalled ? "#4a9" : "#666",
+								fontFamily: "monospace",
+								fontSize: "13px"
+							}
+						}),
+						$el("td", {
+							textContent: subIncomingVersion,
+							style: {
+								padding: "10px",
+								color: "#aaa",
+								fontFamily: "monospace",
+								fontSize: "13px"
+							}
+						})
+					]);
+					
+					tbody.appendChild(subRow);
+					rowIndex++;
+				});
+			}
+		});
+
+		table.appendChild(thead);
+		table.appendChild(tbody);
+		tableContainer.appendChild(table);
+
+		const content = $el("div", {
+			style: contentStyle
+		}, [
+			$el("h3", {
+				textContent: "Select Dependencies to Install",
+				style: {
+					color: "#ffffff",
+					backgroundColor: "#1a1a1a",
+					padding: "10px 15px",
+					margin: "0 0 10px 0",
+					width: "100%",
+					textAlign: "center",
+					borderRadius: "4px",
+					boxSizing: "border-box"
+				}
+			}),
+			$el("div", {
+				textContent: `${dependencies.filter(d => d.status === 'installed').length} already installed, ${dependencies.filter(d => d.status !== 'installed').length} to install`,
+				style: {
+					color: "#aaa",
+					fontSize: "12px",
+					marginBottom: "5px"
+				}
+			}),
+			tableContainer,
+			$el("div", {
+				style: {
+					display: "flex",
+					justifyContent: "space-between",
+					width: "100%",
+					gap: "10px",
+					marginTop: "10px"
+				}
+			}, [
+				$el("button", {
+					textContent: "Cancel",
+					onclick: () => {
+						onSelect(null); // Pass null to indicate cancellation
+						dialog.close();
+					},
+					style: {
+						flex: "1",
+						padding: "8px",
+						backgroundColor: "#4a4a4a",
+						color: "#ffffff",
+						border: "none",
+						borderRadius: "4px",
+						cursor: "pointer"
+					}
+				}),
+				$el("button", {
+					textContent: "Select All",
+					onclick: () => {
+						dependencies.forEach(dep => {
+							if (dep.status !== 'installed') {
+								dep.selected = true;
+							}
+							// Also select subdependencies
+							if(dep.subdependencies) {
+								dep.subdependencies.forEach(subdep => {
+									if(subdep.status !== 'installed') {
+										subdep.selected = true;
+									}
+								});
+							}
+						});
+						// Update checkboxes in the table
+						const checkboxes = tableContainer.querySelectorAll('input[type="checkbox"]');
+						checkboxes.forEach((checkbox) => {
+							if(!checkbox.disabled) {
+								checkbox.checked = true;
+							}
+						});
+					},
+					style: {
+						padding: "8px 15px",
+						backgroundColor: "#4a6a4a",
+						color: "#ffffff",
+						border: "none",
+						borderRadius: "4px",
+						cursor: "pointer"
+					}
+				}),
+				$el("button", {
+					textContent: "Install Selected",
+					onclick: () => {
+						// Collect all selected dependencies (main + subdependencies)
+						const selected = [];
+						dependencies.forEach(d => {
+							if(d.selected) {
+								selected.push(d);
+							}
+							// Also include selected subdependencies
+							if(d.subdependencies) {
+								d.subdependencies.forEach(subdep => {
+									if(subdep.selected) {
+										selected.push(subdep);
+									}
+								});
+							}
+						});
+						onSelect(selected);
+						dialog.close();
+					},
+					style: {
+						flex: "1",
+						padding: "8px",
+						backgroundColor: "#4CAF50",
+						color: "#ffffff",
+						border: "none",
+						borderRadius: "4px",
+						cursor: "pointer"
+					}
+				}),
+			])
+		]);
+
+		console.log('[Dependency Dialog] Showing dialog with', dependencies.length, 'dependencies');
+		dialog.show(content);
+		console.log('[Dependency Dialog] Dialog shown');
 	}
 
 	showVersionSelectorDialog(versions, onSelect) {
@@ -1470,6 +1917,101 @@ export class CustomNodesManager {
 			}
 		}
 
+		// For install mode, analyze dependencies BEFORE starting installation
+		let selectedDependencies = [];
+		let dependencyDialogShown = false; // Track if dialog was shown
+		if(mode === "install" && this.analyzeDependenciesBeforeInstall) {
+			// Analyze dependencies for all items first (only if checkbox is enabled)
+			for (const hash of list) {
+				const item = this.grid.getRowItemBy("hash", hash);
+				if (!item) {
+					console.log('[Dependency Analysis] Item not found for hash:', hash);
+					continue;
+				}
+
+				const data = item.originalData;
+				console.log('[Dependency Analysis] Item data:', {
+					title: item.title,
+					files: data.files,
+					repository: data.repository,
+					hasFiles: !!data.files,
+					filesLength: data.files ? data.files.length : 0
+				});
+
+				// Try multiple ways to get the git URL
+				let gitUrl = null;
+				if(data.files && data.files.length > 0) {
+					gitUrl = data.files[0];
+				} else if(data.repository) {
+					gitUrl = data.repository;
+				}
+
+				if(gitUrl && (gitUrl.includes('github.com') || gitUrl.includes('.git'))) {
+					try {
+						this.showStatus(`Analyzing dependencies for ${item.title}...`);
+						console.log('[Dependency Analysis] Fetching dependencies for:', gitUrl);
+						
+						const analyzeRes = await api.fetchApi('/customnode/analyze_dependencies', {
+							method: 'POST',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify({
+								url: gitUrl,
+								commitId: data.commit_id,
+								branch: data.branch
+							})
+						});
+
+						console.log('[Dependency Analysis] Response status:', analyzeRes.status);
+
+						if(analyzeRes.status === 200) {
+							const analyzeData = await analyzeRes.json();
+							console.log('[Dependency Analysis] Response data:', {
+								success: analyzeData.success,
+								hasDependencies: !!analyzeData.dependencies,
+								dependenciesCount: analyzeData.dependencies ? analyzeData.dependencies.length : 0,
+								noRequirementsFile: analyzeData.noRequirementsFile
+							});
+
+							if(analyzeData.success && analyzeData.dependencies && analyzeData.dependencies.length > 0) {
+								console.log('[Dependency Analysis] Showing dialog with', analyzeData.dependencies.length, 'dependencies');
+								dependencyDialogShown = true;
+								
+								// Show dependency selection dialog and wait for user
+								const userSelection = await new Promise((resolve) => {
+									this.showDependencySelectorDialog(analyzeData.dependencies, (selected) => {
+										console.log('[Dependency Analysis] User selected:', selected);
+										resolve(selected);
+									});
+								});
+
+								// If user cancelled (null), stop installation
+								if(userSelection === null) {
+									console.log('[Dependency Analysis] User cancelled installation');
+									this.showStatus("Installation cancelled");
+									return;
+								}
+
+								selectedDependencies = userSelection || [];
+								console.log('[Dependency Analysis] Selected dependencies:', selectedDependencies.length);
+							} else if(analyzeData.noRequirementsFile) {
+								console.log('[Dependency Analysis] No requirements.txt file found');
+							} else {
+								console.log('[Dependency Analysis] No dependencies to show');
+							}
+						} else {
+							const errorText = await analyzeRes.text();
+							console.error('[Dependency Analysis] API error:', analyzeRes.status, errorText);
+						}
+					} catch(e) {
+						console.error('[Dependency Analysis] Exception:', e);
+						// Continue with installation even if dependency analysis fails
+					}
+				} else {
+					console.log('[Dependency Analysis] Not a GitHub URL or no URL found:', gitUrl);
+				}
+			}
+		}
+
 		target.classList.add("cn-btn-loading");
 		this.showError("");
 
@@ -1504,6 +2046,46 @@ export class CustomNodesManager {
 			data.channel = this.channel;
 			data.mode = this.mode;
 			data.ui_id = hash;
+
+			// Add selected dependencies to data (including subdependencies)
+			// Only install selected dependencies - respect user's selection
+			const allSelected = [];
+			if(selectedDependencies.length > 0) {
+				selectedDependencies.forEach(d => {
+					// Add main dependency if selected
+					if(d.selected) {
+						allSelected.push({
+							name: d.name,
+							version: d.version,
+							line: d.line
+						});
+					}
+					// Add selected subdependencies
+					if(d.subdependencies) {
+						d.subdependencies.forEach(subdep => {
+							if(subdep.selected) {
+								allSelected.push({
+									name: subdep.name,
+									version: subdep.version,
+									line: `${subdep.name}${subdep.version ? '==' + subdep.version : ''}`
+								});
+							}
+						});
+					}
+				});
+			}
+			// Set selectedDependencies:
+			// - If dialog was shown: always set (even if empty) to respect user's selection
+			// - If dialog was not shown: don't set (install all dependencies - original behavior)
+			if(dependencyDialogShown) {
+				// User saw the dialog, respect their selection (even if empty)
+				data.selectedDependencies = allSelected;
+			} else if(allSelected.length > 0) {
+				// Dialog wasn't shown but we have selections (shouldn't happen, but just in case)
+				data.selectedDependencies = allSelected;
+			}
+			// If dialog wasn't shown and no selections, don't set selectedDependencies
+			// This means backend will install all dependencies (original behavior)
 
 			let install_mode = mode;
 			if(mode == 'switch') {
