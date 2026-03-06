@@ -15,6 +15,8 @@ comfyui_manager/
 ├── prestartup_script.py             # Existing: config reading, remap_pip_package, cm_global initialization
 └── legacy/
     └── manager_core.py              # Legacy (not a modification target)
+cm_cli/
+└── __main__.py                      # CLI entry: uv-compile command (on-demand batch resolution)
 ```
 
 The new module `unified_dep_resolver.py` is added to the `comfyui_manager/common/` directory.
@@ -444,6 +446,54 @@ if os.path.exists(requirements_path) and not _unified_resolver_succeeded:
 
 > **Note**: Gated on `_unified_resolver_succeeded` (success flag), NOT `use_unified_resolver` (enable flag).
 > If the resolver is enabled but fails, `_unified_resolver_succeeded` remains False → per-node pip runs as fallback.
+
+### 4.1.6 CLI Integration
+
+Two entry points expose the unified resolver in `cm_cli`:
+
+#### 4.1.6.1 Standalone Command: `cm_cli uv-compile`
+
+On-demand batch resolution — independent of ComfyUI startup.
+
+```bash
+cm_cli uv-compile [--user-directory DIR]
+```
+
+Resolves all installed node packs' dependencies at once. Useful for environment
+recovery or initial setup without starting ComfyUI.
+`PIPFixer.fix_broken()` runs after resolution (via `finally` — runs on both success and failure).
+
+#### 4.1.6.2 Install Flag: `cm_cli install --uv-compile`
+
+```bash
+cm_cli install <node1> [node2 ...] --uv-compile [--mode remote]
+```
+
+When `--uv-compile` is set:
+1. `no_deps` is forced to `True` → per-node pip install is skipped during each node installation
+2. After **all** nodes are installed, runs unified batch resolution over **all installed node packs**
+   (not just the newly installed ones — `uv pip compile` needs the complete dependency graph)
+3. `PIPFixer.fix_broken()` runs after resolution (via `finally` — runs on both success and failure)
+
+This differs from per-node pip install: instead of resolving each node pack's
+`requirements.txt` independently, all deps are compiled together to avoid conflicts.
+
+#### Shared Design Decisions
+
+- **Uses real `cm_global` values**: Unlike the startup path (4.1.3) which passes empty
+  blacklist/overrides, CLI commands pass `cm_global.pip_blacklist`,
+  `cm_global.pip_overrides`, and `cm_global.pip_downgrade_blacklist` — already
+  initialized at `cm_cli/__main__.py` module scope (lines 45-60).
+- **No `_unified_resolver_succeeded` flag**: Not needed — these are one-shot commands,
+  not startup gates.
+- **Shared helper**: Both entry points delegate to `_run_unified_resolve()` which
+  handles resolver instantiation, execution, and result reporting.
+- **Error handling**: `UvNotAvailableError` / `ImportError` → exit 1 with message.
+  Both entry points use `try/finally` to guarantee `PIPFixer.fix_broken()` runs
+  regardless of resolution outcome.
+
+**Node pack discovery**: Uses `cmd_ctx.get_custom_nodes_paths()` → `collect_node_pack_paths()`,
+which is the CLI-native path resolution (respects `--user-directory` and `folder_paths`).
 
 ### 4.2 Configuration Addition (config.ini)
 

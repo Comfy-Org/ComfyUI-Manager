@@ -329,7 +329,7 @@ User requests installation of node packs A and B nearly simultaneously from UI
 
 ## 7. Future Extensions
 
-- **`cm_global` integration** [DEFERRED]: Read `pip_blacklist`, `pip_overrides`, `pip_downgrade_blacklist` from `cm_global` runtime values instead of passing empty. Constructor interface already accepts these parameters
+- ~~**`cm_global` integration** [DONE]: `cm_cli uv-compile` and `cm_cli install --uv-compile` pass real `cm_global` values. Startup path (`prestartup_script.py`) still passes empty by design~~
 - Lockfile caching: Reuse for identical node pack configurations
 - Pre-install dependency conflict validation API: Check compatibility before installation
 - Dependency tree visualization: Display dependency relationships to users
@@ -353,3 +353,5 @@ User requests installation of node packs A and B nearly simultaneously from UI
 | `install_manager_requirements()` | `glob/manager_core.py` | ❌ No | Manager's own deps |
 | `pip_install()` | `glob/manager_core.py` | ❌ No | UI direct install |
 | Legacy `execute_install_script()` (2 locations) | `legacy/manager_core.py` | ❌ No | Legacy paths |
+| `cm_cli uv-compile` | `cm_cli/__main__.py` | ✅ Yes | Standalone CLI batch resolution (with `cm_global` values) |
+| `cm_cli install --uv-compile` | `cm_cli/__main__.py` | ✅ Yes | Per-node pip skipped, batch resolution after all installs |

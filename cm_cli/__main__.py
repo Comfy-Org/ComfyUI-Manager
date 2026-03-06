@@ -656,6 +656,14 @@ def install(
                 help="Skip installing any Python dependencies",
             ),
         ] = False,
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After installing, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
         user_directory: str = typer.Option(
             None,
             help="user directory"
@@ -667,11 +675,34 @@ def install(
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
-    cmd_ctx.set_no_deps(no_deps)
+
+    if uv_compile and no_deps:
+        print("[bold red]--uv-compile and --no-deps are mutually exclusive.[/bold red]")
+        raise typer.Exit(1)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
+    else:
+        cmd_ctx.set_no_deps(no_deps)
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
     for_each_nodes(nodes, act=install_node, exit_on_fail=exit_on_fail)
-    pip_fixer.fix_broken()
+
+    if uv_compile:
+        try:
+            _run_unified_resolve()
+        except ImportError as e:
+            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+            raise typer.Exit(1)
+        except typer.Exit:
+            raise
+        except Exception as e:
+            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
+            raise typer.Exit(1)
+        finally:
+            pip_fixer.fix_broken()
+    else:
+        pip_fixer.fix_broken()
 
 
 @app.command(help="Reinstall custom nodes")
@@ -1221,6 +1252,77 @@ def install_deps(
             pip_fixer.fix_broken()
 
         print("Dependency installation and activation complete.")
+
+
+def _run_unified_resolve():
+    """Shared logic for unified batch dependency resolution."""
+    from comfyui_manager.common.unified_dep_resolver import (
+        UnifiedDepResolver,
+        UvNotAvailableError,
+        collect_base_requirements,
+        collect_node_pack_paths,
+    )
+
+    node_pack_paths = collect_node_pack_paths(cmd_ctx.get_custom_nodes_paths())
+    if not node_pack_paths:
+        print("[bold yellow]No custom node packs found.[/bold yellow]")
+        return
+
+    print(f"Resolving dependencies for {len(node_pack_paths)} node pack(s)...")
+
+    resolver = UnifiedDepResolver(
+        node_pack_paths=node_pack_paths,
+        base_requirements=collect_base_requirements(comfy_path),
+        blacklist=cm_global.pip_blacklist,
+        overrides=cm_global.pip_overrides,
+        downgrade_blacklist=cm_global.pip_downgrade_blacklist,
+    )
+    try:
+        result = resolver.resolve_and_install()
+    except UvNotAvailableError:
+        print("[bold red]uv is not available. Install uv to use this feature.[/bold red]")
+        raise typer.Exit(1)
+
+    if result.success:
+        collected = result.collected
+        if collected:
+            print(
+                f"[bold green]Resolved {len(collected.requirements)} deps "
+                f"from {len(collected.sources)} source(s) "
+                f"(skipped {len(collected.skipped)}).[/bold green]"
+            )
+        else:
+            print("[bold green]Resolution complete (no deps needed).[/bold green]")
+    else:
+        print(f"[bold red]Resolution failed: {result.error}[/bold red]")
+        raise typer.Exit(1)
+
+
+@app.command(
+    "uv-compile",
+    help="Batch-resolve and install all custom node dependencies via uv pip compile.",
+)
+def unified_uv_compile(
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
+):
+    cmd_ctx.set_user_directory(user_directory)
+
+    pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
+    try:
+        _run_unified_resolve()
+    except ImportError as e:
+        print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+        raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print(f"[bold red]Unexpected error: {e}[/bold red]")
+        raise typer.Exit(1)
+    finally:
+        pip_fixer.fix_broken()
 
 
 @app.command(help="Clear reserved startup action in ComfyUI-Manager")
