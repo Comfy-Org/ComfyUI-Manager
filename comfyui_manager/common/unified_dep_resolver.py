@@ -56,7 +56,8 @@ class CollectedDeps:
     """Aggregated dependency collection result."""
     requirements: list[PackageRequirement] = field(default_factory=list)
     skipped: list[tuple[str, str]] = field(default_factory=list)
-    sources: dict[str, list[str]] = field(default_factory=dict)
+    sources: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
+    """pkg_name → [(pack_path, pkg_spec), ...] — tracks which node packs request each package."""
     extra_index_urls: list[str] = field(default_factory=list)
 
 
@@ -275,7 +276,7 @@ class UnifiedDepResolver:
         """Collect dependencies from all node packs."""
         requirements: list[PackageRequirement] = []
         skipped: list[tuple[str, str]] = []
-        sources: dict[str, list[str]] = defaultdict(list)
+        sources: defaultdict[str, list[tuple[str, str]]] = defaultdict(list)
         extra_index_urls: list[str] = []
 
         # Snapshot installed packages once to avoid repeated subprocess calls.
@@ -362,7 +363,7 @@ class UnifiedDepResolver:
                 requirements.append(
                     PackageRequirement(name=pkg_name, spec=pkg_spec, source=pack_path)
                 )
-                sources[pkg_name].append(pack_path)
+                sources[pkg_name].append((pack_path, pkg_spec))
 
                 # Commit staged index URLs only after all validation passed.
                 if pending_urls:

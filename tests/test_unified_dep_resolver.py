@@ -244,6 +244,26 @@ class TestCollectRequirements:
         deps = r.collect_requirements()
         assert len(deps.sources["numpy"]) == 2
 
+    def test_sources_stores_pack_path_and_spec_tuple(self, tmp_path):
+        """sources entries must be (pack_path, pkg_spec) tuples."""
+        p = _make_node_pack(str(tmp_path), "pack_a", "numpy>=1.20\n")
+        r = _resolver([p])
+        deps = r.collect_requirements()
+        entries = deps.sources["numpy"]
+        assert len(entries) == 1
+        pack_path, pkg_spec = entries[0]
+        assert pack_path == p
+        assert pkg_spec == "numpy>=1.20"
+
+    def test_sources_captures_spec_per_requester(self, tmp_path):
+        """Each requester's exact spec is preserved independently."""
+        p1 = _make_node_pack(str(tmp_path), "pack_a", "torch>=2.1\n")
+        p2 = _make_node_pack(str(tmp_path), "pack_b", "torch<2.0\n")
+        r = _resolver([p1, p2])
+        deps = r.collect_requirements()
+        specs = {pkg_spec for _, pkg_spec in deps.sources["torch"]}
+        assert specs == {"torch>=2.1", "torch<2.0"}
+
 
 # ===========================================================================
 # Input sanitization
@@ -882,6 +902,127 @@ class TestResolveAndInstall:
 
         assert not result.success
         assert "compile failed" in result.error
+
+    def test_compile_failure_result_includes_collected(self, tmp_path):
+        """result.collected must be populated on compile failure for conflict attribution."""
+        p = _make_node_pack(str(tmp_path), "pack_a", "torch>=2.1\n")
+        r = _resolver([p])
+
+        with mock.patch.object(r, "_get_uv_cmd", return_value=["uv"]):
+            with mock.patch("subprocess.run", return_value=subprocess.CompletedProcess(
+                [], 1, stdout="",
+                stderr="error: Because torch>=2.1 conflicts with torch<2.0, no solution found.",
+            )):
+                result = r.resolve_and_install()
+
+        assert not result.success
+        assert result.collected is not None
+        assert result.lockfile is not None
+        assert result.lockfile.conflicts  # conflict lines present for attribution
+
+    def test_conflict_attribution_sources_filter(self, tmp_path):
+        """Packages named in conflict lines can be looked up from sources."""
+        import re as _re
+        p1 = _make_node_pack(str(tmp_path), "pack_a", "torch>=2.1\n")
+        p2 = _make_node_pack(str(tmp_path), "pack_b", "torch<2.0\n")
+        r = _resolver([p1, p2])
+
+        conflict_text = "error: torch>=2.1 conflicts with torch<2.0"
+
+        with mock.patch.object(r, "_get_uv_cmd", return_value=["uv"]):
+            with mock.patch("subprocess.run", return_value=subprocess.CompletedProcess(
+                [], 1, stdout="", stderr=conflict_text,
+            )):
+                result = r.resolve_and_install()
+
+        assert not result.success
+        assert result.collected is not None
+        sources = result.collected.sources
+        conflict_lower = "\n".join(result.lockfile.conflicts).lower().replace("-", "_")
+        # Simulate the attribution filter used in _run_unified_resolve() (word-boundary version)
+        def _matches(pkg):
+            normalized = pkg.lower().replace("-", "_")
+            return bool(_re.search(r'(?<![a-z0-9_])' + _re.escape(normalized) + r'(?![a-z0-9_])', conflict_lower))
+        attributed = {pkg: reqs for pkg, reqs in sources.items() if _matches(pkg)}
+        assert "torch" in attributed
+        specs = {spec for _, spec in attributed["torch"]}
+        assert specs == {"torch>=2.1", "torch<2.0"}
+
+    def test_conflict_attribution_no_false_positive_on_underscore_prefix(self, tmp_path):
+        """'torch' must NOT match 'torch_audio' in conflict text (underscore boundary)."""
+        import re as _re
+        p = _make_node_pack(str(tmp_path), "pack_a", "torch>=2.1\n")
+        r = _resolver([p])
+
+        conflict_text = "error: torch_audio>=2.1 conflicts with torch_audio<2.0"
+
+        with mock.patch.object(r, "_get_uv_cmd", return_value=["uv"]):
+            with mock.patch("subprocess.run", return_value=subprocess.CompletedProcess(
+                [], 1, stdout="", stderr=conflict_text,
+            )):
+                result = r.resolve_and_install()
+
+        assert not result.success
+        assert result.collected is not None
+        sources = result.collected.sources
+        conflict_lower = "\n".join(result.lockfile.conflicts).lower().replace("-", "_")
+        def _matches(pkg):
+            normalized = pkg.lower().replace("-", "_")
+            return bool(_re.search(r'(?<![a-z0-9_])' + _re.escape(normalized) + r'(?![a-z0-9_])', conflict_lower))
+        attributed = {pkg: reqs for pkg, reqs in sources.items() if _matches(pkg)}
+        # 'torch' should NOT match: conflict only mentions 'torch_audio'
+        assert "torch" not in attributed
+
+    def test_conflict_attribution_no_false_positive_on_prefix_match(self, tmp_path):
+        """'torch' must NOT match 'torchvision' in conflict text (word boundary)."""
+        import re as _re
+        p = _make_node_pack(str(tmp_path), "pack_a", "torch>=2.1\n")
+        r = _resolver([p])
+
+        conflict_text = "error: torchvision>=0.16 conflicts with torchvision<0.15"
+
+        with mock.patch.object(r, "_get_uv_cmd", return_value=["uv"]):
+            with mock.patch("subprocess.run", return_value=subprocess.CompletedProcess(
+                [], 1, stdout="", stderr=conflict_text,
+            )):
+                result = r.resolve_and_install()
+
+        assert not result.success
+        assert result.collected is not None
+        sources = result.collected.sources
+        conflict_lower = "\n".join(result.lockfile.conflicts).lower().replace("-", "_")
+        def _matches(pkg):
+            normalized = pkg.lower().replace("-", "_")
+            return bool(_re.search(r'(?<![a-z0-9_])' + _re.escape(normalized) + r'(?![a-z0-9_])', conflict_lower))
+        attributed = {pkg: reqs for pkg, reqs in sources.items() if _matches(pkg)}
+        # 'torch' should NOT appear: conflict only mentions 'torchvision'
+        assert "torch" not in attributed
+
+    def test_conflict_attribution_hyphen_underscore_normalization(self, tmp_path):
+        """Packages stored with hyphens match conflict text using underscores."""
+        import re as _re
+        p = _make_node_pack(str(tmp_path), "pack_a", "torch-audio>=2.1\n")
+        r = _resolver([p])
+
+        # uv may print 'torch_audio' (underscore) in conflict output
+        conflict_text = "error: torch_audio>=2.1 conflicts with torch_audio<2.0"
+
+        with mock.patch.object(r, "_get_uv_cmd", return_value=["uv"]):
+            with mock.patch("subprocess.run", return_value=subprocess.CompletedProcess(
+                [], 1, stdout="", stderr=conflict_text,
+            )):
+                result = r.resolve_and_install()
+
+        assert not result.success
+        assert result.collected is not None
+        sources = result.collected.sources
+        conflict_lower = "\n".join(result.lockfile.conflicts).lower().replace("-", "_")
+        def _matches(pkg):
+            normalized = pkg.lower().replace("-", "_")
+            return bool(_re.search(r'(?<![a-z0-9_])' + _re.escape(normalized) + r'(?![a-z0-9_])', conflict_lower))
+        attributed = {pkg: reqs for pkg, reqs in sources.items() if _matches(pkg)}
+        # _extract_package_name normalizes 'torch-audio' → 'torch_audio'; uv uses underscores too
+        assert "torch_audio" in attributed
 
     def test_full_success_pipeline(self, tmp_path):
         p = _make_node_pack(str(tmp_path), "pack_a", "numpy>=1.20\n")

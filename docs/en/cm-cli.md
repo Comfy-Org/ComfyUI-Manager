@@ -11,11 +11,15 @@ cm-cli [OPTIONS]
 
 OPTIONS:
     [install|reinstall|uninstall|update|disable|enable|fix] node_name ... ?[--channel <channel name>] ?[--mode [remote|local|cache]]
+    [install|reinstall|update|fix] node_name ... ?[--uv-compile]
     [update|disable|enable|fix] all ?[--channel <channel name>] ?[--mode [remote|local|cache]]
+    [update|fix] all ?[--uv-compile]
     [simple-show|show] [installed|enabled|not-installed|disabled|all|snapshot|snapshot-list] ?[--channel <channel name>] ?[--mode [remote|local|cache]]
     save-snapshot ?[--output <snapshot .json/.yaml>]
-    restore-snapshot <snapshot .json/.yaml> ?[--pip-non-url] ?[--pip-non-local-url] ?[--pip-local-url]
-    restore-dependencies
+    restore-snapshot <snapshot .json/.yaml> ?[--pip-non-url] ?[--pip-non-local-url] ?[--pip-local-url] ?[--uv-compile]
+    restore-dependencies ?[--uv-compile]
+    install-deps <deps.json> ?[--channel <channel name>] ?[--mode [remote|local|cache]] ?[--uv-compile]
+    uv-compile
     clear
 ```
 
@@ -107,6 +111,22 @@ ComfyUI-Loopchain
     * `enable`: Enables the specified custom nodes.
     * `fix`: Attempts to fix dependencies for the specified custom nodes.
 
+#### `--uv-compile` flag (`install`, `reinstall`, `update`, `fix`)
+
+When `--uv-compile` is specified, per-node pip installs are skipped during node operations.
+After all operations complete, `uv pip compile` resolves the full dependency graph in one batch.
+
+* Requires `uv` to be installed.
+* Prevents dependency conflicts between multiple node packs.
+* On resolution failure, displays conflicting packages and which node packs requested them.
+* `reinstall --uv-compile` is mutually exclusive with `--no-deps`.
+
+```bash
+cm-cli install ComfyUI-Impact-Pack ComfyUI-Inspire-Pack --uv-compile
+cm-cli update all --uv-compile
+cm-cli fix ComfyUI-Impact-Pack --uv-compile
+```
+
 
 ### 4. Snapshot Management
 * `cm-cli save-snapshot [--output <snapshot .json/.yaml>]`: Saves the current snapshot.
@@ -122,12 +142,33 @@ ComfyUI-Loopchain
 
 ### 5. Dependency Restoration
 
-`restore-dependencies`
+`restore-dependencies ?[--uv-compile]`
 
 * This command can be used if custom nodes are installed under the `ComfyUI/custom_nodes` path but their dependencies are not installed.
 * It is useful when starting a new cloud instance, like Colab, where dependencies need to be reinstalled and installation scripts re-executed.
 * It can also be utilized if ComfyUI is reinstalled and only the custom_nodes path has been backed up and restored.
+* Use `--uv-compile` to skip per-node pip installs and resolve all dependencies in one batch instead.
 
-### 6. Clear
+### 6. Install from Dependency File
+
+`install-deps <deps.json> ?[--channel <channel name>] ?[--mode [remote|local|cache]] ?[--uv-compile]`
+
+* Installs custom nodes specified in a dependency spec file (`.json`) or workflow file (`.png`/`.json`).
+* Use `--uv-compile` to batch-resolve all dependencies after installation instead of per-node pip.
+
+### 7. uv-compile
+
+`uv-compile ?[--user-directory <path>]`
+
+* Batch-resolves and installs all custom node pack dependencies using `uv pip compile`.
+* Useful for environment recovery or initial setup without starting ComfyUI.
+* Requires `uv` to be installed.
+
+```bash
+cm-cli uv-compile
+cm-cli uv-compile --user-directory /path/to/comfyui
+```
+
+### 8. Clear
 
 In the GUI, installations, updates, or snapshot restorations are scheduled to execute the next time ComfyUI is launched. The `clear` command clears this scheduled state, ensuring no pre-execution actions are applied.
