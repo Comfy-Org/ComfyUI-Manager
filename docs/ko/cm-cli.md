@@ -11,11 +11,15 @@ cm-cli [OPTIONS]
 
 OPTIONS:
     [install|reinstall|uninstall|update|disable|enable|fix] node_name ... ?[--channel <channel name>] ?[--mode [remote|local|cache]]
+    [install|reinstall|update|fix] node_name ... ?[--uv-compile]
     [update|disable|enable|fix] all ?[--channel <channel name>] ?[--mode [remote|local|cache]]
+    [update|fix] all ?[--uv-compile]
     [simple-show|show] [installed|enabled|not-installed|disabled|all|snapshot|snapshot-list] ?[--channel <channel name>] ?[--mode [remote|local|cache]]
     save-snapshot ?[--output <snapshot .json/.yaml>]
-    restore-snapshot <snapshot .json/.yaml> ?[--pip-non-url] ?[--pip-non-local-url] ?[--pip-local-url]
-    restore-dependencies
+    restore-snapshot <snapshot .json/.yaml> ?[--pip-non-url] ?[--pip-non-local-url] ?[--pip-local-url] ?[--uv-compile]
+    restore-dependencies ?[--uv-compile]
+    install-deps <deps.json> ?[--channel <channel name>] ?[--mode [remote|local|cache]] ?[--uv-compile]
+    uv-compile
     clear
 ```
 
@@ -108,6 +112,21 @@ ComfyUI-Loopchain
     * `enable`: 지정된 커스텀 노드들을 활성화합니다.
     * `fix`: 지정된 커스텀 노드의 의존성을 고치기 위한 시도를 합니다.
 
+#### `--uv-compile` 플래그 (`install`, `reinstall`, `update`, `fix`)
+
+`--uv-compile` 플래그를 사용하면 노드별 pip 설치를 건너뛰고, 모든 작업이 완료된 후 `uv pip compile`로 전체 의존성을 한 번에 일괄 해결합니다.
+
+* `uv`가 설치된 환경에서만 동작합니다.
+* 여러 노드 팩 간의 의존성 충돌을 방지합니다.
+* 해결 실패 시 충돌 패키지와 해당 패키지를 요청한 노드 팩 목록을 표시합니다.
+* `reinstall --uv-compile`은 `--no-deps`와 동시에 사용할 수 없습니다.
+
+```bash
+cm-cli install ComfyUI-Impact-Pack ComfyUI-Inspire-Pack --uv-compile
+cm-cli update all --uv-compile
+cm-cli fix ComfyUI-Impact-Pack --uv-compile
+```
+
 
 ### 4. 스냅샷 관리 기능
 * `cm-cli save-snapshot ?[--output <snapshot .json/.yaml>]`: 현재의 snapshot을 저장합니다.
@@ -123,13 +142,33 @@ ComfyUI-Loopchain
 
 ### 5. 의존성 설치
 
-`restore-dependencies`
+`restore-dependencies ?[--uv-compile]`
 
 * `ComfyUI/custom_nodes` 하위 경로에 커스텀 노드들이 설치되어 있긴 하지만, 의존성이 설치되지 않은 경우 사용할 수 있습니다.
 * Colab과 같이 cloud instance를 새로 시작하는 경우 의존성 재설치 및 설치 스크립트가 재실행되어야 하는 경우 사용합니다.
 * ComfyUI를 재설치할 경우, custom_nodes 경로만 백업했다가 재설치할 경우 활용 가능합니다.
+* `--uv-compile` 플래그를 사용하면 노드별 pip 설치를 건너뛰고 일괄 해결합니다.
 
+### 6. 의존성 파일로 설치
 
-### 6. clear
+`install-deps <deps.json> ?[--channel <channel name>] ?[--mode [remote|local|cache]] ?[--uv-compile]`
+
+* 의존성 spec 파일(`.json`) 또는 워크플로우 파일(`.png`/`.json`)에 명시된 커스텀 노드를 설치합니다.
+* `--uv-compile` 플래그를 사용하면 모든 노드 설치 후 일괄 의존성 해결을 수행합니다.
+
+### 7. uv-compile
+
+`uv-compile ?[--user-directory <path>]`
+
+* 설치된 모든 커스텀 노드 팩의 의존성을 `uv pip compile`로 일괄 해결하고 설치합니다.
+* ComfyUI를 재시작하지 않고 의존성 환경을 복구하거나 초기 설정 시 활용할 수 있습니다.
+* `uv`가 설치된 환경에서만 동작합니다.
+
+```bash
+cm-cli uv-compile
+cm-cli uv-compile --user-directory /path/to/comfyui
+```
+
+### 8. clear
 
 GUI에서 install, update를 하거나 snapshot을 restore하는 경우 예약을 통해서 다음번 ComfyUI를 실행할 경우 실행되는 구조입니다. `clear` 는 이런 예약 상태를 clear해서, 아무런 사전 실행이 적용되지 않도록 합니다.

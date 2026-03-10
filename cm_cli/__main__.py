@@ -656,6 +656,14 @@ def install(
                 help="Skip installing any Python dependencies",
             ),
         ] = False,
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After installing, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
         user_directory: str = typer.Option(
             None,
             help="user directory"
@@ -667,11 +675,34 @@ def install(
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
-    cmd_ctx.set_no_deps(no_deps)
+
+    if uv_compile and no_deps:
+        print("[bold red]--uv-compile and --no-deps are mutually exclusive.[/bold red]")
+        raise typer.Exit(1)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
+    else:
+        cmd_ctx.set_no_deps(no_deps)
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
     for_each_nodes(nodes, act=install_node, exit_on_fail=exit_on_fail)
-    pip_fixer.fix_broken()
+
+    if uv_compile:
+        try:
+            _run_unified_resolve()
+        except ImportError as e:
+            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+            raise typer.Exit(1)
+        except typer.Exit:
+            raise
+        except Exception as e:
+            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
+            raise typer.Exit(1)
+        finally:
+            pip_fixer.fix_broken()
+    else:
+        pip_fixer.fix_broken()
 
 
 @app.command(help="Reinstall custom nodes")
@@ -698,6 +729,14 @@ def reinstall(
                 help="Skip installing any Python dependencies",
             ),
         ] = False,
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After reinstalling, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
         user_directory: str = typer.Option(
             None,
             help="user directory"
@@ -705,11 +744,34 @@ def reinstall(
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
-    cmd_ctx.set_no_deps(no_deps)
+
+    if uv_compile and no_deps:
+        print("[bold red]--uv-compile and --no-deps are mutually exclusive.[/bold red]")
+        raise typer.Exit(1)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
+    else:
+        cmd_ctx.set_no_deps(no_deps)
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
     for_each_nodes(nodes, act=reinstall_node)
-    pip_fixer.fix_broken()
+
+    if uv_compile:
+        try:
+            _run_unified_resolve()
+        except ImportError as e:
+            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+            raise typer.Exit(1)
+        except typer.Exit:
+            raise
+        except Exception as e:
+            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
+            raise typer.Exit(1)
+        finally:
+            pip_fixer.fix_broken()
+    else:
+        pip_fixer.fix_broken()
 
 
 @app.command(help="Uninstall custom nodes")
@@ -754,9 +816,20 @@ def update(
             None,
             help="user directory"
         ),
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After updating, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
 
     if 'all' in nodes:
         asyncio.run(auto_save_snapshot())
@@ -769,7 +842,22 @@ def update(
             break
 
     update_parallel(nodes)
-    pip_fixer.fix_broken()
+
+    if uv_compile:
+        try:
+            _run_unified_resolve()
+        except ImportError as e:
+            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+            raise typer.Exit(1)
+        except typer.Exit:
+            raise
+        except Exception as e:
+            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
+            raise typer.Exit(1)
+        finally:
+            pip_fixer.fix_broken()
+    else:
+        pip_fixer.fix_broken()
 
 
 @app.command(help="Disable custom nodes")
@@ -855,16 +943,42 @@ def fix(
             None,
             help="user directory"
         ),
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After fixing, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
 
     if 'all' in nodes:
         asyncio.run(auto_save_snapshot())
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
     for_each_nodes(nodes, fix_node, allow_all=True)
-    pip_fixer.fix_broken()
+
+    if uv_compile:
+        try:
+            _run_unified_resolve()
+        except ImportError as e:
+            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+            raise typer.Exit(1)
+        except typer.Exit:
+            raise
+        except Exception as e:
+            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
+            raise typer.Exit(1)
+        finally:
+            pip_fixer.fix_broken()
+    else:
+        pip_fixer.fix_broken()
 
 
 @app.command("show-versions", help="Show all available versions of the node")
@@ -1061,7 +1175,7 @@ def save_snapshot(
 
 @app.command("restore-snapshot", help="Restore snapshot from snapshot file")
 def restore_snapshot(
-        snapshot_name: str, 
+        snapshot_name: str,
         pip_non_url: Optional[bool] = typer.Option(
             default=None,
             show_default=False,
@@ -1087,12 +1201,23 @@ def restore_snapshot(
         restore_to: Optional[str] = typer.Option(
             None,
             help="Manually specify the installation path for the custom node. Ignore user directory."
-        )
+        ),
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After restoring, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
 ):
     cmd_ctx.set_user_directory(user_directory)
 
     if restore_to:
         cmd_ctx.update_custom_nodes_dir(restore_to)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
 
     extras = []
     if pip_non_url:
@@ -1120,8 +1245,25 @@ def restore_snapshot(
     except Exception:
         print("[bold red]ERROR: Failed to restore snapshot.[/bold red]")
         traceback.print_exc()
+        if uv_compile:
+            pip_fixer.fix_broken()
         raise typer.Exit(code=1)
-    pip_fixer.fix_broken()
+
+    if uv_compile:
+        try:
+            _run_unified_resolve()
+        except ImportError as e:
+            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+            raise typer.Exit(1)
+        except typer.Exit:
+            raise
+        except Exception as e:
+            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
+            raise typer.Exit(1)
+        finally:
+            pip_fixer.fix_broken()
+    else:
+        pip_fixer.fix_broken()
 
 
 @app.command(
@@ -1131,9 +1273,20 @@ def restore_dependencies(
         user_directory: str = typer.Option(
             None,
             help="user directory"
-        )
+        ),
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After restoring, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
 ):
     cmd_ctx.set_user_directory(user_directory)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
 
     node_paths = []
 
@@ -1150,9 +1303,24 @@ def restore_dependencies(
     for x in node_paths:
         print("----------------------------------------------------------------------------------------------------")
         print(f"Restoring [{i}/{total}]: {x}")
-        unified_manager.execute_install_script('', x, instant_execution=True)
+        unified_manager.execute_install_script('', x, instant_execution=True, no_deps=bool(uv_compile))
         i += 1
-    pip_fixer.fix_broken()
+
+    if uv_compile:
+        try:
+            _run_unified_resolve()
+        except ImportError as e:
+            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+            raise typer.Exit(1)
+        except typer.Exit:
+            raise
+        except Exception as e:
+            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
+            raise typer.Exit(1)
+        finally:
+            pip_fixer.fix_broken()
+    else:
+        pip_fixer.fix_broken()
 
 
 @app.command(
@@ -1193,9 +1361,21 @@ def install_deps(
             None,
             help="user directory"
         ),
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After installing, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
+
     asyncio.run(auto_save_snapshot())
 
     if not os.path.exists(deps):
@@ -1215,12 +1395,112 @@ def install_deps(
                 if state == 'installed':
                     continue
                 elif state == 'not-installed':
-                    asyncio.run(core.gitclone_install(k, instant_execution=True))
+                    asyncio.run(core.gitclone_install(k, instant_execution=True, no_deps=bool(uv_compile)))
                 else:  # disabled
                     core.gitclone_set_active([k], False)
-            pip_fixer.fix_broken()
+
+            if uv_compile:
+                try:
+                    _run_unified_resolve()
+                except ImportError as e:
+                    print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+                    raise typer.Exit(1)
+                except typer.Exit:
+                    raise
+                except Exception as e:
+                    print(f"[bold red]Batch resolution failed: {e}[/bold red]")
+                    raise typer.Exit(1)
+                finally:
+                    pip_fixer.fix_broken()
+            else:
+                pip_fixer.fix_broken()
 
         print("Dependency installation and activation complete.")
+
+
+def _run_unified_resolve():
+    """Shared logic for unified batch dependency resolution."""
+    from comfyui_manager.common.unified_dep_resolver import (
+        UnifiedDepResolver,
+        UvNotAvailableError,
+        collect_base_requirements,
+        collect_node_pack_paths,
+    )
+
+    node_pack_paths = collect_node_pack_paths(cmd_ctx.get_custom_nodes_paths())
+    if not node_pack_paths:
+        print("[bold yellow]No custom node packs found.[/bold yellow]")
+        return
+
+    print(f"Resolving dependencies for {len(node_pack_paths)} node pack(s)...")
+
+    resolver = UnifiedDepResolver(
+        node_pack_paths=node_pack_paths,
+        base_requirements=collect_base_requirements(comfy_path),
+        blacklist=cm_global.pip_blacklist,
+        overrides=cm_global.pip_overrides,
+        downgrade_blacklist=cm_global.pip_downgrade_blacklist,
+    )
+    try:
+        result = resolver.resolve_and_install()
+    except UvNotAvailableError:
+        print("[bold red]uv is not available. Install uv to use this feature.[/bold red]")
+        raise typer.Exit(1)
+
+    if result.success:
+        collected = result.collected
+        if collected:
+            print(
+                f"[bold green]Resolved {len(collected.requirements)} deps "
+                f"from {len(collected.sources)} source(s) "
+                f"(skipped {len(collected.skipped)}).[/bold green]"
+            )
+        else:
+            print("[bold green]Resolution complete (no deps needed).[/bold green]")
+    else:
+        print(f"[bold red]Resolution failed: {result.error}[/bold red]")
+        # Show which node packs requested each conflicting package.
+        if result.lockfile and result.lockfile.conflicts and result.collected:
+            conflict_text = "\n".join(result.lockfile.conflicts).lower().replace("-", "_")
+            attributed = {
+                pkg: reqs
+                for pkg, reqs in result.collected.sources.items()
+                if re.search(r'(?<![a-z0-9_])' + re.escape(pkg.lower().replace("-", "_")) + r'(?![a-z0-9_])', conflict_text)
+            }
+            if attributed:
+                print("[bold yellow]Conflicting packages (by node pack):[/bold yellow]")
+                for pkg_name, requesters in sorted(attributed.items()):
+                    print(f"  [yellow]{pkg_name}[/yellow]:")
+                    for pack_path, pkg_spec in requesters:
+                        print(f"    {os.path.basename(pack_path)}  →  {pkg_spec}")
+        raise typer.Exit(1)
+
+
+@app.command(
+    "uv-compile",
+    help="Batch-resolve and install all custom node dependencies via uv pip compile.",
+)
+def unified_uv_compile(
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
+):
+    cmd_ctx.set_user_directory(user_directory)
+
+    pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
+    try:
+        _run_unified_resolve()
+    except ImportError as e:
+        print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+        raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print(f"[bold red]Unexpected error: {e}[/bold red]")
+        raise typer.Exit(1)
+    finally:
+        pip_fixer.fix_broken()
 
 
 @app.command(help="Clear reserved startup action in ComfyUI-Manager")
