@@ -466,15 +466,6 @@
             "title_aux": "ComfyUI-ManualSigma"
         }
     ],
-    "https://github.com/A4P7J1N7M05OT/ComfyUI-VAELoaderSDXLmod": [
-        [
-            "EmptyLatentImageVariable",
-            "ModifiedSDXLVAELoader"
-        ],
-        {
-            "title_aux": "ComfyUI-VAELoaderSDXLmod"
-        }
-    ],
     "https://github.com/A719689614/ComfyUI_AC_FUNV7-FLUX-": [
         [
             "AC_Super_CLIP(FLUX)",
@@ -666,6 +657,14 @@
         {
             "nodename_pattern": "\\(BillBum\\)$",
             "title_aux": "ComfyUI-Upscayl"
+        }
+    ],
+    "https://github.com/AiSatan/ComfyUI_CSM": [
+        [
+            "CSM_Transformers_Node"
+        ],
+        {
+            "title_aux": "ComfyUI_CSM [NAME CONFLICT]"
         }
     ],
     "https://github.com/AkiEvansDev/ComfyUI-Tools": [
@@ -1208,7 +1207,9 @@
             "ConsoleOutput",
             "FilePathSelectorFromDirectory",
             "FrameRateModulator",
+            "LoadTextLineFromFile",
             "MostRecentFileSelector",
+            "MultilineTextSplitter",
             "RaftOpticalFlowNode",
             "StringProcessor",
             "TwoImageConcatenator"
@@ -1261,6 +1262,7 @@
     ],
     "https://github.com/Chang-Jin-Lee/ComfyUI-PromptMixer-AI": [
         [
+            "AutoModelQuality",
             "FavoritePromptMixer",
             "FreeAIPrompt",
             "FreeAIPromptGenerate",
@@ -1441,6 +1443,14 @@
         {
             "title_aux": "ComfyUI_devtools [WIP]"
         }
+    ],
+    "https://github.com/ComfyUI-concat/images_to_api_gemini": [
+        [
+            "ConcatImagesToAPIGeminiMPOnly",
+            "ConcatTwoImagesRaw",
+            "GridCollageARCols"
+        ],
+        {}
     ],
     "https://github.com/ComfyUI/Accessories": [
         [
@@ -2319,6 +2329,8 @@
             "IGT_ImageResizer",
             "IGT_ImageTilesCalc",
             "IGT_IntMinMax",
+            "IGT_LoadImageBatch",
+            "IGT_LoadSingleImage",
             "IGT_SimpleTilesCalc",
             "IGT_TelegramSender"
         ],
@@ -2335,7 +2347,8 @@
             "MatchContrastImmacTools",
             "ResampleSigmasImmacTools",
             "SkipEveryNthImagesImmacTools",
-            "SpliceSigmasAtImmacTools"
+            "SpliceSigmasAtImmacTools",
+            "SwitchImmacTools"
         ],
         {
             "title_aux": "Immac's Tools"
@@ -4122,47 +4135,6 @@
             "title_aux": "ComfyUI-RBG-LoRA-Converter [UNSAFE]"
         }
     ],
-    "https://github.com/Randomwalkforest/Comfyui-Koi-Toolkit": [
-        [
-            "AliyunChat",
-            "AliyunConcurrentVLChat",
-            "AliyunVLChat",
-            "AnyToBoolean",
-            "CropImageByJson",
-            "DownloadImagesFromUrls",
-            "Florence2CoordinateExtractor",
-            "Florence2JsonShow",
-            "FreepikIconSearch",
-            "IdealabAPINode",
-            "ImageDesaturateEdgeBinarize",
-            "ImageSubtraction",
-            "ImageSubtractionAdvanced",
-            "ImageToSVG_Potracer",
-            "JsonExtractTextList",
-            "MaskBatchCombine",
-            "MaskExternalRectangle",
-            "MaskFilterByInclusion",
-            "MaskThresholdToWhite",
-            "PreviewSVG",
-            "QwenVLBboxVisualizer",
-            "QwenVLPointVisualizer",
-            "SVGToImage",
-            "SaveSVG",
-            "SimpleImageStitch",
-            "StringContainsKeyword",
-            "StringToBoolean",
-            "TextSplitLines",
-            "imageStitchForICImproved",
-            "imageStitchForICImproved_CropBack"
-        ],
-        {
-            "author": "chflame",
-            "description": "A set of nodes for ComfyUI that can composite layer and mask to achieve Photoshop like functionality.",
-            "nickname": "LayerStyle",
-            "title": "LayerStyle",
-            "title_aux": "Comfyui-Koi-Toolkit"
-        }
-    ],
     "https://github.com/Rayen21/ComfyUI-PromptLinePlus": [
         [
             "PromptLinePlus"
@@ -4218,6 +4190,7 @@
             "GeminiBanana \ud83c\udf4c",
             "Image Input Switch \ud83d\udc24",
             "Indices Generator \ud83d\udc24",
+            "Latent Input Switch \ud83d\udc24",
             "List Image Path \ud83d\udc24",
             "List Model Path \ud83d\udc24",
             "List Video Path \ud83d\udc24",
@@ -4268,6 +4241,7 @@
             "LatentPrependCache",
             "LatentShapeDebug",
             "PixelatedBorderNode",
+            "VideoLatentMask",
             "VideoSegmentPrepare",
             "VideoSegmentSave"
         ],
@@ -4693,14 +4667,6 @@
             "title_aux": "aesthetic-persona-comfyui-node"
         }
     ],
-    "https://github.com/Slix-M-Lestragg/comfyui-enhanced": [
-        [
-            "Range Iterator"
-        ],
-        {
-            "title_aux": "comfyui-enhanced [WIP]"
-        }
-    ],
     "https://github.com/Smyshnikof/ComfyUI-PresetDownloadManager": [
         [
             "PresetDownloadManager"
@@ -4852,6 +4818,7 @@
             "SDVN Float Slider",
             "SDVN GPT Image",
             "SDVN Gemini 3 Pro Image",
+            "SDVN Gemini 3.1 Flash Image",
             "SDVN Gemini Flash 2 Image",
             "SDVN Get Mask Size",
             "SDVN Google Imagen",
@@ -4902,6 +4869,7 @@
             "SDVN Model Merge",
             "SDVN Model info editor",
             "SDVN ModelPatch Download",
+            "SDVN Nano Banana",
             "SDVN Overlay Images",
             "SDVN Overlay Mask Color Image",
             "SDVN Pipe In",
@@ -7019,6 +6987,7 @@
             "ChromaRadianceOptions",
             "ColorToRGBInt",
             "ComboOptionTestNode",
+            "ComfyMathExpression",
             "ComfySoftSwitchNode",
             "ComfySwitchNode",
             "ConditioningAverage",
@@ -7479,6 +7448,7 @@
             "Tencent3DTextureEditNode",
             "TencentImageToModelNode",
             "TencentModelTo3DUVNode",
+            "TencentSmartTopologyNode",
             "TencentTextToModelNode",
             "TestAccumulateNode",
             "TestAccumulationGetItemNode",
@@ -7964,24 +7934,6 @@
             "title_aux": "Duck_Nodes [UNSAFE]"
         }
     ],
-    "https://github.com/easelhub/ComfyUI_EaselHub_Nodes": [
-        [
-            "EHN_BiRefNet",
-            "EHN_ColorMatch",
-            "EHN_Florence2Tagger",
-            "EHN_GroupManager",
-            "EHN_ImageAssembly",
-            "EHN_ImageComparer",
-            "EHN_ImageResize",
-            "EHN_ImageTileBatch",
-            "EHN_ModelBus",
-            "EHN_PromptProcess",
-            "EHN_Seed"
-        ],
-        {
-            "title_aux": "ComfyUI_EaselHub_Nodes"
-        }
-    ],
     "https://github.com/eddiehavila/comfyui-nachoman": [
         [
             "NACHOMAN_AudioCropTime",
@@ -8296,6 +8248,14 @@
         ],
         {
             "title_aux": "ComfyUI-Metadata-Hub"
+        }
+    ],
+    "https://github.com/ethanfel/ComfyUI-CFG-CTRL": [
+        [
+            "SMCCFGCtrl"
+        ],
+        {
+            "title_aux": "ComfyUI-CFG-CTRL [WIP]"
         }
     ],
     "https://github.com/ethanfel/ComfyUI-Mamad8-QwenEdit-fix": [
@@ -8894,6 +8854,14 @@
         ],
         {
             "title_aux": "Holaf Custom Nodes for ComfyUI"
+        }
+    ],
+    "https://github.com/grokuku/ComfyUI-Holaf-Utilities": [
+        [
+            "HolafRemoteComparer"
+        ],
+        {
+            "title_aux": "ComfyUI-Holaf-Terminal [UNSAFE]"
         }
     ],
     "https://github.com/gulajawalegit/ComfyUI-Telegram-Sender": [
@@ -11568,12 +11536,14 @@
             "A1111PromptSplitter",
             "BatchImageProcessor",
             "CivitaiBulkDownloader",
+            "EmbeddingPathResolver",
             "EmbeddingWildcardGenerator",
             "ExtractPromptFromImage",
             "FloatToString",
             "FloatToStringWithPrefix",
             "LoraWildcardGenerator",
-            "RepeatTextLines"
+            "RepeatTextLines",
+            "TextSplit3"
         ],
         {
             "title_aux": "comfyui-samenodes"
@@ -12220,8 +12190,11 @@
             "Show Any [Eclipse]",
             "Smart Folder [Eclipse]",
             "Smart Loader Basic [Eclipse]",
+            "Smart Loader Basic v2 [Eclipse]",
             "Smart Loader Plus [Eclipse]",
+            "Smart Loader Plus v2 [Eclipse]",
             "Smart Loader [Eclipse]",
+            "Smart Loader v2 [Eclipse]",
             "Smart Prompt [Eclipse]",
             "Stop [Eclipse]",
             "String Dual [Eclipse]",
@@ -12232,6 +12205,7 @@
             "TripleCLIPLoaderGGUF",
             "UnetLoaderGGUF",
             "UnetLoaderGGUFAdvanced",
+            "Universal Block Swap [Eclipse]",
             "VC-Filename Generator I [Eclipse]",
             "VC-Filename Generator II [Eclipse]",
             "VRAM Cleanup [Eclipse]",
@@ -13441,6 +13415,7 @@
             "Supaidauen_GenerateRandomImagePadding",
             "Supaidauen_ImagePadding",
             "Supaidauen_Image_Compositor",
+            "Supaidauen_ImpactEndAtStepModelControl",
             "Supaidauen_LoadImageFromPath_input",
             "Supaidauen_Normalized_Float_Slider",
             "Supaidauen_Passthrough_CLIP",
