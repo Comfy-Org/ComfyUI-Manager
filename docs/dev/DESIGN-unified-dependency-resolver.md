@@ -149,7 +149,8 @@ class CollectedDeps:
     """All collected dependencies"""
     requirements: list[PackageRequirement]  # Collected deps (duplicates allowed, uv resolves)
     skipped: list[tuple[str, str]]          # (package_name, skip_reason)
-    sources: dict[str, list[str]]           # {package_name: [source_node_packs]}
+    sources: dict[str, list[tuple[str, str]]]  # {package_name: [(pack_path, pkg_spec), ...]}
+    """pkg_name → [(pack_path, pkg_spec), ...] — tracks which node packs request each package."""
     extra_index_urls: list[str]             # Additional index URLs separated from --index-url entries
 
 @dataclass
@@ -262,7 +263,7 @@ def collect_requirements(self) -> CollectedDeps:
                 source=path,
             )
             requirements.append(req)
-            sources[pkg_name].append(path)
+            sources[pkg_name].append((path, pkg_spec))
 
     return CollectedDeps(
         requirements=requirements,
@@ -449,7 +450,7 @@ if os.path.exists(requirements_path) and not _unified_resolver_succeeded:
 
 ### 4.1.6 CLI Integration
 
-Two entry points expose the unified resolver in `cm_cli`:
+Multiple entry points expose the unified resolver in `cm_cli`:
 
 #### 4.1.6.1 Standalone Command: `cm_cli uv-compile`
 
@@ -478,19 +479,53 @@ When `--uv-compile` is set:
 This differs from per-node pip install: instead of resolving each node pack's
 `requirements.txt` independently, all deps are compiled together to avoid conflicts.
 
+#### 4.1.6.3 Additional `--uv-compile` Commands
+
+The following commands follow the same `no_deps` + batch-resolve pattern as `install --uv-compile`:
+`cmd_ctx.set_no_deps(True)` is set before node operations, then `_run_unified_resolve()`
+runs at the end via `try/finally` with `PIPFixer.fix_broken()`.
+
+| Command | Operation |
+|---------|-----------|
+| `cm_cli reinstall --uv-compile` | Reinstall nodes then batch-resolve |
+| `cm_cli update --uv-compile` | Update nodes then batch-resolve |
+| `cm_cli fix --uv-compile` | Fix node dependencies then batch-resolve |
+| `cm_cli restore-snapshot --uv-compile` | Restore snapshot then batch-resolve |
+| `cm_cli restore-dependencies --uv-compile` | Restore all node deps then batch-resolve |
+| `cm_cli install-deps <deps.json> --uv-compile` | Install from deps spec file then batch-resolve |
+
+> **`reinstall` only**: Has `--uv-compile` / `--no-deps` mutual exclusion check.
+> Both skip per-node pip, but `--no-deps` skips permanently while `--uv-compile` also
+> triggers batch resolution after all nodes are processed.
+>
+> **`restore-snapshot` only**: Has an additional pre-resolution exception guard — if the
+> snapshot restore itself fails (before `_run_unified_resolve()` is reached),
+> `PIPFixer.fix_broken()` runs in the exception handler before exit. The `try/finally`
+> applies to the `_run_unified_resolve()` call. See dec_7 for rationale.
+
 #### Shared Design Decisions
 
 - **Uses real `cm_global` values**: Unlike the startup path (4.1.3) which passes empty
   blacklist/overrides, CLI commands pass `cm_global.pip_blacklist`,
   `cm_global.pip_overrides`, and `cm_global.pip_downgrade_blacklist` — already
-  initialized at `cm_cli/__main__.py` module scope (lines 45-60).
+  initialized at `cm_cli/__main__.py` module scope.
 - **No `_unified_resolver_succeeded` flag**: Not needed — these are one-shot commands,
   not startup gates.
-- **Shared helper**: Both entry points delegate to `_run_unified_resolve()` which
+- **Shared helper**: All entry points delegate to `_run_unified_resolve()` which
   handles resolver instantiation, execution, and result reporting.
 - **Error handling**: `UvNotAvailableError` / `ImportError` → exit 1 with message.
-  Both entry points use `try/finally` to guarantee `PIPFixer.fix_broken()` runs
-  regardless of resolution outcome.
+  All entry points guarantee `PIPFixer.fix_broken()` runs regardless of outcome —
+  via `try/finally` around `_run_unified_resolve()`. `restore-snapshot` additionally
+  calls `fix_broken()` in the snapshot restore exception handler (before
+  `_run_unified_resolve()` is reached), per dec_7.
+- **Conflict attribution output**: When resolution fails and `result.lockfile.conflicts`
+  is non-empty, `_run_unified_resolve()` cross-references conflict package names with
+  `CollectedDeps.sources` to identify which node packs requested each conflicting package:
+  - Normalization: both sources keys and conflict text apply `.lower().replace("-", "_")`
+  - Word-boundary regex `(?<![a-z0-9_])pkg(?![a-z0-9_])` prevents false-positive prefix
+    matches (e.g., `torch` does NOT match `torch_audio` or `torchvision`)
+  - Output format: sorted by package name, each entry lists `pack_basename → pkg_spec`
+    per requester (using `CollectedDeps.sources` tuple values `(pack_path, pkg_spec)`)
 
 **Node pack discovery**: Uses `cmd_ctx.get_custom_nodes_paths()` → `collect_node_pack_paths()`,
 which is the CLI-native path resolution (respects `--user-directory` and `folder_paths`).

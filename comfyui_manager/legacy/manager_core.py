@@ -1411,8 +1411,18 @@ class UnifiedManager:
                 else:  # nightly
                     repo_url = the_node['repository']
             else:
-                result = ManagedResult('install')
-                return result.fail(f"Node '{node_id}@{version_spec}' not found in [{channel}, {mode}]")
+                # Fallback for nightly only: use repository URL from CNR map
+                # when node is registered in CNR but absent from nightly manifest
+                if version_spec == 'nightly':
+                    cnr_fallback = self.cnr_map.get(node_id)
+                    if cnr_fallback is not None and cnr_fallback.get('repository'):
+                        repo_url = cnr_fallback['repository']
+                    else:
+                        result = ManagedResult('install')
+                        return result.fail(f"Node '{node_id}@{version_spec}' not found in [{channel}, {mode}]")
+                else:
+                    result = ManagedResult('install')
+                    return result.fail(f"Node '{node_id}@{version_spec}' not found in [{channel}, {mode}]")
 
         if self.is_enabled(node_id, version_spec):
             return ManagedResult('skip').with_target(f"{node_id}@{version_spec}")

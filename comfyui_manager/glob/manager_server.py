@@ -995,7 +995,7 @@ async def task_worker():
             return OperationResult.failed.value
 
         node_name = params.node_name
-        is_unknown = params.is_unknown
+        is_unknown = getattr(params, 'is_unknown', False)  # guard: pydantic Union may match UpdatePackParams
 
         logging.debug(
             "[ComfyUI-Manager] Uninstalling node: name=%s, is_unknown=%s",
@@ -1019,15 +1019,16 @@ async def task_worker():
 
     async def do_disable(params: DisablePackParams) -> str:
         node_name = params.node_name
+        is_unknown = getattr(params, 'is_unknown', False)  # guard: pydantic Union may match UpdatePackParams
 
         logging.debug(
             "[ComfyUI-Manager] Disabling node: name=%s, is_unknown=%s",
             node_name,
-            params.is_unknown,
+            is_unknown,
         )
 
         try:
-            res = core.unified_manager.unified_disable(node_name, params.is_unknown)
+            res = core.unified_manager.unified_disable(node_name, is_unknown)
 
             if res:
                 return OperationResult.success.value

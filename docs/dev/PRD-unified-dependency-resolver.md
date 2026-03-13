@@ -329,7 +329,7 @@ User requests installation of node packs A and B nearly simultaneously from UI
 
 ## 7. Future Extensions
 
-- ~~**`cm_global` integration** [DONE]: `cm_cli uv-compile` and `cm_cli install --uv-compile` pass real `cm_global` values. Startup path (`prestartup_script.py`) still passes empty by design~~
+- ~~**`cm_global` integration** [DONE]: All `--uv-compile` CLI commands (`uv-compile`, `install`, `reinstall`, `update`, `fix`, `restore-snapshot`, `restore-dependencies`, `install-deps`) pass real `cm_global` values. Startup path (`prestartup_script.py`) still passes empty by design~~
 - Lockfile caching: Reuse for identical node pack configurations
 - Pre-install dependency conflict validation API: Check compatibility before installation
 - Dependency tree visualization: Display dependency relationships to users
@@ -355,3 +355,9 @@ User requests installation of node packs A and B nearly simultaneously from UI
 | Legacy `execute_install_script()` (2 locations) | `legacy/manager_core.py` | ❌ No | Legacy paths |
 | `cm_cli uv-compile` | `cm_cli/__main__.py` | ✅ Yes | Standalone CLI batch resolution (with `cm_global` values) |
 | `cm_cli install --uv-compile` | `cm_cli/__main__.py` | ✅ Yes | Per-node pip skipped, batch resolution after all installs |
+| `cm_cli reinstall --uv-compile` | `cm_cli/__main__.py` | ✅ Yes | Per-node pip skipped, batch resolution after all reinstalls; mutually exclusive with `--no-deps` |
+| `cm_cli update --uv-compile` | `cm_cli/__main__.py` | ✅ Yes | Per-node pip skipped during updates, batch resolution after |
+| `cm_cli fix --uv-compile` | `cm_cli/__main__.py` | ✅ Yes | Per-node pip skipped during dep fix, batch resolution after |
+| `cm_cli restore-snapshot --uv-compile` | `cm_cli/__main__.py` | ✅ Yes | Per-node pip skipped during restore, batch resolution after |
+| `cm_cli restore-dependencies --uv-compile` | `cm_cli/__main__.py` | ✅ Yes | Per-node pip skipped, batch resolution after all node deps restored |
+| `cm_cli install-deps --uv-compile` | `cm_cli/__main__.py` | ✅ Yes | Per-node pip skipped, batch resolution after deps-spec install |

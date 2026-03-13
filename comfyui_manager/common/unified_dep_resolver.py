@@ -56,7 +56,8 @@ class CollectedDeps:
     """Aggregated dependency collection result."""
     requirements: list[PackageRequirement] = field(default_factory=list)
     skipped: list[tuple[str, str]] = field(default_factory=list)
-    sources: dict[str, list[str]] = field(default_factory=dict)
+    sources: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
+    """pkg_name → [(pack_path, pkg_spec), ...] — tracks which node packs request each package."""
     extra_index_urls: list[str] = field(default_factory=list)
 
 
@@ -275,7 +276,7 @@ class UnifiedDepResolver:
         """Collect dependencies from all node packs."""
         requirements: list[PackageRequirement] = []
         skipped: list[tuple[str, str]] = []
-        sources: dict[str, list[str]] = defaultdict(list)
+        sources: defaultdict[str, list[tuple[str, str]]] = defaultdict(list)
         extra_index_urls: list[str] = []
 
         # Snapshot installed packages once to avoid repeated subprocess calls.
@@ -362,7 +363,7 @@ class UnifiedDepResolver:
                 requirements.append(
                     PackageRequirement(name=pkg_name, spec=pkg_spec, source=pack_path)
                 )
-                sources[pkg_name].append(pack_path)
+                sources[pkg_name].append((pack_path, pkg_spec))
 
                 # Commit staged index URLs only after all validation passed.
                 if pending_urls:
@@ -701,3 +702,23 @@ class UnifiedDepResolver:
                         )
                 except OSError:
                     pass
+
+
+def attribute_conflicts(
+    sources: dict[str, list[tuple[str, str]]],
+    conflicts: list[str],
+) -> dict[str, list[tuple[str, str]]]:
+    """Cross-reference conflict packages with their requesting node packs.
+
+    Uses word-boundary regex to prevent false-positive prefix matches
+    (e.g. ``torch`` does NOT match ``torchvision`` or ``torch_audio``).
+    """
+    conflict_text = "\n".join(conflicts).lower().replace("-", "_")
+    return {
+        pkg: reqs
+        for pkg, reqs in sources.items()
+        if re.search(
+            r'(?<![a-z0-9_])' + re.escape(pkg.lower().replace("-", "_")) + r'(?![a-z0-9_])',
+            conflict_text,
+        )
+    }
