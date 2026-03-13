@@ -1393,7 +1393,7 @@ def _run_unified_resolve():
 
 
 @app.command(
-    "uv-compile",
+    "uv-sync",
     help="Batch-resolve and install all custom node dependencies via uv pip compile.",
 )
 def unified_uv_compile(
