@@ -922,7 +922,7 @@ class TestResolveAndInstall:
 
     def test_conflict_attribution_sources_filter(self, tmp_path):
         """Packages named in conflict lines can be looked up from sources."""
-        import re as _re
+        from comfyui_manager.common.unified_dep_resolver import attribute_conflicts
         p1 = _make_node_pack(str(tmp_path), "pack_a", "torch>=2.1\n")
         p2 = _make_node_pack(str(tmp_path), "pack_b", "torch<2.0\n")
         r = _resolver([p1, p2])
@@ -937,20 +937,14 @@ class TestResolveAndInstall:
 
         assert not result.success
         assert result.collected is not None
-        sources = result.collected.sources
-        conflict_lower = "\n".join(result.lockfile.conflicts).lower().replace("-", "_")
-        # Simulate the attribution filter used in _run_unified_resolve() (word-boundary version)
-        def _matches(pkg):
-            normalized = pkg.lower().replace("-", "_")
-            return bool(_re.search(r'(?<![a-z0-9_])' + _re.escape(normalized) + r'(?![a-z0-9_])', conflict_lower))
-        attributed = {pkg: reqs for pkg, reqs in sources.items() if _matches(pkg)}
+        attributed = attribute_conflicts(result.collected.sources, result.lockfile.conflicts)
         assert "torch" in attributed
         specs = {spec for _, spec in attributed["torch"]}
         assert specs == {"torch>=2.1", "torch<2.0"}
 
     def test_conflict_attribution_no_false_positive_on_underscore_prefix(self, tmp_path):
         """'torch' must NOT match 'torch_audio' in conflict text (underscore boundary)."""
-        import re as _re
+        from comfyui_manager.common.unified_dep_resolver import attribute_conflicts
         p = _make_node_pack(str(tmp_path), "pack_a", "torch>=2.1\n")
         r = _resolver([p])
 
@@ -964,18 +958,13 @@ class TestResolveAndInstall:
 
         assert not result.success
         assert result.collected is not None
-        sources = result.collected.sources
-        conflict_lower = "\n".join(result.lockfile.conflicts).lower().replace("-", "_")
-        def _matches(pkg):
-            normalized = pkg.lower().replace("-", "_")
-            return bool(_re.search(r'(?<![a-z0-9_])' + _re.escape(normalized) + r'(?![a-z0-9_])', conflict_lower))
-        attributed = {pkg: reqs for pkg, reqs in sources.items() if _matches(pkg)}
+        attributed = attribute_conflicts(result.collected.sources, result.lockfile.conflicts)
         # 'torch' should NOT match: conflict only mentions 'torch_audio'
         assert "torch" not in attributed
 
     def test_conflict_attribution_no_false_positive_on_prefix_match(self, tmp_path):
         """'torch' must NOT match 'torchvision' in conflict text (word boundary)."""
-        import re as _re
+        from comfyui_manager.common.unified_dep_resolver import attribute_conflicts
         p = _make_node_pack(str(tmp_path), "pack_a", "torch>=2.1\n")
         r = _resolver([p])
 
@@ -989,18 +978,13 @@ class TestResolveAndInstall:
 
         assert not result.success
         assert result.collected is not None
-        sources = result.collected.sources
-        conflict_lower = "\n".join(result.lockfile.conflicts).lower().replace("-", "_")
-        def _matches(pkg):
-            normalized = pkg.lower().replace("-", "_")
-            return bool(_re.search(r'(?<![a-z0-9_])' + _re.escape(normalized) + r'(?![a-z0-9_])', conflict_lower))
-        attributed = {pkg: reqs for pkg, reqs in sources.items() if _matches(pkg)}
+        attributed = attribute_conflicts(result.collected.sources, result.lockfile.conflicts)
         # 'torch' should NOT appear: conflict only mentions 'torchvision'
         assert "torch" not in attributed
 
     def test_conflict_attribution_hyphen_underscore_normalization(self, tmp_path):
         """Packages stored with hyphens match conflict text using underscores."""
-        import re as _re
+        from comfyui_manager.common.unified_dep_resolver import attribute_conflicts
         p = _make_node_pack(str(tmp_path), "pack_a", "torch-audio>=2.1\n")
         r = _resolver([p])
 
@@ -1015,12 +999,7 @@ class TestResolveAndInstall:
 
         assert not result.success
         assert result.collected is not None
-        sources = result.collected.sources
-        conflict_lower = "\n".join(result.lockfile.conflicts).lower().replace("-", "_")
-        def _matches(pkg):
-            normalized = pkg.lower().replace("-", "_")
-            return bool(_re.search(r'(?<![a-z0-9_])' + _re.escape(normalized) + r'(?![a-z0-9_])', conflict_lower))
-        attributed = {pkg: reqs for pkg, reqs in sources.items() if _matches(pkg)}
+        attributed = attribute_conflicts(result.collected.sources, result.lockfile.conflicts)
         # _extract_package_name normalizes 'torch-audio' → 'torch_audio'; uv uses underscores too
         assert "torch_audio" in attributed
 

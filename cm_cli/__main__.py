@@ -688,21 +688,7 @@ def install(
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
     for_each_nodes(nodes, act=install_node, exit_on_fail=exit_on_fail)
 
-    if uv_compile:
-        try:
-            _run_unified_resolve()
-        except ImportError as e:
-            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
-            raise typer.Exit(1)
-        except typer.Exit:
-            raise
-        except Exception as e:
-            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
-            raise typer.Exit(1)
-        finally:
-            pip_fixer.fix_broken()
-    else:
-        pip_fixer.fix_broken()
+    _finalize_resolve(pip_fixer, uv_compile)
 
 
 @app.command(help="Reinstall custom nodes")
@@ -757,21 +743,7 @@ def reinstall(
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
     for_each_nodes(nodes, act=reinstall_node)
 
-    if uv_compile:
-        try:
-            _run_unified_resolve()
-        except ImportError as e:
-            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
-            raise typer.Exit(1)
-        except typer.Exit:
-            raise
-        except Exception as e:
-            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
-            raise typer.Exit(1)
-        finally:
-            pip_fixer.fix_broken()
-    else:
-        pip_fixer.fix_broken()
+    _finalize_resolve(pip_fixer, uv_compile)
 
 
 @app.command(help="Uninstall custom nodes")
@@ -843,21 +815,7 @@ def update(
 
     update_parallel(nodes)
 
-    if uv_compile:
-        try:
-            _run_unified_resolve()
-        except ImportError as e:
-            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
-            raise typer.Exit(1)
-        except typer.Exit:
-            raise
-        except Exception as e:
-            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
-            raise typer.Exit(1)
-        finally:
-            pip_fixer.fix_broken()
-    else:
-        pip_fixer.fix_broken()
+    _finalize_resolve(pip_fixer, uv_compile)
 
 
 @app.command(help="Disable custom nodes")
@@ -964,21 +922,7 @@ def fix(
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
     for_each_nodes(nodes, fix_node, allow_all=True)
 
-    if uv_compile:
-        try:
-            _run_unified_resolve()
-        except ImportError as e:
-            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
-            raise typer.Exit(1)
-        except typer.Exit:
-            raise
-        except Exception as e:
-            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
-            raise typer.Exit(1)
-        finally:
-            pip_fixer.fix_broken()
-    else:
-        pip_fixer.fix_broken()
+    _finalize_resolve(pip_fixer, uv_compile)
 
 
 @app.command("show-versions", help="Show all available versions of the node")
@@ -1249,21 +1193,7 @@ def restore_snapshot(
             pip_fixer.fix_broken()
         raise typer.Exit(code=1)
 
-    if uv_compile:
-        try:
-            _run_unified_resolve()
-        except ImportError as e:
-            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
-            raise typer.Exit(1)
-        except typer.Exit:
-            raise
-        except Exception as e:
-            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
-            raise typer.Exit(1)
-        finally:
-            pip_fixer.fix_broken()
-    else:
-        pip_fixer.fix_broken()
+    _finalize_resolve(pip_fixer, uv_compile)
 
 
 @app.command(
@@ -1306,21 +1236,7 @@ def restore_dependencies(
         unified_manager.execute_install_script('', x, instant_execution=True, no_deps=bool(uv_compile))
         i += 1
 
-    if uv_compile:
-        try:
-            _run_unified_resolve()
-        except ImportError as e:
-            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
-            raise typer.Exit(1)
-        except typer.Exit:
-            raise
-        except Exception as e:
-            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
-            raise typer.Exit(1)
-        finally:
-            pip_fixer.fix_broken()
-    else:
-        pip_fixer.fix_broken()
+    _finalize_resolve(pip_fixer, uv_compile)
 
 
 @app.command(
@@ -1399,23 +1315,28 @@ def install_deps(
                 else:  # disabled
                     core.gitclone_set_active([k], False)
 
-            if uv_compile:
-                try:
-                    _run_unified_resolve()
-                except ImportError as e:
-                    print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
-                    raise typer.Exit(1)
-                except typer.Exit:
-                    raise
-                except Exception as e:
-                    print(f"[bold red]Batch resolution failed: {e}[/bold red]")
-                    raise typer.Exit(1)
-                finally:
-                    pip_fixer.fix_broken()
-            else:
-                pip_fixer.fix_broken()
+            _finalize_resolve(pip_fixer, uv_compile)
 
         print("Dependency installation and activation complete.")
+
+
+def _finalize_resolve(pip_fixer, uv_compile) -> None:
+    """Run batch resolution if --uv-compile is set, then fix broken packages."""
+    if uv_compile:
+        try:
+            _run_unified_resolve()
+        except ImportError as e:
+            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+            raise typer.Exit(1)
+        except typer.Exit:
+            raise
+        except Exception as e:
+            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
+            raise typer.Exit(1)
+        finally:
+            pip_fixer.fix_broken()
+    else:
+        pip_fixer.fix_broken()
 
 
 def _run_unified_resolve():
@@ -1423,6 +1344,7 @@ def _run_unified_resolve():
     from comfyui_manager.common.unified_dep_resolver import (
         UnifiedDepResolver,
         UvNotAvailableError,
+        attribute_conflicts,
         collect_base_requirements,
         collect_node_pack_paths,
     )
@@ -1459,14 +1381,8 @@ def _run_unified_resolve():
             print("[bold green]Resolution complete (no deps needed).[/bold green]")
     else:
         print(f"[bold red]Resolution failed: {result.error}[/bold red]")
-        # Show which node packs requested each conflicting package.
         if result.lockfile and result.lockfile.conflicts and result.collected:
-            conflict_text = "\n".join(result.lockfile.conflicts).lower().replace("-", "_")
-            attributed = {
-                pkg: reqs
-                for pkg, reqs in result.collected.sources.items()
-                if re.search(r'(?<![a-z0-9_])' + re.escape(pkg.lower().replace("-", "_")) + r'(?![a-z0-9_])', conflict_text)
-            }
+            attributed = attribute_conflicts(result.collected.sources, result.lockfile.conflicts)
             if attributed:
                 print("[bold yellow]Conflicting packages (by node pack):[/bold yellow]")
                 for pkg_name, requesters in sorted(attributed.items()):

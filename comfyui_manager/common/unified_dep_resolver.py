@@ -702,3 +702,23 @@ class UnifiedDepResolver:
                         )
                 except OSError:
                     pass
+
+
+def attribute_conflicts(
+    sources: dict[str, list[tuple[str, str]]],
+    conflicts: list[str],
+) -> dict[str, list[tuple[str, str]]]:
+    """Cross-reference conflict packages with their requesting node packs.
+
+    Uses word-boundary regex to prevent false-positive prefix matches
+    (e.g. ``torch`` does NOT match ``torchvision`` or ``torch_audio``).
+    """
+    conflict_text = "\n".join(conflicts).lower().replace("-", "_")
+    return {
+        pkg: reqs
+        for pkg, reqs in sources.items()
+        if re.search(
+            r'(?<![a-z0-9_])' + re.escape(pkg.lower().replace("-", "_")) + r'(?![a-z0-9_])',
+            conflict_text,
+        )
+    }
