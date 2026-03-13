@@ -3,7 +3,7 @@ import { $el } from "../../scripts/ui.js";
 import {
 	manager_instance, rebootAPI,
 	fetchData, md5, icons, show_message, customAlert, infoToast, showTerminal,
-	storeColumnWidth, restoreColumnWidth, loadCss, handle403Response
+	storeColumnWidth, restoreColumnWidth, loadCss, formatSize, sizeToBytes
 } from  "./common.js";
 import { api } from "../../scripts/api.js";
 
@@ -359,7 +359,7 @@ export class ModelManager {
 			width: 100,
 			formatter: (size) => {
 				if (typeof size === "number") {
-					return this.formatSize(size);
+					return formatSize(size);
 				}
 				return size;
 			}
@@ -582,7 +582,7 @@ export class ModelManager {
 		models.forEach((item, i) => {
 			const { type, base, name, reference, installed } = item;
 			item.originalData = JSON.parse(JSON.stringify(item));
-			item.size = this.sizeToBytes(item.size);
+			item.size = sizeToBytes(item.size);
 			item.hash = md5(name + reference);
 			item.id = i + 1;
 
@@ -659,7 +659,6 @@ export class ModelManager {
 		const { models } = res.data;
 
 		this.modelList = this.getModelList(models);
-		// console.log("models", this.modelList);
 
 		this.updateFilter();
 		
@@ -670,56 +669,6 @@ export class ModelManager {
 	}
 
 	// ===========================================================================================
-
-	formatSize(v) {
-		const base = 1000;
-        const units = ['', 'K', 'M', 'G', 'T', 'P'];
-        const space = '';
-        const postfix = 'B';
-		if (v <= 0) {
-			return `0${space}${postfix}`;
-		}
-		for (let i = 0, l = units.length; i < l; i++) {
-			const min = Math.pow(base, i);
-			const max = Math.pow(base, i + 1);
-			if (v > min && v <= max) {
-				const unit = units[i];
-				if (unit) {
-					const n = v / min;
-					const nl = n.toString().split('.')[0].length;
-					const fl = Math.max(3 - nl, 1);
-					v = n.toFixed(fl);
-				}
-				v = v + space + unit + postfix;
-				break;
-			}
-		}
-		return v;
-	}
-
-	// for size sort
-	sizeToBytes(v) {
-		if (typeof v === "number") {
-			return v;
-		}
-		if (typeof v === "string") {
-			const n = parseFloat(v);
-			const unit = v.replace(/[0-9.B]+/g, "").trim().toUpperCase();
-			if (unit === "K") {
-				return n * 1000;
-			}
-			if (unit === "M") {
-				return n * 1000 * 1000;
-			}
-			if (unit === "G") {
-				return n * 1000 * 1000 * 1000;
-			}
-			if (unit === "T") {
-				return n * 1000 * 1000 * 1000 * 1000;
-			}
-		}
-		return v;
-	}
 
 	showSelection(msg) {
 		this.element.querySelector(".cmm-manager-selection").innerHTML = msg;
