@@ -1142,6 +1142,71 @@ class UnifiedManager:
 
         return result
 
+    def purge_node_state(self, node_id: str):
+        """
+        Remove a node's directory and clean ALL internal dictionaries regardless of categorization.
+        Used by reinstall to guarantee clean state before re-installation.
+        """
+        if 'comfyui-manager' in node_id.lower():
+            return
+
+        custom_nodes_dir = os.path.normcase(os.path.realpath(get_default_custom_nodes_path()))
+        paths_to_remove = set()
+
+        def _add_path(raw_path):
+            """Normalize and validate a path before adding to removal set."""
+            if not raw_path:
+                return
+            resolved = os.path.normcase(os.path.realpath(raw_path))
+            if resolved == custom_nodes_dir:
+                logging.warning(f"[ComfyUI-Manager] purge_node_state: refusing to delete custom_nodes root: {raw_path}")
+                return
+            try:
+                if os.path.commonpath([custom_nodes_dir, resolved]) != custom_nodes_dir:
+                    logging.warning(f"[ComfyUI-Manager] purge_node_state: path escapes custom_nodes scope, skipping: {raw_path}")
+                    return
+            except ValueError:
+                logging.warning(f"[ComfyUI-Manager] purge_node_state: cannot verify containment, skipping: {raw_path}")
+                return
+            paths_to_remove.add(resolved)
+
+        # Collect paths from all dictionaries
+        entry = self.unknown_active_nodes.get(node_id)
+        if entry is not None:
+            _add_path(entry[1])
+
+        entry = self.active_nodes.get(node_id)
+        if entry is not None:
+            _add_path(entry[1])
+
+        entry = self.unknown_inactive_nodes.get(node_id)
+        if entry is not None:
+            _add_path(entry[1])
+
+        fullpath = self.nightly_inactive_nodes.get(node_id)
+        if fullpath is not None:
+            _add_path(fullpath)
+
+        ver_map = self.cnr_inactive_nodes.get(node_id)
+        if ver_map is not None:
+            for key, fp in ver_map.items():
+                _add_path(fp)
+
+        # Convention-based fallback path
+        _add_path(os.path.join(get_default_custom_nodes_path(), node_id))
+
+        # Remove all validated paths, then always clean dictionaries
+        try:
+            for path in paths_to_remove:
+                if os.path.exists(path):
+                    try_rmtree(node_id, path)
+        finally:
+            self.unknown_active_nodes.pop(node_id, None)
+            self.active_nodes.pop(node_id, None)
+            self.unknown_inactive_nodes.pop(node_id, None)
+            self.nightly_inactive_nodes.pop(node_id, None)
+            self.cnr_inactive_nodes.pop(node_id, None)
+
     def unified_uninstall(self, node_id: str, is_unknown: bool):
         """
         Remove whole installed custom nodes including inactive nodes
