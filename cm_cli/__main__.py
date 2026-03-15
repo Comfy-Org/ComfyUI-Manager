@@ -183,18 +183,22 @@ class Ctx:
 cmd_ctx = Ctx()
 
 
+class NodeInstallError(Exception):
+    """Raised when a node installation fails and the caller requested failure propagation."""
+    pass
+
+
 def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
-    exit_on_fail = kwargs.get('exit_on_fail', False)
-    print(f"install_node exit on fail:{exit_on_fail}...")
-    
+    raise_on_fail = kwargs.get('raise_on_fail', False)
+
     if core.is_valid_url(node_spec_str):
         # install via urls
         res = asyncio.run(core.gitclone_install(node_spec_str, no_deps=cmd_ctx.no_deps))
         if not res.result:
             print(res.msg)
             print(f"[bold red]ERROR: An error occurred while installing '{node_spec_str}'.[/bold red]")
-            if exit_on_fail:
-                sys.exit(1)
+            if raise_on_fail:
+                raise NodeInstallError(node_spec_str)
         else:
             print(f"{cnt_msg} [INSTALLED] {node_spec_str:50}")
     else:
@@ -229,8 +233,8 @@ def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
             print("")
         else:
             print(f"[bold red]ERROR: An error occurred while installing '{node_name}'.\n{res.msg}[/bold red]")
-            if exit_on_fail:
-                sys.exit(1)
+            if raise_on_fail:
+                raise NodeInstallError(node_name)
 
 
 def reinstall_node(node_spec_str, is_all=False, cnt_msg=''):
@@ -238,8 +242,14 @@ def reinstall_node(node_spec_str, is_all=False, cnt_msg=''):
 
     node_name, version_spec, _ = node_spec
 
+    # Best-effort uninstall via normal path
     unified_manager.unified_uninstall(node_name, version_spec == 'unknown')
-    install_node(node_name, is_all=is_all, cnt_msg=cnt_msg)
+
+    # Fallback: purge all state and directories regardless of categorization
+    # Handles categorization mismatch between cm_cli invocations (e.g. unknown→nightly)
+    unified_manager.purge_node_state(node_name)
+
+    install_node(node_name, is_all=is_all, cnt_msg=cnt_msg, raise_on_fail=True)
 
 
 def fix_node(node_spec_str, is_all=False, cnt_msg=''):
@@ -613,14 +623,20 @@ def for_each_nodes(nodes, act, allow_all=True, **kwargs):
         nodes = [x for x in nodes if x.lower() not in ['comfy', 'comfyui', 'all']]
 
     total = len(nodes)
-    i = 1
-    for x in nodes:
+    failed = []
+    for i, x in enumerate(nodes, 1):
         try:
             act(x, is_all=is_all, cnt_msg=f'{i}/{total}', **kwargs)
+        except NodeInstallError:
+            failed.append(x)
         except Exception as e:
             print(f"ERROR: {e}")
             traceback.print_exc()
-        i += 1
+            failed.append(x)
+
+    if failed:
+        print(f"\n[bold red]Failed nodes ({len(failed)}/{total}): {', '.join(str(x) for x in failed)}[/bold red]")
+        sys.exit(1)
 
 
 app = typer.Typer()
@@ -1460,6 +1476,91 @@ def export_custom_node_ids(
 
                 if 'id' in x:
                     print(f"{x['id']}@unknown", file=output_file)
+
+
+@app.command("update-cache", help="Force-fetch all remote data and populate local cache (blocking)")
+def update_cache(
+        channel: Annotated[
+            str,
+            typer.Option(
+                show_default=False,
+                help="Specify the channel"
+            ),
+        ] = None,
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
+):
+    cmd_ctx.set_user_directory(user_directory)
+    if channel is not None:
+        cmd_ctx.channel = channel
+
+    asyncio.run(_force_update_cache(cmd_ctx.channel))
+
+
+async def _force_update_cache(channel):
+    """Fetch all remote data and save to cache, bypassing pip/offline guards."""
+    core.refresh_channel_dict()
+    config = core.get_config()
+    channel_url = config['channel_url']
+
+    os.makedirs(manager_util.cache_dir, exist_ok=True)
+
+    failed = []
+
+    # Step 1: Fetch channel JSON files directly (bypasses get_data_by_mode pip guard)
+    filenames = [
+        "custom-node-list.json",
+        "extension-node-map.json",
+        "model-list.json",
+        "alter-list.json",
+        "github-stats.json",
+    ]
+
+    async def fetch_and_cache(filename):
+        try:
+            if config.get('default_cache_as_channel_url'):
+                uri = f"{channel_url}/{filename}"
+            else:
+                uri = f"{core.DEFAULT_CHANNEL}/{filename}"
+
+            cache_uri = str(manager_util.simple_hash(uri)) + '_' + filename
+            cache_uri = os.path.join(manager_util.cache_dir, cache_uri)
+
+            json_obj = await manager_util.get_data(uri, silent=True)
+
+            with manager_util.cache_lock:
+                with open(cache_uri, "w", encoding='utf-8') as file:
+                    json.dump(json_obj, file, indent=4, sort_keys=True)
+
+            print(f"  [CACHED] {filename}")
+        except Exception as e:
+            print(f"  [bold red][FAILED] {filename}: {e}[/bold red]")
+            failed.append(filename)
+
+    print("Fetching channel data...")
+    await asyncio.gather(*[fetch_and_cache(f) for f in filenames])
+
+    # Step 2: Reload unified_manager with remote mode
+    # cache_mode='remote' makes cache_mode==False in get_cnr_data,
+    # which bypasses the dont_wait block and triggers blocking fetch_all()
+    print("Fetching CNR registry data...")
+    try:
+        await unified_manager.reload('remote', dont_wait=False)
+    except Exception as e:
+        print(f"  [bold red][FAILED] CNR registry: {e}[/bold red]")
+        failed.append("CNR registry")
+
+    # Step 3: Load nightly data (cache files now exist from Step 1)
+    print("Loading nightly data...")
+    await unified_manager.load_nightly(channel or 'default', 'cache')
+
+    if failed:
+        print(f"\n[bold red]Cache update incomplete. Failed: {', '.join(failed)}[/bold red]")
+        sys.exit(1)
+    else:
+        print("[bold green]Cache update complete.[/bold green]")
 
 
 def main():
