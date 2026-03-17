@@ -9,7 +9,6 @@ import yaml
 import requests
 from tqdm.auto import tqdm
 from git.remote import RemoteProgress
-from comfyui_manager.common.timestamp_utils import get_backup_branch_name
 
 
 comfy_path = os.environ.get('COMFYUI_PATH')
@@ -66,6 +65,36 @@ class GitProgress(RemoteProgress):
         self.pbar.n = cur_count
         self.pbar.pos = 0
         self.pbar.refresh()
+
+
+def get_backup_branch_name(repo=None):
+    """Get backup branch name with current timestamp.
+
+    Inlined from timestamp_utils to keep git_helper.py standalone — this script
+    runs as a subprocess on Windows and must not import from comfyui_manager.
+    """
+    import time as _time
+    import uuid as _uuid
+
+    base_name = f'backup_{_time.strftime("%Y%m%d_%H%M%S")}'
+
+    if repo is None:
+        return base_name
+
+    try:
+        existing_branches = {b.name for b in repo.heads}
+    except Exception:
+        return base_name
+
+    if base_name not in existing_branches:
+        return base_name
+
+    for i in range(1, 100):
+        new_name = f'{base_name}_{i}'
+        if new_name not in existing_branches:
+            return new_name
+
+    return f'{base_name}_{_uuid.uuid4().hex[:6]}'
 
 
 def gitclone(custom_nodes_path, url, target_hash=None, repo_path=None):
