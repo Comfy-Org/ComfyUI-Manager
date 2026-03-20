@@ -36244,6 +36244,16 @@
             "description": "ComfyUI integration for Meta's SAM3 model enabling open-vocabulary image segmentation using natural language text prompts, with automatic model download, geometric refinement, and flexible confidence thresholds."
         },
         {
+            "author": "oathstudio",
+            "title": "Local vLLM Prompt Node",
+            "reference": "https://github.com/OATH-Studio/comfy-vLLM",
+            "files": [
+                "https://raw.githubusercontent.com/OATH-Studio/comfy-vLLM/refs/heads/main/vllm_node.py"
+            ],
+            "install_type": "git-clone",
+            "description": "https://www.theoath.studio/projects/comfy-vllm-node Generates Stable Diffusion prompts using a locally running vLLM server. Supports {wild|card} expansion, a prefix field for quality tags, auto model detection via /v1/models, live preview on the node face, and configurable retry logic. No API keys or internet connection required. Wire the single output directly into CLIPTextEncode."
+        },
+        {
             "author": "pznodes",
             "title": "ComfyUI-SAM3DBody",
             "reference": "https://github.com/PozzettiAndrea/ComfyUI-SAM3DBody",
