@@ -3,7 +3,7 @@ import os
 import logging
 from . import manager_util
 import toml
-import git
+from .git_compat import open_repo
 
 
 # read env vars
@@ -98,8 +98,8 @@ def get_current_comfyui_ver():
 
 def get_comfyui_tag():
     try:
-        with git.Repo(comfy_path) as repo:
-            return repo.git.describe('--tags')
+        with open_repo(comfy_path) as repo:
+            return repo.describe_tags()
     except Exception:
         return None
 

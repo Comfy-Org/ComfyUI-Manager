@@ -85,7 +85,7 @@ def get_backup_branch_name(repo=None) -> str:
 
     # Check if branch exists
     try:
-        existing_branches = {b.name for b in repo.heads}
+        existing_branches = {b.name for b in repo.list_heads()}
     except Exception:
         return base_name
 
