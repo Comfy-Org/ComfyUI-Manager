@@ -50,9 +50,6 @@ working_directory = os.getcwd()
 
 if os.path.basename(working_directory) != 'custom_nodes':
     print("WARN: This script should be executed in custom_nodes dir")
-    print(f"DBG: INFO {working_directory}")
-    print(f"DBG: INFO {sys.argv}")
-    # exit(-1)
 
 
 class GitProgress(RemoteProgress):
@@ -557,7 +554,9 @@ try:
             restore_pip_snapshot(pips, options)
     sys.exit(0)
 except Exception as e:
-    print(e)
-    sys.exit(-1)
+    print(e, file=sys.stderr)
+    if hasattr(e, 'stderr') and e.stderr:
+        print(e.stderr, file=sys.stderr)
+    sys.exit(1)
 
 

@@ -1,0 +1,74 @@
+name: "E2E Tests on Multiple Platforms"
+on:
+  push:
+    branches: [main, feat/*, fix/*]
+    paths:
+      - "comfyui_manager/**"
+      - "cm_cli/**"
+      - "tests/e2e/**"
+      - ".github/workflows/e2e.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "comfyui_manager/**"
+      - "cm_cli/**"
+      - "tests/e2e/**"
+      - ".github/workflows/e2e.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: "E2E (${{ matrix.os }}, py${{ matrix.python-version }})"
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    env:
+      PYTHONIOENCODING: "utf8"
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10"]
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set E2E_ROOT
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            echo "E2E_ROOT=$RUNNER_TEMP\\e2e_env" >> "$GITHUB_ENV"
+          else
+            echo "E2E_ROOT=$RUNNER_TEMP/e2e_env" >> "$GITHUB_ENV"
+          fi
+
+      - name: Setup E2E environment
+        shell: bash
+        env:
+          MANAGER_ROOT: ${{ github.workspace }}
+        run: |
+          python tests/e2e/scripts/setup_e2e_env.py
+
+      - name: Run E2E tests
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            VENV_PY="$E2E_ROOT/venv/Scripts/python.exe"
+          else
+            VENV_PY="$E2E_ROOT/venv/bin/python"
+          fi
+          uv pip install --python "$VENV_PY" pytest pytest-timeout
+
+          "$VENV_PY" -m pytest tests/e2e/test_e2e_uv_compile.py -v -s --timeout=300
