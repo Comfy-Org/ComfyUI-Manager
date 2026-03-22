@@ -1854,11 +1854,34 @@ def reserve_script(repo_path, install_cmds):
 
 
 def try_rmtree(title, fullpath):
+    # Tier 1: retry with delay for transient Windows file locks
+    for attempt in range(3):
+        try:
+            shutil.rmtree(fullpath)
+            return
+        except OSError:
+            if attempt < 2:
+                time.sleep(1)
+
+    # Tier 2: rename into .disabled/.trash/ so scanner ignores it
+    trash_dir = os.path.join(os.path.dirname(fullpath), '.disabled', '.trash')
+    os.makedirs(trash_dir, exist_ok=True)
+    trash = os.path.join(trash_dir, os.path.basename(fullpath) + f'_{uuid.uuid4().hex[:8]}')
     try:
-        shutil.rmtree(fullpath)
-    except Exception as e:
-        logging.warning(f"[ComfyUI-Manager] An error occurred while deleting '{fullpath}', so it has been scheduled for deletion upon restart.\nEXCEPTION: {e}")
-        reserve_script(title, ["#LAZY-DELETE-NODEPACK", fullpath])
+        os.rename(fullpath, trash)
+        shutil.rmtree(trash, ignore_errors=True)
+        if not os.path.exists(trash):
+            return
+        # Rename succeeded but delete failed — schedule trash path for lazy delete
+        logging.warning(f"[ComfyUI-Manager] Renamed '{fullpath}' to '{trash}' but could not delete; scheduled for restart.")
+        reserve_script(title, ["#LAZY-DELETE-NODEPACK", trash])
+        return
+    except OSError:
+        pass
+
+    # Tier 3: lazy delete on restart (ComfyUI GUI fallback)
+    logging.warning(f"[ComfyUI-Manager] An error occurred while deleting '{fullpath}', so it has been scheduled for deletion upon restart.")
+    reserve_script(title, ["#LAZY-DELETE-NODEPACK", fullpath])
 
 
 def try_install_script(url, repo_path, install_cmd, instant_execution=False):
