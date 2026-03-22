@@ -238,18 +238,29 @@ def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
 
 
 def reinstall_node(node_spec_str, is_all=False, cnt_msg=''):
-    node_spec = unified_manager.resolve_node_spec(node_spec_str)
+    if core.is_valid_url(node_spec_str):
+        # URL-based: resolve_node_spec returns the full URL as node_name,
+        # but internal dicts are keyed by repo basename or cnr_id.
+        url = node_spec_str.rstrip('/')
+        cnr = unified_manager.get_cnr_by_repo(url)
+        if cnr:
+            node_id = cnr['id']
+            unified_manager.unified_uninstall(node_id, False)
+            unified_manager.purge_node_state(node_id)
+        else:
+            repo_name = os.path.splitext(os.path.basename(url))[0]
+            unified_manager.unified_uninstall(repo_name, True)
+            unified_manager.purge_node_state(repo_name)
 
-    node_name, version_spec, _ = node_spec
+        install_node(node_spec_str, is_all=is_all, cnt_msg=cnt_msg, raise_on_fail=True)
+    else:
+        node_spec = unified_manager.resolve_node_spec(node_spec_str)
+        node_name, version_spec, _ = node_spec
 
-    # Best-effort uninstall via normal path
-    unified_manager.unified_uninstall(node_name, version_spec == 'unknown')
+        unified_manager.unified_uninstall(node_name, version_spec == 'unknown')
+        unified_manager.purge_node_state(node_name)
 
-    # Fallback: purge all state and directories regardless of categorization
-    # Handles categorization mismatch between cm_cli invocations (e.g. unknown→nightly)
-    unified_manager.purge_node_state(node_name)
-
-    install_node(node_name, is_all=is_all, cnt_msg=cnt_msg, raise_on_fail=True)
+        install_node(node_name, is_all=is_all, cnt_msg=cnt_msg, raise_on_fail=True)
 
 
 def fix_node(node_spec_str, is_all=False, cnt_msg=''):

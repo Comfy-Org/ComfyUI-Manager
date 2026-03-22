@@ -100,8 +100,24 @@ def gitclone(custom_nodes_path, url, target_hash=None, repo_path=None):
     if repo_path is None:
         repo_path = os.path.join(custom_nodes_path, repo_name)
 
-    # Clone the repository from the remote URL
-    repo = git.Repo.clone_from(url, repo_path, recursive=True, progress=GitProgress())
+    # On Windows, previous failed clones may leave directories with locked
+    # .git/objects/pack/* files (GitPython memory-mapped handle leak).
+    # Rename stale directory out of the way so clone can proceed.
+    if os.path.exists(repo_path):
+        import shutil
+        import uuid as _uuid
+        trash_dir = os.path.join(custom_nodes_path, '.disabled', '.trash')
+        os.makedirs(trash_dir, exist_ok=True)
+        trash = os.path.join(trash_dir, repo_name + f'_{_uuid.uuid4().hex[:8]}')
+        try:
+            os.rename(repo_path, trash)
+            shutil.rmtree(trash, ignore_errors=True)
+        except OSError:
+            shutil.rmtree(repo_path, ignore_errors=True)
+
+    # Disable tqdm progress when stderr is piped to avoid deadlock on Windows.
+    progress = GitProgress() if sys.stderr.isatty() else None
+    repo = git.Repo.clone_from(url, repo_path, recursive=True, progress=progress)
 
     if target_hash is not None:
         print(f"CHECKOUT: {repo_name} [{target_hash}]")
