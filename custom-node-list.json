@@ -36244,7 +36244,7 @@
             "description": "ComfyUI integration for Meta's SAM3 model enabling open-vocabulary image segmentation using natural language text prompts, with automatic model download, geometric refinement, and flexible confidence thresholds."
         },
         {
-            "author": "oathstudio",
+            "author": "oath-studio",
             "title": "comfy-vllm",
             "reference": "https://github.com/OATH-Studio/comfy-vLLM",
             "files": [
@@ -36252,6 +36252,16 @@
             ],
             "install_type": "git-clone",
             "description": "https://www.theoath.studio/projects/comfy-vllm-node Generates Stable Diffusion prompts using a locally running vLLM server. Supports {wild|card} expansion, a prefix field for quality tags, auto model detection via /v1/models, live preview on the node face, and configurable retry logic. No API keys or internet connection required. Wire the single output directly into CLIPTextEncode."
+        },
+        {
+            "author": "oath-studio",
+            "title": "comfy-lora-iterator",
+            "reference": "https://github.com/OATH-Studio/comfy-LoRA-iterator",
+            "files": [
+                "https://raw.githubusercontent.com/OATH-Studio/comfy-LoRA-iterator/refs/heads/main/lora_iterator.py"
+            ],
+            "install_type": "git-clone",
+            "description": "https://www.theoath.studio/projects/comfy-lora-iterator A ComfyUI node that automatically steps through every LoRA in a directory on each generation run. Increment, decrement, randomize, or hold fixed. No rewiring. No manual switching. Queue and walk away."
         },
         {
             "author": "pznodes",
