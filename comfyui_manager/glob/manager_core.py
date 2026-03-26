@@ -13,9 +13,12 @@ import shutil
 import configparser
 import platform
 
-import git
+from ..common.git_compat import open_repo, clone_repo, GitCommandError
+try:
+    from git.remote import RemoteProgress
+except ImportError:
+    RemoteProgress = object
 from comfyui_manager.common.timestamp_utils import get_timestamp_for_path, get_backup_branch_name
-from git.remote import RemoteProgress
 from urllib.parse import urlparse
 from tqdm.auto import tqdm
 import time
@@ -41,7 +44,7 @@ from ..common.enums import NetworkMode, SecurityLevel, DBMode
 from ..common import context
 
 
-version_code = [4, 1]
+version_code = [4, 2]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
@@ -92,6 +95,9 @@ def get_script_env():
 
     if 'COMFYUI_FOLDERS_BASE_PATH' not in new_env:
         new_env['COMFYUI_FOLDERS_BASE_PATH'] = context.comfy_path
+
+    if 'CM_USE_PYGIT2' in os.environ:
+        new_env['CM_USE_PYGIT2'] = os.environ['CM_USE_PYGIT2']
 
     return new_env
 
@@ -1344,8 +1350,8 @@ class UnifiedManager:
                 if res != 0:
                     return result.fail(f"Failed to clone repo: {clone_url}")
             else:
-                repo = git.Repo.clone_from(clone_url, repo_path, recursive=True, progress=GitProgress())
-                repo.git.clear_cache()
+                repo = clone_repo(clone_url, repo_path, progress=GitProgress())
+                repo.clear_cache()
                 repo.close()
 
             def postinstall():
@@ -1371,24 +1377,23 @@ class UnifiedManager:
             return result.fail(f'Path not found: {repo_path}')
 
         # version check
-        with git.Repo(repo_path) as repo:
-            if repo.head.is_detached:
+        with open_repo(repo_path) as repo:
+            if repo.head_is_detached:
                 if not switch_to_default_branch(repo):
                     return result.fail(f"Failed to switch to default branch: {repo_path}")
 
-            current_branch = repo.active_branch
-            branch_name = current_branch.name
+            branch_name = repo.active_branch_name
 
-            if current_branch.tracking_branch() is None:
-                print(f"[ComfyUI-Manager] There is no tracking branch ({current_branch})")
+            try:
+                remote_name = repo.get_tracking_remote_name()
+            except Exception:
+                print(f"[ComfyUI-Manager] There is no tracking branch ({branch_name})")
                 remote_name = get_remote_name(repo)
-            else:
-                remote_name = current_branch.tracking_branch().remote_name
 
             if remote_name is None:
                 return result.fail(f"Failed to get remote when installing: {repo_path}")
 
-            remote = repo.remote(name=remote_name)
+            remote = repo.get_remote(remote_name)
 
             try:
                 remote.fetch()
@@ -1405,17 +1410,17 @@ class UnifiedManager:
                               f'git config --global --add safe.directory "{safedir_path}"\n'
                               "-----------------------------------------------------------------------------------------\n")
 
-            commit_hash = repo.head.commit.hexsha
-            if f'{remote_name}/{branch_name}' in repo.refs:
-                remote_commit_hash = repo.refs[f'{remote_name}/{branch_name}'].object.hexsha
+            commit_hash = repo.head_commit_hexsha
+            if repo.has_ref(f'{remote_name}/{branch_name}'):
+                remote_commit_hash = repo.get_ref_commit_hexsha(f'{remote_name}/{branch_name}')
             else:
                 return result.fail(f"Not updatable branch: {branch_name}")
 
             if commit_hash != remote_commit_hash:
                 git_pull(repo_path)
 
-                if len(repo.remotes) > 0:
-                    url = repo.remotes[0].url
+                if len(repo.list_remotes()) > 0:
+                    url = repo.get_remote_url(0)
                 else:
                     url = "unknown repo"
 
@@ -1788,7 +1793,7 @@ def get_config():
 
 
 def get_remote_name(repo):
-    available_remotes = [remote.name for remote in repo.remotes]
+    available_remotes = [remote.name for remote in repo.list_remotes()]
     if 'origin' in available_remotes:
         return 'origin'
     elif 'upstream' in available_remotes:
@@ -1813,28 +1818,28 @@ def switch_to_default_branch(repo):
         if remote_name is None:
             return False
 
-        default_branch = repo.git.symbolic_ref(f'refs/remotes/{remote_name}/HEAD').replace(f'refs/remotes/{remote_name}/', '')
-        repo.git.checkout(default_branch)
+        default_branch = repo.symbolic_ref(f'refs/remotes/{remote_name}/HEAD').replace(f'refs/remotes/{remote_name}/', '')
+        repo.checkout(default_branch)
         return True
     except Exception:
         # try checkout master
         # try checkout main if failed
         try:
-            repo.git.checkout(repo.heads.master)
+            repo.checkout(repo.get_head_by_name('master'))
             return True
         except Exception:
             try:
                 if remote_name is not None:
-                    repo.git.checkout('-b', 'master', f'{remote_name}/master')
+                    repo.checkout_new_branch('master', f'{remote_name}/master')
                     return True
             except Exception:
                 try:
-                    repo.git.checkout(repo.heads.main)
+                    repo.checkout(repo.get_head_by_name('main'))
                     return True
                 except Exception:
                     try:
                         if remote_name is not None:
-                            repo.git.checkout('-b', 'main', f'{remote_name}/main')
+                            repo.checkout_new_branch('main', f'{remote_name}/main')
                             return True
                     except Exception:
                         pass
@@ -2072,104 +2077,95 @@ def git_repo_update_check_with(path, do_fetch=False, do_update=False, no_deps=Fa
         return updated, success
     else:
         # Fetch the latest commits from the remote repository
-        repo = git.Repo(path)
+        with open_repo(path) as repo:
+            remote_name = get_remote_name(repo)
 
-        remote_name = get_remote_name(repo)
+            if remote_name is None:
+                raise ValueError(f"No remotes are configured for this repository: {path}")
 
-        if remote_name is None:
-            raise ValueError(f"No remotes are configured for this repository: {path}")
+            remote = repo.get_remote(remote_name)
 
-        remote = repo.remote(name=remote_name)
+            if not do_update and repo.head_is_detached:
+                if do_fetch:
+                    remote.fetch()
 
-        if not do_update and repo.head.is_detached:
-            if do_fetch:
+                return True, True  # detached branch is treated as updatable
+
+            if repo.head_is_detached:
+                if not switch_to_default_branch(repo):
+                    raise ValueError(f"Failed to switch detached branch to default branch: {path}")
+
+            branch_name = repo.active_branch_name
+
+            # Get the current commit hash
+            commit_hash = repo.head_commit_hexsha
+
+            if do_fetch or do_update:
                 remote.fetch()
 
-            return True, True  # detached branch is treated as updatable
+            if do_update:
+                if repo.is_dirty():
+                    print(f"\nSTASH: '{path}' is dirty.")
+                    repo.stash()
 
-        if repo.head.is_detached:
-            if not switch_to_default_branch(repo):
-                raise ValueError(f"Failed to switch detached branch to default branch: {path}")
+                if not repo.has_ref(f'{remote_name}/{branch_name}'):
+                    if not switch_to_default_branch(repo):
+                        raise ValueError(f"Failed to switch to default branch while updating: {path}")
 
-        current_branch = repo.active_branch
-        branch_name = current_branch.name
+                    branch_name = repo.active_branch_name
 
-        # Get the current commit hash
-        commit_hash = repo.head.commit.hexsha
-
-        if do_fetch or do_update:
-            remote.fetch()
-
-        if do_update:
-            if repo.is_dirty():
-                print(f"\nSTASH: '{path}' is dirty.")
-                repo.git.stash()
-
-            if f'{remote_name}/{branch_name}' not in repo.refs:
-                if not switch_to_default_branch(repo):
-                    raise ValueError(f"Failed to switch to default branch while updating: {path}")
-
-                current_branch = repo.active_branch
-                branch_name = current_branch.name
-
-            if f'{remote_name}/{branch_name}' in repo.refs:
-                remote_commit_hash = repo.refs[f'{remote_name}/{branch_name}'].object.hexsha
-            else:
-                return False, False
-
-            if commit_hash == remote_commit_hash:
-                repo.close()
-                return False, True
-
-            try:
-                try:
-                    repo.git.pull('--ff-only')
-                except git.GitCommandError:
-                    backup_name = get_backup_branch_name(repo)
-                    repo.create_head(backup_name)
-                    logging.info(f"[ComfyUI-Manager] Cannot fast-forward. Backup created: {backup_name}")
-                    repo.git.reset('--hard', f'{remote_name}/{branch_name}')
-                    logging.info(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
-
-                repo.git.submodule('update', '--init', '--recursive')
-                new_commit_hash = repo.head.commit.hexsha
-
-                if commit_hash != new_commit_hash:
-                    execute_install_script(None, path, no_deps=no_deps)
-                    print(f"\x1b[2K\rUpdated: {path}")
-                    return True, True
+                if repo.has_ref(f'{remote_name}/{branch_name}'):
+                    remote_commit_hash = repo.get_ref_commit_hexsha(f'{remote_name}/{branch_name}')
                 else:
                     return False, False
 
-            except Exception as e:
-                print(f"\nUpdating failed: {path}\n{e}", file=sys.stderr)
-                return False, False
+                if commit_hash == remote_commit_hash:
+                    return False, True
 
-        if repo.head.is_detached:
-            repo.close()
-            return True, True
+                try:
+                    try:
+                        repo.pull_ff_only()
+                    except GitCommandError:
+                        backup_name = get_backup_branch_name(repo)
+                        repo.create_backup_branch(backup_name)
+                        logging.info(f"[ComfyUI-Manager] Cannot fast-forward. Backup created: {backup_name}")
+                        repo.reset_hard(f'{remote_name}/{branch_name}')
+                        logging.info(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
 
-        # Get commit hash of the remote branch
-        current_branch = repo.active_branch
-        branch_name = current_branch.name
+                    repo.submodule_update()
+                    new_commit_hash = repo.head_commit_hexsha
 
-        if f'{remote_name}/{branch_name}' in repo.refs:
-            remote_commit_hash = repo.refs[f'{remote_name}/{branch_name}'].object.hexsha
-        else:
-            return True, True  # Assuming there's an update if it's not the default branch.
+                    if commit_hash != new_commit_hash:
+                        execute_install_script(None, path, no_deps=no_deps)
+                        print(f"\x1b[2K\rUpdated: {path}")
+                        return True, True
+                    else:
+                        return False, False
 
-        # Compare the commit hashes to determine if the local repository is behind the remote repository
-        if commit_hash != remote_commit_hash:
-            # Get the commit dates
-            commit_date = repo.head.commit.committed_datetime
-            remote_commit_date = repo.refs[f'{remote_name}/{branch_name}'].object.committed_datetime
+                except Exception as e:
+                    print(f"\nUpdating failed: {path}\n{e}", file=sys.stderr)
+                    return False, False
 
-            # Compare the commit dates to determine if the local repository is behind the remote repository
-            if commit_date < remote_commit_date:
-                repo.close()
+            if repo.head_is_detached:
                 return True, True
 
-        repo.close()
+            # Get commit hash of the remote branch
+            branch_name = repo.active_branch_name
+
+            if repo.has_ref(f'{remote_name}/{branch_name}'):
+                remote_commit_hash = repo.get_ref_commit_hexsha(f'{remote_name}/{branch_name}')
+            else:
+                return True, True  # Assuming there's an update if it's not the default branch.
+
+            # Compare the commit hashes to determine if the local repository is behind the remote repository
+            if commit_hash != remote_commit_hash:
+                # Get the commit dates
+                commit_date = repo.head_commit_datetime
+                remote_commit_date = repo.get_ref_commit_datetime(f'{remote_name}/{branch_name}')
+
+                # Compare the commit dates to determine if the local repository is behind the remote repository
+                if commit_date < remote_commit_date:
+                    return True, True
 
     return False, True
 
@@ -2259,12 +2255,12 @@ async def gitclone_install(url, instant_execution=False, msg_prefix='', no_deps=
                 if res != 0:
                     return result.fail(f"Failed to clone '{clone_url}' into  '{repo_path}'")
             else:
-                repo = git.Repo.clone_from(clone_url, repo_path, recursive=True, progress=GitProgress())
+                repo = clone_repo(clone_url, repo_path, progress=GitProgress())
                 if commit_id!= "":
-                    repo.git.checkout(commit_id)
-                    repo.git.submodule('update', '--init', '--recursive')
+                    repo.checkout(commit_id)
+                    repo.submodule_update()
 
-                repo.git.clear_cache()
+                repo.clear_cache()
                 repo.close()
 
             execute_install_script(url, repo_path, instant_execution=instant_execution, no_deps=no_deps)
@@ -2286,32 +2282,28 @@ def git_pull(path):
     if platform.system() == "Windows":
         return __win_check_git_pull(path)
     else:
-        repo = git.Repo(path)
+        with open_repo(path) as repo:
+            if repo.is_dirty():
+                print(f"STASH: '{path}' is dirty.")
+                repo.stash()
 
-        if repo.is_dirty():
-            print(f"STASH: '{path}' is dirty.")
-            repo.git.stash()
+            if repo.head_is_detached:
+                if not switch_to_default_branch(repo):
+                    raise ValueError(f"Failed to switch to default branch while pulling: {path}")
 
-        if repo.head.is_detached:
-            if not switch_to_default_branch(repo):
-                raise ValueError(f"Failed to switch to default branch while pulling: {path}")
+            branch_name = repo.active_branch_name
+            remote_name = repo.get_tracking_remote_name()
 
-        current_branch = repo.active_branch
-        remote_name = current_branch.tracking_branch().remote_name
-        branch_name = current_branch.name
+            try:
+                repo.pull_ff_only()
+            except GitCommandError:
+                backup_name = get_backup_branch_name(repo)
+                repo.create_backup_branch(backup_name)
+                logging.info(f"[ComfyUI-Manager] Cannot fast-forward. Backup created: {backup_name}")
+                repo.reset_hard(f'{remote_name}/{branch_name}')
+                logging.info(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
 
-        try:
-            repo.git.pull('--ff-only')
-        except git.GitCommandError:
-            backup_name = get_backup_branch_name(repo)
-            repo.create_head(backup_name)
-            logging.info(f"[ComfyUI-Manager] Cannot fast-forward. Backup created: {backup_name}")
-            repo.git.reset('--hard', f'{remote_name}/{branch_name}')
-            logging.info(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
-
-        repo.git.submodule('update', '--init', '--recursive')
-
-        repo.close()
+            repo.submodule_update()
 
     return True
 
@@ -2567,33 +2559,33 @@ def gitclone_update(files, instant_execution=False, skip_script=False, msg_prefi
 
 def update_to_stable_comfyui(repo_path):
     try:
-        repo = git.Repo(repo_path)
-        try:
-            repo.git.checkout(repo.heads.master)
-        except Exception:
-            logging.error(f"[ComfyUI-Manager] Failed to checkout 'master' branch.\nrepo_path={repo_path}\nAvailable branches:")
-            for branch in repo.branches:
-                logging.error('\t'+branch.name)
-            return "fail", None
+        with open_repo(repo_path) as repo:
+            try:
+                repo.checkout(repo.get_head_by_name('master'))
+            except Exception:
+                logging.error(f"[ComfyUI-Manager] Failed to checkout 'master' branch.\nrepo_path={repo_path}\nAvailable branches:")
+                for branch in repo.list_branches():
+                    logging.error('\t'+branch.name)
+                return "fail", None
 
-        versions, current_tag, latest_tag = get_comfyui_versions(repo)
+            versions, current_tag, latest_tag = get_comfyui_versions(repo)
 
-        if latest_tag is None:
-            logging.info("[ComfyUI-Manager] Unable to update to the stable ComfyUI version.")
-            return "fail", None
+            if latest_tag is None:
+                logging.info("[ComfyUI-Manager] Unable to update to the stable ComfyUI version.")
+                return "fail", None
 
-        tag_ref = next((t for t in repo.tags if t.name == latest_tag), None)
-        if tag_ref is None:
-            logging.info(f"[ComfyUI-Manager] Unable to locate tag '{latest_tag}' in repository.")
-            return "fail", None
+            tag_ref = next((t for t in repo.list_tags() if t.name == latest_tag), None)
+            if tag_ref is None:
+                logging.info(f"[ComfyUI-Manager] Unable to locate tag '{latest_tag}' in repository.")
+                return "fail", None
 
-        if repo.head.commit == tag_ref.commit:
-            return "skip", None
-        else:
-            logging.info(f"[ComfyUI-Manager] Updating ComfyUI: {current_tag} -> {latest_tag}")
-            repo.git.checkout(tag_ref.name)
-            execute_install_script("ComfyUI", repo_path, instant_execution=False, no_deps=False)
-            return 'updated', latest_tag
+            if repo.head_commit_equals(tag_ref.commit):
+                return "skip", None
+            else:
+                logging.info(f"[ComfyUI-Manager] Updating ComfyUI: {current_tag} -> {latest_tag}")
+                repo.checkout(tag_ref.name)
+                execute_install_script("ComfyUI", repo_path, instant_execution=False, no_deps=False)
+                return 'updated', latest_tag
     except Exception:
         traceback.print_exc()
         return "fail", None
@@ -2604,56 +2596,54 @@ def update_path(repo_path, instant_execution=False, no_deps=False):
         return "fail"
 
     # version check
-    repo = git.Repo(repo_path)
-
-    is_switched = False
-    if repo.head.is_detached:
-        if not switch_to_default_branch(repo):
-            return "fail"
-        else:
-            is_switched = True
-
-    current_branch = repo.active_branch
-    branch_name = current_branch.name
-
-    if current_branch.tracking_branch() is None:
-        print(f"[ComfyUI-Manager] There is no tracking branch ({current_branch})")
-        remote_name = get_remote_name(repo)
-    else:
-        remote_name = current_branch.tracking_branch().remote_name
-    remote = repo.remote(name=remote_name)
-
-    try:
-        remote.fetch()
-    except Exception as e:
-        if 'detected dubious' in str(e):
-            print(f"[ComfyUI-Manager] Try fixing 'dubious repository' error on '{repo_path}' repository")
-            safedir_path = repo_path.replace('\\', '/')
-            subprocess.run(['git', 'config', '--global', '--add', 'safe.directory', safedir_path])
-            try:
-                remote.fetch()
-            except Exception:
-                print(f"\n[ComfyUI-Manager] Failed to fixing repository setup. Please execute this command on cmd: \n"
-                      f"-----------------------------------------------------------------------------------------\n"
-                      f'git config --global --add safe.directory "{safedir_path}"\n'
-                      f"-----------------------------------------------------------------------------------------\n")
+    with open_repo(repo_path) as repo:
+        is_switched = False
+        if repo.head_is_detached:
+            if not switch_to_default_branch(repo):
                 return "fail"
+            else:
+                is_switched = True
 
-    commit_hash = repo.head.commit.hexsha
+        branch_name = repo.active_branch_name
 
-    if f'{remote_name}/{branch_name}' in repo.refs:
-        remote_commit_hash = repo.refs[f'{remote_name}/{branch_name}'].object.hexsha
-    else:
-        return "fail"
+        try:
+            remote_name = repo.get_tracking_remote_name()
+        except Exception:
+            print(f"[ComfyUI-Manager] There is no tracking branch ({branch_name})")
+            remote_name = get_remote_name(repo)
+        remote = repo.get_remote(remote_name)
 
-    if commit_hash != remote_commit_hash:
-        git_pull(repo_path)
-        execute_install_script("ComfyUI", repo_path, instant_execution=instant_execution, no_deps=no_deps)
-        return "updated"
-    elif is_switched:
-        return "updated"
-    else:
-        return "skipped"
+        try:
+            remote.fetch()
+        except Exception as e:
+            if 'detected dubious' in str(e):
+                print(f"[ComfyUI-Manager] Try fixing 'dubious repository' error on '{repo_path}' repository")
+                safedir_path = repo_path.replace('\\', '/')
+                subprocess.run(['git', 'config', '--global', '--add', 'safe.directory', safedir_path])
+                try:
+                    remote.fetch()
+                except Exception:
+                    print(f"\n[ComfyUI-Manager] Failed to fixing repository setup. Please execute this command on cmd: \n"
+                          f"-----------------------------------------------------------------------------------------\n"
+                          f'git config --global --add safe.directory "{safedir_path}"\n'
+                          f"-----------------------------------------------------------------------------------------\n")
+                    return "fail"
+
+        commit_hash = repo.head_commit_hexsha
+
+        if repo.has_ref(f'{remote_name}/{branch_name}'):
+            remote_commit_hash = repo.get_ref_commit_hexsha(f'{remote_name}/{branch_name}')
+        else:
+            return "fail"
+
+        if commit_hash != remote_commit_hash:
+            git_pull(repo_path)
+            execute_install_script("ComfyUI", repo_path, instant_execution=instant_execution, no_deps=no_deps)
+            return "updated"
+        elif is_switched:
+            return "updated"
+        else:
+            return "skipped"
 
 
 def lookup_customnode_by_url(data, target):
@@ -2752,8 +2742,8 @@ async def get_current_snapshot(custom_nodes_only = False):
     comfyui_commit_hash = None
     if not custom_nodes_only:
         if os.path.exists(os.path.join(repo_path, '.git')):
-            repo = git.Repo(repo_path)
-            comfyui_commit_hash = repo.head.commit.hexsha
+            with open_repo(repo_path) as repo:
+                comfyui_commit_hash = repo.head_commit_hexsha
         
     git_custom_nodes = {}
     cnr_custom_nodes = {}
@@ -3409,101 +3399,98 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
 
 
 def get_comfyui_versions(repo=None):
-    repo = repo or git.Repo(context.comfy_path)
-
-    remote_name = None
-    try:
-        remote_name = get_remote_name(repo)
-        repo.remotes[remote_name].fetch()
-    except Exception:
-        logging.error("[ComfyUI-Manager] Failed to fetch ComfyUI")
-
-    def parse_semver(tag_name):
-        match = re.match(r'^v(\d+)\.(\d+)\.(\d+)$', tag_name)
-        return tuple(int(x) for x in match.groups()) if match else None
-
-    def normalize_describe(tag_name):
-        if not tag_name:
-            return None
-        base = tag_name.split('-', 1)[0]
-        return base if parse_semver(base) else None
-
-    # Collect semver tags and sort descending (highest first)
-    semver_tags = []
-    for tag in repo.tags:
-        semver = parse_semver(tag.name)
-        if semver:
-            semver_tags.append((semver, tag.name))
-    semver_tags.sort(key=lambda x: x[0], reverse=True)
-    semver_tags = [name for _, name in semver_tags]
-
-    latest_tag = semver_tags[0] if semver_tags else None
+    created_repo = repo is None
+    repo = repo or open_repo(context.comfy_path)
 
     try:
-        described = repo.git.describe('--tags')
-    except Exception:
-        described = ''
-
-    try:
-        exact_tag = repo.git.describe('--tags', '--exact-match')
-    except Exception:
-        exact_tag = ''
-
-    head_is_default = False
-    if remote_name:
+        remote_name = None
         try:
-            default_head_ref = repo.refs[f'{remote_name}/HEAD']
-            default_commit = default_head_ref.reference.commit
-            head_is_default = repo.head.commit == default_commit
+            remote_name = get_remote_name(repo)
+            repo.get_remote(remote_name).fetch()
         except Exception:
-            # Fallback: compare directly with master branch
+            logging.error("[ComfyUI-Manager] Failed to fetch ComfyUI")
+
+        def parse_semver(tag_name):
+            match = re.match(r'^v(\d+)\.(\d+)\.(\d+)$', tag_name)
+            return tuple(int(x) for x in match.groups()) if match else None
+
+        def normalize_describe(tag_name):
+            if not tag_name:
+                return None
+            base = tag_name.split('-', 1)[0]
+            return base if parse_semver(base) else None
+
+        # Collect semver tags and sort descending (highest first)
+        semver_tags = []
+        for tag in repo.list_tags():
+            semver = parse_semver(tag.name)
+            if semver:
+                semver_tags.append((semver, tag.name))
+        semver_tags.sort(key=lambda x: x[0], reverse=True)
+        semver_tags = [name for _, name in semver_tags]
+
+        latest_tag = semver_tags[0] if semver_tags else None
+
+        described = repo.describe_tags() or ''
+
+        exact_tag = repo.describe_tags(exact_match=True) or ''
+
+        head_is_default = False
+        if remote_name:
             try:
-                if 'master' in [h.name for h in repo.heads]:
-                    head_is_default = repo.head.commit == repo.heads.master.commit
+                default_head_ref = repo.get_ref_object(f'{remote_name}/HEAD')
+                default_commit = default_head_ref.reference.commit
+                head_is_default = repo.head_commit_equals(default_commit)
             except Exception:
-                head_is_default = False
+                # Fallback: compare directly with master branch
+                try:
+                    if 'master' in [h.name for h in repo.list_heads()]:
+                        head_is_default = repo.head_commit_equals(repo.get_head_by_name('master').commit)
+                except Exception:
+                    head_is_default = False
 
-    nearest_semver = normalize_describe(described)
-    exact_semver = exact_tag if parse_semver(exact_tag) else None
+        nearest_semver = normalize_describe(described)
+        exact_semver = exact_tag if parse_semver(exact_tag) else None
 
-    if head_is_default and not exact_tag:
-        current_tag = 'nightly'
-    else:
-        current_tag = exact_tag or described or 'nightly'
+        if head_is_default and not exact_tag:
+            current_tag = 'nightly'
+        else:
+            current_tag = exact_tag or described or 'nightly'
 
-    # Prepare semver list for display: top 4 plus the current/nearest semver if missing
-    display_semver_tags = semver_tags[:4]
-    if exact_semver and exact_semver not in display_semver_tags:
-        display_semver_tags.append(exact_semver)
-    elif nearest_semver and nearest_semver not in display_semver_tags:
-        display_semver_tags.append(nearest_semver)
+        # Prepare semver list for display: top 4 plus the current/nearest semver if missing
+        display_semver_tags = semver_tags[:4]
+        if exact_semver and exact_semver not in display_semver_tags:
+            display_semver_tags.append(exact_semver)
+        elif nearest_semver and nearest_semver not in display_semver_tags:
+            display_semver_tags.append(nearest_semver)
 
-    versions = ['nightly']
+        versions = ['nightly']
 
-    if current_tag and not exact_semver and current_tag not in versions and current_tag not in display_semver_tags:
-        versions.append(current_tag)
+        if current_tag and not exact_semver and current_tag not in versions and current_tag not in display_semver_tags:
+            versions.append(current_tag)
 
-    for tag in display_semver_tags:
-        if tag not in versions:
-            versions.append(tag)
+        for tag in display_semver_tags:
+            if tag not in versions:
+                versions.append(tag)
 
-    versions = versions[:6]
+        versions = versions[:6]
 
-    return versions, current_tag, latest_tag
+        return versions, current_tag, latest_tag
+    finally:
+        if created_repo:
+            repo.close()
 
 
 def switch_comfyui(tag):
-    repo = git.Repo(context.comfy_path)
-
-    if tag == 'nightly':
-        repo.git.checkout('master')
-        tracking_branch = repo.active_branch.tracking_branch()
-        remote_name = tracking_branch.remote_name
-        repo.remotes[remote_name].pull()
-        print("[ComfyUI-Manager] ComfyUI version is switched to the latest 'master' version")
-    else:
-        repo.git.checkout(tag)
-        print(f"[ComfyUI-Manager] ComfyUI version is switched to '{tag}'")
+    with open_repo(context.comfy_path) as repo:
+        if tag == 'nightly':
+            repo.checkout('master')
+            remote_name = repo.get_tracking_remote_name()
+            repo.get_remote(remote_name).pull()
+            print("[ComfyUI-Manager] ComfyUI version is switched to the latest 'master' version")
+        else:
+            repo.checkout(tag)
+            print(f"[ComfyUI-Manager] ComfyUI version is switched to '{tag}'")
 
 
 def resolve_giturl_from_path(fullpath):
@@ -3527,11 +3514,11 @@ def resolve_giturl_from_path(fullpath):
 
 def repo_switch_commit(repo_path, commit_hash):
     try:
-        repo = git.Repo(repo_path)
-        if repo.head.commit.hexsha == commit_hash:
-            return False
+        with open_repo(repo_path) as repo:
+            if repo.head_commit_hexsha == commit_hash:
+                return False
 
-        repo.git.checkout(commit_hash)
-        return True
+            repo.checkout(commit_hash)
+            return True
     except Exception:
         return None

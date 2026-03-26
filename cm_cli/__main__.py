@@ -11,7 +11,6 @@ import typer
 from rich import print
 from typing_extensions import List, Annotated
 import re
-import git
 import importlib
 
 
@@ -62,9 +61,10 @@ if os.path.exists(os.path.join(manager_util.comfyui_manager_path, "pip_blacklist
 
 def check_comfyui_hash():
     try:
-        repo = git.Repo(comfy_path)
-        core.comfy_ui_revision = len(list(repo.iter_commits('HEAD')))
-        core.comfy_ui_commit_datetime = repo.head.commit.committed_datetime
+        from comfyui_manager.common.git_compat import open_repo
+        with open_repo(comfy_path) as repo:
+            core.comfy_ui_revision = repo.iter_commits_count()
+            core.comfy_ui_commit_datetime = repo.head_commit_datetime
     except Exception:
         print('[bold yellow]INFO: Frozen ComfyUI mode.[/bold yellow]')
         core.comfy_ui_revision = 0
