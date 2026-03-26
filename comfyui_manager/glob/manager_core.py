@@ -44,7 +44,7 @@ from ..common.enums import NetworkMode, SecurityLevel, DBMode
 from ..common import context
 
 
-version_code = [4, 1]
+version_code = [4, 2]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
@@ -2282,31 +2282,28 @@ def git_pull(path):
     if platform.system() == "Windows":
         return __win_check_git_pull(path)
     else:
-        repo = open_repo(path)
+        with open_repo(path) as repo:
+            if repo.is_dirty():
+                print(f"STASH: '{path}' is dirty.")
+                repo.stash()
 
-        if repo.is_dirty():
-            print(f"STASH: '{path}' is dirty.")
-            repo.stash()
+            if repo.head_is_detached:
+                if not switch_to_default_branch(repo):
+                    raise ValueError(f"Failed to switch to default branch while pulling: {path}")
 
-        if repo.head_is_detached:
-            if not switch_to_default_branch(repo):
-                raise ValueError(f"Failed to switch to default branch while pulling: {path}")
+            branch_name = repo.active_branch_name
+            remote_name = repo.get_tracking_remote_name()
 
-        branch_name = repo.active_branch_name
-        remote_name = repo.get_tracking_remote_name()
+            try:
+                repo.pull_ff_only()
+            except GitCommandError:
+                backup_name = get_backup_branch_name(repo)
+                repo.create_backup_branch(backup_name)
+                logging.info(f"[ComfyUI-Manager] Cannot fast-forward. Backup created: {backup_name}")
+                repo.reset_hard(f'{remote_name}/{branch_name}')
+                logging.info(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
 
-        try:
-            repo.pull_ff_only()
-        except GitCommandError:
-            backup_name = get_backup_branch_name(repo)
-            repo.create_backup_branch(backup_name)
-            logging.info(f"[ComfyUI-Manager] Cannot fast-forward. Backup created: {backup_name}")
-            repo.reset_hard(f'{remote_name}/{branch_name}')
-            logging.info(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
-
-        repo.submodule_update()
-
-        repo.close()
+            repo.submodule_update()
 
     return True
 

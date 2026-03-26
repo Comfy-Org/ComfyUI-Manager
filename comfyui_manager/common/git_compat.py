@@ -42,6 +42,12 @@ if USE_PYGIT2:
         USE_PYGIT2 = False
         _PYGIT2_REQUESTED = False
         import git as _git
+    else:
+        # Disable owner validation once at import time.
+        # Required for Desktop 2.0 standalone installs where repo directories
+        # may be owned by a different user (e.g., system-installed paths).
+        # See CVE-2022-24765 for context on this validation.
+        _pygit2.option(_pygit2.GIT_OPT_SET_OWNER_VALIDATION, 0)
 
 if not USE_PYGIT2:
     import git as _git
@@ -372,7 +378,6 @@ class _GitPythonRepo(GitRepo):
 
 class _Pygit2Repo(GitRepo):
     def __init__(self, path):
-        _pygit2.option(_pygit2.GIT_OPT_SET_OWNER_VALIDATION, 0)
         repo_path = os.path.abspath(path)
         git_dir = os.path.join(repo_path, '.git')
         for sub in ['refs/heads', 'refs/tags', 'refs/remotes']:
@@ -750,18 +755,24 @@ class _Pygit2Repo(GitRepo):
         try:
             self._repo.submodules.init()
             self._repo.submodules.update()
-        except (AttributeError, Exception) as e:
+        except Exception as e:
             import subprocess
             try:
-                subprocess.run(
+                result = subprocess.run(
                     ['git', 'submodule', 'update', '--init', '--recursive'],
                     cwd=self._working_dir,
                     capture_output=True, timeout=120,
                 )
+                if result.returncode != 0:
+                    raise GitCommandError(
+                        f"submodule update failed (exit {result.returncode}): "
+                        f"{result.stderr.decode(errors='replace')}")
             except FileNotFoundError:
-                print(f"[ComfyUI-Manager] pygit2: submodule update requires system git (not installed): {e}", file=sys.stderr)
-            except Exception:
-                print(f"[ComfyUI-Manager] pygit2: submodule update failed: {e}", file=sys.stderr)
+                print(f"[ComfyUI-Manager] pygit2: submodule update requires system git (not installed)", file=sys.stderr)
+            except GitCommandError:
+                raise
+            except Exception as sub_e:
+                print(f"[ComfyUI-Manager] pygit2: submodule update failed: {sub_e}", file=sys.stderr)
 
     def clear_cache(self):
         pass
@@ -813,9 +824,10 @@ def clone_repo(url, dest, progress=None):
     (checkout, clear_cache, close, etc.).
     """
     if USE_PYGIT2:
-        _pygit2.option(_pygit2.GIT_OPT_SET_OWNER_VALIDATION, 0)
         _pygit2.clone_repository(url, dest)
-        return _Pygit2Repo(dest)
+        repo = _Pygit2Repo(dest)
+        repo.submodule_update()
+        return repo
     else:
         if progress is None:
             r = _git.Repo.clone_from(url, dest, recursive=True)

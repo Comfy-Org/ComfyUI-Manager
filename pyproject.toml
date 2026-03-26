@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "comfyui-manager"
 license = { text = "GPL-3.0-only" }
-version = "4.1"
+version = "4.2b1"
 requires-python = ">= 3.9"
 description = "ComfyUI-Manager provides features to install and manage custom nodes for ComfyUI, as well as various functionalities to assist with ComfyUI."
 readme = "README.md"
@@ -39,7 +39,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pre-commit", "pytest", "ruff", "pytest-cov"]
+dev = ["pre-commit", "pytest", "ruff", "pytest-cov", "pygit2"]
 
 [project.urls]
 Repository = "https://github.com/ltdrdata/ComfyUI-Manager"
