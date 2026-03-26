@@ -755,7 +755,7 @@ class _Pygit2Repo(GitRepo):
         try:
             self._repo.submodules.init()
             self._repo.submodules.update()
-        except Exception as e:
+        except Exception:
             import subprocess
             try:
                 result = subprocess.run(
@@ -768,7 +768,7 @@ class _Pygit2Repo(GitRepo):
                         f"submodule update failed (exit {result.returncode}): "
                         f"{result.stderr.decode(errors='replace')}")
             except FileNotFoundError:
-                print(f"[ComfyUI-Manager] pygit2: submodule update requires system git (not installed)", file=sys.stderr)
+                print("[ComfyUI-Manager] pygit2: submodule update requires system git (not installed)", file=sys.stderr)
             except GitCommandError:
                 raise
             except Exception as sub_e:
