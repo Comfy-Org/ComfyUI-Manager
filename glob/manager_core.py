@@ -357,6 +357,8 @@ def normalize_channel(channel):
         return channel
     elif channel.startswith('http://') and get_config()['http_channel_enabled'] == True:
         return channel
+    elif channel.startswith('\\\\') or os.path.isabs(channel):
+        return channel
 
     tmp_dict = get_channel_dict()
     channel_url = tmp_dict.get(channel)
@@ -850,6 +852,8 @@ class UnifiedManager:
                 return {}
 
         # validate channel - only the channel set by the user is allowed.
+        if channel_url and (channel_url.startswith('\\\\') or os.path.isabs(channel_url)):
+            valid_channels.add(channel_url)
         if channel_url not in valid_channels:
             logging.error(f'[ComfyUI-Manager] An invalid channel was used: {channel_url}')
             raise InvalidChannel(channel_url)
@@ -858,8 +862,12 @@ class UnifiedManager:
         for x in json_obj['custom_nodes']:
             try:
                 for y in x['files']:
-                    if 'github.com' in y and not (y.endswith('.py') or y.endswith('.js')):
-                        repo_name = y.split('/')[-1]
+                    is_github_repo = 'github.com' in y and not (y.endswith('.py') or y.endswith('.js'))
+                    is_local_source = y.startswith('\\\\') or os.path.isabs(y)
+                    if is_github_repo or is_local_source:
+                        repo_name = y.replace('\\', '/').rstrip('/').split('/')[-1]
+                        if repo_name == '':
+                            repo_name = x.get('title', x.get('id', 'local_node'))
                         res[repo_name] = (x, False)
 
                 if 'id' in x:
@@ -905,7 +913,7 @@ class UnifiedManager:
                     added_cnr.add(cnr['id'])
                     node_id = v['id']
                 else:
-                    node_id = v['files'][0].split('/')[-1]
+                    node_id = v['files'][0].replace('\\', '/').rstrip('/').split('/')[-1]
                     v['repository'] = v['files'][0]
                 res[node_id] = v
             elif len(v['files']) > 1:
@@ -1519,7 +1527,24 @@ class UnifiedManager:
                     self.unified_disable(node_id, False)
 
             to_path = os.path.abspath(os.path.join(get_default_custom_nodes_path(), node_id))
-            res = self.repo_install(repo_url, to_path, instant_execution=instant_execution, no_deps=no_deps, return_postinstall=return_postinstall)
+            is_local_source = repo_url.startswith('\\\\') or os.path.isabs(repo_url)
+            if version_spec == 'unknown' and is_local_source:
+                res = ManagedResult('install-git')
+                res.append(repo_url)
+                if os.path.exists(to_path):
+                    return res.fail(f"Install path already exists: {to_path}")
+                try:
+                    if os.path.isdir(repo_url):
+                        shutil.copytree(repo_url, to_path)
+                    elif os.path.isfile(repo_url):
+                        os.makedirs(os.path.dirname(to_path), exist_ok=True)
+                        shutil.copy2(repo_url, to_path)
+                    else:
+                        return res.fail(f"Local source not found: {repo_url}")
+                except Exception as e:
+                    return res.fail(f"Failed to copy local source: {repo_url} / {e}")
+            else:
+                res = self.repo_install(repo_url, to_path, instant_execution=instant_execution, no_deps=no_deps, return_postinstall=return_postinstall)
             if res.result:
                 if version_spec == 'unknown':
                     self.unknown_active_nodes[node_id] = repo_url, to_path
@@ -3017,6 +3042,19 @@ async def get_unified_total_nodes(channel, mode, regsitry_cache_mode='cache'):
 
             v['update-state'] = 'true' if updatable else 'false'
         else:
+            manifest_version = v.get('version')
+            if manifest_version:
+                try:
+                    v['display_version'] = str(manager_util.StrictVersion(manifest_version))
+                except Exception:
+                    v['display_version'] = manifest_version
+            else:
+                reference = v.get('reference')
+                if reference and (reference.startswith('\\\\') or os.path.isabs(reference)):
+                    info = cnr_utils.read_cnr_info(reference)
+                    if info and info.get('version'):
+                        v['display_version'] = str(manager_util.StrictVersion(info['version']))
+
             # unknown version
             v['version'] = 'unknown'
 
