@@ -26517,7 +26517,7 @@
                 "https://github.com/Raykosan/ComfyUI_RaykoStudio"
             ],
             "install_type": "git-clone",
-            "description": "A node for ComfyUI that allows you to overlay text on an image in an area defined by a mask, with support for text rotation, custom fonts, line breaks and transparency."
+            "description": "Set of custom nodes for ComfyUI providing additional image processing capabilities ."
         },
         {
             "author": "MasterpieceX",
@@ -45540,6 +45540,27 @@
             ],
             "install_type": "unzip",
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
-        }
+        },
+        {
+            "author": "Raykosan",
+            "title": "🦊 RS Safe Saturation",
+            "reference": "ComfyUI_RS-SaturationNode",
+            "files": ["https://github.com/Raykosan/ComfyUI_RS-SaturationNode"],
+            "install_type": "git-clone",
+            "description": "Artifact-free saturation adjustment with tensor support",
+            "tags": ["image processing", "color correction"],
+            "id": "rs-saturation-node"
+         },
+         {
+            "author": "Raykosan",
+            "title": "🦊 RS RusTextOverlay",
+            "id": "rs-text-overlay-node",
+            "reference": "ComfyUI_RaykoStudio",
+            "files": ["https://github.com/Raykosan/ComfyUI_RaykoStudio"],
+            "install_type": "git-clone",
+            "description": "A node for ComfyUI that allows you to overlay text on an image in an area defined by a mask, with support for text rotation, custom fonts, line breaks and transparency.",
+            "tags": ["image processing", "text overlay"]
+        },       
+
     ]
 }
