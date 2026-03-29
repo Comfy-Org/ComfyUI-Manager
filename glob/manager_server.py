@@ -20,6 +20,7 @@ import cm_global
 import logging
 import asyncio
 import queue
+import hmac
 
 import manager_downloader
 import manager_migration
@@ -312,11 +313,59 @@ def security_403_response():
     return web.json_response({"error": "security_level"}, status=403)
 
 
-def get_model_dir(data, show_log=False):
+def get_manager_passkey():
+    passkey = os.environ.get("COMFY_MANAGER_PASSKEY")
+    if passkey is None:
+        return None
+
+    passkey = passkey.strip()
+    return passkey if passkey else None
+
+
+@routes.get("/manager/auth")
+async def manager_auth_status(request):
+    return web.json_response({"required": get_manager_passkey() is not None}, status=200)
+
+
+@routes.post("/manager/auth")
+async def manager_auth_verify(request):
+    expected_passkey = get_manager_passkey()
+    if expected_passkey is None:
+        return web.Response(status=200)
+
+    try:
+        payload = await request.json()
+        provided_passkey = payload.get("password", "")
+    except Exception:
+        provided_passkey = await request.text()
+
+    if not isinstance(provided_passkey, str):
+        return web.Response(status=400, text="Invalid password payload")
+
+    if hmac.compare_digest(provided_passkey, expected_passkey):
+        return web.Response(status=200)
+
+    return web.Response(status=403, text="Invalid manager passkey")
+
+
+def get_models_base_dir():
+    override_path = os.environ.get("COMFY_MODLES")
+    if not override_path:
+        # Backward-compatible fallback for the correctly spelled variable.
+        override_path = os.environ.get("COMFY_MODELS")
+
+    if override_path:
+        return os.path.abspath(os.path.expandvars(os.path.expanduser(override_path)))
+
     if 'download_model_base' in folder_paths.folder_names_and_paths:
-        models_base = folder_paths.folder_names_and_paths['download_model_base'][0][0]
-    else:
-        models_base = folder_paths.models_dir
+        return folder_paths.folder_names_and_paths['download_model_base'][0][0]
+
+    return folder_paths.models_dir
+
+
+def get_model_dir(data, show_log=False):
+    models_base_override = os.environ.get("COMFY_MODLES") or os.environ.get("COMFY_MODELS")
+    models_base = get_models_base_dir()
 
     # NOTE: Validate to prevent path traversal.
     if any(char in data['filename'] for char in {'/', '\\', ':'}):
@@ -355,7 +404,9 @@ def get_model_dir(data, show_log=False):
                 base_model = os.path.join(models_base, data['save_path'])
     else:
         model_dir_name = model_dir_name_map.get(data['type'].lower())
-        if model_dir_name is not None:
+        if models_base_override:
+            base_model = os.path.join(models_base, model_dir_name if model_dir_name is not None else "etc")
+        elif model_dir_name is not None:
             base_model = folder_paths.folder_names_and_paths[model_dir_name][0][0]
         else:
             base_model = os.path.join(models_base, "etc")
@@ -922,6 +973,9 @@ async def fetch_customnode_alternatives(request):
 
 
 def check_model_installed(json_obj):
+    models_base_override = os.environ.get("COMFY_MODLES") or os.environ.get("COMFY_MODELS")
+    models_base = get_models_base_dir()
+
     def is_exists(model_dir_name, filename, url):
         if filename == '<huggingface>':
             filename = os.path.basename(url)
@@ -930,6 +984,10 @@ def check_model_installed(json_obj):
 
         for x in dirs:
             if os.path.exists(os.path.join(x, filename)):
+                return True
+
+        if models_base_override:
+            if os.path.exists(os.path.join(models_base, model_dir_name, filename)):
                 return True
 
         return False
@@ -963,14 +1021,8 @@ def check_model_installed(json_obj):
                     item['installed'] = 'True'
 
             if 'installed' not in item:
-                if item['filename'] == '<huggingface>':
-                    filename = os.path.basename(item['url'])
-                else:
-                    filename = item['filename']
-
-                fullpath = os.path.join(folder_paths.models_dir, item['save_path'], filename)
-
-                item['installed'] = 'True' if os.path.exists(fullpath) else 'False'
+                fullpath = get_model_path(item)
+                item['installed'] = 'True' if fullpath is not None and os.path.exists(fullpath) else 'False'
 
     with concurrent.futures.ThreadPoolExecutor(8) as executor:
         for item in json_obj['models']:
