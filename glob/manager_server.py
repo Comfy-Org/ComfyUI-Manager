@@ -874,14 +874,16 @@ async def fetch_customnode_list(request):
     else:
         skip_update = False
 
-    if request.rel_url.query["mode"] == "local":
+    mode = request.rel_url.query.get("mode", "cache")
+
+    if mode == "local":
         channel = 'local'
     else:
         channel = core.get_config()['channel_url']
 
-    node_packs = await core.get_unified_total_nodes(channel, request.rel_url.query["mode"], 'cache')
-    json_obj_github = core.get_data_by_mode(request.rel_url.query["mode"], 'github-stats.json', 'default')
-    json_obj_extras = core.get_data_by_mode(request.rel_url.query["mode"], 'extras.json', 'default')
+    node_packs = await core.get_unified_total_nodes(channel, mode, 'cache')
+    json_obj_github = core.get_data_by_mode(mode, 'github-stats.json', 'default')
+    json_obj_extras = core.get_data_by_mode(mode, 'extras.json', 'default')
 
     core.populate_github_stats(node_packs, await json_obj_github)
     core.populate_favorites(node_packs, await json_obj_extras)
