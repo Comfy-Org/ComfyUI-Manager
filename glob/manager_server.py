@@ -443,7 +443,12 @@ async def task_worker():
     global tasks_in_progress
 
     async def do_install(item) -> str:
-        ui_id, node_spec_str, channel, mode, skip_post_install = item
+        if len(item) == 6:
+            ui_id, node_spec_str, channel, mode, skip_post_install, selected_dependencies = item
+        else:
+            # Backward compatibility
+            ui_id, node_spec_str, channel, mode, skip_post_install = item
+            selected_dependencies = []
 
         try:
             node_spec = core.unified_manager.resolve_node_spec(node_spec_str)
@@ -452,7 +457,7 @@ async def task_worker():
                 return f"Cannot resolve install target: '{node_spec_str}'"
 
             node_name, version_spec, is_specified = node_spec
-            res = await core.unified_manager.install_by_id(node_name, version_spec, channel, mode, return_postinstall=skip_post_install)
+            res = await core.unified_manager.install_by_id(node_name, version_spec, channel, mode, return_postinstall=skip_post_install, selected_dependencies=selected_dependencies)
             # discard post install if skip_post_install mode
 
             if res.action not in ['skip', 'enable', 'install-git', 'install-cnr', 'switch-cnr']:
@@ -1303,7 +1308,9 @@ async def install_custom_node(request):
         logging.error(SECURITY_MESSAGE_GENERAL)
         return web.Response(status=404, text="A security error has occurred. Please check the terminal logs")
 
-    install_item = json_data.get('ui_id'), node_spec_str, json_data['channel'], json_data['mode'], skip_post_install
+    # Get selected dependencies if provided
+    selected_dependencies = json_data.get('selectedDependencies', [])
+    install_item = json_data.get('ui_id'), node_spec_str, json_data['channel'], json_data['mode'], skip_post_install, selected_dependencies
     task_queue.put(("install", install_item))
 
     return web.Response(status=200)
@@ -1381,6 +1388,272 @@ async def install_custom_node_pip(request):
     core.pip_install(packages.split(' '))
 
     return web.Response(status=200)
+
+
+@routes.post("/customnode/analyze_dependencies")
+async def analyze_dependencies(request):
+    """
+    Analyze dependencies for a custom node from git URL.
+    Fetches requirements.txt, checks installed packages, and returns dependency list with status.
+    """
+    try:
+        json_data = await request.json()
+        url = json_data.get('url')
+        commit_id = json_data.get('commitId')
+        branch = json_data.get('branch')
+        
+        if not url:
+            return web.json_response({'error': 'URL is required'}, status=400)
+        
+        # Fetch requirements.txt from git repository
+        requirements_content = await fetch_requirements_from_git(url, commit_id, branch)
+        
+        if requirements_content is None:
+            return web.json_response({
+                'success': True,
+                'requirements': None,
+                'dependencies': [],
+                'noRequirementsFile': True
+            })
+        
+        # Parse requirements
+        dependencies = parse_requirements(requirements_content)
+        
+        # Get installed packages
+        installed_packages = manager_util.get_installed_packages()
+        
+        # Analyze each dependency with subdependencies
+        analyzed_dependencies = []
+        for dep_line in dependencies:
+            if not dep_line.strip() or dep_line.strip().startswith('#'):
+                continue
+            
+            # Parse dependency line
+            parsed = manager_util.parse_requirement_line(dep_line)
+            if not parsed:
+                continue
+            
+            package_name = parsed.get('package')
+            if not package_name:
+                # Fallback: extract from line if package is missing
+                import re
+                match = re.match(r'^([a-zA-Z0-9_.-]+)', dep_line.strip())
+                package_name = match.group(1) if match else "Unknown"
+            
+            version_spec = parsed.get('version')
+            # Convert version_spec to string if it's a StrictVersion object
+            if version_spec is not None:
+                version_spec = str(version_spec)
+            
+            normalized_name = package_name.lower().replace('-', '_')
+            
+            # Check if already installed
+            installed_version = installed_packages.get(normalized_name)
+            
+            status = 'new'
+            if installed_version:
+                status = 'installed'
+            
+            # Convert version to string if it's not already (handle StrictVersion objects)
+            current_version_str = str(installed_version) if installed_version else None
+            
+            # Get subdependencies using pip install --dry-run
+            # This is optional and failures should not block the main flow
+            subdependencies = []
+            # Skip subdependency analysis for already installed packages (not needed)
+            if status != 'installed':
+                try:
+                    import subprocess
+                    import sys
+                    
+                    # Run pip install --dry-run to get subdependencies
+                    # Some packages like pymeshlab can take longer due to complex dependency resolution
+                    # Use a reasonable timeout - if it times out, we'll continue without subdependencies
+                    result = subprocess.run(
+                        [sys.executable, '-m', 'pip', 'install', '--dry-run', dep_line.strip()],
+                        capture_output=True,
+                        text=True,
+                        timeout=45  # Increased timeout to 45 seconds
+                    )
+                    
+                    output = result.stdout + result.stderr
+                    if output:
+                        subdependencies = parse_dry_run_output(output, package_name, installed_packages)
+                except subprocess.TimeoutExpired:
+                    # Timeout is not critical - continue without subdependencies
+                    logging.debug(f"Subdependency analysis timed out for {package_name} (skipping subdependencies)")
+                    subdependencies = []
+                except Exception as e:
+                    # Any other error is not critical - continue without subdependencies
+                    logging.debug(f"Failed to analyze subdependencies for {package_name}: {e}")
+                    subdependencies = []
+            
+            # Add main dependency (always add, even if subdependency analysis failed)
+            # Ensure all fields are properly set and clean
+            clean_package_name = str(package_name).strip() if package_name else "Unknown"
+            # Remove any None/null strings that might have been concatenated
+            clean_package_name = clean_package_name.replace('None', '').replace('null', '').strip()
+            if not clean_package_name:
+                clean_package_name = "Unknown"
+            
+            analyzed_dependencies.append({
+                'name': clean_package_name,
+                'version': str(version_spec) if version_spec else None,
+                'line': dep_line.strip(),
+                'status': status,
+                'currentVersion': current_version_str,
+                'selected': status != 'installed',  # Deselect if already installed
+                'subdependencies': subdependencies
+            })
+        
+        return web.json_response({
+            'success': True,
+            'requirements': requirements_content,
+            'dependencies': analyzed_dependencies,
+            'noRequirementsFile': False
+        })
+        
+    except Exception as e:
+        logging.error(f"Error analyzing dependencies: {e}")
+        traceback.print_exc()
+        return web.json_response({'error': str(e)}, status=500)
+
+
+def parse_requirements(content):
+    """Parse requirements.txt content into list of dependency lines."""
+    lines = []
+    for line in content.split('\n'):
+        line = line.strip()
+        if line and not line.startswith('#'):
+            lines.append(line)
+    return lines
+
+
+def parse_dry_run_output(output, parent_name, installed_packages):
+    """Parse pip install --dry-run output to extract subdependencies."""
+    import re
+    subdependencies = []
+    subdeps_map = {}
+    
+    lines = output.split('\n')
+    for line in lines:
+        line = line.strip()
+        
+        # Look for "Collecting package==version" lines
+        if 'Collecting ' in line and 'Using cached' not in line:
+            # Match: "Collecting package==version" or "Collecting package"
+            match = re.search(r'Collecting\s+([a-zA-Z0-9_.-]+(?:\[[^\]]+\])?)(?:\s*==\s*([^\s\(]+))?', line)
+            if match:
+                dep_name = match.group(1).split('[')[0].strip()
+                # Clean the name - remove any None/null strings
+                if dep_name:
+                    dep_name = dep_name.replace('None', '').replace('null', '').strip()
+                dep_version = match.group(2).strip() if match.group(2) else None
+                # Clean version too
+                if dep_version:
+                    dep_version = dep_version.replace('None', '').replace('null', '').strip() or None
+                
+                # Skip the parent package itself
+                if dep_name.lower() == parent_name.lower():
+                    continue
+                
+                # Normalize name
+                normalized_name = dep_name.lower().replace('-', '_')
+                
+                # Check if already in map (avoid duplicates)
+                if normalized_name not in subdeps_map:
+                    # Check if already installed
+                    installed_version = installed_packages.get(normalized_name)
+                    status = 'installed' if installed_version else 'new'
+                    current_version_str = str(installed_version) if installed_version else None
+                    
+                    # Ensure name is always a string, not None
+                    if not dep_name:
+                        dep_name = "Unknown"
+                    
+                    # Clean the name - remove any None/null strings
+                    clean_dep_name = str(dep_name).strip().replace('None', '').replace('null', '').strip()
+                    if not clean_dep_name:
+                        clean_dep_name = "Unknown"
+                    
+                    subdeps_map[normalized_name] = {
+                        'name': clean_dep_name,
+                        'version': str(dep_version) if dep_version else None,
+                        'status': status,
+                        'currentVersion': current_version_str,
+                        'selected': status != 'installed'
+                    }
+        
+        # Also look for "Would install" lines which have more accurate version info
+        if 'Would install' in line:
+            # Match: "Would install package-version"
+            match = re.search(r'Would install\s+([a-zA-Z0-9_.-]+)-([\d.]+)', line)
+            if match:
+                dep_name = match.group(1)
+                dep_version = match.group(2)
+                normalized_name = dep_name.lower().replace('-', '_')
+                
+                if normalized_name in subdeps_map:
+                    # Update with more accurate version
+                    subdeps_map[normalized_name]['version'] = dep_version
+    
+    # Convert map to list
+    for normalized_name, dep_info in subdeps_map.items():
+        subdependencies.append(dep_info)
+    
+    return subdependencies
+
+
+async def fetch_requirements_from_git(url, commit_id=None, branch=None):
+    """
+    Fetch requirements.txt from a git repository URL.
+    Supports GitHub URLs by converting to raw.githubusercontent.com.
+    """
+    try:
+        # Extract GitHub repo info
+        if 'github.com' in url:
+            # Convert to raw GitHub URL
+            url = url.rstrip('/')
+            if url.endswith('.git'):
+                url = url[:-4]
+            
+            # Extract owner/repo
+            match = re.search(r'github\.com[:/]([^/]+)/([^/]+)', url)
+            if not match:
+                return None
+            
+            owner = match.group(1)
+            repo = match.group(2)
+            
+            # Build raw URL
+            if commit_id:
+                raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{commit_id}/requirements.txt"
+            elif branch:
+                raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/requirements.txt"
+            else:
+                raw_url = f"https://raw.githubusercontent.com/{owner}/{repo}/main/requirements.txt"
+            
+            # Try to fetch using aiohttp
+            async with aiohttp.ClientSession() as session:
+                async with session.get(raw_url) as response:
+                    if response.status == 200:
+                        return await response.text()
+                    # Try with master branch if main fails
+                    if 'main' in raw_url:
+                        raw_url = raw_url.replace('/main/', '/master/')
+                        async with session.get(raw_url) as response2:
+                            if response2.status == 200:
+                                return await response2.text()
+        else:
+            # For non-GitHub URLs, we'd need to clone temporarily
+            # For now, return None (can be enhanced later)
+            logging.warning(f"Non-GitHub URL not fully supported for dependency analysis: {url}")
+            return None
+        
+        return None
+    except Exception as e:
+        logging.error(f"Error fetching requirements from git: {e}")
+        return None
 
 
 @routes.post("/manager/queue/uninstall")
