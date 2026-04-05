@@ -45563,6 +45563,33 @@
             ],
             "install_type": "unzip",
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
+        },
+        {
+            "author": "kplkasteel",
+            "title": "Image to Prompt (Abacus.AI)",
+            "id": "comfyui-image-to-prompt-abacusai",
+            "reference": "https://github.com/kplkasteel/ComfyUI-Image-to-Prompt-Abacus.AI-",
+            "files": [
+                "https://github.com/kplkasteel/ComfyUI-Image-to-Prompt-Abacus.AI-"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI custom node that converts an input image into a Stable Diffusion-ready prompt using Abacus.AI’s OpenAI-compatible multimodal API (model dropdown fetched from /v1/models; supports route-llm and other available models). Requires an Abacus.AI API key and consumes API credits.",
+            "tags": [
+                "prompt",
+                "image-to-prompt",
+                "vision",
+                "multimodal",
+                "captioning",
+                "stable-diffusion",
+                "abacus-ai",
+                "api"
+            ],
+            "pip": [
+                "openai",
+                "requests",
+                "pillow",
+                "numpy"
+            ]
         }
     ]
 }
