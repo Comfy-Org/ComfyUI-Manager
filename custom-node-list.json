@@ -1,6 +1,17 @@
 {
     "custom_nodes": [
         {
+            "author": "ULT7RA",
+            "title": "FLUXNATION FLUX.1 Fused Neuromorphic SPIKE Attention & Step Cache Cuda Kernel",
+            "id": "fluxnation",
+            "reference": "https://github.com/ULT7RA/FLUXNATION",
+            "files": [
+                "https://github.com/ULT7RA/FLUXNATION"
+            ],
+            "install_type": "git-clone",
+            "description": "FLUXNATION is a fused FP8 CUDA kernel for FLUX.1 that replaces the entire SingleStreamBlock forward pass with a single torch.ops call covering modulation dual GEMMs QKV projection RoPE attention gating and residual all in one shot. On top of that it ships with neuromorphic spike attention which scores every attention block by real dot product similarity and kills the ones that dont matter after image structure has formed keeping only the top 45 percent. Step caching then replays the cached output on alternating spike steps for zero attention compute every other step. The result is 30 percent faster generation than stock ComfyUI on an RTX 4090 with no quality loss. Works with every sampler ComfyUI supports at any step count. FP16 ports for 10 series 20 series and 30 series GPUs are included. A must have for anyone running FLUX.1."
+        },
+        {
             "author": "Dr.Lt.Data",
             "title": "ComfyUI-Manager",
             "id": "manager",
