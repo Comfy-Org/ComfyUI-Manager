@@ -16,6 +16,8 @@ import logging
 import platform
 import shlex
 from functools import lru_cache
+from pathlib import Path
+from importlib import metadata
 
 
 cache_lock = threading.Lock()
@@ -25,6 +27,7 @@ cache_dir = os.path.join(comfyui_manager_path, '.cache')  # This path is also up
 
 use_uv = False
 bypass_ssl = False
+libs_map = None
 
 def add_python_path_to_env():
     if platform.system() != "Windows":
@@ -33,6 +36,81 @@ def add_python_path_to_env():
         sep = ';'
 
     os.environ['PATH'] = os.path.dirname(sys.executable)+sep+os.environ['PATH']
+
+
+def normalize_package_name(name: str) -> str:
+    return name.lower().replace('-', '_').strip()
+
+
+def is_comfy_libs_enabled() -> bool:
+    value = os.environ.get("COMFY_LIBS", "")
+    return value.lower() == "true"
+
+
+def get_comfy_libs_path(custom_nodes_base_path: str = None) -> str:
+    if custom_nodes_base_path:
+        base_dir = os.path.dirname(os.path.abspath(custom_nodes_base_path))
+        return os.path.join(base_dir, "libs")
+
+    comfy_base_path = os.environ.get('COMFYUI_FOLDERS_BASE_PATH') or os.environ.get('COMFYUI_PATH')
+    if comfy_base_path:
+        return os.path.join(os.path.abspath(comfy_base_path), "libs")
+
+    try:
+        import folder_paths
+        custom_nodes_path = folder_paths.get_folder_paths("custom_nodes")[0]
+        return os.path.join(os.path.dirname(os.path.abspath(custom_nodes_path)), "libs")
+    except Exception:
+        # fallback: .../ComfyUI/custom_nodes/ComfyUI-Manager/glob -> .../ComfyUI/libs
+        return os.path.abspath(os.path.join(comfyui_manager_path, "..", "..", "libs"))
+
+
+def ensure_comfy_libs_path(custom_nodes_base_path: str = None) -> str | None:
+    if not is_comfy_libs_enabled():
+        return None
+
+    libs_path = get_comfy_libs_path(custom_nodes_base_path)
+    os.makedirs(libs_path, exist_ok=True)
+
+    if libs_path not in sys.path:
+        sys.path.insert(0, libs_path)
+
+    py_path = os.environ.get("PYTHONPATH", "")
+    py_parts = py_path.split(os.pathsep) if py_path else []
+    if libs_path not in py_parts:
+        os.environ["PYTHONPATH"] = libs_path if not py_path else libs_path + os.pathsep + py_path
+
+    return libs_path
+
+
+def get_comfy_libs_packages(renew=False, custom_nodes_base_path: str = None):
+    global libs_map
+
+    if not is_comfy_libs_enabled():
+        return {}
+
+    if renew or libs_map is None:
+        libs_map = {}
+        libs_path = ensure_comfy_libs_path(custom_nodes_base_path)
+        if libs_path is None:
+            return {}
+
+        try:
+            for dist in metadata.distributions(path=[libs_path]):
+                name = dist.metadata.get("Name")
+                version = dist.version
+                if name and version:
+                    libs_map[normalize_package_name(name)] = version
+        except Exception:
+            # fallback: best-effort from dist-info folder names
+            try:
+                for item in Path(libs_path).glob("*.dist-info"):
+                    name = item.name.split("-")[0]
+                    libs_map[normalize_package_name(name)] = "0"
+            except Exception:
+                pass
+
+    return libs_map
 
 
 @lru_cache(maxsize=2)
@@ -92,6 +170,62 @@ def make_pip_cmd(cmd):
     global use_uv
     base_cmd = get_pip_cmd(force_uv=use_uv)
     return base_cmd + cmd
+
+
+def get_install_target_for_package(requirement: str, custom_nodes_base_path: str = None):
+    """
+    Return a custom libs target path when COMFY_LIBS is enabled and package does not exist
+    in either site-packages or libs.
+    """
+    if not is_comfy_libs_enabled():
+        return None
+
+    try:
+        parsed = parse_requirement_line(requirement)
+        pkg_name = normalize_package_name(parsed['package']) if parsed is not None else None
+    except Exception:
+        pkg_name = None
+
+    if pkg_name is None:
+        # Fallback for non-StrictVersion requirement specs.
+        match = re.match(r'^([A-Za-z0-9_.+-]+)', requirement)
+        if match is None:
+            return None
+        pkg_name = normalize_package_name(match.group(1))
+    installed = get_installed_packages().get(pkg_name)
+    if installed is not None:
+        return None
+
+    libs_packages = get_comfy_libs_packages(custom_nodes_base_path=custom_nodes_base_path)
+    if pkg_name in libs_packages:
+        return None
+
+    return ensure_comfy_libs_path(custom_nodes_base_path)
+
+
+def make_pip_install_cmd(requirement: str, custom_nodes_base_path: str = None):
+    """
+    Build a pip install command from a requirement expression.
+    Applies --target <libs> when COMFY_LIBS=True and the package is not installed.
+    """
+    requirement = requirement.split('#')[0].strip()
+    if requirement == "" or requirement.startswith("#"):
+        return None
+
+    install_args = ["install"]
+    target = get_install_target_for_package(requirement, custom_nodes_base_path=custom_nodes_base_path)
+    if target is not None:
+        install_args += ["--target", target]
+
+    if '--index-url' in requirement:
+        s = requirement.split('--index-url', 1)
+        package = s[0].strip()
+        index_url = s[1].strip()
+        install_args += [package, '--index-url', index_url]
+    else:
+        install_args += [requirement]
+
+    return make_pip_cmd(install_args)
 
 
 # DON'T USE StrictVersion - cannot handle pre_release version
@@ -305,12 +439,19 @@ def get_installed_packages(renew=False):
             logging.error("[ComfyUI-Manager] Failed to retrieve the information of installed pip packages.")
             return {}
 
+    if is_comfy_libs_enabled():
+        for name, ver in get_comfy_libs_packages(renew=renew).items():
+            if name not in pip_map:
+                pip_map[name] = ver
+
     return pip_map
 
 
 def clear_pip_cache():
     global pip_map
+    global libs_map
     pip_map = None
+    libs_map = None
 
 
 def parse_requirement_line(line):
