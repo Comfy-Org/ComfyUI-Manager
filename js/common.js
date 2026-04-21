@@ -185,7 +185,7 @@ export async function rebootAPI() {
 	const isConfirmed = await customConfirm("Are you sure you'd like to reboot the server?");
 	if (isConfirmed) {
 		try {
-			const response = await api.fetchApi("/manager/reboot");
+			const response = await api.fetchApi("/manager/reboot", { method: 'POST' });
 			if (response.status == 403) {
 				await handle403Response(response);
 				return false;

@@ -462,7 +462,7 @@ export class CustomNodesManager {
 
 			".cn-manager-stop": {
 				click: () => {
-					api.fetchApi('/manager/queue/reset');
+					api.fetchApi('/manager/queue/reset', { method: 'POST' });
 					infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 				}
 			},
@@ -1476,9 +1476,15 @@ export class CustomNodesManager {
 		let needRestart = false;
 		let errorMsg = "";
 
-		await api.fetchApi('/manager/queue/reset');
+		await api.fetchApi('/manager/queue/reset', { method: 'POST' });
 
+		// Set install_context BEFORE per-item queue enqueue calls so that any
+		// server-side synchronous completion (e.g., sync enable of an inactive
+		// node) that emits cm-queue-status before we return here still finds
+		// install_context populated in onQueueCompleted. target_items is shared
+		// by reference so further pushes below remain visible.
 		let target_items = [];
+		this.install_context = {btn: btn, targets: target_items};
 
 		for (const hash of list) {
 			const item = this.grid.getRowItemBy("hash", hash);
@@ -1550,8 +1556,6 @@ export class CustomNodesManager {
 			}
 		}
 
-		this.install_context = {btn: btn, targets: target_items};
-
 		if(errorMsg) {
 			this.showError(errorMsg);
 			show_message("[Installation Errors]\n"+errorMsg);
@@ -1563,7 +1567,7 @@ export class CustomNodesManager {
 			}
 		}
 		else {
-			await api.fetchApi('/manager/queue/start');
+			await api.fetchApi('/manager/queue/start', { method: 'POST' });
 			this.showStop();
 			showTerminal();
 		}
@@ -1576,6 +1580,10 @@ export class CustomNodesManager {
 
 			const item = self.grid.getRowItemBy("hash", hash);
 
+			if (!item) {
+				return;
+			}
+
 			item.restart = true;
 			self.restartMap[item.hash] = true;
 			self.grid.updateCell(item, "action");
@@ -1583,45 +1591,81 @@ export class CustomNodesManager {
 		}
 		else if(event.detail.status == 'done') {
 			self.hideStop();
-			self.onQueueCompleted(event.detail);
+			// Await + error logging so any unhandled rejection surfaces to the
+			// console instead of silently swallowing completion finalization
+			// (root cause of disable/enable button staying loading with no toast).
+			try {
+				await self.onQueueCompleted(event.detail);
+			} catch (e) {
+				console.error("[ComfyUI-Manager] onQueueCompleted failed:", e);
+			}
 		}
 	}
 
 	async onQueueCompleted(info) {
+		// `nodepack_result` is a dict serialized from a Python dict, not an array.
+		// `dict.length` is `undefined` and `undefined == 0` is `false`, so the
+		// previous `result.length == 0` guard was a no-op; switch to a correct
+		// empty-check that also tolerates null/undefined.
 		let result = info.nodepack_result;
 
-		if(result.length == 0) {
+		if (!result || Object.keys(result).length === 0) {
 			return;
 		}
 
 		let self = CustomNodesManager.instance;
 
-		if(!self.install_context) {
+		if (!self || !self.install_context) {
 			return;
 		}
 
 		const { target, label, mode } = self.install_context.btn;
-		target.classList.remove("cn-btn-loading");
+		const targets = self.install_context.targets || [];
 
+		// Compute errorMsg upfront so the downstream user-visible finalization
+		// (showRestart / showMessage / infoToast) fires regardless of whether
+		// any DOM-touching step below throws.
 		let errorMsg = "";
-
-		for(let hash in result){
+		for (let hash in result) {
 			let v = result[hash];
-
-			if(v != 'success' && v != 'skip')
-				errorMsg += v+'\n';
+			if (v != 'success' && v != 'skip') {
+				errorMsg += v + '\n';
+			}
 		}
 
-		for(let k in self.install_context.targets) {
-			let item = self.install_context.targets[k];
-			self.grid.updateCell(item, "action");
+		// Defensive: `target` may be a detached DOM node (the in_progress
+		// handler's updateCell can re-render the row and replace the button
+		// element). classList.remove on a detached node is a no-op, but we
+		// still guard in case target was torn down entirely.
+		try {
+			if (target && target.classList) {
+				target.classList.remove("cn-btn-loading");
+			}
+		} catch (e) {
+			console.warn("[ComfyUI-Manager] Failed to clear button loading state:", e);
+		}
+
+		// Defensive: grid.updateCell can throw if the item was removed or the
+		// grid was re-rendered between in_progress and done. Do NOT let this
+		// loop abort the completion finalization below — that was the observed
+		// failure mode for disable/enable (no toast, no "restart required"
+		// message).
+		try {
+			for (let k in targets) {
+				let item = targets[k];
+				if (item) {
+					self.grid.updateCell(item, "action");
+				}
+			}
+		} catch (e) {
+			console.warn("[ComfyUI-Manager] Failed to refresh target cells after queue completion:", e);
 		}
 
 		if (errorMsg) {
 			self.showError(errorMsg);
-			show_message("Installation Error:\n"+errorMsg);
+			show_message("Installation Error:\n" + errorMsg);
 		} else {
-			self.showStatus(`${label} ${result.length} custom node(s) successfully`);
+			self.showStatus(`${label} ${Object.keys(result).length} custom node(s) successfully`);
 		}
 
 		self.showRestart();
