@@ -324,8 +324,8 @@ The security settings are applied based on whether the ComfyUI server's listener
 
 | Risky Level | features                                                                                                                              |
 |-------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| high+       | * `Install via git url`, `pip install`<BR>* Installation of nodepack registered not in the `default channel`.                         |
-| high        | * Fix nodepack                                                                                                                        |
+| high+       | * `Install via git url`, `pip install`<BR>* Installation of nodepack registered not in the `default channel`.<BR>* **Switch ComfyUI version**<BR>* **Fix nodepack** |
+| high        | _(no features at this tier — `Fix nodepack` promoted to `high+` to align the enforcement gate with the `SECURITY_MESSAGE_HIGH_P` log text)_ |
 | middle+     | * Uninstall/Update<BR>* Installation of nodepack registered in the `default channel`.<BR>* Restore/Remove Snapshot<BR>* Install model |
 | middle      | * Restart                                                                                                                             |
 | low         | * Update ComfyUI                                                                                                                      |

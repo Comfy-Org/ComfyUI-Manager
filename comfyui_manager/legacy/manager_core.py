@@ -42,8 +42,13 @@ from ..common.enums import NetworkMode, SecurityLevel, DBMode
 from ..common import context
 
 
-version_code = [4, 2]
-version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
+try:
+    from importlib.metadata import version as _pkg_version
+    _raw_version = _pkg_version("comfyui-manager")
+except Exception:
+    _raw_version = "unknown"
+
+version_str = f"V{_raw_version}"
 
 
 DEFAULT_CHANNEL = "https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/main"

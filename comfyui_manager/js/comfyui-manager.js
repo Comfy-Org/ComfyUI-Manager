@@ -628,14 +628,23 @@ async function switchComfyUI() {
 		showVersionSelectorDialog(versions, obj.current, async (selected_version) => {
 			if(selected_version == 'nightly') {
 				update_policy_combo.value = 'nightly-comfyui';
-				api.fetchApi('/v2/manager/policy/update?value=nightly-comfyui');
+				api.fetchApi('/v2/manager/policy/update', { method: 'POST', body: JSON.stringify({value: 'nightly-comfyui'}) });
 			}
 			else {
 				update_policy_combo.value = 'stable-comfyui';
-				api.fetchApi('/v2/manager/policy/update?value=stable-comfyui');
+				api.fetchApi('/v2/manager/policy/update', { method: 'POST', body: JSON.stringify({value: 'stable-comfyui'}) });
 			}
 
-			let response = await api.fetchApi(`/v2/comfyui_manager/comfyui_switch_version?ver=${selected_version}`, { cache: "no-store" });
+			let response = await api.fetchApi('/v2/comfyui_manager/comfyui_switch_version', {
+				method: 'POST',
+				cache: "no-store",
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					ver: selected_version,
+					client_id: api.clientId,
+					ui_id: api.clientId,
+				}),
+			});
 			if (response.status == 200) {
 				infoToast(`ComfyUI version is switched to ${selected_version}`);
 			}
@@ -797,7 +806,7 @@ function restartOrStop() {
 		rebootAPI();
 	}
 	else {
-		api.fetchApi('/v2/manager/queue/reset');
+		api.fetchApi('/v2/manager/queue/reset', { method: 'POST' });
 		infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 	}
 }
@@ -951,7 +960,7 @@ class ManagerMenuDialog extends ComfyDialog {
 			.then(data => { this.datasrc_combo.value = data; });
 
 		this.datasrc_combo.addEventListener('change', function (event) {
-			api.fetchApi(`/v2/manager/db_mode?value=${event.target.value}`);
+			api.fetchApi('/v2/manager/db_mode', { method: 'POST', body: JSON.stringify({value: event.target.value}) });
 		});
 
 		const dbRetrievalSetttingItem = createSettingsCombo("DB", this.datasrc_combo);
@@ -973,7 +982,7 @@ class ManagerMenuDialog extends ComfyDialog {
 					}
 
 					channel_combo.addEventListener('change', function (event) {
-						api.fetchApi(`/v2/manager/channel_url_list?value=${event.target.value}`);
+						api.fetchApi('/v2/manager/channel_url_list', { method: 'POST', body: JSON.stringify({value: event.target.value}) });
 					});
 
 					channel_combo.value = data.selected;
@@ -1037,7 +1046,7 @@ class ManagerMenuDialog extends ComfyDialog {
 			});
 
 		update_policy_combo.addEventListener('change', function (event) {
-			api.fetchApi(`/v2/manager/policy/update?value=${event.target.value}`);
+			api.fetchApi('/v2/manager/policy/update', { method: 'POST', body: JSON.stringify({value: event.target.value}) });
 		});
 
 		const updateSetttingItem = createSettingsCombo("Update", update_policy_combo);

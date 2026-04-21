@@ -6,9 +6,15 @@
 # Claude's Bash tool — the call returns only when ComfyUI is accepting requests.
 #
 # Input env vars:
-#   E2E_ROOT  — (required) path to E2E environment from setup_e2e_env.sh
-#   PORT      — ComfyUI listen port (default: 8199)
-#   TIMEOUT   — max seconds to wait for readiness (default: 120)
+#   E2E_ROOT           — (required) path to E2E environment from setup_e2e_env.sh
+#   PORT               — ComfyUI listen port (default: 8199)
+#   TIMEOUT            — max seconds to wait for readiness (default: 120)
+#   ENABLE_LEGACY_UI   — if set to "1"/"true"/"yes", add --enable-manager-legacy-ui
+#                        (for Playwright legacy-UI tests; pytest suites should
+#                        leave this unset because glob and legacy manager_server
+#                        modules are mutex-loaded and several pytest suites hit
+#                        glob-only v2 endpoints such as /v2/manager/queue/task).
+#                        The convenience wrapper start_comfyui_legacy.sh sets it.
 #
 # Output (last line on success):
 #   COMFYUI_PID=<pid> PORT=<port>
@@ -36,7 +42,11 @@ PY="$E2E_ROOT/venv/bin/python"
 COMFY_DIR="$E2E_ROOT/comfyui"
 LOG_DIR="$E2E_ROOT/logs"
 LOG_FILE="$LOG_DIR/comfyui.log"
-PID_FILE="$LOG_DIR/comfyui.pid"
+# Port-namespaced PID file — prevents concurrent tests on different ports
+# (e.g., teammate running pytest on 8199 while Playwright runs on 8200)
+# from overwriting each other's PID, which would cause stop_comfyui.sh to
+# kill the wrong process (observed in WI-CC: 8200 stop killed 8199 PID 2979469).
+PID_FILE="$LOG_DIR/comfyui.${PORT}.pid"
 
 mkdir -p "$LOG_DIR"
 
@@ -69,12 +79,30 @@ log "Starting ComfyUI on port $PORT..."
 # Create empty log file (ensures tail -f works from the start)
 : > "$LOG_FILE"
 
-# Launch with unbuffered Python output so log lines appear immediately
+# Assemble manager flags. ENABLE_LEGACY_UI toggles --enable-manager-legacy-ui
+# without forcing every caller to care — pytest leaves it unset (glob mode),
+# start_comfyui_legacy.sh sets it (legacy UI mode).
+MANAGER_FLAGS=(--enable-manager)
+case "${ENABLE_LEGACY_UI:-}" in
+    1|true|TRUE|yes|YES)
+        MANAGER_FLAGS+=(--enable-manager-legacy-ui)
+        log "Legacy UI enabled via ENABLE_LEGACY_UI=${ENABLE_LEGACY_UI}"
+        ;;
+esac
+
+# Launch with unbuffered Python output so log lines appear immediately.
+# COMFYUI_MANAGER_SKIP_MANAGER_REQUIREMENTS=1 is the WI-WW safety belt:
+# any install/update/reinstall path that would normally run
+# `pip install -r manager_requirements.txt` becomes a no-op log line.
+# Essential for WI-YY real-E2E tests that trigger install/update flows
+# — without it, a real update_comfyui task could run unbounded pip
+# installs on the test venv.
 PYTHONUNBUFFERED=1 \
 HOME="$E2E_ROOT/home" \
+COMFYUI_MANAGER_SKIP_MANAGER_REQUIREMENTS=1 \
     nohup "$PY" "$COMFY_DIR/main.py" \
         --cpu \
-        --enable-manager \
+        "${MANAGER_FLAGS[@]}" \
         --port "$PORT" \
     > "$LOG_FILE" 2>&1 &
 COMFYUI_PID=$!

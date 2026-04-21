@@ -80,13 +80,14 @@ from ..data_models import (
     SecurityLevel,
     UpdateAllQueryParams,
     UpdateComfyUIQueryParams,
-    ComfyUISwitchVersionQueryParams,
+    ComfyUISwitchVersionParams,
 )
 
 from .constants import (
     model_dir_name_map,
     SECURITY_MESSAGE_MIDDLE,
     SECURITY_MESSAGE_MIDDLE_P,
+    SECURITY_MESSAGE_HIGH_P,
 )
 
 if not manager_util.is_manager_pip_package():
@@ -335,6 +336,7 @@ class TaskQueue:
                 status=status,
                 batch_id=self.batch_id,
                 end_time=now,
+                params=item.params,
             )
 
         # Force cache refresh for successful pack-modifying operations
@@ -656,8 +658,7 @@ class TaskQueue:
     def _get_manager_version(self) -> str:
         """Get ComfyUI Manager version."""
         try:
-            version_code = getattr(core, "version_code", [4, 0])
-            return f"V{version_code[0]}.{version_code[1]}"
+            return core.version_str
         except Exception:
             return None
 
@@ -886,11 +887,13 @@ async def task_worker():
             res = core.unified_manager.unified_update(node_name, node_ver)
 
             if res.ver == "unknown":
+                # unknown_active_nodes[node_id] = (url, fullpath) — url can be
+                # None when git_utils.git_url() in manager_core can't determine
+                # the remote URL. Downstream branches at L901/904 already
+                # handle url is None, so we just need a None-safe title.
+                # Harmonized with legacy/manager_server.py equivalent (WI #252).
                 url = core.unified_manager.unknown_active_nodes[node_name][0]
-                try:
-                    title = os.path.basename(url)
-                except Exception:
-                    title = node_name
+                title = os.path.basename(url) if url else node_name
             else:
                 url = core.unified_manager.cnr_map[node_name].get("repository")
                 title = core.unified_manager.cnr_map[node_name]["name"]
@@ -966,8 +969,12 @@ async def task_worker():
         return "An error occurred while updating 'comfyui'."
 
     async def do_fix(params: FixPackParams) -> str:
-        if not security_utils.is_allowed_security_level('middle'):
-            logging.error(SECURITY_MESSAGE_MIDDLE)
+        # Align check with SECURITY_MESSAGE_HIGH_P (which names "high+"); the
+        # previous 'high' gate allowed the operation while logging a message
+        # that implied a stricter requirement — confusing and slightly too lax
+        # for a state-mutating fix path. Legacy/do_fix was updated to match.
+        if not security_utils.is_allowed_security_level('high+'):
+            logging.error(SECURITY_MESSAGE_HIGH_P)
             return OperationResult.failed.value
 
         node_name = params.node_name
@@ -1346,6 +1353,19 @@ async def get_history(request):
             }
             history = filtered_history
 
+        # Serialize TaskHistoryItem pydantic models to dicts for JSON output.
+        # aiohttp's json_response uses json.dumps which cannot serialize BaseModel
+        # instances; convert via model_dump(mode='json') to handle datetime fields.
+        def _to_serializable(obj):
+            if hasattr(obj, "model_dump"):
+                return obj.model_dump(mode="json")
+            return obj
+
+        if isinstance(history, dict):
+            history = {k: _to_serializable(v) for k, v in history.items()}
+        else:
+            history = _to_serializable(history)
+
         return web.json_response({"history": history}, content_type="application/json")
 
     except Exception as e:
@@ -1408,8 +1428,11 @@ async def fetch_updates(request):
     )
 
 
-@routes.get("/v2/manager/queue/update_all")
+@routes.post("/v2/manager/queue/update_all")
 async def update_all(request: web.Request) -> web.Response:
+    rejection = security_utils.reject_simple_form_post(request)
+    if rejection is not None:
+        return rejection
     try:
         # Validate query parameters using Pydantic model
         query_params = UpdateAllQueryParams.model_validate(dict(request.rel_url.query))
@@ -1518,8 +1541,11 @@ async def get_snapshot_list(request):
     return web.json_response({"items": items}, content_type="application/json")
 
 
-@routes.get("/v2/snapshot/remove")
+@routes.post("/v2/snapshot/remove")
 async def remove_snapshot(request):
+    rejection = security_utils.reject_simple_form_post(request)
+    if rejection is not None:
+        return rejection
     if not security_utils.is_allowed_security_level("middle"):
         logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403)
@@ -1540,8 +1566,11 @@ async def remove_snapshot(request):
         return web.Response(status=400)
 
 
-@routes.get("/v2/snapshot/restore")
+@routes.post("/v2/snapshot/restore")
 async def restore_snapshot(request):
+    rejection = security_utils.reject_simple_form_post(request)
+    if rejection is not None:
+        return rejection
     if not security_utils.is_allowed_security_level("middle+"):
         logging.error(SECURITY_MESSAGE_MIDDLE_P)
         return web.Response(status=403)
@@ -1582,8 +1611,11 @@ async def get_current_snapshot_api(request):
         return web.Response(status=400)
 
 
-@routes.get("/v2/snapshot/save")
+@routes.post("/v2/snapshot/save")
 async def save_snapshot(request):
+    rejection = security_utils.reject_simple_form_post(request)
+    if rejection is not None:
+        return rejection
     try:
         await core.save_snapshot_with_postfix("snapshot")
         return web.Response(status=200)
@@ -1715,8 +1747,11 @@ async def import_fail_info_bulk(request):
         return web.Response(status=500, text="Internal server error")
 
 
-@routes.get("/v2/manager/queue/reset")
+@routes.post("/v2/manager/queue/reset")
 async def reset_queue(request):
+    rejection = security_utils.reject_simple_form_post(request)
+    if rejection is not None:
+        return rejection
     logging.debug("[ComfyUI-Manager] Queue reset requested")
     task_queue.wipe_queue()
     return web.Response(status=200)
@@ -1775,8 +1810,11 @@ async def queue_count(request):
         )
 
 
-@routes.get("/v2/manager/queue/start")
+@routes.post("/v2/manager/queue/start")
 async def queue_start(request):
+    rejection = security_utils.reject_simple_form_post(request)
+    if rejection is not None:
+        return rejection
     logging.debug("[ComfyUI-Manager] Queue start requested")
     started = task_queue.start_worker()
 
@@ -1788,9 +1826,12 @@ async def queue_start(request):
         return web.Response(status=201)  # Already in-progress
 
 
-@routes.get("/v2/manager/queue/update_comfyui")
+@routes.post("/v2/manager/queue/update_comfyui")
 async def update_comfyui(request):
     """Queue a ComfyUI update based on the configured update policy."""
+    rejection = security_utils.reject_simple_form_post(request)
+    if rejection is not None:
+        return rejection
     try:
         # Validate query parameters using Pydantic model
         query_params = UpdateComfyUIQueryParams.model_validate(
@@ -1837,17 +1878,26 @@ async def comfyui_versions(request):
     return web.Response(status=400)
 
 
-@routes.get("/v2/comfyui_manager/comfyui_switch_version")
+@routes.post("/v2/comfyui_manager/comfyui_switch_version")
 async def comfyui_switch_version(request):
-    try:
-        # Validate query parameters using Pydantic model
-        query_params = ComfyUISwitchVersionQueryParams.model_validate(
-            dict(request.rel_url.query)
-        )
+    # Body-reading handler — Content-Type gate omitted per
+    # comfyui_manager/common/manager_security.py module policy: a cross-origin
+    # <form method=POST> cannot forge a valid application/json body because
+    # the browser would trigger a CORS preflight that this server refuses.
+    if not security_utils.is_allowed_security_level("high+"):
+        logging.error(SECURITY_MESSAGE_HIGH_P)
+        return web.Response(status=403)
 
-        target_version = query_params.ver
-        client_id = query_params.client_id
-        ui_id = query_params.ui_id
+    try:
+        # Parse and validate JSON body (previously read from query string).
+        # ComfyUISwitchVersionParams is reused — the field set is
+        # identical for body and query; only the transport changed.
+        json_data = await request.json()
+        params = ComfyUISwitchVersionParams.model_validate(json_data)
+
+        target_version = params.ver
+        client_id = params.client_id
+        ui_id = params.ui_id
 
         # Create update-comfyui task with target version
         task = QueueTaskItem(
@@ -1859,6 +1909,8 @@ async def comfyui_switch_version(request):
 
         task_queue.put(task)
         return web.Response(status=200)
+    except json.JSONDecodeError:
+        return web.Response(status=400, text="Invalid JSON body")
     except ValidationError as e:
         return web.json_response(
             {"error": "Validation error", "details": e.errors()}, status=400
@@ -1902,51 +1954,97 @@ async def install_model(request):
 
 @routes.get("/v2/manager/db_mode")
 async def db_mode(request):
-    if "value" in request.rel_url.query:
-        environment_utils.set_db_mode(request.rel_url.query["value"])
-        core.write_config()
-    else:
-        return web.Response(text=core.get_config()["db_mode"], status=200)
+    return web.Response(text=core.get_config()["db_mode"], status=200)
 
-    return web.Response(status=200)
+
+@routes.post("/v2/manager/db_mode")
+async def set_db_mode_api(request):
+    # Config writes are at the same risk tier as uninstall/update — apply the
+    # 'middle' gate consistent with snapshot/remove, etc. Content-Type gate is
+    # NOT applied here: this handler consumes application/json and a
+    # cross-origin <form method=POST> cannot forge that without triggering
+    # CORS preflight (see module docstring in common/manager_security.py).
+    if not security_utils.is_allowed_security_level("middle"):
+        logging.error(SECURITY_MESSAGE_MIDDLE)
+        return web.Response(status=403)
+    try:
+        data = await request.json()
+        environment_utils.set_db_mode(data["value"])
+        core.write_config()
+        return web.Response(status=200)
+    except (json.JSONDecodeError, KeyError):
+        return web.Response(status=400, text="Invalid request")
+    except ValueError as e:
+        return web.Response(status=400, text=str(e))
 
 
 @routes.get("/v2/manager/policy/update")
 async def update_policy(request):
-    if "value" in request.rel_url.query:
-        environment_utils.set_update_policy(request.rel_url.query["value"])
-        core.write_config()
-    else:
-        return web.Response(text=core.get_config()["update_policy"], status=200)
+    return web.Response(text=core.get_config()["update_policy"], status=200)
 
-    return web.Response(status=200)
+
+@routes.post("/v2/manager/policy/update")
+async def set_update_policy_api(request):
+    # See set_db_mode_api above for gate rationale.
+    if not security_utils.is_allowed_security_level("middle"):
+        logging.error(SECURITY_MESSAGE_MIDDLE)
+        return web.Response(status=403)
+    try:
+        data = await request.json()
+        environment_utils.set_update_policy(data["value"])
+        core.write_config()
+        return web.Response(status=200)
+    except (json.JSONDecodeError, KeyError):
+        return web.Response(status=400, text="Invalid request")
+    except ValueError as e:
+        return web.Response(status=400, text=str(e))
 
 
 @routes.get("/v2/manager/channel_url_list")
 async def channel_url_list(request):
     channels = core.get_channel_dict()
-    if "value" in request.rel_url.query:
-        channel_url = channels.get(request.rel_url.query["value"])
-        if channel_url is not None:
-            core.get_config()["channel_url"] = channel_url
-            core.write_config()
-    else:
-        selected = "custom"
-        selected_url = core.get_config()["channel_url"]
+    selected = "custom"
+    selected_url = core.get_config()["channel_url"]
 
-        for name, url in channels.items():
-            if url == selected_url:
-                selected = name
-                break
+    for name, url in channels.items():
+        if url == selected_url:
+            selected = name
+            break
 
-        res = {"selected": selected, "list": core.get_channel_list()}
-        return web.json_response(res, status=200)
-
-    return web.Response(status=200)
+    res = {"selected": selected, "list": core.get_channel_list()}
+    return web.json_response(res, status=200)
 
 
-@routes.get("/v2/manager/reboot")
-def restart(self):
+@routes.post("/v2/manager/channel_url_list")
+async def set_channel_url(request):
+    # See set_db_mode_api above for gate rationale.
+    if not security_utils.is_allowed_security_level("middle"):
+        logging.error(SECURITY_MESSAGE_MIDDLE)
+        return web.Response(status=403)
+    try:
+        data = await request.json()
+        channels = core.get_channel_dict()
+        channel_url = channels.get(data["value"])
+        if channel_url is None:
+            # Reject unknown channel name explicitly instead of silent no-op.
+            # Parity with set_db_mode / set_update_policy whitelist enforcement.
+            return web.Response(
+                status=400,
+                text=f"Invalid channel name {data['value']!r}; "
+                     f"must be one of {sorted(channels.keys())}",
+            )
+        core.get_config()["channel_url"] = channel_url
+        core.write_config()
+        return web.Response(status=200)
+    except (json.JSONDecodeError, KeyError):
+        return web.Response(status=400, text="Invalid request")
+
+
+@routes.post("/v2/manager/reboot")
+def restart(request):
+    rejection = security_utils.reject_simple_form_post(request)
+    if rejection is not None:
+        return rejection
     if not security_utils.is_allowed_security_level("middle"):
         logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403)

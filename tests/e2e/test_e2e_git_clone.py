@@ -79,43 +79,56 @@ def _start_comfyui() -> int:
     global _comfyui_proc  # noqa: PLW0603
     log_dir = os.path.join(E2E_ROOT, "logs")
     os.makedirs(log_dir, exist_ok=True)
-    log_file = open(os.path.join(log_dir, "comfyui.log"), "w")  # noqa: SIM115
+    log_path = os.path.join(log_dir, "comfyui.log")
+    # Open the log file for the subprocess. We must keep this fd open while
+    # the process runs, but MUST close it on any exit path to avoid handle
+    # leaks (particularly on Windows where open handles block rmtree).
+    log_file = open(log_path, "w")  # noqa: SIM115
+
+    def _read_tail() -> str:
+        with open(log_path) as f:
+            return f.read()[-2000:]
 
     env = {
         **os.environ,
         "COMFYUI_PATH": COMFYUI_PATH,
         "PYTHONUNBUFFERED": "1",
     }
-    _comfyui_proc = subprocess.Popen(
-        [_venv_python(), "-u", os.path.join(COMFYUI_PATH, "main.py"),
-         "--listen", "127.0.0.1", "--port", str(PORT),
-         "--cpu", "--enable-manager"],
-        stdout=log_file, stderr=subprocess.STDOUT,
-        env=env,
-    )
-    # Wait for server to be ready.
-    # Manager may restart ComfyUI after startup dependency install (exit 0 → re-launch).
-    # If the process exits with code 0, keep polling — the restarted process will bind the port.
-    deadline = time.monotonic() + 120
-    while time.monotonic() < deadline:
+    try:
+        _comfyui_proc = subprocess.Popen(
+            [_venv_python(), "-u", os.path.join(COMFYUI_PATH, "main.py"),
+             "--listen", "127.0.0.1", "--port", str(PORT),
+             "--cpu", "--enable-manager"],
+            stdout=log_file, stderr=subprocess.STDOUT,
+            env=env,
+        )
+        # Wait for server to be ready.
+        # Manager may restart ComfyUI after startup dependency install (exit 0 → re-launch).
+        # If the process exits with code 0, keep polling — the restarted process will bind the port.
+        deadline = time.monotonic() + 120
+        while time.monotonic() < deadline:
+            try:
+                r = requests.get(f"{BASE_URL}/system_stats", timeout=2)
+                if r.status_code == 200:
+                    return _comfyui_proc.pid
+            except requests.ConnectionError:
+                pass
+            if _comfyui_proc.poll() is not None:
+                if _comfyui_proc.returncode != 0:
+                    log_file.close()
+                    raise RuntimeError(
+                        f"ComfyUI exited with code {_comfyui_proc.returncode}:\n{_read_tail()}"
+                    )
+                # exit 0 = Manager restart. Keep polling for the restarted process.
+            time.sleep(1)
+        raise RuntimeError(f"ComfyUI did not start within 120s. Log:\n{_read_tail()}")
+    except Exception:
+        # Ensure log_file handle is released on any failure
         try:
-            r = requests.get(f"{BASE_URL}/system_stats", timeout=2)
-            if r.status_code == 200:
-                return _comfyui_proc.pid
-        except requests.ConnectionError:
+            log_file.close()
+        except Exception:  # noqa: BLE001
             pass
-        if _comfyui_proc.poll() is not None:
-            if _comfyui_proc.returncode != 0:
-                log_file.close()
-                log_content = open(os.path.join(log_dir, "comfyui.log")).read()[-2000:]  # noqa: SIM115
-                raise RuntimeError(
-                    f"ComfyUI exited with code {_comfyui_proc.returncode}:\n{log_content}"
-                )
-            # exit 0 = Manager restart. Keep polling for the restarted process.
-        time.sleep(1)
-    log_file.close()
-    log_content = open(os.path.join(log_dir, "comfyui.log")).read()[-2000:]  # noqa: SIM115
-    raise RuntimeError(f"ComfyUI did not start within 120s. Log:\n{log_content}")
+        raise
 
 
 def _stop_comfyui():
@@ -135,7 +148,7 @@ def _queue_task(task: dict) -> None:
     """Queue a Manager task and start the worker."""
     resp = requests.post(f"{BASE_URL}/v2/manager/queue/task", json=task, timeout=10)
     resp.raise_for_status()
-    requests.get(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
+    requests.post(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
 
 
 def _remove_pack(name: str) -> None:
@@ -222,7 +235,16 @@ class TestNightlyInstallCycle:
     """
 
     def test_01_nightly_install(self, comfyui):
-        """Nightly install should git-clone the repo into custom_nodes."""
+        """Nightly install should git-clone the requested repo AND .git/config remote.origin.url matches.
+
+        WI-N strengthening: previously only `pack_exists + .git/ dir`. The
+        `.git/` directory alone proves *some* git artifact exists but NOT
+        that the clone targeted the requested URL — a regression where the
+        manager clones the wrong repo (or a cached stale one) would still
+        pass the old test. We now parse `.git/config` and assert the
+        `[remote "origin"] url = ...` line matches REPO_TEST1 (with or
+        without `.git` suffix — git accepts both forms).
+        """
         _remove_pack(PACK_TEST1)
         assert not _pack_exists(PACK_TEST1), (
             f"Failed to clean {PACK_TEST1} — file locks may be holding the directory"
@@ -240,8 +262,30 @@ class TestNightlyInstallCycle:
         )
 
         # Verify .git directory exists (git clone, not zip download)
-        git_dir = os.path.join(CUSTOM_NODES, PACK_TEST1, ".git")
+        pack_dir = os.path.join(CUSTOM_NODES, PACK_TEST1)
+        git_dir = os.path.join(pack_dir, ".git")
         assert os.path.isdir(git_dir), "No .git directory — not a git clone"
+
+        # Parse .git/config for [remote "origin"] url and cross-check against
+        # the requested repo URL. Git stores either `REPO` or `REPO.git`.
+        git_config = os.path.join(git_dir, "config")
+        assert os.path.isfile(git_config), (
+            f".git/config missing at {git_config} — corrupted clone?"
+        )
+        import configparser
+        cp = configparser.ConfigParser()
+        cp.read(git_config)
+        origin_section = 'remote "origin"'
+        assert origin_section in cp, (
+            f"[{origin_section}] section missing from .git/config: sections={cp.sections()!r}"
+        )
+        remote_url = cp[origin_section].get("url", "").rstrip("/")
+        acceptable = {REPO_TEST1, REPO_TEST1 + ".git", REPO_TEST1.rstrip("/"), REPO_TEST1.rstrip("/") + ".git"}
+        assert remote_url in acceptable or remote_url.rstrip(".git") == REPO_TEST1.rstrip(".git"), (
+            f".git/config remote.origin.url mismatch — expected one of "
+            f"{sorted(acceptable)}, got {remote_url!r}. The clone targeted "
+            f"the wrong repository!"
+        )
 
     def test_02_no_module_error(self, comfyui):
         """Server log must not contain ModuleNotFoundError (Phase 1 regression)."""
@@ -256,7 +300,13 @@ class TestNightlyInstallCycle:
         )
 
     def test_03_nightly_uninstall(self, comfyui):
-        """Uninstall the nightly-installed pack."""
+        """Uninstall the nightly-installed pack from disk AND from API installed-index.
+
+        WI-N strengthening: previously FS-only. The installed-index API is the
+        authoritative Manager contract; FS-deletion alone is insufficient to
+        call the operation "uninstalled". Cross-check that the pack key is
+        absent from `/v2/customnode/installed` response.
+        """
         if not _pack_exists(PACK_TEST1):
             pytest.skip("Pack not installed (previous test may have failed)")
 
@@ -271,3 +321,25 @@ class TestNightlyInstallCycle:
         assert _wait_for(lambda: not _pack_exists(PACK_TEST1)), (
             f"{PACK_TEST1} still exists after uninstall ({POLL_TIMEOUT}s timeout)"
         )
+
+        # API cross-check: pack must be absent from /v2/customnode/installed.
+        # Nightly packs appear keyed by directory name (no cnr_id for git-URL installs),
+        # so membership check uses the pack's dir name.
+        resp = requests.get(f"{BASE_URL}/v2/customnode/installed", timeout=10)
+        resp.raise_for_status()
+        installed = resp.json()
+        assert PACK_TEST1 not in installed, (
+            f"FS delete succeeded but {PACK_TEST1!r} still present in "
+            f"/v2/customnode/installed — cache-invalidation regression. "
+            f"Keys: {list(installed.keys())}"
+        )
+        # Defensive: also check by aux_id / cnr_id in case of schema variation.
+        for pkg_key, pkg in installed.items():
+            if isinstance(pkg, dict):
+                assert (
+                    pkg.get("cnr_id") != PACK_TEST1
+                    and pkg.get("aux_id") != PACK_TEST1
+                ), (
+                    f"Installed entry {pkg_key!r} still references {PACK_TEST1!r} "
+                    f"via cnr_id/aux_id: {pkg!r}"
+                )

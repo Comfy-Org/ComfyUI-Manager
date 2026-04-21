@@ -91,11 +91,23 @@ def print_comfyui_version():
             )
 
 
+ALLOWED_UPDATE_POLICIES = ("stable", "stable-comfyui", "nightly", "nightly-comfyui")
+ALLOWED_DB_MODES = ("cache", "channel", "local", "remote")
+
+
 def set_update_policy(mode):
+    if mode not in ALLOWED_UPDATE_POLICIES:
+        raise ValueError(
+            f"Invalid update_policy {mode!r}; must be one of {ALLOWED_UPDATE_POLICIES}"
+        )
     core.get_config()["update_policy"] = mode
 
 
 def set_db_mode(mode):
+    if mode not in ALLOWED_DB_MODES:
+        raise ValueError(
+            f"Invalid db_mode {mode!r}; must be one of {ALLOWED_DB_MODES}"
+        )
     core.get_config()["db_mode"] = mode
 
 

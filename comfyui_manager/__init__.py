@@ -26,7 +26,15 @@ def start():
                 logging.info("[ComfyUI-Manager] Legacy UI is enabled.")
                 nodes.EXTENSION_WEB_DIRS['comfyui-manager-legacy'] = os.path.join(os.path.dirname(__file__), 'js')
             except Exception as e:
-                print("Error enabling legacy ComfyUI Manager frontend:", e)
+                # WI-V: upgraded silent `print` to a proper logging.error with
+                # traceback so future legacy-UI load failures are visible in
+                # the log, not swallowed. The original `print` could be lost
+                # depending on how stdout is captured.
+                import traceback
+                logging.error(
+                    "[ComfyUI-Manager] Error enabling legacy frontend: "
+                    f"{type(e).__name__}: {e}\n{traceback.format_exc()}"
+                )
                 core = None
         else:
             from .glob import manager_server  # noqa: F401

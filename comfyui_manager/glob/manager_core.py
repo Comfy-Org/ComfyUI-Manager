@@ -44,8 +44,13 @@ from ..common.enums import NetworkMode, SecurityLevel, DBMode
 from ..common import context
 
 
-version_code = [4, 2]
-version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
+try:
+    from importlib.metadata import version as _pkg_version
+    _raw_version = _pkg_version("comfyui-manager")
+except Exception:
+    _raw_version = "unknown"
+
+version_str = f"V{_raw_version}"
 
 
 DEFAULT_CHANNEL = "https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main"
@@ -2033,6 +2038,10 @@ def install_manager_requirements(repo_path):
     Install packages from manager_requirements.txt if it exists.
     This is specifically for ComfyUI's manager_requirements.txt.
     """
+    if os.environ.get("COMFYUI_MANAGER_SKIP_MANAGER_REQUIREMENTS", "").lower() in ("1", "true", "yes"):
+        logging.info("[ComfyUI-Manager] Skipping manager_requirements.txt install (COMFYUI_MANAGER_SKIP_MANAGER_REQUIREMENTS set)")
+        return
+
     manager_requirements_path = os.path.join(repo_path, "manager_requirements.txt")
     if not os.path.exists(manager_requirements_path):
         return

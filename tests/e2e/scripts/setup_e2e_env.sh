@@ -202,9 +202,14 @@ uv pip install \
     -r "$E2E_ROOT/comfyui/requirements.txt" \
     --extra-index-url "$PYTORCH_CPU_INDEX"
 
-# Step 4: Install ComfyUI-Manager (non-editable, production-like)
-log "Step 4/8: Installing ComfyUI-Manager..."
-uv pip install --python "$VENV_PY" "$MANAGER_ROOT"
+# Step 4: Install ComfyUI-Manager (editable — venv tracks workspace edits)
+# Editable install prevents silent drift between the workspace source and the
+# installed package: any change to comfyui_manager/** is visible to E2E
+# immediately without re-running this script. The 2026-04-18 junk_value-rejection
+# regression (surfaced in WI-E/WI-G, root-caused in WI-I) was masked for weeks by
+# a non-editable snapshot — this flag closes that failure mode.
+log "Step 4/8: Installing ComfyUI-Manager (editable)..."
+uv pip install --python "$VENV_PY" -e "$MANAGER_ROOT"
 
 # Step 5: Create symlink for custom_nodes discovery
 log "Step 5/8: Creating custom_nodes symlink..."

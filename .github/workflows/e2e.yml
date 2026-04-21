@@ -71,4 +71,4 @@ jobs:
           fi
           uv pip install --python "$VENV_PY" pytest pytest-timeout
 
-          "$VENV_PY" -m pytest tests/e2e/test_e2e_uv_compile.py -v -s --timeout=300
+          "$VENV_PY" -m pytest tests/cli/test_uv_compile.py -v -s --timeout=300

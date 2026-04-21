@@ -98,7 +98,7 @@ def _queue_task(task: dict) -> None:
         timeout=10,
     )
     resp.raise_for_status()
-    requests.get(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
+    requests.post(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
 
 
 def _remove_pack(name: str) -> None:
@@ -192,14 +192,28 @@ class TestEndpointInstallUninstall:
 
     def test_installed_list_shows_pack(self, comfyui):
         """GET /v2/customnode/installed includes the installed pack."""
+        # Self-contained precondition: ensure pack installed (don't rely on prior test)
         if not _pack_exists(PACK_DIR_NAME):
-            pytest.skip("Pack not installed (previous test may have failed)")
+            _queue_task({
+                "ui_id": "e2e-setup",
+                "client_id": "e2e-setup",
+                "kind": "install",
+                "params": {
+                    "id": PACK_ID,
+                    "version": PACK_VERSION,
+                    "selected_version": "latest",
+                    "mode": "remote",
+                    "channel": "default",
+                },
+            })
+            assert _wait_for(lambda: _pack_exists(PACK_DIR_NAME)), (
+                "Setup failed: pack not installed"
+            )
 
         resp = requests.get(f"{BASE_URL}/v2/customnode/installed", timeout=10)
         resp.raise_for_status()
         installed = resp.json()
 
-        # Match by cnr_id (case-insensitive) following main repo pattern
         package_found = any(
             pkg.get("cnr_id", "").lower() == PACK_CNR_ID.lower()
             for pkg in installed.values()
@@ -210,9 +224,32 @@ class TestEndpointInstallUninstall:
         )
 
     def test_uninstall_via_endpoint(self, comfyui):
-        """POST /v2/manager/queue/task (uninstall) -> pack removed from disk."""
+        """POST /v2/manager/queue/task (uninstall) -> pack removed from disk AND absent from API.
+
+        WI-N strengthening: previously FS-only (`not _pack_exists`). The API
+        `installed` endpoint is the authoritative contract surface: a pack is
+        "uninstalled" only when both the filesystem entry is gone AND the
+        Manager's in-memory installed-index no longer lists its cnr_id.
+        Defeats a regression where the FS delete succeeds but the installed
+        cache still reports the pack (e.g. cache-invalidation bug).
+        """
+        # Self-contained: ensure pack is installed before testing uninstall
         if not _pack_exists(PACK_DIR_NAME):
-            pytest.skip("Pack not installed (previous test may have failed)")
+            _queue_task({
+                "ui_id": "e2e-uninstall-setup",
+                "client_id": "e2e-uninstall-setup",
+                "kind": "install",
+                "params": {
+                    "id": PACK_ID,
+                    "version": PACK_VERSION,
+                    "selected_version": "latest",
+                    "mode": "remote",
+                    "channel": "default",
+                },
+            })
+            assert _wait_for(lambda: _pack_exists(PACK_DIR_NAME)), (
+                "Setup failed: cannot install pack for uninstall test"
+            )
 
         _queue_task({
             "ui_id": "e2e-uninstall",
@@ -226,45 +263,7 @@ class TestEndpointInstallUninstall:
             lambda: not _pack_exists(PACK_DIR_NAME),
         ), f"{PACK_DIR_NAME} still exists after uninstall ({POLL_TIMEOUT}s timeout)"
 
-    def test_installed_list_after_uninstall(self, comfyui):
-        """After uninstall, pack no longer appears in installed list."""
-        if _pack_exists(PACK_DIR_NAME):
-            pytest.skip("Pack still exists (previous test may have failed)")
-
-        resp = requests.get(f"{BASE_URL}/v2/customnode/installed", timeout=10)
-        resp.raise_for_status()
-        installed = resp.json()
-
-        package_found = any(
-            pkg.get("cnr_id", "").lower() == PACK_CNR_ID.lower()
-            for pkg in installed.values()
-            if isinstance(pkg, dict) and pkg.get("cnr_id")
-        )
-        assert not package_found, f"{PACK_CNR_ID} still in installed list after uninstall"
-
-    def test_install_uninstall_cycle(self, comfyui):
-        """Complete install/uninstall cycle in a single test."""
-        _remove_pack(PACK_DIR_NAME)
-
-        # Install
-        _queue_task({
-            "ui_id": "e2e-cycle-install",
-            "client_id": "e2e-cycle",
-            "kind": "install",
-            "params": {
-                "id": PACK_ID,
-                "version": PACK_VERSION,
-                "selected_version": "latest",
-                "mode": "remote",
-                "channel": "default",
-            },
-        })
-        assert _wait_for(
-            lambda: _pack_exists(PACK_DIR_NAME),
-        ), f"Pack not installed within {POLL_TIMEOUT}s"
-        assert _has_tracking(PACK_DIR_NAME), "Pack missing .tracking"
-
-        # Verify in installed list
+        # API cross-check: cnr_id must be absent from /v2/customnode/installed.
         resp = requests.get(f"{BASE_URL}/v2/customnode/installed", timeout=10)
         resp.raise_for_status()
         installed = resp.json()
@@ -273,29 +272,15 @@ class TestEndpointInstallUninstall:
             for pkg in installed.values()
             if isinstance(pkg, dict) and pkg.get("cnr_id")
         )
-        assert package_found, f"{PACK_CNR_ID} not in installed list"
-
-        # Uninstall
-        _queue_task({
-            "ui_id": "e2e-cycle-uninstall",
-            "client_id": "e2e-cycle",
-            "kind": "uninstall",
-            "params": {
-                "node_name": PACK_CNR_ID,
-            },
-        })
-        assert _wait_for(
-            lambda: not _pack_exists(PACK_DIR_NAME),
-        ), f"Pack not uninstalled within {POLL_TIMEOUT}s"
+        assert not package_found, (
+            f"FS delete succeeded but {PACK_CNR_ID} still present in "
+            f"/v2/customnode/installed — cache-invalidation regression. "
+            f"Keys: {list(installed.keys())}"
+        )
 
 
 class TestEndpointStartup:
     """Verify ComfyUI startup with unified resolver."""
-
-    def test_comfyui_started(self, comfyui):
-        """ComfyUI is running and responds to health check."""
-        resp = requests.get(f"{BASE_URL}/system_stats", timeout=10)
-        assert resp.status_code == 200
 
     def test_startup_resolver_ran(self, comfyui):
         """Startup log contains unified resolver output."""

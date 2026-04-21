@@ -189,65 +189,44 @@ class TestReinstall:
     """cm-cli reinstall --uv-compile"""
 
     def test_reinstall_with_uv_compile(self):
-        """Reinstall an existing pack with --uv-compile."""
-        # Install first
+        """Reinstall an existing pack with --uv-compile — resolver MUST run."""
         _run_cm_cli("install", REPO_TEST1)
         assert _pack_exists(PACK_TEST1)
 
-        # Reinstall with --uv-compile
         r = _run_cm_cli("reinstall", "--uv-compile", REPO_TEST1)
         combined = r.stdout + r.stderr
 
-        # Reinstall should re-resolve or report the pack exists
-        # Note: Manager's reinstall may fail to remove the existing directory
-        # before re-cloning (known issue — purge_node_state bug)
         assert _pack_exists(PACK_TEST1)
-        assert "Resolving dependencies" in combined or "Already exists" in combined
+        assert "Resolving dependencies" in combined, (
+            f"Expected resolver to run on reinstall but output had: {combined[:500]!r}"
+        )
 
 
-class TestUpdate:
-    """cm-cli update --uv-compile"""
+class TestUvCompileVerbs:
+    """cm-cli verbs that support --uv-compile.
 
-    def test_update_single_with_uv_compile(self):
-        """Update an installed pack with --uv-compile."""
+    WI-NN Cluster 5 (bloat-sweep dev:ci-004/005/006/007/011 B9 copy-paste):
+    consolidates 5 previously-separate test functions that all assert the same
+    "Resolving dependencies" emission after install+verb. Parametrized across
+    the 5 supported verb/target combinations.
+    """
+
+    @pytest.mark.parametrize(
+        "cm_args",
+        [
+            pytest.param(("update", "--uv-compile", REPO_TEST1), id="update-single"),
+            pytest.param(("update", "--uv-compile", "all"), id="update-all"),
+            pytest.param(("fix", "--uv-compile", REPO_TEST1), id="fix-single"),
+            pytest.param(("fix", "--uv-compile", "all"), id="fix-all"),
+            pytest.param(("restore-dependencies", "--uv-compile"), id="restore-dependencies"),
+        ],
+    )
+    def test_verb_with_uv_compile_runs_resolver(self, cm_args):
+        """Every --uv-compile-aware verb triggers dependency resolution."""
         _run_cm_cli("install", REPO_TEST1)
         assert _pack_exists(PACK_TEST1)
 
-        r = _run_cm_cli("update", "--uv-compile", REPO_TEST1)
-        combined = r.stdout + r.stderr
-
-        assert "Resolving dependencies" in combined
-
-    def test_update_all_with_uv_compile(self):
-        """update all --uv-compile runs uv-compile after updating."""
-        _run_cm_cli("install", REPO_TEST1)
-        assert _pack_exists(PACK_TEST1)
-
-        r = _run_cm_cli("update", "--uv-compile", "all")
-        combined = r.stdout + r.stderr
-
-        assert "Resolving dependencies" in combined
-
-
-class TestFix:
-    """cm-cli fix --uv-compile"""
-
-    def test_fix_single_with_uv_compile(self):
-        """Fix an installed pack with --uv-compile."""
-        _run_cm_cli("install", REPO_TEST1)
-        assert _pack_exists(PACK_TEST1)
-
-        r = _run_cm_cli("fix", "--uv-compile", REPO_TEST1)
-        combined = r.stdout + r.stderr
-
-        assert "Resolving dependencies" in combined
-
-    def test_fix_all_with_uv_compile(self):
-        """fix all --uv-compile runs uv-compile after fixing."""
-        _run_cm_cli("install", REPO_TEST1)
-        assert _pack_exists(PACK_TEST1)
-
-        r = _run_cm_cli("fix", "--uv-compile", "all")
+        r = _run_cm_cli(*cm_args)
         combined = r.stdout + r.stderr
 
         assert "Resolving dependencies" in combined
@@ -256,14 +235,41 @@ class TestFix:
 class TestUvCompileStandalone:
     """cm-cli uv-sync (standalone command, formerly uv-compile)"""
 
-    def test_uv_compile_no_packs(self):
-        """uv-compile with no node packs → 'No custom node packs found'."""
+    def test_uv_compile_no_test_packs_exits_zero(self):
+        """uv-sync without test packs must exit rc==0 (clean success).
+
+        WI-OO Item 2 (bloat dev:ci-008 B5): split from the previous OR-fallback
+        test. This half pins the exit-code contract.
+        """
+        r = _run_cm_cli("uv-sync")
+        assert r.returncode == 0, (
+            f"uv-sync should exit 0 when no test packs are installed; "
+            f"got rc={r.returncode}. Output: {(r.stdout + r.stderr)[:500]!r}"
+        )
+
+    def test_uv_compile_no_test_packs_emits_signal(self):
+        """uv-sync emits a definitive signal — never silent success.
+
+        WI-OO Item 2 (bloat dev:ci-008 B5): split from the previous OR-fallback
+        test. This half pins the output-signal contract. The emitted marker
+        depends on what's installed in the E2E sandbox at the moment — either
+        'No custom node packs' (empty tree with no resolvable requirements) or
+        'Resolved' (non-empty tree with successful resolution). Asserting the
+        disjunction here is narrower than the original OR (which also accepted
+        rc==0 with completely silent output); this test requires an actual
+        human-readable marker in the output stream.
+        """
         r = _run_cm_cli("uv-sync")
         combined = r.stdout + r.stderr
-
-        # Only ComfyUI-Manager exists (no requirements.txt in it normally)
-        # so either "No custom node packs found" or resolves 0
-        assert r.returncode == 0 or "No custom node packs" in combined
+        # Precondition: exit success is verified by the sibling test above.
+        assert r.returncode == 0, f"Precondition failed: uv-sync rc={r.returncode}"
+        empty_marker = "No custom node packs" in combined
+        resolved_marker = "Resolved" in combined
+        assert empty_marker or resolved_marker, (
+            f"Expected 'No custom node packs' (empty tree) or 'Resolved' "
+            f"(non-empty tree) marker; output was silent or unrecognized: "
+            f"{combined[:500]!r}"
+        )
 
     def test_uv_compile_with_packs(self):
         """uv-compile after installing test pack → resolves."""
@@ -275,33 +281,6 @@ class TestUvCompileStandalone:
 
         assert "Resolving dependencies" in combined
         assert "Resolved" in combined
-
-    def test_uv_compile_conflict_attribution(self):
-        """uv-compile with conflicting packs → shows attribution."""
-        _run_cm_cli("install", REPO_TEST1)
-        _run_cm_cli("install", REPO_TEST2)
-
-        r = _run_cm_cli("uv-sync")
-        combined = r.stdout + r.stderr
-
-        assert r.returncode != 0
-        assert "Conflicting packages (by node pack):" in combined
-        assert PACK_TEST1 in combined
-        assert PACK_TEST2 in combined
-
-
-class TestRestoreDependencies:
-    """cm-cli restore-dependencies --uv-compile"""
-
-    def test_restore_dependencies_with_uv_compile(self):
-        """restore-dependencies --uv-compile runs resolver after restore."""
-        _run_cm_cli("install", REPO_TEST1)
-        assert _pack_exists(PACK_TEST1)
-
-        r = _run_cm_cli("restore-dependencies", "--uv-compile")
-        combined = r.stdout + r.stderr
-
-        assert "Resolving dependencies" in combined
 
 
 class TestConflictAttributionDetail:

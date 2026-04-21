@@ -172,7 +172,7 @@ export function rebootAPI() {
 	customConfirm("Are you sure you'd like to reboot the server?").then((isConfirmed) => {
 		if (isConfirmed) {
 			try {
-				api.fetchApi("/v2/manager/reboot");
+				api.fetchApi("/v2/manager/reboot", { method: 'POST' });
 			}
 			catch(exception) {}
 		}

@@ -9,7 +9,7 @@ loadCss("./snapshot.css");
 async function restore_snapshot(target) {
 	if(SnapshotManager.instance) {
 		try {
-			const response = await api.fetchApi(`/v2/snapshot/restore?target=${target}`, { cache: "no-store" });
+			const response = await api.fetchApi(`/v2/snapshot/restore?target=${target}`, { method: 'POST', cache: "no-store" });
 
 			if(response.status == 403) {
 				show_message('This action is not allowed with this security level configuration.');
@@ -37,7 +37,7 @@ async function restore_snapshot(target) {
 async function remove_snapshot(target) {
 	if(SnapshotManager.instance) {
 		try {
-			const response = await api.fetchApi(`/v2/snapshot/remove?target=${target}`, { cache: "no-store" });
+			const response = await api.fetchApi(`/v2/snapshot/remove?target=${target}`, { method: 'POST', cache: "no-store" });
 
 			if(response.status == 403) {
 				show_message('This action is not allowed with this security level configuration.');
@@ -63,7 +63,7 @@ async function remove_snapshot(target) {
 
 async function save_current_snapshot() {
 	try {
-		const response = await api.fetchApi('/v2/snapshot/save', { cache: "no-store" });
+		const response = await api.fetchApi('/v2/snapshot/save', { method: 'POST', cache: "no-store" });
 		app.ui.dialog.close();
 		return true;
 	}

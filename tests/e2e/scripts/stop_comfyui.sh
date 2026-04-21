@@ -23,7 +23,15 @@ die()  { err "$@"; exit 1; }
 # --- Validate ---
 [[ -n "${E2E_ROOT:-}" ]] || die "E2E_ROOT is not set"
 
-PID_FILE="$E2E_ROOT/logs/comfyui.pid"
+PID_FILE="$E2E_ROOT/logs/comfyui.${PORT}.pid"
+# Legacy single-port path — warn if encountered so concurrent tests on
+# different ports don't overwrite each other's PID file (observed during
+# WI-CC: stop_comfyui.sh on port 8200 accidentally killed another teammate's
+# PID 2979469 running on port 8199 because both shared $E2E_ROOT/logs/comfyui.pid).
+LEGACY_PID_FILE="$E2E_ROOT/logs/comfyui.pid"
+if [[ -f "$LEGACY_PID_FILE" ]] && [[ ! -f "$PID_FILE" ]]; then
+    log "WARN: found legacy unported PID file $LEGACY_PID_FILE but no ${PID_FILE}. Cross-port risk — ignoring legacy file."
+fi
 
 # --- Read PID ---
 COMFYUI_PID=""
