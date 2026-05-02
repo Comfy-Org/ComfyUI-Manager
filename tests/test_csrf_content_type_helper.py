@@ -116,6 +116,12 @@ class ContentTypeRejectionTest(unittest.TestCase):
         r = self._post({"Content-Type": "application/json"})
         self.assertEqual(r.status, 200)
 
+    def test_none_request_allowed(self):
+        # Internal callers (e.g. legacy-UI batch flows) invoke route handlers
+        # directly with request=None; helper must not raise AttributeError.
+        # Regression test for issue #2843.
+        self.assertIsNone(_reject_simple_form_content_type(None))
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

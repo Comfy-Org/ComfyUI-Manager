@@ -353,8 +353,12 @@ def _reject_simple_form_content_type(request):
         web.Response(status=400) when the request has a simple-form
         Content-Type that must be rejected. None when the request is allowed
         to proceed (no Content-Type, application/json, or any non-simple
-        Content-Type).
+        Content-Type, or no request object — internal caller).
     """
+    # Internal callers (e.g. legacy-UI batch flows) invoke route handlers
+    # directly with request=None; there is no Content-Type to gate.
+    if request is None:
+        return None
     if request.content_type in _SIMPLE_FORM_CONTENT_TYPES:
         return web.Response(
             status=400,
