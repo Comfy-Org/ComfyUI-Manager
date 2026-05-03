@@ -1,7 +1,14 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
-import { $el, ComfyDialog } from "../../scripts/ui.js";
 import { getBestPosition, getPositionStyle, getRect } from './popover-helper.js';
+
+// === SHIM FOR NEW COMFYUI (removes ui.js warning) ===
+let $el, ComfyDialog;
+if (window?.comfyAPI?.ui) {
+    ({ $el, ComfyDialog } = window.comfyAPI.ui);
+} else {
+    ({ $el, ComfyDialog } = await import("../../scripts/ui.js"));
+}
 
 
 function internalCustomConfirm(message, confirmMessage, cancelMessage) {
