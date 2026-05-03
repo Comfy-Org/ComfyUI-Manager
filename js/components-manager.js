@@ -1,8 +1,22 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js"
 import { sleep, show_message, customConfirm, customAlert } from "./common.js";
-import { GroupNodeConfig, GroupNodeHandler } from "../../extensions/core/groupNode.js";
-import { ComfyDialog, $el } from "../../scripts/ui.js";
+
+// === SHIM FOR NEW COMFYUI (removes groupNode.js warning) ===
+let GroupNodeConfig, GroupNodeHandler;
+if (window?.comfyAPI?.groupNode) {
+    ({ GroupNodeConfig, GroupNodeHandler } = window.comfyAPI.groupNode);
+} else {
+    ({ GroupNodeConfig, GroupNodeHandler } = await import("../../extensions/core/groupNode.js"));
+}
+
+// === SHIM FOR NEW COMFYUI (removes ui.js warning) ===
+let ComfyDialog, $el;
+if (window?.comfyAPI?.ui) {
+    ({ ComfyDialog, $el } = window.comfyAPI.ui);
+} else {
+    ({ ComfyDialog, $el } = await import("../../scripts/ui.js"));
+}
 
 const SEPARATOR = ">"
 
