@@ -1,7 +1,14 @@
 import {app} from "../../scripts/app.js";
 import {api} from "../../scripts/api.js";
-import {ComfyDialog, $el} from "../../scripts/ui.js";
 import { customAlert } from "./common.js";
+
+// === SHIM FOR NEW COMFYUI (removes ui.js warning) ===
+let $el, ComfyDialog;
+if (window?.comfyAPI?.ui) {
+    ({ $el, ComfyDialog } = window.comfyAPI.ui);
+} else {
+    ({ $el, ComfyDialog } = await import("../../scripts/ui.js"));
+}
 
 const LOCAL_STORAGE_KEY = "openart_comfy_workflow_key";
 const DEFAULT_HOMEPAGE_URL = "https://openart.ai/workflows/dev?developer=true";
