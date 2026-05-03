@@ -1,8 +1,15 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js"
-import { ComfyDialog, $el } from "../../scripts/ui.js";
 import { manager_instance, rebootAPI, show_message, handle403Response, loadCss } from  "./common.js";
 import { buildGuiFrame } from "./comfyui-gui-builder.js";
+
+// === SHIM FOR NEW COMFYUI (removes ui.js warning) ===
+let ComfyDialog, $el;
+if (window?.comfyAPI?.ui) {
+    ({ ComfyDialog, $el } = window.comfyAPI.ui);
+} else {
+    ({ ComfyDialog, $el } = await import("../../scripts/ui.js"));
+}
 
 loadCss("./snapshot.css");
 
