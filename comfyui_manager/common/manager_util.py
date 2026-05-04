@@ -39,6 +39,19 @@ bypass_ssl = False
 # inventory, and security checks keep working.
 dependency_management_enabled = True
 
+
+_OFF_VALUES = frozenset({'off', 'false', '0', 'no', 'disabled'})
+
+
+def is_off_value(value):
+    """Return True if a config or env-var string spells "off".
+
+    Anything else — including the empty string and unknown words — is treated
+    as "on", so a typo doesn't silently disable dependency management.
+    """
+    return value.strip().lower() in _OFF_VALUES
+
+
 def is_manager_pip_package():
     return not os.path.exists(os.path.join(comfyui_manager_path, '..', 'custom_nodes'))
 

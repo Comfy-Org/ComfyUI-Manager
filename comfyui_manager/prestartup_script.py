@@ -101,14 +101,11 @@ def read_dependency_management_mode():
     # startup (PIPFixer auto-heal, unified resolver, per-node pip install).
     # Intended for distro-packaged / externally-managed Python environments
     # where the interpreter is read-only (Nix, Guix, system packages, etc.).
-    def _is_off(value):
-        return value.strip().lower() in ('off', 'false', '0', 'no', 'disabled')
-
     env_value = os.environ.get('COMFYUI_MANAGER_DEPENDENCY_MANAGEMENT')
     if env_value is not None:
-        manager_util.dependency_management_enabled = not _is_off(env_value)
+        manager_util.dependency_management_enabled = not manager_util.is_off_value(env_value)
     elif 'dependency_management' in default_conf:
-        manager_util.dependency_management_enabled = not _is_off(default_conf['dependency_management'])
+        manager_util.dependency_management_enabled = not manager_util.is_off_value(default_conf['dependency_management'])
 
     if not manager_util.dependency_management_enabled:
         logging.info("[ComfyUI-Manager] dependency management disabled; auto-install/upgrade/uninstall paths will be skipped.")
