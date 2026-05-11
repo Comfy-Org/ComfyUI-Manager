@@ -23,7 +23,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 # Parse the helper from manager_server.py without importing it, to avoid
 # pulling in the full ComfyUI/PromptServer stack. Note: we intentionally do
-# NOT add the `glob/` directory to sys.path — the dir name would shadow
+# NOT add the `glob/` directory to sys.path, the dir name would shadow
 # Python's stdlib `glob` module and break pytest collection.
 REPO_ROOT = Path(__file__).resolve().parent.parent
 

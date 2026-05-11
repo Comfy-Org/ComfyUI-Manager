@@ -333,7 +333,7 @@ def _reject_simple_form_content_type(request):
     Applied ONLY to POST handlers that do not consume a request body (e.g.,
     /snapshot/save, /manager/queue/{reset,start,update_comfyui},
     /manager/reboot). These are vulnerable to cross-origin <form method=POST>
-    attacks because the handler accepts the request without parsing any body —
+    attacks because the handler accepts the request without parsing any body,
     the attacker needs no ability to forge a valid payload, only to point a
     hidden form at the URL.
 
@@ -342,8 +342,8 @@ def _reject_simple_form_content_type(request):
     body because the browser refuses to send ``application/json`` without a
     CORS preflight, which this server does not answer.
 
-    DO NOT add this gate to body-reading handlers — redundant and UX-breaking.
-    DO NOT remove this gate from no-body handlers — this is the bypass vector.
+    DO NOT add this gate to body-reading handlers, redundant and UX-breaking.
+    DO NOT remove this gate from no-body handlers, this is the bypass vector.
 
     aiohttp's ``request.content_type`` normalizes the header (lower-cases,
     strips parameters), so ``multipart/form-data; boundary=----X`` is compared
@@ -353,7 +353,7 @@ def _reject_simple_form_content_type(request):
         web.Response(status=400) when the request has a simple-form
         Content-Type that must be rejected. None when the request is allowed
         to proceed (no Content-Type, application/json, or any non-simple
-        Content-Type, or no request object — internal caller).
+        Content-Type, or no request object, internal caller).
     """
     # Internal callers (e.g. legacy-UI batch flows) invoke route handlers
     # directly with request=None; there is no Content-Type to gate.
