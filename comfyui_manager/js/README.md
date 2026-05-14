@@ -13,7 +13,7 @@ This directory contains the JavaScript frontend implementation for ComfyUI-Manag
 ## Sharing Components
 
 - **comfyui-share-common.js**: Base functionality for workflow sharing features.
-- **comfyui-share-copus.js**: Integration with the ComfyUI Opus sharing platform.
+- **comfyui-share-copus.js**: Integration with the ComfyUI Copus sharing platform.
 - **comfyui-share-openart.js**: Integration with the OpenArt sharing platform.
 - **comfyui-share-youml.js**: Integration with the YouML sharing platform.
 

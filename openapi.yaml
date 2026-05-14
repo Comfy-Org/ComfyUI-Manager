@@ -78,6 +78,19 @@ components:
           type: [string, 'null']
           format: date-time
           description: ISO timestamp when task execution ended
+        params:
+          description: Original task parameters (mirrors QueueTaskItem.params); null if unavailable
+          oneOf:
+            - $ref: '#/components/schemas/InstallPackParams'
+            - $ref: '#/components/schemas/UpdatePackParams'
+            - $ref: '#/components/schemas/UpdateAllPacksParams'
+            - $ref: '#/components/schemas/UpdateComfyUIParams'
+            - $ref: '#/components/schemas/FixPackParams'
+            - $ref: '#/components/schemas/UninstallPackParams'
+            - $ref: '#/components/schemas/DisablePackParams'
+            - $ref: '#/components/schemas/EnablePackParams'
+            - $ref: '#/components/schemas/ModelMetadata'
+            - type: 'null'
       required: [ui_id, client_id, kind, timestamp, result]
     TaskExecutionStatus:
       type: object
@@ -412,12 +425,12 @@ components:
           default: true
           description: Whether to update to stable version (true) or nightly (false)
       required: [client_id, ui_id]
-    ComfyUISwitchVersionQueryParams:
+    ComfyUISwitchVersionParams:
       type: object
       properties:
         ver:
           type: string
-          description: Version to switch to
+          description: Target ComfyUI version tag
         client_id:
           type: string
           description: Client identifier that initiated the request
@@ -1042,9 +1055,9 @@ paths:
         '400':
           description: Error retrieving history list
   /v2/manager/queue/start:
-    get:
+    post:
       summary: Start queue processing
-      description: Starts processing the operation queue
+      description: Starts processing the operation queue.
       responses:
         '200':
           description: Processing started
@@ -1077,16 +1090,16 @@ paths:
           description: Internal Server Error.
 
   /v2/manager/queue/reset:
-    get:
+    post:
       summary: Reset queue
-      description: Resets the operation queue
+      description: Resets the operation queue.
       responses:
         '200':
           description: Queue reset successfully
   /v2/manager/queue/update_all:
-    get:
+    post:
       summary: Update all custom nodes
-      description: Queues update operations for all installed custom nodes
+      description: Queues update operations for all installed custom nodes. Parameters are read from the query string.
       security:
         - securityLevel: []
       parameters:
@@ -1103,9 +1116,9 @@ paths:
         '403':
           description: Security policy violation
   /v2/manager/queue/update_comfyui:
-    get:
+    post:
       summary: Update ComfyUI
-      description: Queues an update operation for ComfyUI itself
+      description: Queues an update operation for ComfyUI itself. Parameters are read from the query string.
       parameters:
         - $ref: '#/components/parameters/clientIdRequiredParam'
         - $ref: '#/components/parameters/uiIdRequiredParam'
@@ -1217,9 +1230,9 @@ paths:
                     items:
                       $ref: '#/components/schemas/SnapshotItem'
   /v2/snapshot/remove:
-    get:
+    post:
       summary: Remove snapshot
-      description: Removes a specified snapshot
+      description: Removes a specified snapshot. The `target` parameter is read from the query string.
       security:
         - securityLevel: []
       parameters:
@@ -1232,9 +1245,9 @@ paths:
         '403':
           description: Security policy violation
   /v2/snapshot/restore:
-    get:
+    post:
       summary: Restore snapshot
-      description: Restores a specified snapshot
+      description: Restores a specified snapshot. The `target` parameter is read from the query string.
       security:
         - securityLevel: []
       parameters:
@@ -1260,9 +1273,9 @@ paths:
         '400':
           description: Error creating snapshot
   /v2/snapshot/save:
-    get:
+    post:
       summary: Save snapshot
-      description: Saves the current system state as a new snapshot
+      description: Saves the current system state as a new snapshot.
       responses:
         '200':
           description: Snapshot saved successfully
@@ -1290,76 +1303,96 @@ paths:
         '400':
           description: Error retrieving versions
   /v2/comfyui_manager/comfyui_switch_version:
-    get:
+    post:
       summary: Switch ComfyUI version
-      description: Switches to a specified ComfyUI version
-      parameters:
-        - name: ver
-          in: query
-          required: true
-          description: Target version
-          schema:
-            type: string
-        - $ref: '#/components/parameters/clientIdRequiredParam'
-        - $ref: '#/components/parameters/uiIdRequiredParam'
+      description: Switches to a specified ComfyUI version. Gated at `high+` security level; returns 403 under the default `normal` profile. Parameters are read from a JSON request body (migrated from query string in v4.2 — see CHANGELOG Migration notes).
+      security:
+        - securityLevel: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ComfyUISwitchVersionParams'
       responses:
         '200':
           description: Version switch queued successfully
         '400':
-          description: Missing required parameters or error switching version
+          description: Invalid JSON body, missing required fields, or error switching version
+        '403':
+          description: Security level below `high+` — request rejected
   # Configuration Endpoints (v2)
   /v2/manager/db_mode:
     get:
-      summary: Get or set database mode
-      description: Gets or sets the database mode
-      parameters:
-        - name: value
-          in: query
-          required: false
-          description: New database mode
-          schema:
-            type: string
-            enum: [channel, local, remote]
+      summary: Get database mode
+      description: Returns the current database mode.
       responses:
         '200':
-          description: Setting updated or current value returned
+          description: Current value returned
           content:
             text/plain:
               schema:
                 type: string
+                enum: [channel, local, remote]
+    post:
+      summary: Set database mode
+      description: Sets the database mode. Payload is a JSON object with a `value` field.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: string
+                  enum: [channel, local, remote]
+                  description: New database mode
+      responses:
+        '200':
+          description: Setting updated
+        '400':
+          description: Invalid request (malformed JSON, missing `value`, or value not in allowed enum)
   /v2/manager/policy/update:
     get:
-      summary: Get or set update policy
-      description: Gets or sets the update policy
-      parameters:
-        - name: value
-          in: query
-          required: false
-          description: New update policy
-          schema:
-            type: string
-            enum: [stable, nightly, nightly-comfyui]
+      summary: Get update policy
+      description: Returns the current update policy.
       responses:
         '200':
-          description: Setting updated or current value returned
+          description: Current value returned
           content:
             text/plain:
               schema:
                 type: string
-  /v2/manager/channel_url_list:
-    get:
-      summary: Get or set channel URL
-      description: Gets or sets the channel URL for custom node sources
-      parameters:
-        - name: value
-          in: query
-          required: false
-          description: New channel name
-          schema:
-            type: string
+                enum: [stable, nightly, nightly-comfyui]
+    post:
+      summary: Set update policy
+      description: Sets the update policy. Payload is a JSON object with a `value` field.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: string
+                  enum: [stable, nightly, nightly-comfyui]
+                  description: New update policy
       responses:
         '200':
-          description: Setting updated or channel list returned
+          description: Setting updated
+        '400':
+          description: Invalid request (malformed JSON, missing `value`, or value not in allowed enum)
+  /v2/manager/channel_url_list:
+    get:
+      summary: Get channel URL list
+      description: Returns the selected channel and the full channel list for custom node sources.
+      responses:
+        '200':
+          description: Selected channel and channel list returned
           content:
             application/json:
               schema:
@@ -1376,10 +1409,29 @@ paths:
                           type: string
                         url:
                           type: string
+    post:
+      summary: Set channel URL
+      description: Sets the channel URL for custom node sources by channel name. Payload is a JSON object with a `value` field containing the channel name.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: string
+                  description: Channel name (must be present in the channel list returned by GET)
+      responses:
+        '200':
+          description: Channel updated
+        '400':
+          description: Invalid request — malformed JSON, missing `value`, or unknown channel name
   /v2/manager/reboot:
-    get:
+    post:
       summary: Reboot ComfyUI
-      description: Restarts the ComfyUI server
+      description: Restarts the ComfyUI server.
       security:
         - securityLevel: []
       responses:

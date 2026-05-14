@@ -3,12 +3,18 @@ import sys
 import os
 import traceback
 
-import git
+# Make git_compat importable as a standalone subprocess script
+sys.path.insert(0, os.path.dirname(__file__))
+
+from git_compat import open_repo, clone_repo, GitCommandError, setup_git_environment
 import json
 import yaml
 import requests
 from tqdm.auto import tqdm
-from git.remote import RemoteProgress
+try:
+    from git.remote import RemoteProgress
+except ImportError:
+    RemoteProgress = object
 
 
 comfy_path = os.environ.get('COMFYUI_PATH')
@@ -50,9 +56,6 @@ working_directory = os.getcwd()
 
 if os.path.basename(working_directory) != 'custom_nodes':
     print("WARN: This script should be executed in custom_nodes dir")
-    print(f"DBG: INFO {working_directory}")
-    print(f"DBG: INFO {sys.argv}")
-    # exit(-1)
 
 
 class GitProgress(RemoteProgress):
@@ -67,68 +70,113 @@ class GitProgress(RemoteProgress):
         self.pbar.refresh()
 
 
+def get_backup_branch_name(repo=None):
+    """Get backup branch name with current timestamp.
+
+    Inlined from timestamp_utils to keep git_helper.py standalone — this script
+    runs as a subprocess on Windows and must not import from comfyui_manager.
+    """
+    import time as _time
+    import uuid as _uuid
+
+    base_name = f'backup_{_time.strftime("%Y%m%d_%H%M%S")}'
+
+    if repo is None:
+        return base_name
+
+    try:
+        existing_branches = {b.name for b in repo.list_heads()}
+    except Exception:
+        return base_name
+
+    if base_name not in existing_branches:
+        return base_name
+
+    for i in range(1, 100):
+        new_name = f'{base_name}_{i}'
+        if new_name not in existing_branches:
+            return new_name
+
+    return f'{base_name}_{_uuid.uuid4().hex[:6]}'
+
+
 def gitclone(custom_nodes_path, url, target_hash=None, repo_path=None):
     repo_name = os.path.splitext(os.path.basename(url))[0]
 
     if repo_path is None:
         repo_path = os.path.join(custom_nodes_path, repo_name)
 
-    # Clone the repository from the remote URL
-    repo = git.Repo.clone_from(url, repo_path, recursive=True, progress=GitProgress())
+    # On Windows, previous failed clones may leave directories with locked
+    # .git/objects/pack/* files (GitPython memory-mapped handle leak).
+    # Rename stale directory out of the way so clone can proceed.
+    if os.path.exists(repo_path):
+        import shutil
+        import uuid as _uuid
+        trash_dir = os.path.join(custom_nodes_path, '.disabled', '.trash')
+        os.makedirs(trash_dir, exist_ok=True)
+        trash = os.path.join(trash_dir, repo_name + f'_{_uuid.uuid4().hex[:8]}')
+        try:
+            os.rename(repo_path, trash)
+            shutil.rmtree(trash, ignore_errors=True)
+        except OSError:
+            shutil.rmtree(repo_path, ignore_errors=True)
+
+    # Disable tqdm progress when stderr is piped to avoid deadlock on Windows.
+    progress = GitProgress() if sys.stderr.isatty() else None
+    repo = clone_repo(url, repo_path, progress=progress)
 
     if target_hash is not None:
         print(f"CHECKOUT: {repo_name} [{target_hash}]")
-        repo.git.checkout(target_hash)
+        repo.checkout(target_hash)
             
-    repo.git.clear_cache()
+    repo.clear_cache()
     repo.close()
 
 
 def gitcheck(path, do_fetch=False):
     try:
         # Fetch the latest commits from the remote repository
-        repo = git.Repo(path)
+        with open_repo(path) as repo:
 
-        if repo.head.is_detached:
-            print("CUSTOM NODE CHECK: True")
-            return
-
-        current_branch = repo.active_branch
-        branch_name = current_branch.name
-
-        remote_name = current_branch.tracking_branch().remote_name
-        remote = repo.remote(name=remote_name)
-
-        if do_fetch:
-            remote.fetch()
-
-        # Get the current commit hash and the commit hash of the remote branch
-        commit_hash = repo.head.commit.hexsha
-
-        if f'{remote_name}/{branch_name}' in repo.refs:
-            remote_commit_hash = repo.refs[f'{remote_name}/{branch_name}'].object.hexsha
-        else:
-            print("CUSTOM NODE CHECK: True")  # non default branch is treated as updatable
-            return
-
-        # Compare the commit hashes to determine if the local repository is behind the remote repository
-        if commit_hash != remote_commit_hash:
-            # Get the commit dates
-            commit_date = repo.head.commit.committed_datetime
-            remote_commit_date = repo.refs[f'{remote_name}/{branch_name}'].object.committed_datetime
-
-            # Compare the commit dates to determine if the local repository is behind the remote repository
-            if commit_date < remote_commit_date:
+            if repo.head_is_detached:
                 print("CUSTOM NODE CHECK: True")
-        else:
-            print("CUSTOM NODE CHECK: False")
+                return
+
+            branch_name = repo.active_branch_name
+
+            remote_name = repo.get_tracking_remote_name()
+            remote = repo.get_remote(remote_name)
+
+            if do_fetch:
+                remote.fetch()
+
+            # Get the current commit hash and the commit hash of the remote branch
+            commit_hash = repo.head_commit_hexsha
+
+            if repo.has_ref(f'{remote_name}/{branch_name}'):
+                remote_commit_hash = repo.get_ref_commit_hexsha(f'{remote_name}/{branch_name}')
+            else:
+                print("CUSTOM NODE CHECK: True")  # non default branch is treated as updatable
+                return
+
+            # Compare the commit hashes to determine if the local repository is behind the remote repository
+            if commit_hash != remote_commit_hash:
+                # Get the commit dates
+                commit_date = repo.head_commit_datetime
+                remote_commit_date = repo.get_ref_commit_datetime(f'{remote_name}/{branch_name}')
+
+                # Compare the commit dates to determine if the local repository is behind the remote repository
+                if commit_date < remote_commit_date:
+                    print("CUSTOM NODE CHECK: True")
+            else:
+                print("CUSTOM NODE CHECK: False")
     except Exception as e:
         print(e)
         print("CUSTOM NODE CHECK: Error")
 
 
 def get_remote_name(repo):
-    available_remotes = [remote.name for remote in repo.remotes]
+    available_remotes = [remote.name for remote in repo.list_remotes()]
     if 'origin' in available_remotes:
         return 'origin'
     elif 'upstream' in available_remotes:
@@ -153,28 +201,28 @@ def switch_to_default_branch(repo):
         if remote_name is None:
             return False
 
-        default_branch = repo.git.symbolic_ref(f'refs/remotes/{remote_name}/HEAD').replace(f'refs/remotes/{remote_name}/', '')
-        repo.git.checkout(default_branch)
+        default_branch = repo.symbolic_ref(f'refs/remotes/{remote_name}/HEAD').replace(f'refs/remotes/{remote_name}/', '')
+        repo.checkout(default_branch)
         return True
     except Exception:
         # try checkout master
         # try checkout main if failed
         try:
-            repo.git.checkout(repo.heads.master)
+            repo.checkout(repo.get_head_by_name('master'))
             return True
         except Exception:
             try:
                 if remote_name is not None:
-                    repo.git.checkout('-b', 'master', f'{remote_name}/master')
+                    repo.checkout_new_branch('master', f'{remote_name}/master')
                     return True
             except Exception:
                 try:
-                    repo.git.checkout(repo.heads.main)
+                    repo.checkout(repo.get_head_by_name('main'))
                     return True
                 except Exception:
                     try:
                         if remote_name is not None:
-                            repo.git.checkout('-b', 'main', f'{remote_name}/main')
+                            repo.checkout_new_branch('main', f'{remote_name}/main')
                             return True
                     except Exception:
                         pass
@@ -189,65 +237,67 @@ def gitpull(path):
         raise ValueError('Not a git repository')
 
     # Pull the latest changes from the remote repository
-    repo = git.Repo(path)
-    if repo.is_dirty():
-        print(f"STASH: '{path}' is dirty.")
-        repo.git.stash()
+    with open_repo(path) as repo:
+        if repo.is_dirty():
+            print(f"STASH: '{path}' is dirty.")
+            repo.stash()
 
-    commit_hash = repo.head.commit.hexsha
-    try:
-        if repo.head.is_detached:
-            switch_to_default_branch(repo)
+        commit_hash = repo.head_commit_hexsha
+        try:
+            if repo.head_is_detached:
+                switch_to_default_branch(repo)
 
-        current_branch = repo.active_branch
-        branch_name = current_branch.name
+            branch_name = repo.active_branch_name
 
-        remote_name = current_branch.tracking_branch().remote_name
-        remote = repo.remote(name=remote_name)
+            remote_name = repo.get_tracking_remote_name()
+            remote = repo.get_remote(remote_name)
 
-        if f'{remote_name}/{branch_name}' not in repo.refs:
-            switch_to_default_branch(repo)
-            current_branch = repo.active_branch
-            branch_name = current_branch.name
+            if not repo.has_ref(f'{remote_name}/{branch_name}'):
+                switch_to_default_branch(repo)
+                branch_name = repo.active_branch_name
 
-        remote.fetch()
-        if f'{remote_name}/{branch_name}' in repo.refs:
-            remote_commit_hash = repo.refs[f'{remote_name}/{branch_name}'].object.hexsha
-        else:
-            print("CUSTOM NODE PULL: Fail")  # update fail
-            return
+            remote.fetch()
+            if repo.has_ref(f'{remote_name}/{branch_name}'):
+                remote_commit_hash = repo.get_ref_commit_hexsha(f'{remote_name}/{branch_name}')
+            else:
+                print("CUSTOM NODE PULL: Fail")  # update fail
+                return
 
-        if commit_hash == remote_commit_hash:
-            print("CUSTOM NODE PULL: None")  # there is no update
-            repo.close()
-            return
+            if commit_hash == remote_commit_hash:
+                print("CUSTOM NODE PULL: None")  # there is no update
+                return
 
-        remote.pull()
+            try:
+                repo.pull_ff_only()
+            except GitCommandError:
+                backup_name = get_backup_branch_name(repo)
+                repo.create_backup_branch(backup_name)
+                print(f"[ComfyUI-Manager] Cannot fast-forward. Backup created: {backup_name}")
+                repo.reset_hard(f'{remote_name}/{branch_name}')
+                print(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
 
-        repo.git.submodule('update', '--init', '--recursive')
-        new_commit_hash = repo.head.commit.hexsha
+            repo.submodule_update()
+            new_commit_hash = repo.head_commit_hexsha
 
-        if commit_hash != new_commit_hash:
-            print("CUSTOM NODE PULL: Success")  # update success
-        else:
-            print("CUSTOM NODE PULL: Fail")  # update fail
-    except Exception as e:
-        print(e)
-        print("CUSTOM NODE PULL: Fail")  # unknown git error
-
-    repo.close()
+            if commit_hash != new_commit_hash:
+                print("CUSTOM NODE PULL: Success")  # update success
+            else:
+                print("CUSTOM NODE PULL: Fail")  # update fail
+        except Exception as e:
+            print(e)
+            print("CUSTOM NODE PULL: Fail")  # unknown git error
 
 
 def checkout_comfyui_hash(target_hash):
-    repo = git.Repo(comfy_path)
-    commit_hash = repo.head.commit.hexsha
+    with open_repo(comfy_path) as repo:
+        commit_hash = repo.head_commit_hexsha
 
-    if commit_hash != target_hash:
-        try:
-            print(f"CHECKOUT: ComfyUI [{target_hash}]")
-            repo.git.checkout(target_hash)
-        except git.GitCommandError as e:
-            print(f"Error checking out the ComfyUI: {str(e)}")
+        if commit_hash != target_hash:
+            try:
+                print(f"CHECKOUT: ComfyUI [{target_hash}]")
+                repo.checkout(target_hash)
+            except GitCommandError as e:
+                print(f"Error checking out the ComfyUI: {str(e)}")
 
 
 def checkout_custom_node_hash(git_custom_node_infos):
@@ -309,12 +359,12 @@ def checkout_custom_node_hash(git_custom_node_infos):
                         need_checkout = True
 
                 if need_checkout:
-                    repo = git.Repo(fullpath)
-                    commit_hash = repo.head.commit.hexsha
+                    with open_repo(fullpath) as repo:
+                        commit_hash = repo.head_commit_hexsha
 
-                    if commit_hash != item['hash']:
-                        print(f"CHECKOUT: {repo_name} [{item['hash']}]")
-                        repo.git.checkout(item['hash'])
+                        if commit_hash != item['hash']:
+                            print(f"CHECKOUT: {repo_name} [{item['hash']}]")
+                            repo.checkout(item['hash'])
 
             except Exception:
                 print(f"Failed to restore snapshots for the custom node '{path}'")
@@ -489,7 +539,7 @@ def restore_pip_snapshot(pips, options):
 
 def setup_environment():
     if git_exe_path is not None:
-        git.Git().update_environment(GIT_PYTHON_GIT_EXECUTABLE=git_exe_path)
+        setup_git_environment(git_exe_path)
 
 
 setup_environment()
@@ -520,7 +570,9 @@ try:
             restore_pip_snapshot(pips, options)
     sys.exit(0)
 except Exception as e:
-    print(e)
-    sys.exit(-1)
+    print(e, file=sys.stderr)
+    if hasattr(e, 'stderr') and e.stderr:
+        print(e.stderr, file=sys.stderr)
+    sys.exit(1)
 
 

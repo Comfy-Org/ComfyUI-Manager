@@ -11,11 +11,8 @@ import typer
 from rich import print
 from typing_extensions import List, Annotated
 import re
-import git
 import importlib
 
-
-from ..common import manager_util
 
 # read env vars
 # COMFYUI_FOLDERS_BASE_PATH is not required in cm-cli.py
@@ -35,11 +32,12 @@ if not os.path.exists(os.path.join(comfy_path, 'folder_paths.py')):
 
 
 import utils.extra_config
-from ..common import cm_global
-from ..legacy import manager_core as core
-from ..common import context
-from ..legacy.manager_core import unified_manager
-from ..common import cnr_utils
+from comfyui_manager.common import manager_util
+from comfyui_manager.common import cm_global
+from comfyui_manager.legacy import manager_core as core
+from comfyui_manager.common import context
+from comfyui_manager.legacy.manager_core import unified_manager
+from comfyui_manager.common import cnr_utils
 
 comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
 
@@ -63,9 +61,10 @@ if os.path.exists(os.path.join(manager_util.comfyui_manager_path, "pip_blacklist
 
 def check_comfyui_hash():
     try:
-        repo = git.Repo(comfy_path)
-        core.comfy_ui_revision = len(list(repo.iter_commits('HEAD')))
-        core.comfy_ui_commit_datetime = repo.head.commit.committed_datetime
+        from comfyui_manager.common.git_compat import open_repo
+        with open_repo(comfy_path) as repo:
+            core.comfy_ui_revision = repo.iter_commits_count()
+            core.comfy_ui_commit_datetime = repo.head_commit_datetime
     except Exception:
         print('[bold yellow]INFO: Frozen ComfyUI mode.[/bold yellow]')
         core.comfy_ui_revision = 0
@@ -184,18 +183,22 @@ class Ctx:
 cmd_ctx = Ctx()
 
 
+class NodeInstallError(Exception):
+    """Raised when a node installation fails and the caller requested failure propagation."""
+    pass
+
+
 def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
-    exit_on_fail = kwargs.get('exit_on_fail', False)
-    print(f"install_node exit on fail:{exit_on_fail}...")
-    
+    raise_on_fail = kwargs.get('raise_on_fail', False)
+
     if core.is_valid_url(node_spec_str):
         # install via urls
         res = asyncio.run(core.gitclone_install(node_spec_str, no_deps=cmd_ctx.no_deps))
         if not res.result:
             print(res.msg)
             print(f"[bold red]ERROR: An error occurred while installing '{node_spec_str}'.[/bold red]")
-            if exit_on_fail:
-                sys.exit(1)
+            if raise_on_fail:
+                raise NodeInstallError(node_spec_str)
         else:
             print(f"{cnt_msg} [INSTALLED] {node_spec_str:50}")
     else:
@@ -230,17 +233,34 @@ def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
             print("")
         else:
             print(f"[bold red]ERROR: An error occurred while installing '{node_name}'.\n{res.msg}[/bold red]")
-            if exit_on_fail:
-                sys.exit(1)
+            if raise_on_fail:
+                raise NodeInstallError(node_name)
 
 
 def reinstall_node(node_spec_str, is_all=False, cnt_msg=''):
-    node_spec = unified_manager.resolve_node_spec(node_spec_str)
+    if core.is_valid_url(node_spec_str):
+        # URL-based: resolve_node_spec returns the full URL as node_name,
+        # but internal dicts are keyed by repo basename or cnr_id.
+        url = node_spec_str.rstrip('/')
+        cnr = unified_manager.get_cnr_by_repo(url)
+        if cnr:
+            node_id = cnr['id']
+            unified_manager.unified_uninstall(node_id, False)
+            unified_manager.purge_node_state(node_id)
+        else:
+            repo_name = os.path.splitext(os.path.basename(url))[0]
+            unified_manager.unified_uninstall(repo_name, True)
+            unified_manager.purge_node_state(repo_name)
 
-    node_name, version_spec, _ = node_spec
+        install_node(node_spec_str, is_all=is_all, cnt_msg=cnt_msg, raise_on_fail=True)
+    else:
+        node_spec = unified_manager.resolve_node_spec(node_spec_str)
+        node_name, version_spec, _ = node_spec
 
-    unified_manager.unified_uninstall(node_name, version_spec == 'unknown')
-    install_node(node_name, is_all=is_all, cnt_msg=cnt_msg)
+        unified_manager.unified_uninstall(node_name, version_spec == 'unknown')
+        unified_manager.purge_node_state(node_name)
+
+        install_node(node_name, is_all=is_all, cnt_msg=cnt_msg, raise_on_fail=True)
 
 
 def fix_node(node_spec_str, is_all=False, cnt_msg=''):
@@ -614,14 +634,20 @@ def for_each_nodes(nodes, act, allow_all=True, **kwargs):
         nodes = [x for x in nodes if x.lower() not in ['comfy', 'comfyui', 'all']]
 
     total = len(nodes)
-    i = 1
-    for x in nodes:
+    failed = []
+    for i, x in enumerate(nodes, 1):
         try:
             act(x, is_all=is_all, cnt_msg=f'{i}/{total}', **kwargs)
+        except NodeInstallError:
+            failed.append(x)
         except Exception as e:
             print(f"ERROR: {e}")
             traceback.print_exc()
-        i += 1
+            failed.append(x)
+
+    if failed:
+        print(f"\n[bold red]Failed nodes ({len(failed)}/{total}): {', '.join(str(x) for x in failed)}[/bold red]")
+        sys.exit(1)
 
 
 app = typer.Typer()
@@ -657,6 +683,14 @@ def install(
                 help="Skip installing any Python dependencies",
             ),
         ] = False,
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After installing, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
         user_directory: str = typer.Option(
             None,
             help="user directory"
@@ -668,11 +702,20 @@ def install(
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
-    cmd_ctx.set_no_deps(no_deps)
+
+    if uv_compile and no_deps:
+        print("[bold red]--uv-compile and --no-deps are mutually exclusive.[/bold red]")
+        raise typer.Exit(1)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
+    else:
+        cmd_ctx.set_no_deps(no_deps)
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
     for_each_nodes(nodes, act=install_node, exit_on_fail=exit_on_fail)
-    pip_fixer.fix_broken()
+
+    _finalize_resolve(pip_fixer, uv_compile)
 
 
 @app.command(help="Reinstall custom nodes")
@@ -699,6 +742,14 @@ def reinstall(
                 help="Skip installing any Python dependencies",
             ),
         ] = False,
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After reinstalling, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
         user_directory: str = typer.Option(
             None,
             help="user directory"
@@ -706,11 +757,20 @@ def reinstall(
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
-    cmd_ctx.set_no_deps(no_deps)
+
+    if uv_compile and no_deps:
+        print("[bold red]--uv-compile and --no-deps are mutually exclusive.[/bold red]")
+        raise typer.Exit(1)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
+    else:
+        cmd_ctx.set_no_deps(no_deps)
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
     for_each_nodes(nodes, act=reinstall_node)
-    pip_fixer.fix_broken()
+
+    _finalize_resolve(pip_fixer, uv_compile)
 
 
 @app.command(help="Uninstall custom nodes")
@@ -755,9 +815,20 @@ def update(
             None,
             help="user directory"
         ),
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After updating, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
 
     if 'all' in nodes:
         asyncio.run(auto_save_snapshot())
@@ -770,7 +841,8 @@ def update(
             break
 
     update_parallel(nodes)
-    pip_fixer.fix_broken()
+
+    _finalize_resolve(pip_fixer, uv_compile)
 
 
 @app.command(help="Disable custom nodes")
@@ -856,16 +928,28 @@ def fix(
             None,
             help="user directory"
         ),
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After fixing, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
 
     if 'all' in nodes:
         asyncio.run(auto_save_snapshot())
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
     for_each_nodes(nodes, fix_node, allow_all=True)
-    pip_fixer.fix_broken()
+
+    _finalize_resolve(pip_fixer, uv_compile)
 
 
 @app.command("show-versions", help="Show all available versions of the node")
@@ -968,31 +1052,6 @@ def simple_show(
         show_list(arg, True)
 
 
-@app.command('cli-only-mode', help="Set whether to use ComfyUI-Manager in CLI-only mode.")
-def cli_only_mode(
-        mode: str = typer.Argument(
-            ..., help="[enable|disable]"
-        ),
-        user_directory: str = typer.Option(
-            None,
-            help="user directory"
-        )
-):
-    cmd_ctx.set_user_directory(user_directory)
-    cli_mode_flag = os.path.join(cmd_ctx.manager_files_directory, '.enable-cli-only-mode')
-
-    if mode.lower() == 'enable':
-        with open(cli_mode_flag, 'w'):
-            pass
-        print("\nINFO: `cli-only-mode` is enabled\n")
-    elif mode.lower() == 'disable':
-        if os.path.exists(cli_mode_flag):
-            os.remove(cli_mode_flag)
-        print("\nINFO: `cli-only-mode` is disabled\n")
-    else:
-        print(f"\n[bold red]Invalid value for cli-only-mode: {mode}[/bold red]\n")
-        exit(1)
-
 
 @app.command(
     "deps-in-workflow", help="Generate dependencies file from workflow (.json/.png)"
@@ -1087,7 +1146,7 @@ def save_snapshot(
 
 @app.command("restore-snapshot", help="Restore snapshot from snapshot file")
 def restore_snapshot(
-        snapshot_name: str, 
+        snapshot_name: str,
         pip_non_url: Optional[bool] = typer.Option(
             default=None,
             show_default=False,
@@ -1113,12 +1172,23 @@ def restore_snapshot(
         restore_to: Optional[str] = typer.Option(
             None,
             help="Manually specify the installation path for the custom node. Ignore user directory."
-        )
+        ),
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After restoring, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
 ):
     cmd_ctx.set_user_directory(user_directory)
 
     if restore_to:
         cmd_ctx.update_custom_nodes_dir(restore_to)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
 
     extras = []
     if pip_non_url:
@@ -1146,8 +1216,11 @@ def restore_snapshot(
     except Exception:
         print("[bold red]ERROR: Failed to restore snapshot.[/bold red]")
         traceback.print_exc()
+        if uv_compile:
+            pip_fixer.fix_broken()
         raise typer.Exit(code=1)
-    pip_fixer.fix_broken()
+
+    _finalize_resolve(pip_fixer, uv_compile)
 
 
 @app.command(
@@ -1157,9 +1230,20 @@ def restore_dependencies(
         user_directory: str = typer.Option(
             None,
             help="user directory"
-        )
+        ),
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After restoring, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
 ):
     cmd_ctx.set_user_directory(user_directory)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
 
     node_paths = []
 
@@ -1176,9 +1260,10 @@ def restore_dependencies(
     for x in node_paths:
         print("----------------------------------------------------------------------------------------------------")
         print(f"Restoring [{i}/{total}]: {x}")
-        unified_manager.execute_install_script('', x, instant_execution=True)
+        unified_manager.execute_install_script('', x, instant_execution=True, no_deps=bool(uv_compile))
         i += 1
-    pip_fixer.fix_broken()
+
+    _finalize_resolve(pip_fixer, uv_compile)
 
 
 @app.command(
@@ -1219,9 +1304,21 @@ def install_deps(
             None,
             help="user directory"
         ),
+        uv_compile: Annotated[
+            Optional[bool],
+            typer.Option(
+                "--uv-compile",
+                show_default=False,
+                help="After installing, batch-resolve all dependencies via uv pip compile",
+            ),
+        ] = False,
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
+
+    if uv_compile:
+        cmd_ctx.set_no_deps(True)
+
     asyncio.run(auto_save_snapshot())
 
     if not os.path.exists(deps):
@@ -1241,12 +1338,112 @@ def install_deps(
                 if state == 'installed':
                     continue
                 elif state == 'not-installed':
-                    asyncio.run(core.gitclone_install(k, instant_execution=True))
+                    asyncio.run(core.gitclone_install(k, instant_execution=True, no_deps=bool(uv_compile)))
                 else:  # disabled
                     core.gitclone_set_active([k], False)
-            pip_fixer.fix_broken()
+
+            _finalize_resolve(pip_fixer, uv_compile)
 
         print("Dependency installation and activation complete.")
+
+
+def _finalize_resolve(pip_fixer, uv_compile) -> None:
+    """Run batch resolution if --uv-compile is set, then fix broken packages."""
+    if uv_compile:
+        try:
+            _run_unified_resolve()
+        except ImportError as e:
+            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+            raise typer.Exit(1)
+        except typer.Exit:
+            raise
+        except Exception as e:
+            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
+            raise typer.Exit(1)
+        finally:
+            pip_fixer.fix_broken()
+    else:
+        pip_fixer.fix_broken()
+
+
+def _run_unified_resolve():
+    """Shared logic for unified batch dependency resolution."""
+    from comfyui_manager.common.unified_dep_resolver import (
+        UnifiedDepResolver,
+        UvNotAvailableError,
+        attribute_conflicts,
+        collect_base_requirements,
+        collect_node_pack_paths,
+    )
+
+    node_pack_paths = collect_node_pack_paths(cmd_ctx.get_custom_nodes_paths())
+    if not node_pack_paths:
+        print("[bold yellow]No custom node packs found.[/bold yellow]")
+        return
+
+    print(f"Resolving dependencies for {len(node_pack_paths)} node pack(s)...")
+
+    resolver = UnifiedDepResolver(
+        node_pack_paths=node_pack_paths,
+        base_requirements=collect_base_requirements(comfy_path),
+        blacklist=cm_global.pip_blacklist,
+        overrides=cm_global.pip_overrides,
+        downgrade_blacklist=cm_global.pip_downgrade_blacklist,
+    )
+    try:
+        result = resolver.resolve_and_install()
+    except UvNotAvailableError:
+        print("[bold red]uv is not available. Install uv to use this feature.[/bold red]")
+        raise typer.Exit(1)
+
+    if result.success:
+        collected = result.collected
+        if collected:
+            print(
+                f"[bold green]Resolved {len(collected.requirements)} deps "
+                f"from {len(collected.sources)} source(s) "
+                f"(skipped {len(collected.skipped)}).[/bold green]"
+            )
+        else:
+            print("[bold green]Resolution complete (no deps needed).[/bold green]")
+    else:
+        print(f"[bold red]Resolution failed: {result.error}[/bold red]")
+        if result.lockfile and result.lockfile.conflicts and result.collected:
+            attributed = attribute_conflicts(result.collected.sources, result.lockfile.conflicts)
+            if attributed:
+                print("[bold yellow]Conflicting packages (by node pack):[/bold yellow]")
+                for pkg_name, requesters in sorted(attributed.items()):
+                    print(f"  [yellow]{pkg_name}[/yellow]:")
+                    for pack_path, pkg_spec in requesters:
+                        print(f"    {os.path.basename(pack_path)}  →  {pkg_spec}")
+        raise typer.Exit(1)
+
+
+@app.command(
+    "uv-sync",
+    help="Batch-resolve and install all custom node dependencies via uv pip compile.",
+)
+def unified_uv_compile(
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
+):
+    cmd_ctx.set_user_directory(user_directory)
+
+    pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
+    try:
+        _run_unified_resolve()
+    except ImportError as e:
+        print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+        raise typer.Exit(1)
+    except typer.Exit:
+        raise
+    except Exception as e:
+        print(f"[bold red]Unexpected error: {e}[/bold red]")
+        raise typer.Exit(1)
+    finally:
+        pip_fixer.fix_broken()
 
 
 @app.command(help="Clear reserved startup action in ComfyUI-Manager")
@@ -1290,6 +1487,91 @@ def export_custom_node_ids(
 
                 if 'id' in x:
                     print(f"{x['id']}@unknown", file=output_file)
+
+
+@app.command("update-cache", help="Force-fetch all remote data and populate local cache (blocking)")
+def update_cache(
+        channel: Annotated[
+            str,
+            typer.Option(
+                show_default=False,
+                help="Specify the channel"
+            ),
+        ] = None,
+        user_directory: str = typer.Option(
+            None,
+            help="user directory"
+        ),
+):
+    cmd_ctx.set_user_directory(user_directory)
+    if channel is not None:
+        cmd_ctx.channel = channel
+
+    asyncio.run(_force_update_cache(cmd_ctx.channel))
+
+
+async def _force_update_cache(channel):
+    """Fetch all remote data and save to cache, bypassing pip/offline guards."""
+    core.refresh_channel_dict()
+    config = core.get_config()
+    channel_url = config['channel_url']
+
+    os.makedirs(manager_util.cache_dir, exist_ok=True)
+
+    failed = []
+
+    # Step 1: Fetch channel JSON files directly (bypasses get_data_by_mode pip guard)
+    filenames = [
+        "custom-node-list.json",
+        "extension-node-map.json",
+        "model-list.json",
+        "alter-list.json",
+        "github-stats.json",
+    ]
+
+    async def fetch_and_cache(filename):
+        try:
+            if config.get('default_cache_as_channel_url'):
+                uri = f"{channel_url}/{filename}"
+            else:
+                uri = f"{core.DEFAULT_CHANNEL}/{filename}"
+
+            cache_uri = str(manager_util.simple_hash(uri)) + '_' + filename
+            cache_uri = os.path.join(manager_util.cache_dir, cache_uri)
+
+            json_obj = await manager_util.get_data(uri, silent=True)
+
+            with manager_util.cache_lock:
+                with open(cache_uri, "w", encoding='utf-8') as file:
+                    json.dump(json_obj, file, indent=4, sort_keys=True)
+
+            print(f"  [CACHED] {filename}")
+        except Exception as e:
+            print(f"  [bold red][FAILED] {filename}: {e}[/bold red]")
+            failed.append(filename)
+
+    print("Fetching channel data...")
+    await asyncio.gather(*[fetch_and_cache(f) for f in filenames])
+
+    # Step 2: Reload unified_manager with remote mode
+    # cache_mode='remote' makes cache_mode==False in get_cnr_data,
+    # which bypasses the dont_wait block and triggers blocking fetch_all()
+    print("Fetching CNR registry data...")
+    try:
+        await unified_manager.reload('remote', dont_wait=False)
+    except Exception as e:
+        print(f"  [bold red][FAILED] CNR registry: {e}[/bold red]")
+        failed.append("CNR registry")
+
+    # Step 3: Load nightly data (cache files now exist from Step 1)
+    print("Loading nightly data...")
+    await unified_manager.load_nightly(channel or 'default', 'cache')
+
+    if failed:
+        print(f"\n[bold red]Cache update incomplete. Failed: {', '.join(failed)}[/bold red]")
+        sys.exit(1)
+    else:
+        print("[bold green]Cache update complete.[/bold green]")
 
 
 def main():

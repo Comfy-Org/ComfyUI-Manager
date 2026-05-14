@@ -3,7 +3,7 @@ import os
 import logging
 from . import manager_util
 import toml
-import git
+from .git_compat import open_repo
 
 
 # read env vars
@@ -22,7 +22,7 @@ if comfy_base_path is None:
     comfy_base_path = comfy_path
 
 channel_list_template_path = os.path.join(manager_util.comfyui_manager_path, 'channels.list.template')
-git_script_path = os.path.join(manager_util.comfyui_manager_path, "git_helper.py")
+git_script_path = os.path.join(manager_util.comfyui_manager_path, "common", "git_helper.py")
 
 manager_files_path = None
 manager_config_path = None
@@ -31,10 +31,9 @@ manager_startup_script_path:str = None
 manager_snapshot_path = None
 manager_pip_overrides_path = None
 manager_pip_blacklist_path = None
-manager_components_path = None
 manager_batch_history_path = None
 
-def update_user_directory(user_dir):
+def update_user_directory(manager_dir):
     global manager_files_path
     global manager_config_path
     global manager_channel_list_path
@@ -42,10 +41,9 @@ def update_user_directory(user_dir):
     global manager_snapshot_path
     global manager_pip_overrides_path
     global manager_pip_blacklist_path
-    global manager_components_path
     global manager_batch_history_path
 
-    manager_files_path = os.path.abspath(os.path.join(user_dir, 'default', 'ComfyUI-Manager'))
+    manager_files_path = manager_dir
     if not os.path.exists(manager_files_path):
         os.makedirs(manager_files_path)
 
@@ -61,7 +59,6 @@ def update_user_directory(user_dir):
     manager_channel_list_path = os.path.join(manager_files_path, 'channels.list')
     manager_pip_overrides_path = os.path.join(manager_files_path, "pip_overrides.json")
     manager_pip_blacklist_path = os.path.join(manager_files_path, "pip_blacklist.list")
-    manager_components_path = os.path.join(manager_files_path, "components")
     manager_util.cache_dir = os.path.join(manager_files_path, "cache")
     manager_batch_history_path = os.path.join(manager_files_path, "batch_history")
 
@@ -73,7 +70,7 @@ def update_user_directory(user_dir):
 
 try:
     import folder_paths
-    update_user_directory(folder_paths.get_user_directory())
+    update_user_directory(folder_paths.get_system_user_directory("manager"))
 
 except Exception:
     # fallback:
@@ -101,8 +98,8 @@ def get_current_comfyui_ver():
 
 def get_comfyui_tag():
     try:
-        with git.Repo(comfy_path) as repo:
-            return repo.git.describe('--tags')
+        with open_repo(comfy_path) as repo:
+            return repo.describe_tags()
     except Exception:
         return None
 

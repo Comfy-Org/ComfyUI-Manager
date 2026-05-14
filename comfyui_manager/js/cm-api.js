@@ -52,7 +52,7 @@ async function tryInstallCustomNode(event) {
 			}
 		}
 
-		let response = await api.fetchApi("/v2/manager/reboot");
+		let response = await api.fetchApi("/v2/manager/reboot", { method: 'POST' });
 		if(response.status == 403) {
 			show_message('This action is not allowed with this security level configuration.');
 			return false;

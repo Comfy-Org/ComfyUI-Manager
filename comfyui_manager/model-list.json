@@ -5355,6 +5355,317 @@
       "filename": "LBM_relighting.safetensors",
       "url": "https://huggingface.co/jasperai/LBM_relighting/resolve/main/model.safetensors",
       "size": "5.02GB"
+    },
+    {
+      "name": "Qwen-Image VAE",
+      "type": "VAE",
+      "base": "Qwen-Image",
+      "save_path": "vae/qwen-image",
+      "description": "VAE model for Qwen-Image",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI",
+      "filename": "qwen_image_vae.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/vae/qwen_image_vae.safetensors",
+      "size": "335MB"
+    },
+    {
+      "name": "Qwen 2.5 VL 7B Text Encoder (fp8_scaled)",
+      "type": "clip",
+      "base": "Qwen-2.5-VL",
+      "save_path": "text_encoders/qwen",
+      "description": "Qwen 2.5 VL 7B text encoder model (fp8_scaled)",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI",
+      "filename": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors",
+      "size": "3.75GB"
+    },
+    {
+      "name": "Qwen 2.5 VL 7B Text Encoder",
+      "type": "clip",
+      "base": "Qwen-2.5-VL",
+      "save_path": "text_encoders/qwen",
+      "description": "Qwen 2.5 VL 7B text encoder model",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI",
+      "filename": "qwen_2.5_vl_7b.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/text_encoders/qwen_2.5_vl_7b.safetensors",
+      "size": "7.51GB"
+    },
+    {
+      "name": "Qwen-Image Diffusion Model (fp8_e4m3fn)",
+      "type": "diffusion_model",
+      "base": "Qwen-Image",
+      "save_path": "diffusion_models/qwen-image",
+      "description": "Qwen-Image diffusion model (fp8_e4m3fn)",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI",
+      "filename": "qwen_image_fp8_e4m3fn.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_fp8_e4m3fn.safetensors",
+      "size": "4.89GB"
+    },
+    {
+      "name": "Qwen-Image Diffusion Model (bf16)",
+      "type": "diffusion_model",
+      "base": "Qwen-Image",
+      "save_path": "diffusion_models/qwen-image",
+      "description": "Qwen-Image diffusion model (bf16)",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI",
+      "filename": "qwen_image_bf16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_bf16.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Edit 2509 Diffusion Model (fp8_e4m3fn)",
+      "type": "diffusion_model",
+      "base": "Qwen-Image-Edit",
+      "save_path": "diffusion_models/qwen-image-edit",
+      "description": "Qwen-Image-Edit 2509 diffusion model (fp8_e4m3fn)",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI",
+      "filename": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+      "size": "4.89GB"
+    },
+
+    {
+      "name": "Qwen-Image-Edit 2509 Diffusion Model (bf16)",
+      "type": "diffusion_model",
+      "base": "Qwen-Image-Edit",
+      "save_path": "diffusion_models/qwen-image-edit",
+      "description": "Qwen-Image-Edit 2509 diffusion model (bf16)",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI",
+      "filename": "qwen_image_edit_2509_bf16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_2509_bf16.safetensors",
+      "size": "9.78GB"
+    },
+
+    {
+      "name": "Qwen-Image-Edit Diffusion Model (fp8_e4m3fn)",
+      "type": "diffusion_model",
+      "base": "Qwen-Image-Edit",
+      "save_path": "diffusion_models/qwen-image-edit",
+      "description": "Qwen-Image-Edit diffusion model (fp8_e4m3fn)",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI",
+      "filename": "qwen_image_edit_fp8_e4m3fn.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_fp8_e4m3fn.safetensors",
+      "size": "4.89GB"
+    },
+
+    {
+      "name": "Qwen-Image-Edit Diffusion Model (bf16)",
+      "type": "diffusion_model",
+      "base": "Qwen-Image-Edit",
+      "save_path": "diffusion_models/qwen-image-edit",
+      "description": "Qwen-Image-Edit diffusion model (bf16)",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI",
+      "filename": "qwen_image_edit_bf16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-Edit_ComfyUI/resolve/main/split_files/diffusion_models/qwen_image_edit_bf16.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 8steps V1.0",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 8-step LoRA model V1.0",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-8steps-V1.0.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-8steps-V1.0.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 4steps V1.0",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 4-step LoRA model V1.0",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-4steps-V1.0.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-4steps-V1.0.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 4steps V1.0 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 4-step LoRA model V1.0 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-4steps-V1.0-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-4steps-V1.0-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 4steps V2.0",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 4-step LoRA model V2.0",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-4steps-V2.0.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-4steps-V2.0.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 4steps V2.0 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 4-step LoRA model V2.0 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-4steps-V2.0-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-4steps-V2.0-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 8steps V1.1",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 8-step LoRA model V1.1",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-8steps-V1.1.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-8steps-V1.1.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 8steps V1.1 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 8-step LoRA model V1.1 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-8steps-V1.1-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-8steps-V1.1-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 8steps V2.0",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 8-step LoRA model V2.0",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-8steps-V2.0.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-8steps-V2.0.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Lightning 8steps V2.0 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image",
+      "save_path": "loras/qwen-image-lightning",
+      "description": "Qwen-Image-Lightning 8-step LoRA model V2.0 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Lightning-8steps-V2.0-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Lightning-8steps-V2.0-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-Lightning 4steps V1.0",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-Lightning 4-step LoRA model V1.0",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-Lightning-4steps-V1.0.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-Lightning-4steps-V1.0.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-Lightning 4steps V1.0 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-Lightning 4-step LoRA model V1.0 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-Lightning-4steps-V1.0-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-Lightning-4steps-V1.0-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-Lightning 8steps V1.0",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-Lightning 8-step LoRA model V1.0",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-Lightning-8steps-V1.0.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-Lightning-8steps-V1.0.safetensors",
+      "size": "9.78GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-Lightning 8steps V1.0 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-Lightning 8-step LoRA model V1.0 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-Lightning-8steps-V1.0-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-Lightning-8steps-V1.0-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-2509-Lightning 4steps V1.0 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-2509-Lightning 4-step LoRA model V1.0 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-2509-Lightning 4steps V1.0 (fp32)",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-2509-Lightning 4-step LoRA model V1.0 (fp32)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-fp32.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-4steps-V1.0-fp32.safetensors",
+      "size": "39.1GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-2509-Lightning 8steps V1.0 (bf16)",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-2509-Lightning 8-step LoRA model V1.0 (bf16)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors",
+      "size": "19.6GB"
+    },
+    {
+      "name": "Qwen-Image-Edit-2509-Lightning 8steps V1.0 (fp32)",
+      "type": "lora",
+      "base": "Qwen-Image-Edit",
+      "save_path": "loras/qwen-image-edit-lightning",
+      "description": "Qwen-Image-Edit-2509-Lightning 8-step LoRA model V1.0 (fp32)",
+      "reference": "https://huggingface.co/lightx2v/Qwen-Image-Lightning",
+      "filename": "Qwen-Image-Edit-2509-Lightning-8steps-V1.0-fp32.safetensors",
+      "url": "https://huggingface.co/lightx2v/Qwen-Image-Lightning/resolve/main/Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-fp32.safetensors",
+      "size": "39.1GB"
+    },
+    {
+      "name": "Qwen-Image InstantX ControlNet Union",
+      "type": "controlnet",
+      "base": "Qwen-Image",
+      "save_path": "controlnet/qwen-image/instantx",
+      "description": "Qwen-Image InstantX ControlNet Union model",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image-InstantX-ControlNets",
+      "filename": "Qwen-Image-InstantX-ControlNet-Union.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-InstantX-ControlNets/resolve/main/split_files/controlnet/Qwen-Image-InstantX-ControlNet-Union.safetensors",
+      "size": "2.54GB"
+    },
+    {
+      "name": "Qwen-Image InstantX ControlNet Inpainting",
+      "type": "controlnet",
+      "base": "Qwen-Image",
+      "save_path": "controlnet/qwen-image/instantx",
+      "description": "Qwen-Image InstantX ControlNet Inpainting model",
+      "reference": "https://huggingface.co/Comfy-Org/Qwen-Image-InstantX-ControlNets",
+      "filename": "Qwen-Image-InstantX-ControlNet-Inpainting.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/Qwen-Image-InstantX-ControlNets/resolve/main/split_files/controlnet/Qwen-Image-InstantX-ControlNet-Inpainting.safetensors",
+      "size": "2.54GB"
     }
   ]
 }

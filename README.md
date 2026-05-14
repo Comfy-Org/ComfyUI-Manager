@@ -89,20 +89,20 @@
 
 
 ## Paths
-In `ComfyUI-Manager` V3.0 and later, configuration files and dynamically generated files are located under `<USER_DIRECTORY>/default/ComfyUI-Manager/`.
+In `ComfyUI-Manager` V4.0.3b4 and later, configuration files and dynamically generated files are located under `<USER_DIRECTORY>/__manager/`.
 
-* <USER_DIRECTORY>  
-  * If executed without any options, the path defaults to ComfyUI/user.  
-  * It can be set using --user-directory <USER_DIRECTORY>.  
+* <USER_DIRECTORY>
+  * If executed without any options, the path defaults to ComfyUI/user.
+  * It can be set using --user-directory <USER_DIRECTORY>.
 
-* Basic config files: `<USER_DIRECTORY>/default/ComfyUI-Manager/config.ini`
-* Configurable channel lists: `<USER_DIRECTORY>/default/ComfyUI-Manager/channels.ini`
-* Configurable pip overrides: `<USER_DIRECTORY>/default/ComfyUI-Manager/pip_overrides.json`
-* Configurable pip blacklist: `<USER_DIRECTORY>/default/ComfyUI-Manager/pip_blacklist.list`
-* Configurable pip auto fix: `<USER_DIRECTORY>/default/ComfyUI-Manager/pip_auto_fix.list`
-* Saved snapshot files: `<USER_DIRECTORY>/default/ComfyUI-Manager/snapshots`
-* Startup script files: `<USER_DIRECTORY>/default/ComfyUI-Manager/startup-scripts`
-* Component files: `<USER_DIRECTORY>/default/ComfyUI-Manager/components`
+* Basic config files: `<USER_DIRECTORY>/__manager/config.ini`
+* Configurable channel lists: `<USER_DIRECTORY>/__manager/channels.ini`
+* Configurable pip overrides: `<USER_DIRECTORY>/__manager/pip_overrides.json`
+* Configurable pip blacklist: `<USER_DIRECTORY>/__manager/pip_blacklist.list`
+* Configurable pip auto fix: `<USER_DIRECTORY>/__manager/pip_auto_fix.list`
+* Saved snapshot files: `<USER_DIRECTORY>/__manager/snapshots`
+* Startup script files: `<USER_DIRECTORY>/__manager/startup-scripts`
+* Component files: `<USER_DIRECTORY>/__manager/components`
 
 
 ## `extra_model_paths.yaml` Configuration
@@ -115,17 +115,17 @@ The following settings are applied based on the section marked as `is_default`.
 
 ## Snapshot-Manager
 * When you press `Save snapshot` or use `Update All` on `Manager Menu`, the current installation status snapshot is saved.
-  * Snapshot file dir: `<USER_DIRECTORY>/default/ComfyUI-Manager/snapshots`
+  * Snapshot file dir: `<USER_DIRECTORY>/__manager/snapshots`
   * You can rename snapshot file.
 * Press the "Restore" button to revert to the installation status of the respective snapshot.
   * However, for custom nodes not managed by Git, snapshot support is incomplete.
 * When you press `Restore`, it will take effect on the next ComfyUI startup.
-  * The selected snapshot file is saved in `<USER_DIRECTORY>/default/ComfyUI-Manager/startup-scripts/restore-snapshot.json`, and upon restarting ComfyUI, the snapshot is applied and then deleted.
+  * The selected snapshot file is saved in `<USER_DIRECTORY>/__manager/startup-scripts/restore-snapshot.json`, and upon restarting ComfyUI, the snapshot is applied and then deleted.
 
 ![model-install-dialog](https://raw.githubusercontent.com/ltdrdata/ComfyUI-extension-tutorials/Main/ComfyUI-Manager/images/snapshot.jpg)
 
 
-## cm-cli: command line tools for power user
+## cm-cli: command line tools for power users
 * A tool is provided that allows you to use the features of ComfyUI-Manager without running ComfyUI.
 * For more details, please refer to the [cm-cli documentation](docs/en/cm-cli.md).
 
@@ -169,12 +169,12 @@ The following settings are applied based on the section marked as `is_default`.
     }
     ```
   * `<current timestamp>` Ensure that the timestamp is always unique.
-    * "components" should have the same structure as the content of the file stored in `<USER_DIRECTORY>/default/ComfyUI-Manager/components`.
+    * "components" should have the same structure as the content of the file stored in `<USER_DIRECTORY>/__manager/components`.
       * `<component name>`: The name should be in the format `<prefix>::<node name>`.
-        * `<compnent nodeata>`: In the nodedata of the group node.
+        * `<component node data>`: In the node data of the group node.
           * `<version>`: Only two formats are allowed: `major.minor.patch` or `major.minor`. (e.g. `1.0`, `2.2.1`)
           * `<datetime>`: Saved time
-          * `<packname>`: If the packname is not empty, the category becomes packname/workflow, and it is saved in the <packname>.pack file in `<USER_DIRECTORY>/default/ComfyUI-Manager/components`.
+          * `<packname>`: If the packname is not empty, the category becomes packname/workflow, and it is saved in the <packname>.pack file in `<USER_DIRECTORY>/__manager/components`.
           * `<category>`: If there is neither a category nor a packname, it is saved in the components category.
           ```
               "version":"1.0",
@@ -189,7 +189,7 @@ The following settings are applied based on the section marked as `is_default`.
 * Dragging and dropping or pasting a single component will add a node. However, when adding multiple components, nodes will not be added.
 
 
-## Support of missing nodes installation
+## Support for installing missing nodes
 
 ![missing-menu](https://raw.githubusercontent.com/ltdrdata/ComfyUI-extension-tutorials/Main/ComfyUI-Manager/images/missing-menu.jpg)
 
@@ -229,10 +229,10 @@ The following settings are applied based on the section marked as `is_default`.
 * Logging to file feature
   * This feature is enabled by default and can be disabled by setting `file_logging = False` in the `config.ini`.
 
-* Fix node(recreate): When right-clicking on a node and selecting `Fix node (recreate)`, you can recreate the node. The widget's values are reset, while the connections maintain those with the same names.
+* Fix node (recreate): When right-clicking on a node and selecting `Fix node (recreate)`, you can recreate the node. The widget's values are reset, while the connections maintain those with the same names.
   * It is used to correct errors in nodes of old workflows created before, which are incompatible with the version changes of custom nodes.
 
-* Double-Click Node Title: You can set the double click behavior of nodes in the ComfyUI-Manager menu.
+* Double-Click Node Title: You can set the double-click behavior of nodes in the ComfyUI-Manager menu.
   * `Copy All Connections`, `Copy Input Connections`: Double-clicking a node copies the connections of the nearest node.
     * This action targets the nearest node within a straight-line distance of 1000 pixels from the center of the node.
     * In the case of `Copy All Connections`, it duplicates existing outputs, but since it does not allow duplicate connections, the existing output connections of the original node are disconnected.
@@ -298,17 +298,17 @@ When you run the `scan.sh` script:
 
 * It updates the `github-stats.json`.
   * This uses the GitHub API, so set your token with `export GITHUB_TOKEN=your_token_here` to avoid quickly reaching the rate limit and malfunctioning.
-  * To skip this step, add the `--skip-update-stat` option.
+  * To skip this step, add the `--skip-stat-update` option.
 
 * The `--skip-all` option applies both `--skip-update` and `--skip-stat-update`.
 
 
 ## Troubleshooting
-* If your `git.exe` is installed in a specific location other than system git, please install ComfyUI-Manager and run ComfyUI. Then, specify the path including the file name in `git_exe = ` in the `<USER_DIRECTORY>/default/ComfyUI-Manager/config.ini` file that is generated.
+* If your `git.exe` is installed in a specific location other than system git, please install ComfyUI-Manager and run ComfyUI. Then, specify the path including the file name in `git_exe = ` in the `<USER_DIRECTORY>/__manager/config.ini` file that is generated.
 * If updating ComfyUI-Manager itself fails, please go to the **ComfyUI-Manager** directory and execute the command `git update-ref refs/remotes/origin/main a361cc1 && git fetch --all && git pull`.
-* If you encounter the error message `Overlapped Object has pending operation at deallocation on Comfyui Manager load` under Windows
+* If you encounter the error message `Overlapped Object has pending operation at deallocation on ComfyUI Manager load` under Windows
   * Edit `config.ini` file: add `windows_selector_event_loop_policy = True`
-* if `SSL: CERTIFICATE_VERIFY_FAILED` error is occured.
+* If the `SSL: CERTIFICATE_VERIFY_FAILED` error occurs.
   * Edit `config.ini` file: add `bypass_ssl = True`
 
 
@@ -324,8 +324,8 @@ The security settings are applied based on whether the ComfyUI server's listener
 
 | Risky Level | features                                                                                                                              |
 |-------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| high+       | * `Install via git url`, `pip install`<BR>* Installation of nodepack registered not in the `default channel`.                         |
-| high        | * Fix nodepack                                                                                                                        |
+| high+       | * `Install via git url`, `pip install`<BR>* Installation of nodepack registered not in the `default channel`.<BR>* **Switch ComfyUI version**<BR>* **Fix nodepack** |
+| high        | _(no features at this tier — `Fix nodepack` promoted to `high+` to align the enforcement gate with the `SECURITY_MESSAGE_HIGH_P` log text)_ |
 | middle+     | * Uninstall/Update<BR>* Installation of nodepack registered in the `default channel`.<BR>* Restore/Remove Snapshot<BR>* Install model |
 | middle      | * Restart                                                                                                                             |
 | low         | * Update ComfyUI                                                                                                                      |

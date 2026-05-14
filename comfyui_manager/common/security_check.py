@@ -53,6 +53,40 @@ And kill and remove /tmp/ultralytics_runner
 
 The version 8.3.41 to 8.3.42 of the Ultralytics package you installed is compromised. Please uninstall that version and reinstall the latest version.
 https://blog.comfy.org/comfyui-statement-on-the-ultralytics-crypto-miner-situation/
+    """,
+    "litellm==1.82.7": f"""
+Execute following commands:
+    {sys.executable} -m pip uninstall litellm
+
+The litellm PyPI package versions 1.82.7 and 1.82.8 were compromised via a supply chain attack.
+Malicious code harvests SSH keys, environment variables, API keys, cloud credentials, and exfiltrates them to an attacker-controlled server.
+Version 1.82.8 also installs a .pth file that executes malware on ANY Python startup, even without importing litellm.
+
+1. Uninstall litellm immediately.
+2. Assume all credentials accessible to the litellm environment are compromised.
+3. Rotate all API keys, cloud credentials, SSH keys, and database passwords.
+4. Check site-packages for unexpected .pth files (e.g. litellm_init.pth) and remove them.
+5. Run a full malware scan.
+
+Details: https://github.com/BerriAI/litellm/issues/24518
+Advisory: PYSEC-2026-2
+    """,
+    "litellm==1.82.8": f"""
+Execute following commands:
+    {sys.executable} -m pip uninstall litellm
+
+The litellm PyPI package versions 1.82.7 and 1.82.8 were compromised via a supply chain attack.
+Malicious code harvests SSH keys, environment variables, API keys, cloud credentials, and exfiltrates them to an attacker-controlled server.
+Version 1.82.8 also installs a .pth file that executes malware on ANY Python startup, even without importing litellm.
+
+1. Uninstall litellm immediately.
+2. Assume all credentials accessible to the litellm environment are compromised.
+3. Rotate all API keys, cloud credentials, SSH keys, and database passwords.
+4. Check site-packages for unexpected .pth files (e.g. litellm_init.pth) and remove them.
+5. Run a full malware scan.
+
+Details: https://github.com/BerriAI/litellm/issues/24518
+Advisory: PYSEC-2026-2
     """
              }
 
@@ -60,7 +94,10 @@ https://blog.comfy.org/comfyui-statement-on-the-ultralytics-crypto-miner-situati
 
     pip_blacklist = {
         "AppleBotzz": "ComfyUI_LLMVISION",
-        "ultralytics==8.3.41": "ultralytics==8.3.41"
+        "ultralytics==8.3.41": "ultralytics==8.3.41",
+        "ultralytics==8.3.42": "ultralytics==8.3.42",
+        "litellm==1.82.7": "litellm==1.82.7",
+        "litellm==1.82.8": "litellm==1.82.8",
     }
 
     file_blacklist = {
@@ -69,6 +106,7 @@ https://blog.comfy.org/comfyui-statement-on-the-ultralytics-crypto-miner-situati
     }
 
     installed_pips = subprocess.check_output(manager_util.make_pip_cmd(["freeze"]), text=True)
+    installed_pip_set = set(installed_pips.strip().split('\n'))
 
     detected = set()
     try:
@@ -94,9 +132,12 @@ https://blog.comfy.org/comfyui-statement-on-the-ultralytics-crypto-miner-situati
             detected.add(v)
 
     for k, v in pip_blacklist.items():
-        if k in installed_pips:
-            detected.add(v)
-            break
+        if '==' in k:
+            if k in installed_pip_set:
+                detected.add(v)
+        else:
+            if any(line.split('==')[0] == k for line in installed_pip_set):
+                detected.add(v)
 
     for k, v in file_blacklist.items():
         for x in v:
@@ -105,9 +146,9 @@ https://blog.comfy.org/comfyui-statement-on-the-ultralytics-crypto-miner-situati
                 break
 
     if len(detected) > 0:
-        for line in installed_pips.split('\n'):
+        for line in installed_pip_set:
             for k, v in pip_blacklist.items():
-                if k in line:
+                if ('==' in k and k == line) or ('==' not in k and line.split('==')[0] == k):
                     print(f"[SECURITY ALERT] '{line}' is dangerous.")
 
         print("\n########################################################################")

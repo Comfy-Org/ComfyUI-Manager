@@ -15,6 +15,7 @@ import platform
 from datetime import datetime
 
 import git
+from comfyui_manager.common.timestamp_utils import get_timestamp_for_path, get_backup_branch_name
 from git.remote import RemoteProgress
 from urllib.parse import urlparse
 from tqdm.auto import tqdm
@@ -41,13 +42,20 @@ from ..common.enums import NetworkMode, SecurityLevel, DBMode
 from ..common import context
 
 
-version_code = [4, 0]
-version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
+try:
+    from importlib.metadata import version as _pkg_version
+    _raw_version = _pkg_version("comfyui-manager")
+except Exception:
+    _raw_version = "unknown"
+
+version_str = f"V{_raw_version}"
 
 
 DEFAULT_CHANNEL = "https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/main"
 DEFAULT_CHANNEL_LEGACY = "https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main"
 
+# SSH git URL pattern (e.g., git@github.com:user/repo.git)
+SSH_URL_PATTERN = re.compile(r"^(.+@|ssh://).+:.+$")
 
 default_custom_nodes_path = None
 
@@ -1132,6 +1140,71 @@ class UnifiedManager:
 
         return result
 
+    def purge_node_state(self, node_id: str):
+        """
+        Remove a node's directory and clean ALL internal dictionaries regardless of categorization.
+        Used by reinstall to guarantee clean state before re-installation.
+        """
+        if 'comfyui-manager' in node_id.lower():
+            return
+
+        custom_nodes_dir = os.path.normcase(os.path.realpath(get_default_custom_nodes_path()))
+        paths_to_remove = set()
+
+        def _add_path(raw_path):
+            """Normalize and validate a path before adding to removal set."""
+            if not raw_path:
+                return
+            resolved = os.path.normcase(os.path.realpath(raw_path))
+            if resolved == custom_nodes_dir:
+                logging.warning(f"[ComfyUI-Manager] purge_node_state: refusing to delete custom_nodes root: {raw_path}")
+                return
+            try:
+                if os.path.commonpath([custom_nodes_dir, resolved]) != custom_nodes_dir:
+                    logging.warning(f"[ComfyUI-Manager] purge_node_state: path escapes custom_nodes scope, skipping: {raw_path}")
+                    return
+            except ValueError:
+                logging.warning(f"[ComfyUI-Manager] purge_node_state: cannot verify containment, skipping: {raw_path}")
+                return
+            paths_to_remove.add(resolved)
+
+        # Collect paths from all dictionaries
+        entry = self.unknown_active_nodes.get(node_id)
+        if entry is not None:
+            _add_path(entry[1])
+
+        entry = self.active_nodes.get(node_id)
+        if entry is not None:
+            _add_path(entry[1])
+
+        entry = self.unknown_inactive_nodes.get(node_id)
+        if entry is not None:
+            _add_path(entry[1])
+
+        fullpath = self.nightly_inactive_nodes.get(node_id)
+        if fullpath is not None:
+            _add_path(fullpath)
+
+        ver_map = self.cnr_inactive_nodes.get(node_id)
+        if ver_map is not None:
+            for key, fp in ver_map.items():
+                _add_path(fp)
+
+        # Convention-based fallback path
+        _add_path(os.path.join(get_default_custom_nodes_path(), node_id))
+
+        # Remove all validated paths, then always clean dictionaries
+        try:
+            for path in paths_to_remove:
+                if os.path.exists(path):
+                    try_rmtree(node_id, path)
+        finally:
+            self.unknown_active_nodes.pop(node_id, None)
+            self.active_nodes.pop(node_id, None)
+            self.unknown_inactive_nodes.pop(node_id, None)
+            self.nightly_inactive_nodes.pop(node_id, None)
+            self.cnr_inactive_nodes.pop(node_id, None)
+
     def unified_uninstall(self, node_id: str, is_unknown: bool):
         """
         Remove whole installed custom nodes including inactive nodes
@@ -1391,6 +1464,7 @@ class UnifiedManager:
                 return ManagedResult('skip')
             elif self.is_disabled(node_id):
                 return self.unified_enable(node_id)
+
             else:
                 version_spec = self.resolve_unspecified_version(node_id)
 
@@ -1407,8 +1481,18 @@ class UnifiedManager:
                 else:  # nightly
                     repo_url = the_node['repository']
             else:
-                result = ManagedResult('install')
-                return result.fail(f"Node '{node_id}@{version_spec}' not found in [{channel}, {mode}]")
+                # Fallback for nightly only: use repository URL from CNR map
+                # when node is registered in CNR but absent from nightly manifest
+                if version_spec == 'nightly':
+                    cnr_fallback = self.cnr_map.get(node_id)
+                    if cnr_fallback is not None and cnr_fallback.get('repository'):
+                        repo_url = cnr_fallback['repository']
+                    else:
+                        result = ManagedResult('install')
+                        return result.fail(f"Node '{node_id}@{version_spec}' not found in [{channel}, {mode}]")
+                else:
+                    result = ManagedResult('install')
+                    return result.fail(f"Node '{node_id}@{version_spec}' not found in [{channel}, {mode}]")
 
         if self.is_enabled(node_id, version_spec):
             return ManagedResult('skip').with_target(f"{node_id}@{version_spec}")
@@ -1575,9 +1659,6 @@ class ManagerFuncs:
     def __init__(self):
         pass
 
-    def get_current_preview_method(self):
-        return "none"
-
     def run_script(self, cmd, cwd='.'):
         if len(cmd) > 0 and cmd[0].startswith("#"):
             print(f"[ComfyUI-Manager] Unexpected behavior: `{cmd}`")
@@ -1595,14 +1676,12 @@ def write_config():
     config = configparser.ConfigParser(strict=False)
 
     config['default'] = {
-        'preview_method': manager_funcs.get_current_preview_method(),
         'git_exe': get_config()['git_exe'],
         'use_uv': get_config()['use_uv'],
         'channel_url': get_config()['channel_url'],
         'share_option': get_config()['share_option'],
         'bypass_ssl': get_config()['bypass_ssl'],
         "file_logging": get_config()['file_logging'],
-        'component_policy': get_config()['component_policy'],
         'update_policy': get_config()['update_policy'],
         'windows_selector_event_loop_policy': get_config()['windows_selector_event_loop_policy'],
         'model_download_by_agent': get_config()['model_download_by_agent'],
@@ -1612,6 +1691,11 @@ def write_config():
         'network_mode': get_config()['network_mode'],
         'db_mode': get_config()['db_mode'],
     }
+
+    # Sanitize all string values to prevent CRLF injection attacks
+    for key, value in config['default'].items():
+        if isinstance(value, str):
+            config['default'][key] = value.replace('\r', '').replace('\n', '').replace('\x00', '')
 
     directory = os.path.dirname(context.manager_config_path)
     if not os.path.exists(directory):
@@ -1635,7 +1719,6 @@ def read_config():
 
         return {
                     'http_channel_enabled': get_bool('http_channel_enabled', False),
-                    'preview_method': default_conf.get('preview_method', manager_funcs.get_current_preview_method()).lower(),
                     'git_exe': default_conf.get('git_exe', ''),
                     'use_uv': get_bool('use_uv', True),
                     'channel_url': default_conf.get('channel_url', DEFAULT_CHANNEL),
@@ -1643,7 +1726,6 @@ def read_config():
                     'share_option': default_conf.get('share_option', 'all').lower(),
                     'bypass_ssl': get_bool('bypass_ssl', False),
                     'file_logging': get_bool('file_logging', True),
-                    'component_policy': default_conf.get('component_policy', 'workflow').lower(),
                     'update_policy': default_conf.get('update_policy', 'stable-comfyui').lower(),
                     'windows_selector_event_loop_policy': get_bool('windows_selector_event_loop_policy', False),
                     'model_download_by_agent': get_bool('model_download_by_agent', False),
@@ -1660,7 +1742,6 @@ def read_config():
 
         return {
             'http_channel_enabled': False,
-            'preview_method': manager_funcs.get_current_preview_method(),
             'git_exe': '',
             'use_uv': True,
             'channel_url': DEFAULT_CHANNEL,
@@ -1668,7 +1749,6 @@ def read_config():
             'share_option': 'all',
             'bypass_ssl': manager_util.bypass_ssl,
             'file_logging': True,
-            'component_policy': 'workflow',
             'update_policy': 'stable-comfyui',
             'windows_selector_event_loop_policy': False,
             'model_download_by_agent': False,
@@ -1758,11 +1838,34 @@ def reserve_script(repo_path, install_cmds):
 
 
 def try_rmtree(title, fullpath):
+    # Tier 1: retry with delay for transient Windows file locks
+    for attempt in range(3):
+        try:
+            shutil.rmtree(fullpath)
+            return
+        except OSError:
+            if attempt < 2:
+                time.sleep(1)
+
+    # Tier 2: rename into .disabled/.trash/ so scanner ignores it
+    trash_dir = os.path.join(os.path.dirname(fullpath), '.disabled', '.trash')
+    os.makedirs(trash_dir, exist_ok=True)
+    trash = os.path.join(trash_dir, os.path.basename(fullpath) + f'_{uuid.uuid4().hex[:8]}')
     try:
-        shutil.rmtree(fullpath)
-    except Exception as e:
-        logging.warning(f"[ComfyUI-Manager] An error occurred while deleting '{fullpath}', so it has been scheduled for deletion upon restart.\nEXCEPTION: {e}")
-        reserve_script(title, ["#LAZY-DELETE-NODEPACK", fullpath])
+        os.rename(fullpath, trash)
+        shutil.rmtree(trash, ignore_errors=True)
+        if not os.path.exists(trash):
+            return
+        # Rename succeeded but delete failed — schedule trash path for lazy delete
+        logging.warning(f"[ComfyUI-Manager] Renamed '{fullpath}' to '{trash}' but could not delete; scheduled for restart.")
+        reserve_script(title, ["#LAZY-DELETE-NODEPACK", trash])
+        return
+    except OSError:
+        pass
+
+    # Tier 3: lazy delete on restart (ComfyUI GUI fallback)
+    logging.warning(f"[ComfyUI-Manager] An error occurred while deleting '{fullpath}', so it has been scheduled for deletion upon restart.")
+    reserve_script(title, ["#LAZY-DELETE-NODEPACK", fullpath])
 
 
 def try_install_script(url, repo_path, install_cmd, instant_execution=False):
@@ -1912,6 +2015,27 @@ def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=Fa
     return True
 
 
+def install_manager_requirements(repo_path):
+    """
+    Install packages from manager_requirements.txt if it exists.
+    This is specifically for ComfyUI's manager_requirements.txt.
+    """
+    manager_requirements_path = os.path.join(repo_path, "manager_requirements.txt")
+    if not os.path.exists(manager_requirements_path):
+        return
+
+    logging.info("[ComfyUI-Manager] Installing manager_requirements.txt")
+    with open(manager_requirements_path, "r") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith('#'):
+                if '#' in line:
+                    line = line.split('#')[0].strip()
+                if line:
+                    install_cmd = manager_util.make_pip_cmd(["install", line])
+                    subprocess.run(install_cmd)
+
+
 def git_repo_update_check_with(path, do_fetch=False, do_update=False, no_deps=False):
     """
 
@@ -1990,7 +2114,15 @@ def git_repo_update_check_with(path, do_fetch=False, do_update=False, no_deps=Fa
                 return False, True
 
             try:
-                remote.pull()
+                try:
+                    repo.git.pull('--ff-only')
+                except git.GitCommandError:
+                    backup_name = get_backup_branch_name(repo)
+                    repo.create_head(backup_name)
+                    logging.info(f"[ComfyUI-Manager] Cannot fast-forward. Backup created: {backup_name}")
+                    repo.git.reset('--hard', f'{remote_name}/{branch_name}')
+                    logging.info(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
+
                 repo.git.submodule('update', '--init', '--recursive')
                 new_commit_hash = repo.head.commit.hexsha
 
@@ -2047,16 +2179,15 @@ class GitProgress(RemoteProgress):
 
 
 def is_valid_url(url):
-    try:
-        # Check for HTTP/HTTPS URL format
-        result = urlparse(url)
-        if all([result.scheme, result.netloc]):
-            return True
-    finally:
-        # Check for SSH git URL format
-        pattern = re.compile(r"^(.+@|ssh://).+:.+$")
-        if pattern.match(url):
-            return True
+    # Check for HTTP/HTTPS URL format
+    result = urlparse(url)
+    if result.scheme and result.netloc:
+        return True
+
+    # Check for SSH git URL format
+    if SSH_URL_PATTERN.match(url):
+        return True
+
     return False
 
 
@@ -2145,9 +2276,17 @@ def git_pull(path):
 
         current_branch = repo.active_branch
         remote_name = current_branch.tracking_branch().remote_name
-        remote = repo.remote(name=remote_name)
+        branch_name = current_branch.name
 
-        remote.pull()
+        try:
+            repo.git.pull('--ff-only')
+        except git.GitCommandError:
+            backup_name = get_backup_branch_name(repo)
+            repo.create_head(backup_name)
+            logging.info(f"[ComfyUI-Manager] Cannot fast-forward. Backup created: {backup_name}")
+            repo.git.reset('--hard', f'{remote_name}/{branch_name}')
+            logging.info(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
+
         repo.git.submodule('update', '--init', '--recursive')
 
         repo.close()
@@ -2415,22 +2554,23 @@ def update_to_stable_comfyui(repo_path):
                 logging.error('\t'+branch.name)
             return "fail", None
 
-        versions, current_tag, _ = get_comfyui_versions(repo)
-        
-        if len(versions) == 0 or (len(versions) == 1 and versions[0] == 'nightly'):
+        versions, current_tag, latest_tag = get_comfyui_versions(repo)
+
+        if latest_tag is None:
             logging.info("[ComfyUI-Manager] Unable to update to the stable ComfyUI version.")
             return "fail", None
-            
-        if versions[0] == 'nightly':
-            latest_tag = versions[1]
-        else:
-            latest_tag = versions[0]
 
-        if current_tag == latest_tag:
+        tag_ref = next((t for t in repo.tags if t.name == latest_tag), None)
+        if tag_ref is None:
+            logging.info(f"[ComfyUI-Manager] Unable to locate tag '{latest_tag}' in repository.")
+            return "fail", None
+
+        if repo.head.commit == tag_ref.commit:
             return "skip", None
         else:
             logging.info(f"[ComfyUI-Manager] Updating ComfyUI: {current_tag} -> {latest_tag}")
-            repo.git.checkout(latest_tag)
+            repo.git.checkout(tag_ref.name)
+            execute_install_script("ComfyUI", repo_path, instant_execution=False, no_deps=False)
             return 'updated', latest_tag
     except Exception:
         traceback.print_exc()
@@ -2562,9 +2702,13 @@ def check_state_of_git_node_pack_single(item, do_fetch=False, do_update_check=Tr
 
 
 def get_installed_pip_packages():
-    # extract pip package infos
-    cmd = manager_util.make_pip_cmd(['freeze'])
-    pips = subprocess.check_output(cmd, text=True).split('\n')
+    try:
+        # extract pip package infos
+        cmd = manager_util.make_pip_cmd(['freeze'])
+        pips = subprocess.check_output(cmd, text=True).split('\n')
+    except Exception as e:
+        logging.warning("[ComfyUI-Manager] Could not enumerate pip packages for snapshot: %s", e)
+        return {}
 
     res = {}
     for x in pips:
@@ -2656,9 +2800,7 @@ async def get_current_snapshot(custom_nodes_only = False):
 
 async def save_snapshot_with_postfix(postfix, path=None, custom_nodes_only = False):
     if path is None:
-        now = datetime.now()
-
-        date_time_format = now.strftime("%Y-%m-%d_%H-%M-%S")
+        date_time_format = get_timestamp_for_path()
         file_name = f"{date_time_format}_{postfix}"
 
         path = os.path.join(context.manager_snapshot_path, f"{file_name}.json")
@@ -3249,36 +3391,85 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
 
 
 def get_comfyui_versions(repo=None):
-    if repo is None:
-        repo = git.Repo(context.comfy_path)
+    repo = repo or git.Repo(context.comfy_path)
 
+    remote_name = None
     try:
-        remote = get_remote_name(repo)   
-        repo.remotes[remote].fetch()    
+        remote_name = get_remote_name(repo)
+        repo.remotes[remote_name].fetch()
     except Exception:
         logging.error("[ComfyUI-Manager] Failed to fetch ComfyUI")
 
-    versions = [x.name for x in repo.tags if x.name.startswith('v')]
+    def parse_semver(tag_name):
+        match = re.match(r'^v(\d+)\.(\d+)\.(\d+)$', tag_name)
+        return tuple(int(x) for x in match.groups()) if match else None
 
-    # nearest tag
-    versions = sorted(versions, key=lambda v: repo.git.log('-1', '--format=%ct', v), reverse=True)
-    versions = versions[:4]
+    def normalize_describe(tag_name):
+        if not tag_name:
+            return None
+        base = tag_name.split('-', 1)[0]
+        return base if parse_semver(base) else None
 
-    current_tag = repo.git.describe('--tags')
+    # Collect semver tags and sort descending (highest first)
+    semver_tags = []
+    for tag in repo.tags:
+        semver = parse_semver(tag.name)
+        if semver:
+            semver_tags.append((semver, tag.name))
+    semver_tags.sort(key=lambda x: x[0], reverse=True)
+    semver_tags = [name for _, name in semver_tags]
 
-    if current_tag not in versions:
-        versions = sorted(versions + [current_tag], key=lambda v: repo.git.log('-1', '--format=%ct', v), reverse=True)
-        versions = versions[:4]
+    latest_tag = semver_tags[0] if semver_tags else None
 
-    main_branch = repo.heads.master
-    latest_commit = main_branch.commit
-    latest_tag = repo.git.describe('--tags', latest_commit.hexsha)
+    try:
+        described = repo.git.describe('--tags')
+    except Exception:
+        described = ''
 
-    if latest_tag != versions[0]:
-        versions.insert(0, 'nightly')
-    else:
-        versions[0] = 'nightly'
+    try:
+        exact_tag = repo.git.describe('--tags', '--exact-match')
+    except Exception:
+        exact_tag = ''
+
+    head_is_default = False
+    if remote_name:
+        try:
+            default_head_ref = repo.refs[f'{remote_name}/HEAD']
+            default_commit = default_head_ref.reference.commit
+            head_is_default = repo.head.commit == default_commit
+        except Exception:
+            # Fallback: compare directly with master branch
+            try:
+                if 'master' in [h.name for h in repo.heads]:
+                    head_is_default = repo.head.commit == repo.heads.master.commit
+            except Exception:
+                head_is_default = False
+
+    nearest_semver = normalize_describe(described)
+    exact_semver = exact_tag if parse_semver(exact_tag) else None
+
+    if head_is_default and not exact_tag:
         current_tag = 'nightly'
+    else:
+        current_tag = exact_tag or described or 'nightly'
+
+    # Prepare semver list for display: top 4 plus the current/nearest semver if missing
+    display_semver_tags = semver_tags[:4]
+    if exact_semver and exact_semver not in display_semver_tags:
+        display_semver_tags.append(exact_semver)
+    elif nearest_semver and nearest_semver not in display_semver_tags:
+        display_semver_tags.append(nearest_semver)
+
+    versions = ['nightly']
+
+    if current_tag and not exact_semver and current_tag not in versions and current_tag not in display_semver_tags:
+        versions.append(current_tag)
+
+    for tag in display_semver_tags:
+        if tag not in versions:
+            versions.append(tag)
+
+    versions = versions[:6]
 
     return versions, current_tag, latest_tag
 

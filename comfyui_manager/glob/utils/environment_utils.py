@@ -1,12 +1,10 @@
 import os
-import git
+from comfyui_manager.common.git_compat import open_repo, setup_git_environment
 import logging
 import traceback
 
 from comfyui_manager.common import context
 import folder_paths
-from comfy.cli_args import args
-import latent_preview
 
 from comfyui_manager.glob import manager_core as core
 from comfyui_manager.common import cm_global
@@ -22,17 +20,17 @@ def print_comfyui_version():
 
     is_detached = False
     try:
-        repo = git.Repo(os.path.dirname(folder_paths.__file__))
-        core.comfy_ui_revision = len(list(repo.iter_commits("HEAD")))
+        with open_repo(os.path.dirname(folder_paths.__file__)) as repo:
+            core.comfy_ui_revision = repo.iter_commits_count()
 
-        comfy_ui_hash = repo.head.commit.hexsha
-        cm_global.variables["comfyui.revision"] = core.comfy_ui_revision
+            comfy_ui_hash = repo.head_commit_hexsha
+            cm_global.variables["comfyui.revision"] = core.comfy_ui_revision
 
-        core.comfy_ui_commit_datetime = repo.head.commit.committed_datetime
-        cm_global.variables["comfyui.commit_datetime"] = core.comfy_ui_commit_datetime
+            core.comfy_ui_commit_datetime = repo.head_commit_datetime
+            cm_global.variables["comfyui.commit_datetime"] = core.comfy_ui_commit_datetime
 
-        is_detached = repo.head.is_detached
-        current_branch = repo.active_branch.name
+            is_detached = repo.head_is_detached
+            current_branch = repo.active_branch_name
 
         comfyui_tag = context.get_comfyui_tag()
 
@@ -93,24 +91,23 @@ def print_comfyui_version():
             )
 
 
-def set_preview_method(method):
-    if method == "auto":
-        args.preview_method = latent_preview.LatentPreviewMethod.Auto
-    elif method == "latent2rgb":
-        args.preview_method = latent_preview.LatentPreviewMethod.Latent2RGB
-    elif method == "taesd":
-        args.preview_method = latent_preview.LatentPreviewMethod.TAESD
-    else:
-        args.preview_method = latent_preview.LatentPreviewMethod.NoPreviews
-
-    core.get_config()["preview_method"] = method
+ALLOWED_UPDATE_POLICIES = ("stable", "stable-comfyui", "nightly", "nightly-comfyui")
+ALLOWED_DB_MODES = ("cache", "channel", "local", "remote")
 
 
 def set_update_policy(mode):
+    if mode not in ALLOWED_UPDATE_POLICIES:
+        raise ValueError(
+            f"Invalid update_policy {mode!r}; must be one of {ALLOWED_UPDATE_POLICIES}"
+        )
     core.get_config()["update_policy"] = mode
 
 
 def set_db_mode(mode):
+    if mode not in ALLOWED_DB_MODES:
+        raise ValueError(
+            f"Invalid db_mode {mode!r}; must be one of {ALLOWED_DB_MODES}"
+        )
     core.get_config()["db_mode"] = mode
 
 
@@ -118,7 +115,7 @@ def setup_environment():
     git_exe = core.get_config()["git_exe"]
 
     if git_exe != "":
-        git.Git().update_environment(GIT_PYTHON_GIT_EXECUTABLE=git_exe)
+        setup_git_environment(git_exe)
 
 
 def initialize_environment():
@@ -135,7 +132,6 @@ def initialize_environment():
     #     manager_util.comfyui_manager_path, "extension-node-map.json"
     # )
 
-    set_preview_method(core.get_config()["preview_method"])
     print_comfyui_version()
     setup_environment()
 

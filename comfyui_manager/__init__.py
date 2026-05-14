@@ -6,6 +6,26 @@ from .common import manager_security
 from comfy.cli_args import args
 
 
+# Register server-push feature flag so ComfyUI_frontend (and other clients)
+# can detect CSRF-POST backend capability as a semantic contract (vs version
+# string parsing). See PR #2818 for context; clients use this flag to decide
+# whether to invoke POST state-mutation endpoints. Manager versions prior to
+# 4.2.1 do not set this flag — clients should treat its absence as
+# 'incompatible with POST-only state-mutation endpoints'.
+try:
+    from comfy_api import feature_flags as _core_feature_flags
+    _mgr_flags = (
+        _core_feature_flags.SERVER_FEATURE_FLAGS
+        .setdefault('extension', {})
+        .setdefault('manager', {})
+    )
+    _mgr_flags['supports_csrf_post'] = True
+except ImportError:
+    # Older ComfyUI core without comfy_api.feature_flags module.
+    # Manager functions but clients will not observe the flag.
+    pass
+
+
 def prestartup():
     from . import prestartup_script  # noqa: F401
     logging.info('[PRE] ComfyUI-Manager')
@@ -15,7 +35,7 @@ def start():
     logging.info('[START] ComfyUI-Manager')
     from .common import cm_global     # noqa: F401
 
-    if not args.disable_manager:
+    if args.enable_manager:
         if args.enable_manager_legacy_ui:
             try:
                 from .legacy import manager_server  # noqa: F401
@@ -26,7 +46,15 @@ def start():
                 logging.info("[ComfyUI-Manager] Legacy UI is enabled.")
                 nodes.EXTENSION_WEB_DIRS['comfyui-manager-legacy'] = os.path.join(os.path.dirname(__file__), 'js')
             except Exception as e:
-                print("Error enabling legacy ComfyUI Manager frontend:", e)
+                # WI-V: upgraded silent `print` to a proper logging.error with
+                # traceback so future legacy-UI load failures are visible in
+                # the log, not swallowed. The original `print` could be lost
+                # depending on how stdout is captured.
+                import traceback
+                logging.error(
+                    "[ComfyUI-Manager] Error enabling legacy frontend: "
+                    f"{type(e).__name__}: {e}\n{traceback.format_exc()}"
+                )
                 core = None
         else:
             from .glob import manager_server  # noqa: F401
@@ -42,7 +70,7 @@ def should_be_disabled(fullpath:str) -> bool:
     1. Disables the legacy ComfyUI-Manager.
     2. The blocklist can be expanded later based on policies.
     """
-    if not args.disable_manager:
+    if args.enable_manager:
         # In cases where installation is done via a zip archive, the directory name may not be comfyui-manager, and it may not contain a git repository.
         # It is assumed that any installed legacy ComfyUI-Manager will have at least 'comfyui-manager' in its directory name.
         dir_name = os.path.basename(fullpath).lower()
@@ -55,9 +83,10 @@ def should_be_disabled(fullpath:str) -> bool:
 def get_client_ip(request):
     peername = request.transport.get_extra_info("peername")
     if peername is not None:
-        host, port = peername
+        # Grab the first two values - there can be more, ie. with --listen
+        host, port = peername[:2]
         return host
-    
+
     return "unknown"
 
 
