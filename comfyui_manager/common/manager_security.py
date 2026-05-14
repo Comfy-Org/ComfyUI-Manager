@@ -62,6 +62,8 @@ def reject_simple_form_post(request) -> Optional[web.Response]:
         strips parameters), so a ``multipart/form-data; boundary=----X`` header
         is compared as ``multipart/form-data``.
     """
+    if request is None:
+        return None
     if request.content_type in _SIMPLE_FORM_CONTENT_TYPES:
         return web.Response(
             status=400,
