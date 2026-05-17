@@ -1,24 +1,26 @@
 {
     "custom_nodes": [
         {
-            "author": "andreszs",
-            "title": "ComfyUI-Lora-Pipeline",
-            "reference": "https://github.com/andreszs/ComfyUI-Lora-Pipeline",
+            "author": "gzsiang",
+            "title": "[LOCALE ISSUE] ComfyUI-VolcEngine",
+            "id": "comfyui-volcengine",
+            "reference": "https://github.com/gzsiang/ComfyUI-VolcEngine",
             "files": [
-                "https://github.com/andreszs/ComfyUI-Lora-Pipeline"
+                "https://github.com/gzsiang/ComfyUI-VolcEngine"
             ],
             "install_type": "git-clone",
-            "description": "Area-based LoRA and conditioning workflow tools for ComfyUI with multi-region control."
+            "description": "VolcEngine (火山引擎) video and image generation nodes. Supports Seedance (text-to-video, image-to-video with audio reference) and Seedream (text-to-image, image-to-image) models via Ark API."
         },
         {
-            "author": "Zinigo",
-            "title": "Prompt Builder [NAME CONFLICT]",
-            "reference": "https://github.com/zinigo-creations/comfyui-prompt-builder",
+            "author": "ketle-man",
+            "title": "[LOCALE ISSUE] ComfyUI Image Feeder",
+            "id": "comfyui-image-feeder",
+            "reference": "https://github.com/ketle-man/comfyui-image-feeder",
             "files": [
-                "https://github.com/zinigo-creations/comfyui-prompt-builder"
+                "https://github.com/ketle-man/comfyui-image-feeder"
             ],
             "install_type": "git-clone",
-            "description": "Dropdown-based prompt builder for ComfyUI. Create characters, scenes, and styles without writing prompts. Designed for beginners and fast iteration."
+            "description": "A node for looping through images in a folder with a visual 3-pane library UI, preset support, and i18n (EN/JA/ZH)."
         },
         {
             "author": "ethanfel",
@@ -460,16 +462,6 @@
             ],
             "install_type": "git-clone",
             "description": "RunningHub Nano Banana Pro API node for ComfyUI"
-        },
-        {
-            "author": "DazzleNodes",
-            "title": "ComfyUI-DazzleSwitch",
-            "reference": "https://github.com/DazzleNodes/ComfyUI-DazzleSwitch",
-            "files": [
-                "https://github.com/DazzleNodes/ComfyUI-DazzleSwitch"
-            ],
-            "install_type": "git-clone",
-            "description": "Smart switch node for ComfyUI with dropdown-based input selection and INT override for cascading workflows. Route any data type through a named dropdown instead of moving noodles."
         },
         {
             "author": "Echoflare",
@@ -1325,16 +1317,6 @@
             "description": "Custom ComfyUI nodes for JSON processing and transcription workflows, including text-to-JSON conversion, SRT subtitle parsing, and file saving. (Description by CC)[w/This nodepack contains a node that has a vulnerability allowing write to arbitrary file paths.]"
         },
         {
-            "author": "ShammiG",
-            "title": "ComfyUI_Text_Tools_SG [UNSAFE]",
-            "reference": "https://github.com/ShammiG/ComfyUI_Text_Tools_SG",
-            "files": [
-                "https://github.com/ShammiG/ComfyUI_Text_Tools_SG"
-            ],
-            "install_type": "git-clone",
-            "description": "Text Editor node with Markdown editing plus quick shortcuts, Text Viewer node, with extra features plus Text Merge, Text Save and Load Text from anywhere nodes.[w/This nodepack contains a node that has a vulnerability allowing write to arbitrary file paths.]"
-        },
-        {
             "author": "Smyshnikof",
             "title": "ComfyUI-PresetDownloadManager [UNSAFE]",
             "reference": "https://github.com/Smyshnikof/ComfyUI-PresetDownloadManager",
@@ -1913,17 +1895,6 @@
             ],
             "install_type": "git-clone",
             "description": "NODES: StringToListNode"
-        },
-        {
-            "author": "krakenunbound",
-            "title": "Kraken Discord Bot",
-            "id": "kraken-discord-bot",
-            "reference": "https://github.com/krakenunbound/kraken-discord-bot",
-            "files": [
-                "https://github.com/krakenunbound/kraken-discord-bot"
-            ],
-            "install_type": "git-clone",
-            "description": "All-in-one Discord bot node for AI image generation. Simple setup - just add token, select model, and queue. Includes style presets, rate limiting, and queue management."
         },
         {
             "author": "quinteroac",
@@ -3669,16 +3640,6 @@
             "description": "ComfyUI node for a frame by frame Diffusion."
         },
         {
-            "author": "tfernd",
-            "title": "Auto CPU Offload for ComfyUI [WIP]",
-            "reference": "https://github.com/tfernd/ComfyUI-AutoCPUOffload",
-            "files": [
-                "https://github.com/tfernd/ComfyUI-AutoCPUOffload"
-            ],
-            "install_type": "git-clone",
-            "description": "This extension introduces an 'Auto CPU Offload' node designed to reduce GPU VRAM usage by automatically offloading model components to the CPU. It intelligently manages the movement of model layers between the GPU and CPU, aiming to keep only the necessary parts in VRAM during inference."
-        },
-        {
             "author": "hujuying",
             "title": "comfyui_gemini_banana_api [WIP]",
             "reference": "https://github.com/hujuying/comfyui_gemini_banana_api",
@@ -4441,26 +4402,6 @@
             "description": "First universal metadata system for AI image generation, with template-driven architecture allowing easy extension to new services; comprehensive dependency tracking with automatic download resolution; lossless conversion between platform formats where possible; future-proof design with extensible schema and validation system.[w/This nodepack has a vulnerability that allows remote access to arbitrary file paths.]"
         },
         {
-            "author": "Charonartist",
-            "title": "ComfyUI LoRA Random Selector",
-            "reference": "https://github.com/Charonartist/comfyui-lora-random-selector",
-            "files": [
-                "https://github.com/Charonartist/comfyui-lora-random-selector"
-            ],
-            "install_type": "git-clone",
-            "description": "NODES: WanMoeKSampler, WanMoeKSamplerAdvanced"
-        },
-        {
-            "author": "Charonartist",
-            "title": "ComfyUI LoRA Random Selector [WIP]",
-            "reference": "https://github.com/Charonartist/comfyui-lora-random-selector",
-            "files": [
-                "https://github.com/Charonartist/comfyui-lora-random-selector"
-            ],
-            "install_type": "git-clone",
-            "description": "A ComfyUI custom node that randomly selects LoRA files by category and automatically applies corresponding trigger words.\nNOTE: The files in the repo are not organized."
-        },
-        {
             "author": "idoru",
             "title": "Filestash Upload Node [UNSAFE]",
             "reference": "https://github.com/idoru/ComfyUI-SKCFI-NetworkFileIO",
@@ -5021,16 +4962,6 @@
             "description": "This project is the comfyui implementation of ComfyUI_SZtools, a labeling and naming tool developed for Kontext's local training package T2ITrainer.\nNOTE: The files in the repo are not organized."
         },
         {
-            "author": "stalkervr",
-            "title": "Custom Path Nodes for ComfyUI [UNSAFE]",
-            "reference": "https://github.com/stalkervr/comfyui-custom-path-nodes",
-            "files": [
-                "https://github.com/stalkervr/comfyui-custom-path-nodes"
-            ],
-            "install_type": "git-clone",
-            "description": "Nodes for path handling and image cropping.[w/This nodepack contains a node that has a vulnerability allowing access to arbitrary file paths.]"
-        },
-        {
             "author": "gorillaframeai",
             "title": "GF_pixtral_node [WIP]",
             "reference": "https://github.com/gorillaframeai/GF_pixtral_node",
@@ -5510,16 +5441,6 @@
             ],
             "install_type": "git-clone",
             "description": "NODES: Trim Image Batch, Create Image Batch, Select Image Batch by Mask, Advanced Batch Creator"
-        },
-        {
-            "author": "stalkervr",
-            "title": "comfyui-custom-path-nodes [UNSAFE]",
-            "reference": "https://github.com/stalkervr/comfyui-custom-path-nodes",
-            "files": [
-                "https://github.com/stalkervr/comfyui-custom-path-nodes"
-            ],
-            "install_type": "git-clone",
-            "description": "Nodes for path handling and image cropping.[w/This nodepack has a vulnerability that allows remote access to arbitrary file paths.]"
         },
         {
             "author": "vovler",
@@ -6181,16 +6102,6 @@
             ],
             "install_type": "git-clone",
             "description": "A ComfyUI custom node that ingests GitHub repositories and outputs their content as text along with token count.\nNOTE: The files in the repo are not organized."
-        },
-        {
-            "author": "Charonartist",
-            "title": "ComfyUI-send-eagle-pro",
-            "reference": "https://github.com/Charonartist/ComfyUI-send-eagle-pro_2",
-            "files": [
-                "https://github.com/Charonartist/ComfyUI-send-eagle-pro_2"
-            ],
-            "install_type": "git-clone",
-            "description": "Eagle integration extension node for ComfyUI (Pro version)"
         },
         {
             "author": "Mervent",
@@ -9704,16 +9615,6 @@
             "description": "Nodes:ComfyFlux Size\nNOTE: The files in the repo are not organized."
         },
         {
-            "author": "yojimbodayne",
-            "title": "ComfyUI-Dropbox-API [WIP]",
-            "reference": "https://github.com/yojimbodayne/ComfyUI-Dropbox-API",
-            "files": [
-                "https://github.com/yojimbodayne/ComfyUI-Dropbox-API"
-            ],
-            "install_type": "git-clone",
-            "description": "This custom nodepackage for ComfyUI allows users to interact with Dropbox API, enabling image, text, and video uploads, downloads, and management directly from ComfyUI workflows.\nNOTE: The files in the repo are not organized."
-        },
-        {
             "author": "ilovejohnwhite",
             "title": "Kolors Awesome Prompts [WIP]",
             "reference": "https://github.com/ilovejohnwhite/Tracer",
@@ -10240,16 +10141,6 @@
             ],
             "install_type": "git-clone",
             "description": "Nodes:Load SD3DiffusersPipeline, SD3 ControlNet Sampler"
-        },
-        {
-            "author": "AustinMroz",
-            "title": "ComfyUI-SD3-Medium-CN-Diffusers [WIP]",
-            "reference": "https://github.com/ZHO-ZHO-ZHO/ComfyUI-SD3-Medium-CN-Diffusers",
-            "files": [
-                "https://github.com/AustinMroz/ComfyUI-WorkflowCheckpointing"
-            ],
-            "install_type": "git-clone",
-            "description": "ComfyUI SD3-Medium ControlNet (Diffusers)"
         },
         {
             "author": "redhottensors",
