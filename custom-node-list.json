@@ -49795,6 +49795,50 @@
             ],
             "install_type": "unzip",
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
+        },
+        {
+            "author": "Seunghyun Ji",
+            "title": "SpectrumKSampler",
+            "id": "sorryhyun",
+            "reference": "https://github.com/sorryhyun/ComfyUI-Spectrum-KSampler",
+            "files": [
+                "https://github.com/sorryhyun/ComfyUI-Spectrum-KSampler"
+            ],
+            "install_type": "git-clone",
+            "description": "Spectrum: training-free diffusion sampling acceleration via Chebyshev polynomial feature forecasting. Drop-in KSampler replacement that skips transformer blocks on predicted steps for ~2-3x speedup."
+        },
+        {
+            "author": "Seunghyun Ji",
+            "title": "Anima Block Compile",
+            "id": "sorryhyun",
+            "reference": "https://github.com/sorryhyun/anima_lora/tree/main/custom_nodes/comfyui-anima-blockcompile",
+            "files": [
+                "https://github.com/sorryhyun/anima_lora/tree/main/custom_nodes/comfyui-anima-blockcompile"
+            ],
+            "install_type": "git-clone",
+            "description": "Anima Block Compile for ComfyUI: a one-purpose node that runs torch.compile on the Anima DiT per transformer block (diffusion_model.blocks.{i}) instead of the whole model. Faster compile, fewer graph breaks. A thin, Anima-named wrapper over ComfyUI core's set_torch_compile_wrapper."
+        },
+        {
+            "author": "Seunghyun Ji",
+            "title": "Anima Trainer with anima_lora",
+            "id": "sorryhyun",
+            "reference": "https://github.com/sorryhyun/anima_lora/tree/main/custom_nodes/comfyui-anima-trainer",
+            "files": [
+                "https://github.com/sorryhyun/anima_lora/tree/main/custom_nodes/comfyui-anima-trainer"
+            ],
+            "install_type": "git-clone",
+            "description": "Supported by anima_lora trainer daemon, this introduces simplified comfyui ui for training in background."
+        },
+        {
+            "author": "Seunghyun Ji",
+            "title": "Anima Adapter Loader",
+            "id": "sorryhyun",
+            "reference": "https://github.com/sorryhyun/anima_lora/tree/main/custom_nodes/comfyui-hydralora",
+            "files": [
+                "https://github.com/sorryhyun/anima_lora/tree/main/custom_nodes/comfyui-hydralora"
+            ],
+            "install_type": "git-clone",
+            "description":  "Anima loader nodes for ComfyUI. AnimaAdapterLoader auto-detects LoRA, HydraLoRA multi-head with live σ-conditional and FeRA-style FEI-conditional routing, ChimeraHydra dual-pool routing (per-Linear content router + network-level FreqRouter on FEI+σ), and LoReFT residual-stream edits. AnimaFeraLoader handles FeRA (Yin et al., arXiv:2511.17979) — both the author-faithful networks.methods.fera format and the plan2 stacked_experts_global_fei format with global router on the latent's spectral energy + independent stacked experts per Linear. AnimaSoftTokensLoader handles SoftREPA-parameterization soft tokens (Lee et al., arXiv:2503.08250) — per-layer × per-timestep-bucket learned tokens spliced into the crossattn embedding inside the first n_layers DiT blocks. Three single-purpose nodes; chain via the MODEL socket."
         }
     ]
 }
