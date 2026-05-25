@@ -1,6 +1,98 @@
 {
     "custom_nodes": [
         {
+            "author": "Yuan-ManX",
+            "title": "ComfyUI-Qwen-Image",
+            "reference": "https://github.com/Yuan-ManX/ComfyUI-Qwen-Image",
+            "files": [
+                "https://github.com/Yuan-ManX/ComfyUI-Qwen-Image"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI-Qwen-Image is now available in ComfyUI, Qwen-Image is a powerful image generation foundation model capable of complex text rendering and precise image editing."
+        },
+        {
+            "author": "MatthewCHarrison",
+            "title": "Metadata manager for various generation services",
+            "id": "MetaMan",
+            "reference": "https://github.com/MatthewClayHarrison/ComfyUI-MetaMan",
+            "files": [
+                "https://github.com/MatthewClayHarrison/ComfyUI-MetaMan"
+            ],
+            "install_type": "git-clone",
+            "description": "MetaMan bridges the metadata gap between AI image generation services, enabling seamless workflow sharing and model dependency tracking across platforms."
+        },
+        {
+            "author": "magicwang1111",
+            "title": "ComfyUI-GPT-image (OpenAI/Relay)",
+            "id": "comfyui-gpt-image-openai-relay",
+            "reference": "https://github.com/magicwang1111/ComfyUI-GPT-image",
+            "files": [
+                "https://github.com/magicwang1111/ComfyUI-GPT-image"
+            ],
+            "install_type": "git-clone",
+            "description": "Generate and edit images in ComfyUI with OpenAI GPT Image models. Includes dedicated Generate and Edit nodes, multi-image reference input, size presets, and support for both the official OpenAI API and OpenAI-compatible relay endpoints."
+        },
+        {
+            "author": "ketle-man",
+            "title": "ComfyUI Particle Renderer (PixiJS)",
+            "id": "comfyui-particle-pixijs",
+            "reference": "https://github.com/ketle-man/comfyUI-particle-pixijs",
+            "files": [
+                "https://github.com/ketle-man/comfyUI-particle-pixijs"
+            ],
+            "install_type": "git-clone",
+            "description": "Real-time particle animation node for ComfyUI. Renders smoke, sparks, light rays, and star-warp effects using PixiJS v7, with 13 post-effect filters, blend modes, custom textures, character-shape particles, and scatter mode. Captures any frame as an image output."
+        },
+        {
+            "author": "Excidos",
+            "title": "ComfyUI-Lumina-mGPT-Wrapper",
+            "reference": "https://github.com/Excidos/ComfyUI-Lumina-mGPT-Wrapper",
+            "files": [
+                "https://github.com/Excidos/ComfyUI-Lumina-mGPT-Wrapper"
+            ],
+            "install_type": "git-clone",
+            "pip": [
+                "pandas",
+                "tensorboard",
+                "fairscale",
+                "sentencepiece",
+                "gradio==4.19.0",
+                "packaging",
+                "transformers>=4.43.3",
+                "pyyaml",
+                "pathlib",
+                "Ninja",
+                "bitsandbytes",
+                "httpx[socks]",
+                "einops",
+                "regex",
+                "h5py",
+                "accelerate",
+                "pre-commit"
+            ],
+            "description": "ComfyUI-Lumina-mGPT-Wrapper is a custom node for ComfyUI that integrates the advanced Lumina-mGPT model. It offers high-quality image generation with support for multiple model sizes and advanced features."
+        },
+        {
+            "author": "electricty00",
+            "title": "ComfyUI-Toggle-Pass",
+            "reference": "https://github.com/electricty00/ComfyUI-Toggle-Pass",
+            "files": [
+                "https://github.com/electricty00/ComfyUI-Toggle-Pass"
+            ],
+            "install_type": "git-clone",
+            "description": "Toggle-Pass: Privacy toggle, dynamic LoRA slots, and other quality-of-life nodes for ComfyUI"
+        },
+        {
+            "author": "Ganaraj",
+            "title": "comfyui-turbodiffusion",
+            "reference": "https://github.com/anveshane/Comfyui_turbodiffusion",
+            "files": [
+                "https://github.com/anveshane/Comfyui_turbodiffusion"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI custom node for TurboDiffusion I2V (Image-to-Video) generation with dual-expert sampling and SLA attention optimization."
+        },
+        {
             "author": "gavr728",
             "title": "Klein Tiled Upscaler",
             "reference": "https://github.com/Gavr728/ComfyUI_KleinTiledUpscaler",
@@ -1849,7 +1941,7 @@
                 "https://github.com/AntiMatterComfy/antimatter-nodes"
             ],
             "install_type": "git-clone",
-            "description": "AntiMatter custom nodes for ComfyUI. Includes Anti_aspect_ratio_master for Flux, Z-Image, and ERNIE-oriented aspect ratio and resolution latent creation."
+            "description": "AntiMatter custom nodes for ComfyUI. Includes Anti_aspect_ratio_master for Flux, Z-Image, and ERNIE-oriented latent creation plus Batch Loader from folder for local image batch loading."
         },
         {
             "author": "Vivid",
@@ -1961,7 +2053,7 @@
                 "https://github.com/Anonymzx/BangtrixToolkit"
             ],
             "install_type": "git-clone",
-            "description": "Advanced ComfyUI toolkit with translation, AMD ROCm utilities, optimization, and workflow enhance"
+            "description": "Real-time ComfyUI Hardware Monitor with native AMD ROCm and All GPU/APU NVIDIA support and Universal Prompt Translator node for multilingual AI workflows, AMD ROCm utilities, optimization, and workflow enhance"
         },
         {
             "author": "pmarmotte2",
@@ -2244,7 +2336,7 @@
                 "https://github.com/sidmehraajm/ssd_frame_compare"
             ],
             "install_type": "git-clone",
-            "description": "Interactive A/B frame comparison node with slider, side-by-side, overlay, and video playback — directly inside ComfyUI."
+            "description": "Interactive Image A/B comparison node with slider wipe, side-by-side, overlay transparency, and synced video playback for image sequences. Easily compare or just view one frame or a sequence of frames."
         },
         {
             "author": "mancusog",
