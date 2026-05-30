@@ -761,6 +761,16 @@
             "title_aux": "ComfyUI Arena Suite"
         }
     ],
+    "https://github.com/42lux/ComfyUI-42lux-Hildegard-Refiner": [
+        [
+            "Hildegard Combine",
+            "Hildegard Plan",
+            "Hildegard References Split"
+        ],
+        {
+            "title_aux": "ComfyUI-42lux-Hildegard-Refiner"
+        }
+    ],
     "https://github.com/438443467/ComfyUI-GPT4V-Image-Captioner": [
         [
             "GPT4VCaptioner"
@@ -3077,7 +3087,10 @@
     "https://github.com/AntiMatterComfy/antimatter-nodes": [
         [
             "Anti_aspect_ratio_master",
-            "Batch_Loader_From_Folder"
+            "Antimatter_TextFileAppender",
+            "Batch_Loader_From_Folder",
+            "LinePrompt_MasterLoad",
+            "LinePrompt_MasterLoad_JSON"
         ],
         {
             "title_aux": "AntiMatter Nodes"
@@ -5269,6 +5282,7 @@
             "GeminiChatNode",
             "GeminiCountTokensNode",
             "GeminiDeleteApiKeyNode",
+            "GeminiImageTextNode",
             "GeminiJsonNode",
             "GeminiListModelsNode",
             "GeminiPromptFromZMongoDocNode",
@@ -5291,18 +5305,19 @@
             "ZMongoApiKeySessionNode",
             "ZMongoApiListCollectionsNode",
             "ZMongoApiListDocsNode",
-            "ZMongoApiLoadVideoFrameNode",
             "ZMongoApiMetadataFlattenedPathsNode",
             "ZMongoApiQueryDocsNode",
             "ZMongoApiSaveValueNode",
-            "ZMongoApiSaveVideoFileNode",
-            "ZMongoApiSaveVideoFramesNode",
             "ZMongoApiSelectNthItemNode",
             "ZMongoApiUpdateDocNode",
-            "ZMongoApiVideoFramePathsNode",
             "ZMongoApiWhoamiNode",
+            "ZMongoBestVariantSelectorNode",
+            "ZMongoBuildContextPackNode",
+            "ZMongoCaptionPackGeneratorNode",
             "ZMongoDiscoverNodeSchema",
+            "ZMongoDiscoverWorkflowNodeSettings",
             "ZMongoDisplayImageNode",
+            "ZMongoDocumentChunkLoopManagerNode",
             "ZMongoDocumentCreateText",
             "ZMongoDocumentDelete",
             "ZMongoDocumentExtractText",
@@ -5312,6 +5327,8 @@
             "ZMongoDocumentGetText",
             "ZMongoDocumentGetValue",
             "ZMongoDocumentHealth",
+            "ZMongoDocumentIndexSelector",
+            "ZMongoDocumentIngestTextFile",
             "ZMongoDocumentList",
             "ZMongoDocumentOCRStatus",
             "ZMongoDocumentQueueOCR",
@@ -5321,17 +5338,23 @@
             "ZMongoDocumentUpdateMetadata",
             "ZMongoDocumentUploadFile",
             "ZMongoDocumentWhoAmI",
-            "ZMongoDynamicNodePreset",
-            "ZMongoJsonGetBool",
-            "ZMongoJsonGetFloat",
-            "ZMongoJsonGetInt",
-            "ZMongoJsonGetString",
+            "ZMongoDynamicPresetOutputs",
+            "ZMongoFindSimilarSuccessfulPromptsNode",
             "ZMongoKSamplerPreset",
             "ZMongoLoadImageSequenceNode",
-            "ZMongoLoadNodePreset",
+            "ZMongoLoadMemoryCapsuleNode",
+            "ZMongoLoadPreset",
             "ZMongoLocalFileStoreSessionNode",
+            "ZMongoPresetDebugInfo",
+            "ZMongoPromptCriticNode",
+            "ZMongoPromptEvolverNode",
+            "ZMongoPromptProvenanceLedgerNode",
+            "ZMongoRecordLoopManagerNode",
             "ZMongoSaveImageSequenceNode",
-            "ZMongoSaveNodePreset"
+            "ZMongoSavePresetByNodeID",
+            "ZMongoSavePromptMemoryNode",
+            "ZMongoTextAgentSessionNode",
+            "ZMongoWorkflowDocumentationAgentNode"
         ],
         {
             "title_aux": "ComfyUI-ZMongo"
@@ -8528,6 +8551,7 @@
     ],
     "https://github.com/EnviralDesign/comfyUI-enviral-design-node-pack": [
         [
+            "EnviralLazyIndexSwitch",
             "EnviralLmstudioUnified",
             "EnviralTextSplitByDelimiter"
         ],
@@ -11581,6 +11605,14 @@
             "title_aux": "nd-super-nodes"
         }
     ],
+    "https://github.com/Herony82/ComfyUI-WanAnimatePreprocess-track": [
+        [
+            "TrackedPoseAndFaceDetection"
+        ],
+        {
+            "title_aux": "WanAnimatePreprocess Track"
+        }
+    ],
     "https://github.com/HighDoping/ComfyUI_ASSSSA": [
         [
             "ASSSubtitleReader",
@@ -13259,6 +13291,16 @@
         ],
         {
             "title_aux": "lip_mask_from_pose"
+        }
+    ],
+    "https://github.com/JamesDanielDoss/Doss-Node-Suite": [
+        [
+            "DossLatentImage",
+            "DossPositivePrompt",
+            "DossWorkflowLabel"
+        ],
+        {
+            "title_aux": "Doss-Node-Suite"
         }
     ],
     "https://github.com/Jaminanim/ComfyUI-Random-Int-Divisor-Node": [
@@ -19249,6 +19291,7 @@
     ],
     "https://github.com/PlagueKind/ComfyUI-PlagueKind-Nodes": [
         [
+            "LTX_lora_loader",
             "UnifiedResizeImageMask"
         ],
         {
@@ -20355,6 +20398,7 @@
             "Runware 3D Inference",
             "Runware 3D Inference Inputs",
             "Runware 3D Inference Settings",
+            "Runware 3D Inference Settings Mesh Cluster",
             "Runware 3D Inference Settings Shape Slat",
             "Runware 3D Inference Settings Sparse Structure",
             "Runware 3D Inference Settings Tex Slat",
@@ -20390,6 +20434,7 @@
             "Runware Image Inference",
             "Runware Image Inference Inputs",
             "Runware Image Inference Settings Color Palette",
+            "Runware Image Inference Settings Moodboards",
             "Runware Image Inference Ultralytics",
             "Runware Image Masking",
             "Runware Image Upscaler",
@@ -20479,6 +20524,7 @@
             "Runware3DInference",
             "Runware3DInferenceInputs",
             "Runware3DInferenceSettings",
+            "Runware3DInferenceSettingsMeshCluster",
             "Runware3DInferenceSettingsShapeSlat",
             "Runware3DInferenceSettingsSparseStructure",
             "Runware3DInferenceSettingsTexSlat",
@@ -24996,11 +25042,13 @@
             "EasyJSONUpdate",
             "EasyJsonExtractor",
             "EasyJsonSaver",
+            "EasyLastImageCompare",
             "EasyLoraLoader",
             "EasyMathAdd",
             "EasyMathMultiply",
             "EasyMathSubtract",
             "EasyNull",
+            "EasyPreviewWebP",
             "EasyQuadrupleCLIPLoaderGGUF",
             "EasyRandomLineJoin",
             "EasyRandomLines",
@@ -25351,6 +25399,7 @@
             "TripoAnimateRetargetNode",
             "TripoAnimateRigNode",
             "TripoConvertNode",
+            "TripoImportModel",
             "TripoMeshCompletion",
             "TripoMeshSegmentation",
             "TripoRefineModel",
@@ -25857,6 +25906,8 @@
             "XB_ChunkVisualization",
             "XB_Dashboard_Zen",
             "XB_DynamicBus",
+            "XB_HumanSegModelLoader",
+            "XB_HumanSegmentation",
             "XB_ImageParamsMaster",
             "XB_MasterParameter",
             "XB_ROCmKSampler",
@@ -25877,6 +25928,8 @@
             "XB_Video_Merger",
             "XB_Wan22FunControlToVideo",
             "XB_WanAnimateToVideo",
+            "XB_WanAnimate_ParamBus",
+            "XB_WanAnimate_RelayNode",
             "XB_WanBlockSwap",
             "XB_WanCompileSettings",
             "XB_WanDecode",
@@ -26459,6 +26512,7 @@
             "NodeToggleByID",
             "ZhiYiAiStudioImageComboNode",
             "ZhiYiBBoxesToSAM2",
+            "ZhiYiDWPoseDetectNode",
             "ZhiYiImageComboNode",
             "ZhiYiImageTextComboNode",
             "ZhiYiImageTextNode",
@@ -35905,6 +35959,8 @@
             "BatchImagesNode",
             "BatchLatentsNode",
             "BatchMasksNode",
+            "BeebleSwitchXImageEdit",
+            "BeebleSwitchXVideoEdit",
             "BetaSamplingScheduler",
             "BriaImageEditNode",
             "BriaRemoveImageBackground",
@@ -36553,6 +36609,9 @@
             "TripoConversionNode",
             "TripoImageToModelNode",
             "TripoMultiviewToModelNode",
+            "TripoP1ImageToModelNode",
+            "TripoP1MultiviewToModelNode",
+            "TripoP1TextToModelNode",
             "TripoRefineNode",
             "TripoRetargetNode",
             "TripoRigNode",
@@ -37559,6 +37618,7 @@
             "D2 Multi Output",
             "D2 Paste By Mask",
             "D2 Pipe",
+            "D2 Preset Selector",
             "D2 Preview Image",
             "D2 Prompt",
             "D2 Refiner Steps",
@@ -37870,12 +37930,10 @@
             "DARASK Folder Image Loader",
             "DARASK LTX 2.3 Generator",
             "DARASK LTX23 Video Settings",
-            "DARASK Load Video Upload",
             "DARASK Lora Loader",
             "DARASK Prompt Cell",
             "DARASK Prompt Cell Output",
-            "DARASK RIFE Interpolation",
-            "DARASK Video Info"
+            "DARASK RIFE Interpolation"
         ],
         {
             "title_aux": "DARASK Nodes"
@@ -39346,6 +39404,15 @@
             "GeminiSystemInstruction",
             "GeminiTextGeneration",
             "GeminiVision",
+            "GrokAPIClient",
+            "GrokChat",
+            "GrokImageEdit",
+            "GrokImageGeneration",
+            "GrokRefToVideo",
+            "GrokTextGeneration",
+            "GrokTextToVideo",
+            "GrokVideoEdit",
+            "GrokVideoExtend",
             "JibMixQwenImageNode",
             "KlingElementsNode",
             "KlingO3ImageToVideoNode",
@@ -39826,6 +39893,22 @@
         ],
         {
             "title_aux": "open-pose-rotator"
+        }
+    ],
+    "https://github.com/emberframe/emberframe-nodes": [
+        [
+            "EmberFrameAttachSigmaToLatent",
+            "EmberFrameLatentCaptureInspector",
+            "EmberFrameMPAspectResolutionSelector64",
+            "EmberFrameNormalizeZImageFluxLatent",
+            "EmberFrameSamplerCustomAdvancedCapture",
+            "EmberFrameSequentialWildcardPrompt",
+            "EmberFrameWildcardConfigCombiner",
+            "EmberFrameWildcardPromptAssembler",
+            "EmberFrameWildcardRuleBuilder"
+        ],
+        {
+            "title_aux": "EmberFrame Nodes"
         }
     ],
     "https://github.com/emiewnn/ComfyUI-Emiewn-Nodes": [
@@ -44729,7 +44812,8 @@
     ],
     "https://github.com/id-fa/ComfyUI-Lenient-Switch": [
         [
-            "LenientSwitch"
+            "LenientSwitch",
+            "SimpleSelectorSwitch"
         ],
         {
             "title_aux": "Lenient Switch"
@@ -48517,6 +48601,7 @@
             "PadImageBatchInterleaved",
             "PatchModelPatcherOrder",
             "PathchSageAttentionKJ",
+            "PiDColorBiasCorrection",
             "PlaySoundKJ",
             "PlotCoordinates",
             "PointsEditor",
@@ -49796,18 +49881,6 @@
         ],
         {
             "title_aux": "ComfyUI-Azure-Blob-Storage"
-        }
-    ],
-    "https://github.com/l2dnjsrud/ComfyUI-BlueMangaPanelSplitter": [
-        [
-            "BlueMangaFramePanelSplitter",
-            "BlueMangaPanelCrop",
-            "BlueMangaPanelReassemble",
-            "BlueMangaPanelSplitter",
-            "BlueMangaSpreadPanelSplitter"
-        ],
-        {
-            "title_aux": "ComfyUI-BlueMangaPanelSplitter"
         }
     ],
     "https://github.com/l2dnjsrud/ComfyUI-OpenToonzLineTools": [
@@ -51655,6 +51728,7 @@
             "AUNPathFilenameVideo",
             "AUNPathFilenameVideoResolved",
             "AUNPathFilenameVideoV2",
+            "AUNPromptCycler",
             "AUNRandomAnySwitch",
             "AUNRandomIndexSwitch",
             "AUNRandomLoraModelOnly",
@@ -52951,11 +53025,17 @@
             "EasyResize",
             "EasyResize_Koolook",
             "EasyWan22Prompt",
+            "Easy_LoadVideo",
             "Easy_Pattern",
+            "Easy_Utility",
             "Easy_VideoCombine",
             "Easy_hdr_VAE_decode",
             "Easy_hdr_VAE_encode",
             "KoolookLoadCameraPosesAbsolute",
+            "LTXDirector",
+            "LTXDirector__koolook",
+            "LTXDirector__koolook_v1_3_2",
+            "PromptRelayEncodeTimeline",
             "easy_ImageBatch"
         ],
         {
@@ -56804,13 +56884,14 @@
             "OreX Image Save",
             "OreXLMStudio",
             "OreXOllama",
-            "flux-kontext-orexnodes",
+            "orex Crop",
             "orex Kontext Presets",
             "orex LMStudio",
             "orex Load Image",
             "orex Load Image Batch",
             "orex Load Image Batch Size",
             "orex Ollama",
+            "orex Ratio",
             "orex Save Image"
         ],
         {
@@ -57863,6 +57944,7 @@
             "PixaromaImageResize",
             "PixaromaLabel",
             "PixaromaLoadImage",
+            "PixaromaMuteSwitch",
             "PixaromaNote",
             "PixaromaNumber",
             "PixaromaPaint",
@@ -57878,10 +57960,12 @@
             "PixaromaSaveMp4",
             "PixaromaShowText",
             "PixaromaSwitch",
+            "PixaromaSwitchSource",
             "PixaromaSwitchWH",
             "PixaromaText",
             "PixaromaTextOverlay",
             "PixaromaTextWatermark",
+            "PixaromaVersionCheck",
             "PixaromaWH",
             "Pixaroma_VueReferenceNode"
         ],
@@ -58885,6 +58969,15 @@
             "title_aux": "EsesCompositionGoldenRatio"
         }
     ],
+    "https://github.com/quinteroac/ComfyUI-AnimaFastTrain": [
+        [
+            "AnimaFastTrainPatchModel",
+            "AnimaFastTrainReferenceContext"
+        ],
+        {
+            "title_aux": "ComfyUI-AnimaFastTrain"
+        }
+    ],
     "https://github.com/quinteroac/ComfyUI-GameAssetsMaker": [
         [
             "GameAssets_ApplyRigOverrides",
@@ -59575,6 +59668,7 @@
             "PromptLayoutFiller",
             "PromptOptionPicker",
             "PromptPresetSelector",
+            "PromptRouter",
             "PromptSwitch"
         ],
         {
@@ -61978,6 +62072,16 @@
             "CheckpointRenameKeys",
             "CheckpointThreeMerger",
             "CheckpointTwoMerger",
+            "DoRAExtractFixed",
+            "DoRAExtractFrobenius",
+            "DoRAExtractKnee",
+            "DoRAExtractQuantile",
+            "DoRAExtractRatio",
+            "DoRALearnedExtractFixed",
+            "DoRALearnedExtractFrobenius",
+            "DoRALearnedExtractKnee",
+            "DoRALearnedExtractQuantile",
+            "DoRALearnedExtractRatio",
             "EmbeddingMetaKeys",
             "EmbeddingPruneKeys",
             "EmbeddingRenameKeys",
@@ -62861,7 +62965,9 @@
             "LongCat_Video_SM_Encode",
             "LongCat_Video_SM_Model",
             "LongCat_Video_SM_Sampler",
-            "LongCat_Video_SM_Vocal"
+            "LongCat_Video_SM_Vocal",
+            "LongCat_Video_SM_VocalModel",
+            "LongCat_Video_SM_WhisperModel"
         ],
         {
             "title_aux": "ComfyUI_LongCat_Avatar"
@@ -65417,6 +65523,14 @@
             "title_aux": "ComfyUI-Model_Downloader"
         }
     ],
+    "https://github.com/toriumi/ComfyUI_GaussianSplatToMesh": [
+        [
+            "GaussianSplatToMesh"
+        ],
+        {
+            "title_aux": "ComfyUI_GaussianSplatToMesh"
+        }
+    ],
     "https://github.com/toshas/ComfyUI-WindowSeat": [
         [
             "WindowSeatModelLoader",
@@ -67935,7 +68049,8 @@
         [
             "WizdroidBackground",
             "WizdroidCharacterEdit",
-            "WizdroidCharacterPrompt",
+            "WizdroidCharacterPromptFemale",
+            "WizdroidCharacterPromptMale",
             "WizdroidCinematicShotDesigner",
             "WizdroidGenerateFilename",
             "WizdroidI2VAnimationDescriber",
