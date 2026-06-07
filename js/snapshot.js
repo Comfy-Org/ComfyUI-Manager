@@ -9,7 +9,7 @@ loadCss("./snapshot.css");
 async function restore_snapshot(target) {
 	if(SnapshotManager.instance) {
 		try {
-			const response = await api.fetchApi(`/snapshot/restore?target=${target}`, { cache: "no-store" });
+			const response = await api.fetchApi('/snapshot/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: target }), cache: "no-store" });
 
 			if(response.status == 403) {
 				await handle403Response(response);
@@ -37,7 +37,7 @@ async function restore_snapshot(target) {
 async function remove_snapshot(target) {
 	if(SnapshotManager.instance) {
 		try {
-			const response = await api.fetchApi(`/snapshot/remove?target=${target}`, { cache: "no-store" });
+			const response = await api.fetchApi('/snapshot/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: target }), cache: "no-store" });
 
 			if(response.status == 403) {
 				await handle403Response(response);
@@ -63,7 +63,7 @@ async function remove_snapshot(target) {
 
 async function save_current_snapshot() {
 	try {
-		const response = await api.fetchApi('/snapshot/save', { cache: "no-store" });
+		const response = await api.fetchApi('/snapshot/save', { method: 'POST', cache: "no-store" });
 		app.ui.dialog.close();
 		return true;
 	}

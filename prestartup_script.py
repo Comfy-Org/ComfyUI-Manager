@@ -370,10 +370,13 @@ try:
                 pass
 
             with std_log_lock:
-                if self.is_stdout:
-                    original_stdout.flush()
-                else:
-                    original_stderr.flush()
+                try:
+                    if self.is_stdout:
+                        original_stdout.flush()
+                    else:
+                        original_stderr.flush()
+                except (OSError, ValueError):
+                    pass
 
         def close(self):
             self.flush()

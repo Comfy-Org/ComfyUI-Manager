@@ -191,11 +191,20 @@ paths:
                 description: Mapping of node packages to node classes
 
   /customnode/fetch_updates:
-    get:
+    post:
       summary: Check for updates
       description: Fetches updates for custom nodes
-      parameters:
-        - $ref: '#/components/parameters/modeParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  type: string
+                  enum: [local, remote, default]
+                  description: Source mode (e.g., "local", "remote")
       responses:
         '200':
           description: No updates available
@@ -423,13 +432,22 @@ paths:
                       
   # Queue Management Endpoints
   /manager/queue/update_all:
-    get:
+    post:
       summary: Update all custom nodes
       description: Queues update operations for all installed custom nodes
       security:
         - securityLevel: []
-      parameters:
-        - $ref: '#/components/parameters/modeParam'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode:
+                  type: string
+                  enum: [local, remote, default]
+                  description: Source mode (e.g., "local", "remote")
       responses:
         '200':
           description: Update queued successfully
@@ -439,7 +457,7 @@ paths:
           description: Security policy violation
           
   /manager/queue/reset:
-    get:
+    post:
       summary: Reset queue
       description: Resets the operation queue
       responses:
@@ -479,7 +497,7 @@ paths:
           description: Target node not found or security issue
           
   /manager/queue/start:
-    get:
+    post:
       summary: Start queue processing
       description: Starts processing the operation queue
       responses:
@@ -575,7 +593,7 @@ paths:
           description: Disable operation queued successfully
           
   /manager/queue/update_comfyui:
-    get:
+    post:
       summary: Update ComfyUI
       description: Queues an update operation for ComfyUI itself
       responses:
@@ -621,13 +639,22 @@ paths:
                       $ref: '#/components/schemas/SnapshotItem'
                       
   /snapshot/remove:
-    get:
+    post:
       summary: Remove snapshot
       description: Removes a specified snapshot
       security:
         - securityLevel: []
-      parameters:
-        - $ref: '#/components/parameters/targetParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target]
+              properties:
+                target:
+                  type: string
+                  description: Target identifier
       responses:
         '200':
           description: Snapshot removed successfully
@@ -637,13 +664,22 @@ paths:
           description: Security policy violation
           
   /snapshot/restore:
-    get:
+    post:
       summary: Restore snapshot
       description: Restores a specified snapshot
       security:
         - securityLevel: []
-      parameters:
-        - $ref: '#/components/parameters/targetParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target]
+              properties:
+                target:
+                  type: string
+                  description: Target identifier
       responses:
         '200':
           description: Snapshot restoration scheduled
@@ -667,7 +703,7 @@ paths:
           description: Error creating snapshot
           
   /snapshot/save:
-    get:
+    post:
       summary: Save snapshot
       description: Saves the current system state as a new snapshot
       responses:
@@ -699,15 +735,19 @@ paths:
           description: Error retrieving versions
           
   /comfyui_manager/comfyui_switch_version:
-    get:
+    post:
       summary: Switch ComfyUI version
       description: Switches to a specified ComfyUI version
-      parameters:
-        - name: ver
-          in: query
-          description: Target version
-          schema:
-            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ver:
+                  type: string
+                  description: Target version
       responses:
         '200':
           description: Version switch successful
@@ -715,7 +755,7 @@ paths:
           description: Error switching version
           
   /manager/reboot:
-    get:
+    post:
       summary: Reboot ComfyUI
       description: Restarts the ComfyUI server
       security:
@@ -746,7 +786,32 @@ paths:
             text/plain:
               schema:
                 type: string
-                
+    post:
+      summary: Set preview method
+      description: Sets the latent preview method (write-only; use GET to read)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: string
+                  enum: [auto, latent2rgb, taesd, none]
+                  description: New preview method
+      responses:
+        '200':
+          description: Setting updated
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: Invalid value
+
+
   /manager/db_mode:
     get:
       summary: Get or set database mode
@@ -766,7 +831,32 @@ paths:
             text/plain:
               schema:
                 type: string
-                
+    post:
+      summary: Set database mode
+      description: Sets the database mode (write-only; use GET to read)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: string
+                  enum: [channel, local, remote]
+                  description: New database mode
+      responses:
+        '200':
+          description: Setting updated
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: Invalid value
+
+
   /manager/policy/component:
     get:
       summary: Get or set component policy
@@ -785,7 +875,29 @@ paths:
             text/plain:
               schema:
                 type: string
-                
+    post:
+      summary: Set component policy
+      description: Sets the component policy (write-only; use GET to read)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: string
+                  description: New component policy
+      responses:
+        '200':
+          description: Setting updated
+          content:
+            text/plain:
+              schema:
+                type: string
+
+
   /manager/policy/update:
     get:
       summary: Get or set update policy
@@ -805,7 +917,32 @@ paths:
             text/plain:
               schema:
                 type: string
-                
+    post:
+      summary: Set update policy
+      description: Sets the update policy (write-only; use GET to read)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: string
+                  enum: [stable, nightly, nightly-comfyui]
+                  description: New update policy
+      responses:
+        '200':
+          description: Setting updated
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: Invalid value
+
+
   /manager/channel_url_list:
     get:
       summary: Get or set channel URL
@@ -836,7 +973,29 @@ paths:
                           type: string
                         url:
                           type: string
-                          
+    post:
+      summary: Set channel URL
+      description: Sets the channel URL for custom node sources (write-only; use GET to read current + list)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [value]
+              properties:
+                value:
+                  type: string
+                  description: New channel name
+      responses:
+        '200':
+          description: Setting updated
+          content:
+            text/plain:
+              schema:
+                type: string
+
+
   # Component Management Endpoints
   /manager/component/save:
     post:
