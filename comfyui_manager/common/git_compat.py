@@ -21,6 +21,13 @@ from collections import deque
 from datetime import datetime, timezone, timedelta
 
 
+# Snapshot of the user's global `http.proxy` (captured before the config
+# search path is blanked under the pygit2 backend) so corporate proxy
+# settings survive and can be passed explicitly to fetch/clone. None means
+# "no proxy".
+_HTTP_PROXY = None
+
+
 def _to_https_url(url):
     """Rewrite an SSH-form git URL to its anonymous HTTPS equivalent.
 
@@ -66,12 +73,26 @@ if USE_PYGIT2:
         # See CVE-2022-24765 for context on this validation.
         _pygit2.option(_pygit2.GIT_OPT_SET_OWNER_VALIDATION, 0)
 
+        # Snapshot the global http.proxy BEFORE blanking the config search
+        # path, so a corporate proxy survives and can be passed explicitly
+        # to clone/fetch below.
+        try:
+            _global_cfg = _pygit2.Config.get_global_config()
+            try:
+                _HTTP_PROXY = _global_cfg["http.proxy"] or None
+            except (KeyError, Exception):
+                _HTTP_PROXY = None
+        except Exception:
+            _HTTP_PROXY = None
+
         # Ignore system/global/XDG git config for libgit2 operations. A
         # user's global config can carry `insteadOf` rewrites (e.g.
         # https->ssh) or credential helpers that force authentication,
         # which libgit2 cannot satisfy without a credentials callback
-        # ("authentication required but no callback set"). Blanking the
-        # config search path keeps clone/fetch over anonymous HTTPS.
+        # ("authentication required but no callback set"). The bundled
+        # pygit2 has no SSH transport, so an SSH rewrite can never succeed;
+        # blanking the config search path keeps clone/fetch on anonymous
+        # HTTPS.
         try:
             from pygit2.enums import ConfigLevel as _ConfigLevel
             _cfg_levels = [_ConfigLevel.SYSTEM, _ConfigLevel.XDG, _ConfigLevel.GLOBAL]
@@ -494,7 +515,7 @@ class _Pygit2Repo(GitRepo):
         remote = self._repo.remotes[name]
 
         def _pull():
-            remote.fetch()
+            remote.fetch(proxy=_HTTP_PROXY)
             branch_name = self.active_branch_name
             branch = self._repo.branches.get(branch_name)
             if branch and branch.upstream:
@@ -704,7 +725,7 @@ class _Pygit2Repo(GitRepo):
             raise GitCommandError(f"No upstream for branch '{branch_name}'")
 
         remote_name = upstream.remote_name
-        self._repo.remotes[remote_name].fetch()
+        self._repo.remotes[remote_name].fetch(proxy=_HTTP_PROXY)
 
         upstream = self._repo.branches.get(branch_name).upstream
         if upstream is None:
@@ -829,12 +850,12 @@ class _Pygit2Repo(GitRepo):
 
     def fetch_remote_by_index(self, index):
         remotes = list(self._repo.remotes)
-        remotes[index].fetch()
+        remotes[index].fetch(proxy=_HTTP_PROXY)
 
     def pull_remote_by_index(self, index):
         remotes = list(self._repo.remotes)
         remote = remotes[index]
-        remote.fetch()
+        remote.fetch(proxy=_HTTP_PROXY)
         # After fetch, try to ff-merge tracking branch
         try:
             branch_name = self.active_branch_name
@@ -874,7 +895,7 @@ def clone_repo(url, dest, progress=None):
     (checkout, clear_cache, close, etc.).
     """
     if USE_PYGIT2:
-        _pygit2.clone_repository(_to_https_url(url), dest)
+        _pygit2.clone_repository(_to_https_url(url), dest, proxy=_HTTP_PROXY)
         repo = _Pygit2Repo(dest)
         repo.submodule_update()
         return repo
