@@ -14,10 +14,27 @@ Exports:
 """
 
 import os
+import re
 import sys
 from abc import ABC, abstractmethod
 from collections import deque
 from datetime import datetime, timezone, timedelta
+
+
+def _to_https_url(url):
+    """Rewrite an SSH-form git URL to its anonymous HTTPS equivalent.
+
+    Handles `git@host:owner/repo(.git)` and `ssh://git@host/owner/repo(.git)`.
+    Returns the URL unchanged if it is not SSH-form, so pygit2 clone/fetch
+    of public repos never requires SSH credentials even when a repo's own
+    config stores an SSH origin.
+    """
+    if not url:
+        return url
+    m = re.match(r"^(?:ssh://)?git@([^:/]+)[:/](.+)$", url)
+    if m:
+        return "https://%s/%s" % (m.group(1), m.group(2))
+    return url
 
 # ---------------------------------------------------------------------------
 # Backend selection
@@ -48,6 +65,27 @@ if USE_PYGIT2:
         # may be owned by a different user (e.g., system-installed paths).
         # See CVE-2022-24765 for context on this validation.
         _pygit2.option(_pygit2.GIT_OPT_SET_OWNER_VALIDATION, 0)
+
+        # Ignore system/global/XDG git config for libgit2 operations. A
+        # user's global config can carry `insteadOf` rewrites (e.g.
+        # https->ssh) or credential helpers that force authentication,
+        # which libgit2 cannot satisfy without a credentials callback
+        # ("authentication required but no callback set"). Blanking the
+        # config search path keeps clone/fetch over anonymous HTTPS.
+        try:
+            from pygit2.enums import ConfigLevel as _ConfigLevel
+            _cfg_levels = [_ConfigLevel.SYSTEM, _ConfigLevel.XDG, _ConfigLevel.GLOBAL]
+        except (ImportError, AttributeError):
+            _cfg_levels = [
+                _pygit2.GIT_CONFIG_LEVEL_SYSTEM,
+                _pygit2.GIT_CONFIG_LEVEL_XDG,
+                _pygit2.GIT_CONFIG_LEVEL_GLOBAL,
+            ]
+        for _lvl in _cfg_levels:
+            try:
+                _pygit2.settings.search_path[_lvl] = ""
+            except Exception:
+                pass
 
 if not USE_PYGIT2:
     import git as _git
@@ -387,6 +425,18 @@ class _Pygit2Repo(GitRepo):
                 pass
         self._repo = _pygit2.Repository(git_dir)
         self._working_dir = repo_path
+        self._normalize_remote_urls()
+
+    def _normalize_remote_urls(self):
+        """Rewrite any SSH-form remote URLs to anonymous HTTPS so fetch/pull
+        never require SSH credentials under the pygit2 backend."""
+        for remote in self._repo.remotes:
+            https_url = _to_https_url(remote.url)
+            if https_url != remote.url:
+                try:
+                    self._repo.remotes.set_url(remote.name, https_url)
+                except Exception:
+                    pass
 
     @property
     def working_dir(self):
@@ -824,7 +874,7 @@ def clone_repo(url, dest, progress=None):
     (checkout, clear_cache, close, etc.).
     """
     if USE_PYGIT2:
-        _pygit2.clone_repository(url, dest)
+        _pygit2.clone_repository(_to_https_url(url), dest)
         repo = _Pygit2Repo(dest)
         repo.submodule_update()
         return repo
