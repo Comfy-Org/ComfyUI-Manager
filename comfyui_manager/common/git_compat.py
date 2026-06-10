@@ -446,18 +446,6 @@ class _Pygit2Repo(GitRepo):
                 pass
         self._repo = _pygit2.Repository(git_dir)
         self._working_dir = repo_path
-        self._normalize_remote_urls()
-
-    def _normalize_remote_urls(self):
-        """Rewrite any SSH-form remote URLs to anonymous HTTPS so fetch/pull
-        never require SSH credentials under the pygit2 backend."""
-        for remote in self._repo.remotes:
-            https_url = _to_https_url(remote.url)
-            if https_url != remote.url:
-                try:
-                    self._repo.remotes.set_url(remote.name, https_url)
-                except Exception:
-                    pass
 
     @property
     def working_dir(self):
