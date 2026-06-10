@@ -447,6 +447,28 @@ class _Pygit2Repo(GitRepo):
         self._repo = _pygit2.Repository(git_dir)
         self._working_dir = repo_path
 
+    def _fetch_remote(self, remote, refspecs=None):
+        """Fetch *remote* over the preserved proxy, transparently rewriting an
+        SSH-form origin to anonymous HTTPS in memory.
+
+        The bundled pygit2 has no SSH transport, so a stored `git@host:...`
+        origin would fail with an auth error. When the URL is SSH-form we fetch
+        through an in-memory anonymous remote over HTTPS, leaving `.git/config`
+        untouched (no on-disk rewrite).
+        """
+        https_url = _to_https_url(remote.url)
+        if https_url != remote.url:
+            anon = self._repo.remotes.create_anonymous(https_url)
+            anon.fetch(
+                list(refspecs) if refspecs is not None
+                else list(remote.fetch_refspecs),
+                proxy=_HTTP_PROXY,
+            )
+        elif refspecs is not None:
+            remote.fetch(list(refspecs), proxy=_HTTP_PROXY)
+        else:
+            remote.fetch(proxy=_HTTP_PROXY)
+
     @property
     def working_dir(self):
         return self._working_dir
@@ -503,7 +525,7 @@ class _Pygit2Repo(GitRepo):
         remote = self._repo.remotes[name]
 
         def _pull():
-            remote.fetch(proxy=_HTTP_PROXY)
+            self._fetch_remote(remote)
             branch_name = self.active_branch_name
             branch = self._repo.branches.get(branch_name)
             if branch and branch.upstream:
@@ -516,7 +538,7 @@ class _Pygit2Repo(GitRepo):
                         branch_ref.set_target(remote_commit.id)
                     self._repo.head.set_target(remote_commit.id)
 
-        return _RemoteProxy(remote.name, remote.url, remote.fetch, _pull)
+        return _RemoteProxy(remote.name, remote.url, lambda: self._fetch_remote(remote), _pull)
 
     def has_ref(self, ref_name):
         for prefix in [f'refs/remotes/{ref_name}', f'refs/heads/{ref_name}',
@@ -713,7 +735,7 @@ class _Pygit2Repo(GitRepo):
             raise GitCommandError(f"No upstream for branch '{branch_name}'")
 
         remote_name = upstream.remote_name
-        self._repo.remotes[remote_name].fetch(proxy=_HTTP_PROXY)
+        self._fetch_remote(self._repo.remotes[remote_name])
 
         upstream = self._repo.branches.get(branch_name).upstream
         if upstream is None:
@@ -838,12 +860,12 @@ class _Pygit2Repo(GitRepo):
 
     def fetch_remote_by_index(self, index):
         remotes = list(self._repo.remotes)
-        remotes[index].fetch(proxy=_HTTP_PROXY)
+        self._fetch_remote(remotes[index])
 
     def pull_remote_by_index(self, index):
         remotes = list(self._repo.remotes)
         remote = remotes[index]
-        remote.fetch(proxy=_HTTP_PROXY)
+        self._fetch_remote(remote)
         # After fetch, try to ff-merge tracking branch
         try:
             branch_name = self.active_branch_name
