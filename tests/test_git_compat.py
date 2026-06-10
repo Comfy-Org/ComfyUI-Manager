@@ -824,6 +824,110 @@ finally:
         self.assertEqual(p2['sha'], self.first_sha)
         self.assertTrue(p2['detached'])
 
+    # === list_remotes fetch routing (pygit2) ===
+
+    def test_list_remotes_fetch_routing_pygit2(self):
+        """Each list_remotes() proxy must route fetch/pull through
+        _fetch_remote/_pull_remote bound to its OWN remote (pins the
+        ``lambda r=r:`` late-binding fix and the pull_fn parity)."""
+        snippet = """
+import tempfile, shutil
+dest = tempfile.mkdtemp()
+try:
+    repo = clone_repo(REPO_PATH, os.path.join(dest, 'cloned'))
+    repo._repo.remotes.create('alt', REPO_PATH)
+    calls = []
+    repo._fetch_remote = lambda remote, refspecs=None: calls.append(remote.name)
+    proxies = repo.list_remotes()
+    for p in proxies:
+        p.fetch()
+    pulled = []
+    for p in proxies:
+        p.pull()
+        pulled.append(p.name)
+    repo.close()
+    print(json.dumps({"names": [p.name for p in proxies],
+                      "fetch_calls": calls[:len(proxies)],
+                      "pulled": pulled}))
+finally:
+    shutil.rmtree(dest, ignore_errors=True)
+"""
+        p2 = _run_snippet(snippet, self.repo_path, use_pygit2=True)
+        self.assertEqual(len(p2['names']), 2)
+        self.assertEqual(p2['fetch_calls'], p2['names'])
+        self.assertEqual(p2['pulled'], p2['names'])
+
+
+class TestToHttpsUrl(unittest.TestCase):
+    """Unit tests for the pure SSH→HTTPS URL rewrite helper."""
+
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, COMPAT_DIR)
+        from git_compat import _to_https_url
+        cls.convert = staticmethod(_to_https_url)
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            sys.path.remove(COMPAT_DIR)
+        except ValueError:
+            pass
+
+    def test_scp_form(self):
+        self.assertEqual(
+            self.convert('git@github.com:owner/repo.git'),
+            'https://github.com/owner/repo.git')
+
+    def test_scp_form_without_suffix(self):
+        self.assertEqual(
+            self.convert('git@github.com:owner/repo'),
+            'https://github.com/owner/repo')
+
+    def test_ssh_scheme(self):
+        self.assertEqual(
+            self.convert('ssh://git@github.com/owner/repo.git'),
+            'https://github.com/owner/repo.git')
+
+    def test_ssh_scheme_with_port(self):
+        self.assertEqual(
+            self.convert('ssh://git@git.example.com:2222/owner/repo.git'),
+            'https://git.example.com/owner/repo.git')
+
+    def test_https_unchanged(self):
+        url = 'https://github.com/owner/repo.git'
+        self.assertEqual(self.convert(url), url)
+
+    def test_non_git_user_unchanged(self):
+        url = 'ssh://alice@git.example.com/owner/repo.git'
+        self.assertEqual(self.convert(url), url)
+
+    def test_local_path_unchanged(self):
+        url = '/home/user/repos/local-repo'
+        self.assertEqual(self.convert(url), url)
+
+    def test_empty_and_none(self):
+        self.assertEqual(self.convert(''), '')
+        self.assertIsNone(self.convert(None))
+
+    def test_scp_absolute_path_no_double_slash(self):
+        self.assertEqual(
+            self.convert('git@git.example.com:/srv/git/repo.git'),
+            'https://git.example.com/srv/git/repo.git')
+
+    def test_slash_form_without_colon_unchanged(self):
+        # Not a valid scp-form URL (git treats it as a local path).
+        url = 'git@github.com/owner/repo'
+        self.assertEqual(self.convert(url), url)
+
+    def test_ipv6_unchanged(self):
+        url = 'ssh://git@[2001:db8::1]/owner/repo.git'
+        self.assertEqual(self.convert(url), url)
+
+    def test_port_without_path_unchanged(self):
+        url = 'ssh://git@git.example.com:2222'
+        self.assertEqual(self.convert(url), url)
+
 
 if __name__ == '__main__':
     unittest.main()
