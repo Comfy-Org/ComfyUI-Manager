@@ -43,6 +43,8 @@ SECURITY_MESSAGE_HIGH_P = "ERROR: To use this action, '--listen' must be set to 
 SECURITY_MESSAGE_NORMAL_MINUS = "ERROR: To use this feature, you must either set '--listen' to a local IP and set the security level to 'normal-' or lower, or set the security level to 'middle' or 'weak'. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_GENERAL = "ERROR: This installation is not allowed in this security_level. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_NORMAL_MINUS_MODEL = "ERROR: Downloading models that are not in '.safetensors' format is only allowed for models registered in the 'default' channel at this security level. If you want to download this model, set the security level to 'normal-' or lower."
+SECURITY_MESSAGE_FLAG_GIT_URL = "ERROR: This action requires 'allow_git_url_install = true' in config.ini ([default] section). This setting is independent of security_level. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_FLAG_PIP = "ERROR: This action requires 'allow_pip_install = true' in config.ini ([default] section). This setting is independent of security_level. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
 
 routes = PromptServer.instance.routes
 
@@ -120,6 +122,18 @@ def is_allowed_security_level(level):
         return core.get_config()['security_level'] in ['weak', 'normal', 'normal-']
     else:
         return True
+
+
+def _dedicated_install_allowed(flag_key: str) -> bool:
+    """goal265: P-direct gate for the dedicated install flags (spec §1.2).
+
+    allowed iff config[flag_key] AND (loopback listener OR
+    network_mode == 'personal_cloud') — fully decoupled from security_level.
+    Resolves config through the LEGACY reader and delegates the pure
+    predicate to common/manager_security (which stays config-import-free).
+    """
+    return manager_security.is_dedicated_install_allowed(
+        core.get_config()[flag_key], args.listen, core.get_config()['network_mode'])
 
 
 async def get_risky_level(files, pip_packages):
@@ -1473,7 +1487,15 @@ async def _install_custom_node(json_data):
         else:
             return web.Response(status=404, text=f"Following node pack doesn't provide `nightly` version: ${git_url}")
 
-    if not is_allowed_security_level(risky_level):
+    # goal265 S-C (middle+ entry gate above UNCHANGED): unknown git URL ('high+')
+    # -> dedicated-flag full predicate replaces the security_level check (spec §1.2);
+    # unknown pip ('block') -> unconditional deny via is_allowed_security_level (Q1).
+    # Flag-deny PRESERVES today's 404 response shape at this position (R1).
+    if risky_level == 'high+':
+        if not _dedicated_install_allowed('allow_git_url_install'):
+            logging.error(SECURITY_MESSAGE_FLAG_GIT_URL)
+            return web.Response(status=404, text="A security error has occurred. Please check the terminal logs")
+    elif not is_allowed_security_level(risky_level):
         logging.error(SECURITY_MESSAGE_GENERAL)
         return web.Response(status=404, text="A security error has occurred. Please check the terminal logs")
 
@@ -1527,8 +1549,9 @@ async def _fix_custom_node(json_data):
 
 @routes.post("/v2/customnode/install/git_url")
 async def install_custom_node_git_url(request):
-    if not is_allowed_security_level('high+'):
-        logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
+    # goal265 S-A: dedicated-flag gate, decoupled from security_level (spec §1.2).
+    if not _dedicated_install_allowed('allow_git_url_install'):
+        logging.error(SECURITY_MESSAGE_FLAG_GIT_URL)
         return web.Response(status=403)
 
     url = await request.text()
@@ -1547,8 +1570,9 @@ async def install_custom_node_git_url(request):
 
 @routes.post("/v2/customnode/install/pip")
 async def install_custom_node_pip(request):
-    if not is_allowed_security_level('high+'):
-        logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
+    # goal265 S-B: dedicated-flag gate, decoupled from security_level (spec §1.2).
+    if not _dedicated_install_allowed('allow_pip_install'):
+        logging.error(SECURITY_MESSAGE_FLAG_PIP)
         return web.Response(status=403)
 
     packages = await request.text()

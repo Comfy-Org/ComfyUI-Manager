@@ -5,6 +5,31 @@ All notable changes to **ComfyUI-Manager** are documented in this file.
 The format is based on [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- **Dedicated install flags decouple git-URL / pip installs from `security_level`**:
+  `POST /v2/customnode/install/git_url` and `POST /v2/customnode/install/pip`
+  (and the batch install path for git URLs not in the custom-node DB) are now
+  gated by two new `config.ini` `[default]` flags — `allow_git_url_install`
+  and `allow_pip_install` — instead of `security_level`. Both default to
+  `false` (secure by default), and a non-loopback listener stays denied unless
+  `network_mode = personal_cloud` (the existing network-position invariant is
+  retained — the flags never widen exposure beyond what was possible before).
+  `security_level` no longer has any effect on these two endpoints, in either
+  direction. The unknown-pip-package block in batch installs remains
+  unconditional. Activation requires a restart (no hot reload).
+
+### Migration notes
+
+- **Users running `security_level = weak` or `normal-`**: these environments
+  could previously use the git-URL / pip install endpoints; after upgrading
+  they are denied (HTTP 403) until you explicitly opt in by setting
+  `allow_git_url_install = true` and/or `allow_pip_install = true` in the
+  `[default]` section of `config.ini`. The flags are NOT auto-seeded from
+  your `security_level` — explicit opt-in is intentional.
+
 ## [4.2.1] - 2026-04-22
 
 Security-hardening release. Contains breaking-ish API changes for

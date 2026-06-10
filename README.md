@@ -214,6 +214,8 @@ The following settings are applied based on the section marked as `is_default`.
     model_download_by_agent = <When downloading models, use an agent instead of torchvision_download_url.>
     downgrade_blacklist = <Set a list of packages to prevent downgrades. List them separated by commas.>
     security_level = <Set the security level => strong|normal|normal-|weak>
+    allow_git_url_install = <Allow installing custom nodes from arbitrary git URLs. Independent of security_level. Default: False>
+    allow_pip_install = <Allow installing arbitrary pip packages via the Manager. Independent of security_level. Default: False>
     always_lazy_install = <Whether to perform dependency installation on restart even in environments other than Windows.>
     network_mode = <Set the network mode => public|private|offline|personal_cloud>
     ```
@@ -324,11 +326,13 @@ The security settings are applied based on whether the ComfyUI server's listener
 
 | Risky Level | features                                                                                                                              |
 |-------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| high+       | * `Install via git url`, `pip install`<BR>* Installation of nodepack registered not in the `default channel`.<BR>* **Switch ComfyUI version**<BR>* **Fix nodepack** |
+| high+       | * **Switch ComfyUI version**<BR>* **Fix nodepack** |
 | high        | _(no features at this tier — `Fix nodepack` promoted to `high+` to align the enforcement gate with the `SECURITY_MESSAGE_HIGH_P` log text)_ |
 | middle+     | * Uninstall/Update<BR>* Installation of nodepack registered in the `default channel`.<BR>* Restore/Remove Snapshot<BR>* Install model |
 | middle      | * Restart                                                                                                                             |
 | low         | * Update ComfyUI                                                                                                                      |
+
+* **Note**: `Install via git url` and `pip install` are no longer gated by `security_level` — they moved to the dedicated flags `allow_git_url_install` / `allow_pip_install`. Installation of a nodepack registered not in the `default channel` likewise requires `allow_git_url_install` (in addition to the `middle+` level preconditions) instead of a `high+` security level. See the [Dedicated install flags](#dedicated-install-flags-allow_git_url_install--allow_pip_install) subsection below.
 
 
 ### Security Level Table
@@ -340,6 +344,20 @@ The security settings are applied based on whether the ComfyUI server's listener
 | normal-        | * All features are available                                                                                             | * `high+` and `high` level risky features are not allowed<BR>* `middle+` and `middle` level risky features are available | * `high+`, `high` and `middle+` level risky features are not allowed<BR>* `middle` level risky features are available 
 | weak           | * All features are available                                                                                             | * All features are available                                                                                             | * `high+` and `middle+` level risky features are not allowed<BR>* `high`, `middle` and `low` level risky features are available
 
+
+### Dedicated install flags (`allow_git_url_install` / `allow_pip_install`)
+
+The `Install via git url` and `pip install` features are governed by two dedicated `config.ini` flags instead of `security_level`:
+
+* `allow_git_url_install`: Allows installing custom nodes from arbitrary git URLs.
+* `allow_pip_install`: Allows installing arbitrary pip packages via the Manager.
+
+* Both flags default to `False` — secure by default. A missing or invalid value (anything other than `true`, case-insensitive) is read as `False`.
+* These flags fully **replace** `security_level` for these two features. `security_level` no longer affects them in either direction: a strict security level cannot deny them when the flag is `true`, and a weak security level cannot allow them when the flag is `false`.
+* The network-position rule still applies independently: even with a flag enabled, the feature is denied when the server listener is **non-local**, unless `network_mode = personal_cloud`.
+* Batch installs of git URLs not registered in the `default channel` are also gated by `allow_git_url_install`, and additionally require the normal batch-install preconditions (the `middle+` rules in the tables above). Unknown pip packages in batch installs remain blocked unconditionally — the flags do not open them.
+* Changes to these flags require a restart of ComfyUI to take effect.
+* Migration note: if you previously relied on `security_level = weak` or `normal-` to use these features, you must now opt in explicitly by setting the flags in the `[default]` section of `config.ini`. The flags are not auto-seeded from your `security_level`.
 
 
 # Disclaimer

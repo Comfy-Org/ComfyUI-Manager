@@ -5,10 +5,13 @@ operation via HTTP:
   Default-security fixture (middle+ / no-gate endpoints):
     - wi-020 POST /v2/manager/queue/install_model (tiny TAEF1 model, <5MB)
     - wi-024 POST /v2/manager/queue/update_comfyui (safe via env var)
-  Permissive-security fixture (high+ endpoints — normal- harness):
-    - wi-014 POST /v2/comfyui_manager/comfyui_switch_version (no-op self-switch)
-    - wi-037 POST /v2/customnode/install/git_url (nodepack-test1-do-not-install)
-    - wi-038 POST /v2/customnode/install/pip (text-unidecode)
+  Permissive-security fixture (normal- + dedicated install flags):
+    - wi-014 POST /v2/comfyui_manager/comfyui_switch_version (no-op self-switch;
+             high+ gate, opened by security_level = normal-)
+    - wi-037 POST /v2/customnode/install/git_url (nodepack-test1-do-not-install;
+             gated by allow_git_url_install — goal265 / #2962)
+    - wi-038 POST /v2/customnode/install/pip (text-unidecode;
+             gated by allow_pip_install — goal265 / #2962)
   Pre-seeded broken-pack fixture (no-gate endpoint, needs scan-time state):
     - wi-015 POST /v2/customnode/import_fail_info (pre-seeded broken pack)
 
@@ -21,13 +24,17 @@ the test venv.
 
 Permissive harness security rationale:
   wi-014/037/038 execute arbitrary remote code (version switch, git
-  clone, pip install) and are gated at `high+` precisely to prevent
-  such operations at default security. The permissive harness
+  clone, pip install) and are gated precisely to prevent such
+  operations at default config — wi-014 at `high+` (security_level),
+  wi-037/038 by the dedicated `allow_git_url_install` /
+  `allow_pip_install` flags (goal265 / #2962, independent of
+  security_level, default false). The permissive harness
   (start_comfyui_permissive.sh) reflects the production use case
   these endpoints exist to serve — operators in a trusted environment
-  lower security_level to normal-/weak to enable these features. The
-  200 path IS a supported feature, and testing it requires exactly
-  this configuration. Permissive harness uses HARDCODED trusted inputs:
+  set security_level = normal- and opt in via the flags to enable
+  these features. The 200 path IS a supported feature, and testing it
+  requires exactly this configuration. Permissive harness uses
+  HARDCODED trusted inputs:
     - wi-014: the CURRENT ComfyUI version (self-switch no-op)
     - wi-037: https://github.com/ltdrdata/nodepack-test1-do-not-install
              (project's test-fixture repo, also used by tests/cli/test_uv_compile.py)
@@ -162,7 +169,8 @@ def comfyui_legacy():
 
 def _start_comfyui_permissive() -> int:
     """Launch via start_comfyui_permissive.sh — patches config.ini to
-    `security_level = normal-` (backup at config.ini.before-permissive)
+    `security_level = normal-` plus `allow_git_url_install = true` /
+    `allow_pip_install = true` (backup at config.ini.before-permissive)
     then delegates to start_comfyui.sh with ENABLE_LEGACY_UI=1.
     The permissive fixture MUST restore config on teardown.
     """
@@ -198,9 +206,10 @@ def _restore_permissive_config():
 
 @pytest.fixture(scope="module")
 def comfyui_permissive():
-    """Module-scoped fixture: start server with security_level=normal-,
-    tear down with config restore. Use for wi-014/037/038 which require
-    `high+` (security_utils.py:20-26 allows weak/normal- at is_local_mode).
+    """Module-scoped fixture: start server with security_level=normal- and
+    the dedicated install flags enabled, tear down with config restore.
+    Use for wi-014 (high+ gate: weak/normal- at is_local_mode) and
+    wi-037/038 (allow_git_url_install / allow_pip_install — goal265 / #2962).
     """
     pid = _start_comfyui_permissive()
     try:
@@ -489,7 +498,7 @@ class TestInstallViaGitUrlRealClone:
             )
             assert resp.status_code == 200, (
                 f"install/git_url with trusted URL {TRUSTED_GIT_URL!r} "
-                f"should return 200 at security_level=normal-, got "
+                f"should return 200 with allow_git_url_install=true, got "
                 f"{resp.status_code}: {resp.text[:300]}"
             )
             assert os.path.isdir(target), (
@@ -555,7 +564,7 @@ class TestInstallPipRealExecute:
             )
             assert resp.status_code == 200, (
                 f"install/pip with trusted pkg {TRUSTED_PIP_PKG!r} should "
-                f"return 200 at security_level=normal-, got "
+                f"return 200 with allow_pip_install=true, got "
                 f"{resp.status_code}: {resp.text[:300]}"
             )
 

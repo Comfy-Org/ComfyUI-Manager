@@ -83,6 +83,25 @@ def is_loopback(address):
         return False
 
 
+def is_dedicated_install_allowed(flag_value: bool, listen_address: str, network_mode: str) -> bool:
+    """P-direct predicate for the dedicated install flags (goal265-spec.md §1.2).
+
+    allowed iff flag AND (loopback listener OR network_mode == 'personal_cloud').
+
+    Gates the git-URL / standalone-pip install surfaces via the dedicated
+    ``allow_git_url_install`` / ``allow_pip_install`` config flags, fully
+    decoupled from ``security_level`` (REPLACE, not AND — spec §1.1 inv. 1).
+    The network-position term retains today's invariant that a public
+    (non-loopback, non-personal_cloud) listener stays denied regardless of
+    the flags (spec §1.1 inv. 2).
+
+    Pure function — NO config access; callers resolve ``flag_value`` and
+    ``network_mode`` through their own config reader and pass values in
+    (preserves common/ layering: this module must stay config-import-free).
+    """
+    return bool(flag_value) and (is_loopback(listen_address) or network_mode.lower() == 'personal_cloud')
+
+
 def do_nothing():
     pass
 
