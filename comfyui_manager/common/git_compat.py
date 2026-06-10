@@ -14,10 +14,34 @@ Exports:
 """
 
 import os
+import re
 import sys
 from abc import ABC, abstractmethod
 from collections import deque
 from datetime import datetime, timezone, timedelta
+
+
+# Snapshot of the user's global `http.proxy` (captured before the config
+# search path is blanked under the pygit2 backend) so corporate proxy
+# settings survive and can be passed explicitly to fetch/clone. None means
+# "no proxy".
+_HTTP_PROXY = None
+
+
+def _to_https_url(url):
+    """Rewrite an SSH-form git URL to its anonymous HTTPS equivalent.
+
+    Handles `git@host:owner/repo(.git)` and `ssh://git@host/owner/repo(.git)`.
+    Returns the URL unchanged if it is not SSH-form, so pygit2 clone/fetch
+    of public repos never requires SSH credentials even when a repo's own
+    config stores an SSH origin.
+    """
+    if not url:
+        return url
+    m = re.match(r"^(?:ssh://)?git@([^:/]+)[:/](.+)$", url)
+    if m:
+        return "https://%s/%s" % (m.group(1), m.group(2))
+    return url
 
 # ---------------------------------------------------------------------------
 # Backend selection
@@ -48,6 +72,41 @@ if USE_PYGIT2:
         # may be owned by a different user (e.g., system-installed paths).
         # See CVE-2022-24765 for context on this validation.
         _pygit2.option(_pygit2.GIT_OPT_SET_OWNER_VALIDATION, 0)
+
+        # Snapshot the global http.proxy BEFORE blanking the config search
+        # path, so a corporate proxy survives and can be passed explicitly
+        # to clone/fetch below.
+        try:
+            _global_cfg = _pygit2.Config.get_global_config()
+            try:
+                _HTTP_PROXY = _global_cfg["http.proxy"] or None
+            except (KeyError, Exception):
+                _HTTP_PROXY = None
+        except Exception:
+            _HTTP_PROXY = None
+
+        # Ignore system/global/XDG git config for libgit2 operations. A
+        # user's global config can carry `insteadOf` rewrites (e.g.
+        # https->ssh) or credential helpers that force authentication,
+        # which libgit2 cannot satisfy without a credentials callback
+        # ("authentication required but no callback set"). The bundled
+        # pygit2 has no SSH transport, so an SSH rewrite can never succeed;
+        # blanking the config search path keeps clone/fetch on anonymous
+        # HTTPS.
+        try:
+            from pygit2.enums import ConfigLevel as _ConfigLevel
+            _cfg_levels = [_ConfigLevel.SYSTEM, _ConfigLevel.XDG, _ConfigLevel.GLOBAL]
+        except (ImportError, AttributeError):
+            _cfg_levels = [
+                _pygit2.GIT_CONFIG_LEVEL_SYSTEM,
+                _pygit2.GIT_CONFIG_LEVEL_XDG,
+                _pygit2.GIT_CONFIG_LEVEL_GLOBAL,
+            ]
+        for _lvl in _cfg_levels:
+            try:
+                _pygit2.settings.search_path[_lvl] = ""
+            except Exception:
+                pass
 
 if not USE_PYGIT2:
     import git as _git
@@ -388,6 +447,28 @@ class _Pygit2Repo(GitRepo):
         self._repo = _pygit2.Repository(git_dir)
         self._working_dir = repo_path
 
+    def _fetch_remote(self, remote, refspecs=None):
+        """Fetch *remote* over the preserved proxy, transparently rewriting an
+        SSH-form origin to anonymous HTTPS in memory.
+
+        The bundled pygit2 has no SSH transport, so a stored `git@host:...`
+        origin would fail with an auth error. When the URL is SSH-form we fetch
+        through an in-memory anonymous remote over HTTPS, leaving `.git/config`
+        untouched (no on-disk rewrite).
+        """
+        https_url = _to_https_url(remote.url)
+        if https_url != remote.url:
+            anon = self._repo.remotes.create_anonymous(https_url)
+            anon.fetch(
+                list(refspecs) if refspecs is not None
+                else list(remote.fetch_refspecs),
+                proxy=_HTTP_PROXY,
+            )
+        elif refspecs is not None:
+            remote.fetch(list(refspecs), proxy=_HTTP_PROXY)
+        else:
+            remote.fetch(proxy=_HTTP_PROXY)
+
     @property
     def working_dir(self):
         return self._working_dir
@@ -444,7 +525,7 @@ class _Pygit2Repo(GitRepo):
         remote = self._repo.remotes[name]
 
         def _pull():
-            remote.fetch()
+            self._fetch_remote(remote)
             branch_name = self.active_branch_name
             branch = self._repo.branches.get(branch_name)
             if branch and branch.upstream:
@@ -457,7 +538,7 @@ class _Pygit2Repo(GitRepo):
                         branch_ref.set_target(remote_commit.id)
                     self._repo.head.set_target(remote_commit.id)
 
-        return _RemoteProxy(remote.name, remote.url, remote.fetch, _pull)
+        return _RemoteProxy(remote.name, remote.url, lambda: self._fetch_remote(remote), _pull)
 
     def has_ref(self, ref_name):
         for prefix in [f'refs/remotes/{ref_name}', f'refs/heads/{ref_name}',
@@ -654,7 +735,7 @@ class _Pygit2Repo(GitRepo):
             raise GitCommandError(f"No upstream for branch '{branch_name}'")
 
         remote_name = upstream.remote_name
-        self._repo.remotes[remote_name].fetch()
+        self._fetch_remote(self._repo.remotes[remote_name])
 
         upstream = self._repo.branches.get(branch_name).upstream
         if upstream is None:
@@ -779,12 +860,12 @@ class _Pygit2Repo(GitRepo):
 
     def fetch_remote_by_index(self, index):
         remotes = list(self._repo.remotes)
-        remotes[index].fetch()
+        self._fetch_remote(remotes[index])
 
     def pull_remote_by_index(self, index):
         remotes = list(self._repo.remotes)
         remote = remotes[index]
-        remote.fetch()
+        self._fetch_remote(remote)
         # After fetch, try to ff-merge tracking branch
         try:
             branch_name = self.active_branch_name
@@ -824,7 +905,7 @@ def clone_repo(url, dest, progress=None):
     (checkout, clear_cache, close, etc.).
     """
     if USE_PYGIT2:
-        _pygit2.clone_repository(url, dest)
+        _pygit2.clone_repository(_to_https_url(url), dest, proxy=_HTTP_PROXY)
         repo = _Pygit2Repo(dest)
         repo.submodule_update()
         return repo
