@@ -216,7 +216,7 @@ export async function install_pip(packages) {
 	});
 
 	if(res.status == 403) {
-		show_message('This action is not allowed with this security level configuration.');
+		show_message("To use this feature, set <code>allow_pip_install = true</code> in the [default] section of config.ini. This setting is independent of security_level.<BR>Note: if the ComfyUI listener is not local, <code>network_mode = personal_cloud</code> is also required.");
 		return;
 	}
 
@@ -251,7 +251,7 @@ export async function install_via_git_url(url, manager_dialog) {
 	});
 
 	if(res.status == 403) {
-		show_message('This action is not allowed with this security level configuration.');
+		show_message("To use this feature, set <code>allow_git_url_install = true</code> in the [default] section of config.ini. This setting is independent of security_level.<BR>Note: if the ComfyUI listener is not local, <code>network_mode = personal_cloud</code> is also required.");
 		return;
 	}
 

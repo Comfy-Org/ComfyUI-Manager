@@ -1706,6 +1706,8 @@ def write_config():
         'network_mode': get_config()['network_mode'],
         'db_mode': get_config()['db_mode'],
         'verbose': get_config()['verbose'],
+        'allow_git_url_install': get_config()['allow_git_url_install'],
+        'allow_pip_install': get_config()['allow_pip_install'],
     }
 
     # Sanitize all string values to prevent CRLF injection attacks
@@ -1755,6 +1757,8 @@ def read_config():
                     'security_level': default_conf.get('security_level', SecurityLevel.NORMAL.value).lower(),
                     'db_mode': default_conf.get('db_mode', DBMode.CACHE.value).lower(),
                     'verbose': get_bool('verbose', False),
+                    'allow_git_url_install': get_bool('allow_git_url_install', False),
+                    'allow_pip_install': get_bool('allow_pip_install', False),
                }
 
     except Exception:
@@ -1783,6 +1787,8 @@ def read_config():
             'security_level': SecurityLevel.NORMAL.value,
             'db_mode': DBMode.CACHE.value,
             'verbose': False,
+            'allow_git_url_install': False,
+            'allow_pip_install': False,
         }
 
 
