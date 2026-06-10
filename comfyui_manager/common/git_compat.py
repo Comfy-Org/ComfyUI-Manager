@@ -31,16 +31,21 @@ _HTTP_PROXY = None
 def _to_https_url(url):
     """Rewrite an SSH-form git URL to its anonymous HTTPS equivalent.
 
-    Handles `git@host:owner/repo(.git)` and `ssh://git@host/owner/repo(.git)`.
-    Returns the URL unchanged if it is not SSH-form, so pygit2 clone/fetch
-    of public repos never requires SSH credentials even when a repo's own
-    config stores an SSH origin.
+    Handles `git@host:owner/repo(.git)` and `ssh://git@host[:port]/owner/repo(.git)`.
+    A custom SSH port is dropped — the HTTPS endpoint of a hosting service
+    lives on the standard port regardless of its SSH port. Leading slashes in
+    the path part are collapsed so `git@host:/abs/path` does not yield a
+    double-slash URL. Returns the URL unchanged if it is not SSH-form, so
+    pygit2 clone/fetch of public repos never requires SSH credentials even
+    when a repo's own config stores an SSH origin.
     """
     if not url:
         return url
-    m = re.match(r"^(?:ssh://)?git@([^:/]+)[:/](.+)$", url)
+    m = re.match(r"^ssh://git@([^:/]+)(?::\d+)?/(.+)$", url)
+    if m is None:
+        m = re.match(r"^git@([^:/]+):(.+)$", url)
     if m:
-        return "https://%s/%s" % (m.group(1), m.group(2))
+        return "https://%s/%s" % (m.group(1), m.group(2).lstrip("/"))
     return url
 
 # ---------------------------------------------------------------------------
@@ -80,7 +85,7 @@ if USE_PYGIT2:
             _global_cfg = _pygit2.Config.get_global_config()
             try:
                 _HTTP_PROXY = _global_cfg["http.proxy"] or None
-            except (KeyError, Exception):
+            except Exception:
                 _HTTP_PROXY = None
         except Exception:
             _HTTP_PROXY = None
@@ -521,24 +526,26 @@ class _Pygit2Repo(GitRepo):
             name = name[len('refs/remotes/'):]
         return name.split('/')[0]
 
+    def _pull_remote(self, remote):
+        """Fetch *remote* and fast-forward the active branch onto its upstream."""
+        self._fetch_remote(remote)
+        branch_name = self.active_branch_name
+        branch = self._repo.branches.get(branch_name)
+        if branch and branch.upstream:
+            remote_commit = branch.upstream.peel(_pygit2.Commit)
+            analysis, _ = self._repo.merge_analysis(remote_commit.id)
+            if analysis & _pygit2.GIT_MERGE_ANALYSIS_FASTFORWARD:
+                self._repo.checkout_tree(self._repo.get(remote_commit.id))
+                branch_ref = self._repo.references.get(f'refs/heads/{branch_name}')
+                if branch_ref is not None:
+                    branch_ref.set_target(remote_commit.id)
+                self._repo.head.set_target(remote_commit.id)
+
     def get_remote(self, name):
         remote = self._repo.remotes[name]
-
-        def _pull():
-            self._fetch_remote(remote)
-            branch_name = self.active_branch_name
-            branch = self._repo.branches.get(branch_name)
-            if branch and branch.upstream:
-                remote_commit = branch.upstream.peel(_pygit2.Commit)
-                analysis, _ = self._repo.merge_analysis(remote_commit.id)
-                if analysis & _pygit2.GIT_MERGE_ANALYSIS_FASTFORWARD:
-                    self._repo.checkout_tree(self._repo.get(remote_commit.id))
-                    branch_ref = self._repo.references.get(f'refs/heads/{branch_name}')
-                    if branch_ref is not None:
-                        branch_ref.set_target(remote_commit.id)
-                    self._repo.head.set_target(remote_commit.id)
-
-        return _RemoteProxy(remote.name, remote.url, lambda: self._fetch_remote(remote), _pull)
+        return _RemoteProxy(remote.name, remote.url,
+                            lambda: self._fetch_remote(remote),
+                            lambda: self._pull_remote(remote))
 
     def has_ref(self, ref_name):
         for prefix in [f'refs/remotes/{ref_name}', f'refs/heads/{ref_name}',
@@ -571,7 +578,9 @@ class _Pygit2Repo(GitRepo):
     def list_remotes(self):
         result = []
         for r in self._repo.remotes:
-            result.append(_RemoteProxy(r.name, r.url, r.fetch))
+            result.append(_RemoteProxy(r.name, r.url,
+                                       lambda r=r: self._fetch_remote(r),
+                                       lambda r=r: self._pull_remote(r)))
         return result
 
     def get_remote_url(self, index_or_name):
@@ -905,7 +914,13 @@ def clone_repo(url, dest, progress=None):
     (checkout, clear_cache, close, etc.).
     """
     if USE_PYGIT2:
-        _pygit2.clone_repository(_to_https_url(url), dest, proxy=_HTTP_PROXY)
+        # The proxy= kwarg requires pygit2>=1.18; omit it when no proxy is
+        # configured so proxy-less installs keep working on older pygit2.
+        # (A configured proxy still needs >=1.18 — see requirements.txt.)
+        if _HTTP_PROXY is not None:
+            _pygit2.clone_repository(_to_https_url(url), dest, proxy=_HTTP_PROXY)
+        else:
+            _pygit2.clone_repository(_to_https_url(url), dest)
         repo = _Pygit2Repo(dest)
         repo.submodule_update()
         return repo
