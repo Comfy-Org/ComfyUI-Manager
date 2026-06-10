@@ -64,11 +64,16 @@ def _cm_cli_path() -> str:
 
 
 def _ensure_cache():
-    """Run cm-cli update-cache (blocking) to populate Manager cache before tests."""
+    """Run cm-cli update-cache (blocking) to populate Manager cache before tests.
+
+    Timeout is generous (600s): update-cache downloads the full DB lists
+    over the network and routinely exceeds 120s on slow links, which used
+    to fail the whole module at setup.
+    """
     env = {**os.environ, "COMFYUI_PATH": COMFYUI_PATH}
     r = subprocess.run(
         [_cm_cli_path(), "update-cache"],
-        capture_output=True, text=True, timeout=120, env=env,
+        capture_output=True, text=True, timeout=600, env=env,
     )
     if r.returncode != 0:
         raise RuntimeError(f"update-cache failed:\n{r.stderr}")
