@@ -780,7 +780,7 @@ export function set_component_policy(v) {
 
 let graphToPrompt = app.graphToPrompt;
 app.graphToPrompt = async function () {
-	let p = await graphToPrompt.call(app);
+	let p = await graphToPrompt.apply(app, arguments);
 	try {
 		let groupNodes = p.workflow.extra?.groupNodes;
 		if(groupNodes) {
