@@ -223,16 +223,19 @@ function isValidURL(url) {
 }
 
 export async function install_pip(packages) {
-	if(packages.includes('&'))
+	if(packages.includes('&')) {
 		app.ui.dialog.show(`Invalid PIP package enumeration: '${packages}'`);
+		return;
+	}
 
 	const res = await api.fetchApi("/customnode/install/pip", {
 		method: "POST",
-		body: packages,
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ packages: packages }),
 	});
 
 	if(res.status == 403) {
-		await handle403Response(res);
+		await handle403Response(res, "To use this feature, set 'allow_pip_install = true' in config.ini ([default] section), then restart ComfyUI (the config is read once at startup). This setting is independent of security_level.");
 		return;
 	}
 
@@ -263,11 +266,12 @@ export async function install_via_git_url(url, manager_dialog) {
 
 	const res = await api.fetchApi("/customnode/install/git_url", {
 		method: "POST",
-		body: url,
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ url: url }),
 	});
 
 	if(res.status == 403) {
-		await handle403Response(res);
+		await handle403Response(res, "To use this feature, set 'allow_git_url_install = true' in config.ini ([default] section), then restart ComfyUI (the config is read once at startup). This setting is independent of security_level.");
 		return;
 	}
 
