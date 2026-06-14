@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [4.2.2] - 2026-06-15
+
 ### Security
 
 - **Dedicated install flags decouple git-URL / pip installs from `security_level`**:
@@ -29,6 +31,26 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   `allow_git_url_install = true` and/or `allow_pip_install = true` in the
   `[default]` section of `config.ini`. The flags are NOT auto-seeded from
   your `security_level` — explicit opt-in is intentional.
+
+### Fixed
+
+- **pygit2 fallback hardening (Desktop 2.0)**: under `CM_USE_PYGIT2=1` the
+  pygit2 backend ran `clone_repository` / `remote.fetch` honoring the user's
+  global git config, so an `insteadOf` rewrite (https→ssh) or credential
+  helper forced authentication and failed with *"authentication required but
+  no callback set"*. The system/global/XDG config search path is now blanked
+  at import time (hermetic libgit2 operations) and SSH-form GitHub URLs are
+  normalized to anonymous HTTPS on clone and when opening a repo. System
+  `git` is preferred when available.
+- **pygit2 fallback follow-ups**: `list_remotes()` fetches now route through
+  `_fetch_remote` so the proxy and SSH→HTTPS rewrite apply to every fetch
+  entry point, with `pull` provided on the proxies via a shared
+  `_pull_remote` helper. `_to_https_url` now handles `ssh://git@host:port/...`
+  URLs (drops the custom SSH port instead of mangling it) and collapses
+  leading slashes; non-scp-form and port-only/IPv6 `ssh://` URLs are returned
+  unchanged. `clone_repo` omits the `proxy=` kwarg when no proxy is
+  configured (proxy-less installs keep working on pygit2 < 1.18), and pygit2
+  is now pinned to `>= 1.18`.
 
 ## [4.2.1] - 2026-04-22
 
@@ -151,4 +173,5 @@ programmatic clients.
   perform the change from a trusted entry point. Read access via `GET` is
   unaffected.
 
+[4.2.2]: https://github.com/Comfy-Org/ComfyUI-Manager/compare/v4.2.1...v4.2.2
 [4.2.1]: https://github.com/Comfy-Org/ComfyUI-Manager/compare/v4.1b6...v4.2.1
