@@ -480,6 +480,15 @@
             "title_aux": "ComfyUI-Persona-Director"
         }
     ],
+    "https://github.com/1GirlUniversity/ComfyUI-SCAIL2-LongVideoContext": [
+        [
+            "SCAIL2LongVideoContext",
+            "SCAIL2SmartLongVideoContext"
+        ],
+        {
+            "title_aux": "ComfyUI-SCAIL2-LongVideoContext"
+        }
+    ],
     "https://github.com/1Kynx/ComfyUI-RefineNode": [
         [
             "RefineNodeMaskBatchProcess",
@@ -3349,6 +3358,7 @@
             "AGSoft Text Replace",
             "AGSoft Upscale Image",
             "AGSoftFloat",
+            "AGSoftImageCompare",
             "AGSoftInt",
             "AGSoftLastFrameExtractor",
             "AGSoftLoadVideo",
@@ -6383,17 +6393,6 @@
         ],
         {
             "title_aux": "Preview Video Monitor Pro"
-        }
-    ],
-    "https://github.com/CrazyDashTool/Combine-video-and-audio-comfyUI": [
-        [
-            "CombineImageSequenceAudio",
-            "CombineVideoAudio",
-            "GetMediaInfo",
-            "ReplaceAudioInVideo"
-        ],
-        {
-            "title_aux": "Combine-video-and-audio-comfyUI"
         }
     ],
     "https://github.com/Creditas-labs/ComfyUI_Adforge": [
@@ -13692,6 +13691,8 @@
             "FlakeDataSplitAll",
             "FlakeDataSplitSelect",
             "FlakeGenerate",
+            "FlakeIPAdapter",
+            "FlakeInpaint",
             "FlakeModelCombo",
             "FlakeModelPreset",
             "FlakeStack",
@@ -16862,20 +16863,6 @@
             "title_aux": "comfyui-comfysketch"
         }
     ],
-    "https://github.com/MichaelMaxAgent/comfyui_ML_nodes": [
-        [
-            "MLFrameRateResampler",
-            "MLFrameRateResampler_GPU",
-            "MLVideoRateConverter",
-            "RemovePoseHead",
-            "SaveImageCleanMetadata",
-            "SaveImageNoMetadata",
-            "SaveVideoNoMetadata"
-        ],
-        {
-            "title_aux": "ComfyUI ML Nodes"
-        }
-    ],
     "https://github.com/MicheleGuidi/ComfyUI-Contextual-SAM2": [
         [
             "Sam2ContextSegmentation",
@@ -17172,6 +17159,7 @@
             "Spritesheet Builder",
             "Spritesheet Preview",
             "Stabilizer Trim",
+            "String to List",
             "Temporal Mask Cropper",
             "Trim Conditioning",
             "Video Detailer",
@@ -17966,7 +17954,8 @@
     "https://github.com/Nekodificador/ComfyUI-NKD-Klein-Tools": [
         [
             "NKDKleinPostsampling",
-            "NKDKleinPresampling"
+            "NKDKleinPresampling",
+            "NKDKleinReferenceWeight"
         ],
         {
             "title_aux": "NKD Klein Tools"
@@ -19226,7 +19215,8 @@
     "https://github.com/Pasu2k/comfyui-mayo-nodes": [
         [
             "MayoDropdown",
-            "MayoLatent"
+            "MayoLatent",
+            "MayoTimeFormatter"
         ],
         {
             "author": "Mayo",
@@ -20364,6 +20354,7 @@
             "RSPrompts",
             "RSSaveImage",
             "RS_ImageToLatent",
+            "RS_ImageToLatent_Simplified",
             "RS_Last_Frame",
             "RS_Saturation",
             "RS_TextOverlay",
@@ -21085,6 +21076,15 @@
         ],
         {
             "title_aux": "ComfyUI_NodeInvaders"
+        }
+    ],
+    "https://github.com/SKBv0/ComfyUI_PaletteDirector": [
+        [
+            "PaletteComposer",
+            "PaletteDirector"
+        ],
+        {
+            "title_aux": "Palette Director"
         }
     ],
     "https://github.com/SKBv0/ComfyUI_SKBundle": [
@@ -29187,6 +29187,25 @@
         ],
         {
             "title_aux": "ComfyUI-PulseOfMotion"
+        }
+    ],
+    "https://github.com/akatz-ai/Akatz-Seamless-Tiling": [
+        [
+            "AK_AnimatedDilationMaskLinear",
+            "AK_CircularVAEDecode",
+            "AK_FileNamePrefixDateDirFirst",
+            "AK_MakeCircularVAE",
+            "AK_MakeDepthmapSeamless",
+            "AK_MakeDepthmapSeamlessAdvanced",
+            "AK_OffsetImage",
+            "AK_SeamlessTile",
+            "CircularVAEDecode",
+            "MakeCircularVAE",
+            "OffsetImage",
+            "SeamlessTile"
+        ],
+        {
+            "title_aux": "Akatz Seamless Tiling"
         }
     ],
     "https://github.com/akatz-ai/ComfyUI-AKatz-Nodes": [
@@ -65270,6 +65289,16 @@
             "title_aux": "ComfyUI-MetaAI"
         }
     ],
+    "https://github.com/systms-ai/TimeSlice-Nodes": [
+        [
+            "TimeSliceDual",
+            "TimeSliceEffect",
+            "TimeSliceWave"
+        ],
+        {
+            "title_aux": "TimeSlice Nodes"
+        }
+    ],
     "https://github.com/szhublox/ambw_comfyui": [
         [
             "Auto Merge Block Weighted",
@@ -68026,17 +68055,21 @@
             "vsLinx_BooleanAndOperator",
             "vsLinx_BooleanFlip",
             "vsLinx_BooleanOrOperator",
+            "vsLinx_BypassMuteOnState",
             "vsLinx_BypassOnBool",
             "vsLinx_FitImageIntoBBoxMask",
             "vsLinx_GroupBookmarks",
             "vsLinx_ImageToPixelArt",
             "vsLinx_ImpactMultilineWildcardText",
+            "vsLinx_InteractiveDetailer",
             "vsLinx_LoadLastGeneratedImage",
             "vsLinx_LoadSelectedImagesBatch",
             "vsLinx_LoadSelectedImagesList",
             "vsLinx_MuteOnBool",
             "vsLinx_PipeToAny",
-            "vsLinx_UpscaleByFactorWithModel"
+            "vsLinx_UpscaleByFactorWithModel",
+            "vsLinx_VAEDecodeBatched",
+            "vsLinx_VAEDecodeTiledBatched"
         ],
         {
             "title_aux": "ComfyUI vsLinx Nodes"

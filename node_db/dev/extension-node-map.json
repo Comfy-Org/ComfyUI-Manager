@@ -3005,7 +3005,9 @@
     "https://github.com/Krystal-0/ComfyUI-KrystalNodes": [
         [
             "CLIPFallback",
+            "CharacterPresets",
             "IsAnimaModel",
+            "LivePreview",
             "MultiImagePreview",
             "VAEFallback"
         ],
@@ -3420,7 +3422,6 @@
             "MpiBboxToMask",
             "MpiBoolean",
             "MpiBooleanCompare",
-            "MpiChoiceSelector",
             "MpiClearVram",
             "MpiCombo",
             "MpiCombo1",
@@ -3443,6 +3444,7 @@
             "MpiFromCheckpoint",
             "MpiGetImageAtIndex",
             "MpiGridDimensions",
+            "MpiHasAudio",
             "MpiHasOptions",
             "MpiIfElse",
             "MpiIfElseInverted",
@@ -3464,7 +3466,6 @@
             "MpiMultiTextX4",
             "MpiMultiTextX5",
             "MpiNormalizeValue",
-            "MpiPresetSelector",
             "MpiPromptBridge",
             "MpiPromptChainSelector",
             "MpiPromptList",
@@ -5702,17 +5703,6 @@
         ],
         {
             "title_aux": "comfyui-turntable-render"
-        }
-    ],
-    "https://github.com/V-woodpecker-V/comfyui-stiffy-nodes": [
-        [
-            "StiffyComboNode",
-            "StiffyComplexPresetNode",
-            "StiffyDecoderNode",
-            "StiffySimplePresetNode"
-        ],
-        {
-            "title_aux": "comfyui-stiffy-nodes"
         }
     ],
     "https://github.com/VectorASD/ComfyUI-VectorASD": [
@@ -11481,9 +11471,17 @@
     ],
     "https://github.com/lfelipegg/lfgg_custom_nodes_comfyui": [
         [
+            "Example",
+            "LfggImageBatchSelect",
             "LfggImageResolutionByRatio",
             "LfggLatentSizeByRatio",
-            "LfggPixelBudgetLatentSize"
+            "LfggLoraLoaderByPath",
+            "LfggModelNameFromModel",
+            "LfggPixelBudgetLatentSize",
+            "LfggPromptLibrary",
+            "LfggPromptWildcard",
+            "LfggSaveImageDynamic",
+            "vue-basic"
         ],
         {
             "title_aux": "lfgg_custom_nodes_comfyui [WIP]"
@@ -12603,6 +12601,7 @@
             "GenerationDataMaxSize",
             "GenerationDataSet",
             "ImageGridNode",
+            "IsNull",
             "ListCount",
             "ListGet",
             "ListSet",
@@ -12610,6 +12609,7 @@
             "LoadCharacterInfo",
             "LoadCheckpointInfo",
             "LoadCustomVae",
+            "LoadPrompt",
             "LoraStack",
             "MergeLoraStacks",
             "PipeBase",
@@ -12618,6 +12618,7 @@
             "ReplaceTextParameters",
             "RerouteBase",
             "SaveMultipleImages",
+            "SavePrompt",
             "SwitchAny",
             "SwitchNode",
             "TestNode"
@@ -12778,6 +12779,7 @@
             "LoraToCivitaiUrl",
             "LoraWildcardGenerator",
             "LoraWildcardGeneratorV2",
+            "LoraWildcardGeneratorV3",
             "RepeatTextLines",
             "SDPromptSaverWithCompression",
             "SeedStepN",
