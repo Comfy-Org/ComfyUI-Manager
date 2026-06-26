@@ -332,8 +332,14 @@ try:
                     if '100%' in message:
                         self.sync_write(message)
                     else:
-                        write_stderr(message)
-                        original_stderr.flush()
+                        # Wrap flush() to match the safer behaviour of
+                        # self.flush() below — a broken pipe must not
+                        # kill the calling print() (and thus the node).
+                        try:
+                            write_stderr(message)
+                            original_stderr.flush()
+                        except (OSError, ValueError):
+                            pass
                 else:
                     self.sync_write(message)
             else:
@@ -356,12 +362,20 @@ try:
 
             if not file_only:
                 with std_log_lock:
-                    if self.is_stdout:
-                        write_stdout(message)
-                        original_stdout.flush()
-                    else:
-                        write_stderr(message)
-                        original_stderr.flush()
+                    # Wrap flush() in try/except to match self.flush()
+                    # below. Without this, an OSError from a broken
+                    # stdio pipe (e.g. Windows [Errno 22] Invalid argument)
+                    # propagates up through every print() call in every
+                    # custom node, killing prompt execution.
+                    try:
+                        if self.is_stdout:
+                            write_stdout(message)
+                            original_stdout.flush()
+                        else:
+                            write_stderr(message)
+                            original_stderr.flush()
+                    except (OSError, ValueError):
+                        pass
 
         def flush(self):
             try:
