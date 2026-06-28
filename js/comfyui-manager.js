@@ -1,6 +1,5 @@
 import { api } from "../../scripts/api.js";
 import { app } from "../../scripts/app.js";
-import { $el, ComfyDialog } from "../../scripts/ui.js";
 import {
 	SUPPORTED_OUTPUT_NODE_TYPES,
 	ShareDialog,
@@ -21,6 +20,27 @@ import { CustomNodesManager } from "./custom-nodes-manager.js";
 import { ModelManager } from "./model-manager.js";
 import { SnapshotManager } from "./snapshot.js";
 import { buildGuiFrame, createSettingsCombo } from "./comfyui-gui-builder.js";
+
+// === SHIM FOR NEW COMFYUI (removes ui.js, button.js + buttonGroup.js warnings) ===
+let $el, ComfyDialog, ComfyButton, ComfyButtonGroup;
+
+if (window?.comfyAPI?.ui) {
+	({ $el, ComfyDialog } = window.comfyAPI.ui);
+} else {
+	({ $el, ComfyDialog } = await import("../../scripts/ui.js"));
+}
+
+if (window?.comfyAPI?.button) {
+	ComfyButton = window.comfyAPI.button.ComfyButton;
+} else {
+	ComfyButton = (await import("../../scripts/ui/components/button.js")).ComfyButton;
+}
+
+if (window?.comfyAPI?.buttonGroup?.ComfyButtonGroup) {
+	ComfyButtonGroup = window.comfyAPI.buttonGroup.ComfyButtonGroup;
+} else {
+	ComfyButtonGroup = (await import("../../scripts/ui/components/buttonGroup.js")).ComfyButtonGroup;
+}
 
 let manager_version = await getVersion();
 
@@ -1567,8 +1587,9 @@ app.registerExtension({
 		try {
 			// new style Manager buttons
 			// unload models button into new style Manager button
-			let cmGroup = new (await import("../../scripts/ui/components/buttonGroup.js")).ComfyButtonGroup(
-				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
+			// Use hoisted ComfyButton + ComfyButtonGroup from shim at top of file
+			let cmGroup = new ComfyButtonGroup(
+				new ComfyButton({
 					icon: "puzzle",
 					action: () => {
 						if(!manager_instance)
@@ -1579,7 +1600,7 @@ app.registerExtension({
 					content: "Manager",
 					classList: "comfyui-button comfyui-menu-mobile-collapse primary"
 				}).element,
-				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
+				new ComfyButton({
 					icon: "star",
 					action: () => {
 						if(!manager_instance)
@@ -1592,21 +1613,21 @@ app.registerExtension({
 					},
 					tooltip: "Show favorite custom node list"
 				}).element,
-				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
+				new ComfyButton({
 					icon: "vacuum-outline",
 					action: () => {
 						free_models();
 					},
 					tooltip: "Unload Models"
 				}).element,
-				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
+				new ComfyButton({
 					icon: "vacuum",
 					action: () => {
 						free_models(true);
 					},
 					tooltip: "Free model and node cache"
 				}).element,
-				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
+				new ComfyButton({
 					icon: "share",
 					action: () => {
 						if (share_option === 'openart') {

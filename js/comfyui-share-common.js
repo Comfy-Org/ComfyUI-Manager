@@ -1,10 +1,17 @@
 import { api } from "../../scripts/api.js";
 import { app } from "../../scripts/app.js";
-import { $el, ComfyDialog } from "../../scripts/ui.js";
 import { CopusShareDialog } from "./comfyui-share-copus.js";
 import { OpenArtShareDialog } from "./comfyui-share-openart.js";
 import { YouMLShareDialog } from "./comfyui-share-youml.js";
 import { customAlert } from "./common.js";
+
+// === SHIM FOR NEW COMFYUI (removes ui.js warning) ===
+let $el, ComfyDialog;
+if (window?.comfyAPI?.ui) {
+    ({ $el, ComfyDialog } = window.comfyAPI.ui);
+} else {
+    ({ $el, ComfyDialog } = await import("../../scripts/ui.js"));
+}
 
 export const SUPPORTED_OUTPUT_NODE_TYPES = [
 	"PreviewImage",
