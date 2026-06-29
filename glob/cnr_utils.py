@@ -79,10 +79,7 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
     if sync_mode is None:
         sync_mode = kwargs.get('cache_mode', 'cache')
 
-    # Normalize sync_mode for backwards
-    # True | 'cache' | 'local' -> cache (just use cache)
-    # 'force' -> force (invalidate and create new cache)
-    # 'remote' -> remote (update comfyui remote with local cache)
+    # Normalize sync_mode for backwards compatibility
     if sync_mode is True or sync_mode == 'cache' or sync_mode == 'local':
         normalized_mode = 'cache'
     elif sync_mode == 'force':
@@ -101,40 +98,42 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
     full_nodes = {}
     is_cache_expired = True
     cache_built_at = None
+    cache_created_at = None
 
     if normalized_mode != 'force' and manager_util.get_cache_state(uri, expired_days=None) == 'cached':
         try:
             with open(cache_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
                 cached_data = json.load(json_file)
 
-            cache_built_at = cached_data.get('cache_built_at')
-            if cache_built_at:
-                try:
-                    built_dt = datetime.fromisoformat(cache_built_at.replace('Z', '+00:00'))
-                    current_dt = datetime.now(timezone.utc)
-                    delta_dt = current_dt - built_dt
-                    if timedelta(seconds=0) <= delta_dt and delta_dt < timedelta(days=7):
-                        is_cache_expired = False
-                except Exception:
-                    pass
-
-            if not is_cache_expired and (cached_data.get('comfyui_ver') == comfyui_ver and
+            if (cached_data.get('comfyui_ver') == comfyui_ver and
                     cached_data.get('form_factor') == form_factor):
                 last_updated = cached_data.get('last_updated')
+                cache_created_at = cached_data.get('cache_created_at')
                 for node in cached_data.get('nodes', []):
                     full_nodes[node['id']] = node
             else:
-                logging.info("[ComfyUI-Manager] Registry cache expired or environment changed. Invalidating local cache.")
+                logging.info("[ComfyUI-Manager] Environment change detected. Invalidating local ComfyRegistry cache.")
                 cached_data = None
                 full_nodes = {}
                 last_updated = None
-                is_cache_expired = True
         except Exception as e:
             logging.error(f"[ComfyUI-Manager] Failed to read cached data: {e}")
             cached_data = None
             full_nodes = {}
             last_updated = None
-            is_cache_expired = True
+
+    # Separate cache expiration check (1-day period)
+    if cached_data is not None:
+        cache_built_at = cached_data.get('cache_built_at')
+        if cache_built_at:
+            try:
+                built_dt = datetime.fromisoformat(cache_built_at.replace('Z', '+00:00'))
+                current_dt = datetime.now(timezone.utc)
+                delta_dt = current_dt - built_dt
+                if timedelta(seconds=0) <= delta_dt and delta_dt < timedelta(days=1):
+                    is_cache_expired = False
+            except Exception:
+                pass
 
     if normalized_mode == 'cache':
         is_cache_loading = True
@@ -145,7 +144,7 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
                 return cached_data.get('nodes', [])
             return []
 
-        if cached_data is not None and not is_cache_expired:
+        if cached_data is not None and (sync_mode == 'local' or not is_cache_expired):
             is_cache_loading = False
             return cached_data.get('nodes', [])
 
@@ -196,27 +195,35 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
         timestamps = [get_node_timestamp(node) for node in json_obj['nodes'] if get_node_timestamp(node)]
         max_timestamp = max(timestamps) if timestamps else None
 
+        timestamp_format = "%Y-%m-%dT%H:%M:%SZ"
+
         if max_timestamp:
             try:
                 ts_str = max_timestamp.replace('Z', '+00:00')
                 dt = datetime.fromisoformat(ts_str) - timedelta(seconds=10)
-                new_timestamp = dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+                new_timestamp = dt.strftime(timestamp_format)
             except Exception:
                 new_timestamp = max_timestamp
         else:
             new_timestamp = last_updated
 
         if is_cache_expired or normalized_mode == 'force' or not cache_built_at:
-            new_cache_built_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            new_cache_built_at = datetime.now(timezone.utc).strftime(timestamp_format)
         else:
             new_cache_built_at = cache_built_at
+
+        if normalized_mode == 'force' or not cache_created_at:
+            new_cache_created_at = datetime.now(timezone.utc).strftime(timestamp_format)
+        else:
+            new_cache_created_at = cache_created_at
 
         cache_to_save = {
             'nodes': json_obj['nodes'],
             'comfyui_ver': comfyui_ver,
             'form_factor': form_factor,
             'last_updated': new_timestamp,
-            'cache_built_at': new_cache_built_at
+            'cache_built_at': new_cache_built_at,
+            'cache_created_at': new_cache_created_at
         }
         manager_util.save_to_cache(uri, cache_to_save)
         return json_obj['nodes']
