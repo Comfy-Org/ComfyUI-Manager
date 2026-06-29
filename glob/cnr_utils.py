@@ -220,6 +220,8 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
         }
         manager_util.save_to_cache(uri, cache_to_save)
         return json_obj['nodes']
+    except asyncio.TimeoutError:
+        raise
     except Exception as e:
         logging.error(f"[ComfyUI-Manager] Cannot connect to comfyregistry or failed sync: {e}")
         if cached_data is not None:
