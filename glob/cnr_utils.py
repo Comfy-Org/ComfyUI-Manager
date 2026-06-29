@@ -5,6 +5,7 @@ import platform
 import time
 from dataclasses import dataclass
 from typing import List
+from urllib.parse import urlencode
 
 import logging
 import manager_core
@@ -137,9 +138,15 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
         nodes_map = dict(existing_nodes)
 
         while remained:
-            sub_uri = f'{base_url}/nodes?page={page}&limit=30&comfyui_version={comfyui_ver}&form_factor={form_factor}'
+            params = {
+                'page': page,
+                'limit': 30,
+                'comfyui_version': comfyui_ver,
+                'form_factor': form_factor,
+            }
             if timestamp_filter:
-                sub_uri += f'&timestamp={timestamp_filter}'
+                params['timestamp'] = timestamp_filter
+            sub_uri = f'{base_url}/nodes?{urlencode(params)}'
 
             sub_json_obj = await asyncio.wait_for(
                 manager_util.get_data_with_cache(sub_uri, cache_mode=False, silent=True, dont_cache=True),
@@ -154,7 +161,7 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
                 logging.info(f"[ComfyUI-Manager] FETCH ComfyRegistry Data: {page}/{sub_json_obj['totalPages']}")
 
             page += 1
-            time.sleep(0.5)
+            await asyncio.sleep(0.5)
 
         logging.info(f"[ComfyUI-Manager] FETCH ComfyRegistry Data [DONE]")
 
