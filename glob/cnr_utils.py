@@ -6,6 +6,7 @@ import time
 from dataclasses import dataclass
 from typing import List
 
+import logging
 import manager_core
 import manager_util
 import requests
@@ -22,7 +23,7 @@ async def get_cnr_data(cache_mode=True, dont_wait=True):
     try:
         return await _get_cnr_data(cache_mode, dont_wait)
     except asyncio.TimeoutError:
-        print("A timeout occurred during the fetch process from ComfyRegistry.")
+        logging.error(f"[ComfyUI-Manager] A timeout occurred during the fetch process from ComfyRegistry.")
         return await _get_cnr_data(cache_mode=True, dont_wait=True)  # timeout fallback
 
 async def _get_cnr_data(cache_mode=True, dont_wait=True):
@@ -78,12 +79,12 @@ async def _get_cnr_data(cache_mode=True, dont_wait=True):
                 full_nodes[x['id']] = x
 
             if page % 5 == 0:
-                print(f"FETCH ComfyRegistry Data: {page}/{sub_json_obj['totalPages']}")
+                logging.info(f"[ComfyUI-Manager] FETCH ComfyRegistry Data: {page}/{sub_json_obj['totalPages']}")
 
             page += 1
             time.sleep(0.5)
 
-        print("FETCH ComfyRegistry Data [DONE]")
+        logging.info(f"[ComfyUI-Manager] FETCH ComfyRegistry Data [DONE]")
 
         for v in full_nodes.values():
             if 'latest_version' not in v:
@@ -94,12 +95,13 @@ async def _get_cnr_data(cache_mode=True, dont_wait=True):
     if cache_mode:
         is_cache_loading = True
         cache_state = manager_util.get_cache_state(uri)
+        
 
         if dont_wait:
             if cache_state == 'not-cached':
                 return {}
             else:
-                print("[ComfyUI-Manager] The ComfyRegistry cache update is still in progress, so an outdated cache is being used.")
+                logging.warning(f"[ComfyUI-Manager] The ComfyRegistry cache update is still in progress, so an outdated cache is being used.")
                 with open(manager_util.get_cache_path(uri), 'r', encoding="UTF-8", errors="ignore") as json_file:
                     return json.load(json_file)['nodes']
 
@@ -113,7 +115,7 @@ async def _get_cnr_data(cache_mode=True, dont_wait=True):
         return json_obj['nodes']
     except:
         res = {}
-        print("Cannot connect to comfyregistry.")
+        logging.error(f"[ComfyUI-Manager] Cannot connect to comfyregistry.")
     finally:
         if cache_mode:
             is_cache_loading = False
@@ -237,7 +239,7 @@ def generate_cnr_id(fullpath, cnr_id):
             with open(cnr_id_path, "w") as f:
                 return f.write(cnr_id)
     except:
-        print(f"[ComfyUI Manager] unable to create file: {cnr_id_path}")
+        logging.error(f"[ComfyUI-Manager] unable to create file: {cnr_id_path}")
 
 
 def read_cnr_id(fullpath):
