@@ -19,6 +19,7 @@ base_url = "https://api.comfy.org"
 lock = asyncio.Lock()
 
 is_cache_loading = False
+force_refresh_days = 30
 
 async def get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
     # For backwards compatibility with keyword argument cache_mode
@@ -100,22 +101,36 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
     cache_built_at = None
     cache_created_at = None
 
+    # Load local cache
     if normalized_mode != 'force' and manager_util.get_cache_state(uri, expired_days=None) == 'cached':
         try:
             with open(cache_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
                 cached_data = json.load(json_file)
 
-            if (cached_data.get('comfyui_ver') == comfyui_ver and
+            # Check `force_refresh_days` cache database expiration for a full refresh sync
+            is_db_expired = True
+            cache_created_at = cached_data.get('cache_created_at')
+            if cache_created_at:
+                try:
+                    created_dt = datetime.fromisoformat(cache_created_at.replace('Z', '+00:00'))
+                    current_dt = datetime.now(timezone.utc)
+                    delta_created = current_dt - created_dt
+                    if timedelta(seconds=0) <= delta_created and delta_created < timedelta(days=force_refresh_days):
+                        is_db_expired = False
+                except Exception:
+                    pass
+
+            if not is_db_expired and (cached_data.get('comfyui_ver') == comfyui_ver and
                     cached_data.get('form_factor') == form_factor):
                 last_updated = cached_data.get('last_updated')
-                cache_created_at = cached_data.get('cache_created_at')
                 for node in cached_data.get('nodes', []):
                     full_nodes[node['id']] = node
             else:
-                logging.info("[ComfyUI-Manager] Environment change detected. Invalidating local ComfyRegistry cache.")
+                logging.info(f"[ComfyUI-Manager] Registry cache DB expired ({force_refresh_days} days) or environment changed. Invalidating local cache.")
                 cached_data = None
                 full_nodes = {}
                 last_updated = None
+                cache_created_at = None
         except Exception as e:
             logging.error(f"[ComfyUI-Manager] Failed to read cached data: {e}")
             cached_data = None
@@ -123,6 +138,7 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
             last_updated = None
 
     # Separate cache expiration check (1-day period)
+    # It just determines cache is expired, not cache is exist.
     if cached_data is not None:
         cache_built_at = cached_data.get('cache_built_at')
         if cache_built_at:
@@ -135,19 +151,19 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
             except Exception:
                 pass
 
+    # Return Cached data when mode is 'cache'
     if normalized_mode == 'cache':
         is_cache_loading = True
 
-        if dont_wait:
+        if dont_wait and cached_data is not None:
             is_cache_loading = False
-            if cached_data is not None:
-                return cached_data.get('nodes', [])
-            return []
+            return cached_data.get('nodes', [])
 
         if cached_data is not None and (sync_mode == 'local' or not is_cache_expired):
             is_cache_loading = False
             return cached_data.get('nodes', [])
 
+    # Fetch CNR
     async def fetch_all(timestamp_filter, existing_nodes):
         remained = True
         page = 1
@@ -207,10 +223,8 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
         else:
             new_timestamp = last_updated
 
-        if is_cache_expired or normalized_mode == 'force' or not cache_built_at:
-            new_cache_built_at = datetime.now(timezone.utc).strftime(timestamp_format)
-        else:
-            new_cache_built_at = cache_built_at
+
+        new_cache_built_at = datetime.now(timezone.utc).strftime(timestamp_format)
 
         if normalized_mode == 'force' or not cache_created_at:
             new_cache_created_at = datetime.now(timezone.utc).strftime(timestamp_format)
