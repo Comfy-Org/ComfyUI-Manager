@@ -2,8 +2,8 @@ import asyncio
 import json
 import os
 import platform
-import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import List
 from urllib.parse import urlencode
 
@@ -125,11 +125,13 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
         is_cache_loading = True
 
         if dont_wait:
+            is_cache_loading = False
             if cached_data is not None:
                 return cached_data.get('nodes', [])
             return []
 
         if cached_data is not None and manager_util.get_cache_state(uri, expired_days=1) == 'cached':
+            is_cache_loading = False
             return cached_data.get('nodes', [])
 
     async def fetch_all(timestamp_filter, existing_nodes):
@@ -172,7 +174,6 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
         return {'nodes': list(nodes_map.values())}
 
     try:
-        from datetime import datetime, timezone, timedelta
         json_obj = await fetch_all(last_updated, full_nodes)
 
         # Set cache's timestamp as the maximum timestamp from fetched nodes.
@@ -188,7 +189,7 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
             except Exception:
                 new_timestamp = max_timestamp
         else:
-            new_timestamp = last_updated if last_updated else datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            new_timestamp = last_updated
 
         cache_to_save = {
             'nodes': json_obj['nodes'],
