@@ -17,6 +17,7 @@ builtin_nodes = set()
 import sys
 
 from urllib.parse import urlparse
+from urllib3.util.retry import Retry
 from github import Github, Auth
 from pathlib import Path
 from typing import Set, Dict, Optional
@@ -1619,7 +1620,14 @@ if __name__ == "__main__":
 
     if not skip_stat_update:
         auth = Auth.Token(os.environ.get('GITHUB_TOKEN'))
-        g = Github(auth=auth)
+        # Use a plain urllib3 Retry (NOT PyGithub's default GithubRetry) so that
+        # a GitHub rate-limit response (403/429) raises RateLimitExceededException
+        # IMMEDIATELY instead of sleeping until the rate-limit reset and retrying
+        # up to 10x. The except-block in renew_stat() then catches it and skips
+        # (returns None). 403/429 are intentionally NOT in status_forcelist, so
+        # they fail fast; only transient 5xx errors are retried.
+        g = Github(auth=auth, retry=Retry(total=2, backoff_factor=0.5,
+                                          status_forcelist=[500, 502, 503, 504]))
     else:
         g = None
 
