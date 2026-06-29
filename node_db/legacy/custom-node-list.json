@@ -1,6 +1,178 @@
 {
     "custom_nodes": [
         {
+            "author": "jp0215",
+            "title": "comfyUI_padding-resize_node [REMOVED]",
+            "reference": "https://github.com/jp0215/comfyUI_padding-resize_node",
+            "files": [
+                "https://raw.githubusercontent.com/jp0215/comfyUI_padding-resize_node/main/PaddingNode.py",
+                "https://raw.githubusercontent.com/jp0215/comfyUI_padding-resize_node/main/ResizeNode.py"
+            ],
+            "install_type": "copy",
+            "description": "Padding image to 8x: input image and mask, if the side length is not an integer multiple of 8, expand the side length to the smallest multiple of 8 greater than the original side length. Output padding image and mask. Resize to the origin: input the generated image and the original image, crop the generated image to the size of the original image, output the cropped image."
+        },
+        {
+            "author": "bnwa",
+            "title": "Comfy Combos [REMOVED]",
+            "reference": "https://github.com/bnwa/comfy_combos",
+            "files": [
+                "https://github.com/bnwa/comfy_combos"
+            ],
+            "install_type": "git-clone",
+            "description": "Dropdown selectors for ComfyUI"
+        },
+        {
+            "author": "wzyfromhust",
+            "title": "ComfyUI_SAM2UltraV2 [REMOVED]",
+            "reference": "https://github.com/wzyfromhust/ComfyUI_SAM2UltraV2",
+            "files": [
+                "https://github.com/wzyfromhust/ComfyUI_SAM2UltraV2"
+            ],
+            "install_type": "git-clone",
+            "description": "A fully modular and high-performance implementation of SAM2 (Segment Anything Model 2) for ComfyUI with dual-prompt support, negative point sampling, and upper body segmentation."
+        },
+        {
+            "author": "dandancow874",
+            "title": "ComfyUI-LMStudio-Controller [REMOVED]",
+            "reference": "https://github.com/dandancow874/ComfyUI-LMStudio-Controller",
+            "files": [
+                "https://github.com/dandancow874/ComfyUI-LMStudio-Controller"
+            ],
+            "install_type": "git-clone",
+            "description": "Integrates LM Studio's CLI to perform Vision Language Model inference locally in ComfyUI with advanced memory management and anti-OOM protection."
+        },
+        {
+            "author": "cathodeDreams",
+            "title": "comfyui-azul-scripts [REMOVED]",
+            "reference": "https://github.com/cathodeDreams/comfyui-azul-scripts",
+            "files": [
+                "https://github.com/cathodeDreams/comfyui-azul-scripts"
+            ],
+            "install_type": "git-clone",
+            "description": "NODES: Save Image (JPG), Combine Conditionings (Weighted)"
+        },
+        {
+            "author": "michael",
+            "title": "ComfyUI ML Nodes [REMOVED]",
+            "reference": "https://github.com/MichaelMaxAgent/comfyui_ML_nodes",
+            "files": [
+                "https://github.com/MichaelMaxAgent/comfyui_ML_nodes"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom nodes for saving images/videos without metadata and GPU-accelerated frame rate processing (25fps→16fps). Includes 5 nodes: Save Image/Video (No Metadata), Frame Rate Resampler (CPU/GPU). Supports CUDA acceleration and multiple nterpolation methods. Requires ffmpeg."
+        },
+        {
+            "author": "CrazyDashTool",
+            "title": "Combine-video-and-audio-comfyUI [REMOVED]",
+            "reference": "https://github.com/CrazyDashTool/Combine-video-and-audio-comfyUI",
+            "files": [
+                "https://github.com/CrazyDashTool/Combine-video-and-audio-comfyUI"
+            ],
+            "install_type": "git-clone",
+            "description": "A set of custom nodes for ComfyUI that merge video and audio using ffmpeg."
+        },
+        {
+            "author": "stiffy-committee",
+            "title": "comfyui-stiffy-nodes [REMOVED]",
+            "reference": "https://github.com/V-woodpecker-V/comfyui-stiffy-nodes",
+            "files": [
+                "https://github.com/V-woodpecker-V/comfyui-stiffy-nodes"
+            ],
+            "install_type": "git-clone",
+            "description": "NODES: StiffyPrompter, StiffyPersistentPrompter, StiffyDecoder, StiffyDebugger, ..."
+        },
+        {
+            "author": "ComfyuiGY",
+            "title": "Comfyui-Memory-Clear [REMOVED]",
+            "reference": "https://github.com/ComfyuiGY/Comfyui-Memory-Clear",
+            "files": [
+                "https://github.com/ComfyuiGY/Comfyui-Memory-Clear"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI node for clearing memory. (Description by CC)"
+        },
+        {
+            "author": "Draek2077",
+            "title": "comfyui-draekz-nodez [REMOVED]",
+            "reference": "https://github.com/Draek2077/comfyui-draekz-nodez",
+            "files": [
+                "https://github.com/Draek2077/comfyui-draekz-nodez"
+            ],
+            "install_type": "git-clone",
+            "description": "Making ComfyUI more comfortable."
+        },
+        {
+            "author": "amortegui84",
+            "title": "Tile Upscale NB2 [REMOVED]",
+            "reference": "https://github.com/amortegui84/comfyui-tile-upscale-nb2",
+            "files": [
+                "https://github.com/amortegui84/comfyui-tile-upscale-nb2"
+            ],
+            "install_type": "git-clone",
+            "description": "Tile-based upscaling nodes for ComfyUI — Nano Banana 2 compatible"
+        },
+        {
+            "author": "Aero-Ex",
+            "title": "ComfyUI Vision LLM Analyzer Node [REMOVED]",
+            "reference": "https://github.com/Aero-Ex/ComfyUI-Vision-LLM-Analyzer",
+            "files": [
+                "https://github.com/Aero-Ex/ComfyUI-Vision-LLM-Analyzer"
+            ],
+            "install_type": "git-clone",
+            "description": "This repository contains a powerful and versatile custom node for ComfyUI that seamlessly integrates with OpenAI-compatible Large Language Models (LLMs), including multimodal (vision-enabled) models like GPT-4o.\nThis single node allows you to perform both text generation and image analysis, making it an essential tool for advanced prompt engineering and creative automation."
+        },
+        {
+            "author": "Aero-Ex",
+            "title": "comfyui_diffswap [REMOVED]",
+            "reference": "https://github.com/Aero-Ex/comfyui_diffswap",
+            "files": [
+                "https://github.com/Aero-Ex/comfyui_diffswap"
+            ],
+            "install_type": "git-clone",
+            "description": "NODES: DiffSwap"
+        },
+        {
+            "author": "Sakura-nee",
+            "title": "ComfyUI_Save2Discord [REMOVED]",
+            "reference": "https://github.com/Sakura-nee/ComfyUI_Save2Discord",
+            "files": [
+                "https://github.com/Sakura-nee/ComfyUI_Save2Discord"
+            ],
+            "install_type": "git-clone",
+            "description": "Nodes:Send Generated Image To Discord Webhook.\nNOTE: The files in the repo are not organized."
+        },
+        {
+            "author": "pixaroma",
+            "title": "ComfyUI-Pixaroma [REMOVED]",
+            "id": "comfyui-pixaroma",
+            "reference": "https://github.com/pixaroma/ComfyUI-Pixaroma",
+            "files": [
+                "https://github.com/pixaroma/ComfyUI-Pixaroma"
+            ],
+            "install_type": "git-clone",
+            "description": "Creative suite for ComfyUI with 3D Builder, AudioReact, Image Composer, Paint Studio, Save Mp4, Image Crop, Image Compare, Note Pixaroma, Label, Resolution, Preview Image, and Align Pixaroma (canvas snap & alignment guides). Layers, transforms, AI background removal, audio-reactive video, and more."
+        },
+        {
+            "author": "moose-lab",
+            "title": "ComfyUI-GPT [REMOVED]",
+            "reference": "https://github.com/moose-lab/ComfyUI-GPT",
+            "files": [
+                "https://github.com/moose-lab/ComfyUI-GPT"
+            ],
+            "install_type": "git-clone",
+            "description": "Help comfy deisgner develope custom nodes by foreground GUI without any coding knowledge, complementing the workflow what you design with LLM automatically"
+        },
+        {
+            "author": "Jjulianadv",
+            "title": "Wild Divide [REMOVED]",
+            "reference": "https://github.com/Julian-adv/WildDivide",
+            "files": [
+                "https://github.com/Julian-adv/WildDivide"
+            ],
+            "install_type": "git-clone",
+            "description": "This extension provides the ability to build prompts using wildcards for each region of a split image."
+        },
+        {
             "author": "btitkin",
             "title": "Random Prompt Builder [REMOVED]",
             "id": "random-prompt-builder",

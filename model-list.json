@@ -5379,6 +5379,127 @@
       "size": "2.21GB"
     },
     {
+      "name": "LTX-2.3 22B Dev",
+      "type": "checkpoint",
+      "base": "LTX-2.3",
+      "save_path": "checkpoints/LTX-2.3",
+      "description": "LTX-2.3 22B development model.",
+      "reference": "https://huggingface.co/Lightricks/LTX-2.3",
+      "filename": "ltx-2.3-22b-dev.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-dev.safetensors",
+      "size": "42.98GB"
+    },
+    {
+      "name": "LTX-2.3 22B Distilled 1.1",
+      "type": "checkpoint",
+      "base": "LTX-2.3",
+      "save_path": "checkpoints/LTX-2.3",
+      "description": "LTX-2.3 22B distilled model v1.1.",
+      "reference": "https://huggingface.co/Lightricks/LTX-2.3",
+      "filename": "ltx-2.3-22b-distilled-1.1.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-distilled-1.1.safetensors",
+      "size": "42.98GB"
+    },
+    {
+      "name": "LTX-2.3 22B Dev FP8",
+      "type": "checkpoint",
+      "base": "LTX-2.3",
+      "save_path": "checkpoints/LTX-2.3",
+      "description": "LTX-2.3 22B Dev FP8 model.",
+      "reference": "https://huggingface.co/Lightricks/LTX-2.3-fp8",
+      "filename": "ltx-2.3-22b-dev-fp8.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-2.3-fp8/resolve/main/ltx-2.3-22b-dev-fp8.safetensors",
+      "size": "27.14GB"
+    },
+    {
+      "name": "LTX-2.3 22B Distilled FP8",
+      "type": "checkpoint",
+      "base": "LTX-2.3",
+      "save_path": "checkpoints/LTX-2.3",
+      "description": "LTX-2.3 22B Distilled FP8 model.",
+      "reference": "https://huggingface.co/Lightricks/LTX-2.3-fp8",
+      "filename": "ltx-2.3-22b-distilled-fp8.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-2.3-fp8/resolve/main/ltx-2.3-22b-distilled-fp8.safetensors",
+      "size": "27.50GB"
+    },
+    {
+      "name": "LTX-2.3 22B Dev NVFP4",
+      "type": "checkpoint",
+      "base": "LTX-2.3",
+      "save_path": "checkpoints/LTX-2.3",
+      "description": "LTX-2.3 22B Dev NVFP4 model.",
+      "reference": "https://huggingface.co/Lightricks/LTX-2.3-nvfp4",
+      "filename": "ltx-2.3-22b-dev-nvfp4.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-2.3-nvfp4/resolve/main/ltx-2.3-22b-dev-nvfp4.safetensors",
+      "size": "20.21GB"
+    },
+    {
+      "name": "LTX-2.3 22B Distilled LoRA 1.1",
+      "type": "lora",
+      "base": "LTX-2.3",
+      "save_path": "loras/ltxv/ltx2",
+      "description": "A LoRA adapter that transforms the standard LTX-2.3 22B model into a distilled version when loaded.",
+      "reference": "https://huggingface.co/Lightricks/LTX-2.3",
+      "filename": "ltx-2.3-22b-distilled-lora-384-1.1.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-22b-distilled-lora-384-1.1.safetensors",
+      "size": "7.08GB"
+    },
+    {
+      "name": "LTX-2.3 22B IC-LoRA Union Control",
+      "type": "lora",
+      "base": "LTX-2.3",
+      "save_path": "loras/ltxv/ltx2",
+      "description": "In-Context LoRA (IC LoRA) for unified multi-condition control (canny, depth, pose) guided video generation.",
+      "reference": "https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Union-Control",
+      "filename": "ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Union-Control/resolve/main/ltx-2.3-22b-ic-lora-union-control-ref0.5.safetensors",
+      "size": "0.61GB"
+    },
+    {
+      "name": "LTX-2.3 22B IC-LoRA Motion Track Control",
+      "type": "lora",
+      "base": "LTX-2.3",
+      "save_path": "loras/ltxv/ltx2",
+      "description": "In-Context LoRA (IC LoRA) for motion track guided video generation.",
+      "reference": "https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Motion-Track-Control",
+      "filename": "ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-2.3-22b-IC-LoRA-Motion-Track-Control/resolve/main/ltx-2.3-22b-ic-lora-motion-track-control-ref0.5.safetensors",
+      "size": "0.30GB"
+    },
+    {
+      "name": "LTX-2.3 Spatial Upscaler x2 1.1",
+      "type": "upscale",
+      "base": "upscale",
+      "save_path": "latent_upscale_models",
+      "description": "Spatial upscaler model for LTX-2.3. This model enhances the spatial resolution of generated videos by 2x.",
+      "reference": "https://huggingface.co/Lightricks/LTX-2.3",
+      "filename": "ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x2-1.1.safetensors",
+      "size": "0.93GB"
+    },
+    {
+      "name": "LTX-2.3 Spatial Upscaler x1.5",
+      "type": "upscale",
+      "base": "upscale",
+      "save_path": "latent_upscale_models",
+      "description": "Spatial upscaler model for LTX-2.3. This model enhances the spatial resolution of generated videos by 1.5x.",
+      "reference": "https://huggingface.co/Lightricks/LTX-2.3",
+      "filename": "ltx-2.3-spatial-upscaler-x1.5-1.0.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-spatial-upscaler-x1.5-1.0.safetensors",
+      "size": "1.02GB"
+    },
+    {
+      "name": "LTX-2.3 Temporal Upscaler x2",
+      "type": "upscale",
+      "base": "upscale",
+      "save_path": "latent_upscale_models",
+      "description": "Temporal upscaler model for LTX-2.3. This model enhances the temporal resolution of generated videos.",
+      "reference": "https://huggingface.co/Lightricks/LTX-2.3",
+      "filename": "ltx-2.3-temporal-upscaler-x2-1.0.safetensors",
+      "url": "https://huggingface.co/Lightricks/LTX-2.3/resolve/main/ltx-2.3-temporal-upscaler-x2-1.0.safetensors",
+      "size": "0.24GB"
+    },
+    {
       "name": "LTX-Video Spatial Upscaler v0.9.7",
       "type": "upscale",
       "base": "upscale",

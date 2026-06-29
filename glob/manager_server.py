@@ -35,6 +35,8 @@ SECURITY_MESSAGE_MIDDLE_OR_BELOW = "ERROR: To use this action, a security_level 
 SECURITY_MESSAGE_NORMAL_MINUS = "ERROR: To use this feature, you must either set '--listen' to a local IP and set the security level to 'normal-' or lower, or set the security level to 'middle' or 'weak'. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_GENERAL = "ERROR: This installation is not allowed in this security_level. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_NORMAL_MINUS_MODEL = "ERROR: Downloading models that are not in '.safetensors' format is only allowed for models registered in the 'default' channel at this security level. If you want to download this model, set the security level to 'normal-' or lower."
+SECURITY_MESSAGE_FLAG_GIT_URL = "ERROR: This action requires 'allow_git_url_install = true' in config.ini ([default] section). This setting is independent of security_level. Reference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_FLAG_PIP = "ERROR: This action requires 'allow_pip_install = true' in config.ini ([default] section). This setting is independent of security_level. Reference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 
 routes = PromptServer.instance.routes
 
@@ -81,6 +83,19 @@ def is_loopback(address):
         return ipaddress.ip_address(address).is_loopback
     except ValueError:
         return False
+
+
+def is_dedicated_install_allowed(flag_value: bool, listen_address: str) -> bool:
+    """P-direct predicate (adopter-degraded form): flag AND loopback.
+
+    Pure helper for the dedicated install flags
+    (allow_git_url_install / allow_pip_install) — callers pass the
+    flag value from their own config read and the listener address
+    from the CLI arguments (request-time evaluation; the import-time
+    snapshot above is NOT consulted).
+    """
+    return bool(flag_value) and is_loopback(listen_address)
+
 
 is_local_mode = is_loopback(args.listen)
 
@@ -305,10 +320,18 @@ import zipfile
 import urllib.request
 
 
-def security_403_response():
-    """Return appropriate 403 response based on ComfyUI version."""
+def security_403_response(flag_token=None):
+    """Return appropriate 403 response based on ComfyUI version.
+
+    When `flag_token` is given (dedicated install flag denials), the
+    body names the responsible flag instead of "security_level". The
+    `comfyui_outdated` branch stays the FIRST check regardless, and
+    no-arg callers keep today's body byte-identical.
+    """
     if not manager_migration.has_system_user_api():
         return web.json_response({"error": "comfyui_outdated"}, status=403)
+    if flag_token is not None:
+        return web.json_response({"error": flag_token}, status=403)
     return web.json_response({"error": "security_level"}, status=403)
 
 
@@ -1384,7 +1407,17 @@ async def install_custom_node(request):
         else:
             return web.Response(status=404, text=f"Following node pack doesn't provide `nightly` version: ${git_url}")
 
-    if not is_allowed_security_level(risky_level):
+    if risky_level == 'high':
+        # unknown-URL arm: governed by the dedicated flag predicate
+        # (flag AND loopback, evaluated at request time). The loopback
+        # term is load-bearing here — the 'middle' entry gate above has
+        # no network-position term.
+        if not is_dedicated_install_allowed(core.get_config()['allow_git_url_install'], args.listen):
+            logging.error(SECURITY_MESSAGE_FLAG_GIT_URL)
+            return web.Response(status=404, text="A security error has occurred. Please check the terminal logs")
+    elif not is_allowed_security_level(risky_level):
+        # 'block' arm stays an unconditional deny (is_allowed_security_level
+        # returns False for 'block'); 'middle'/'low' arms unchanged.
         logging.error(SECURITY_MESSAGE_GENERAL)
         return web.Response(status=404, text="A security error has occurred. Please check the terminal logs")
 
@@ -1441,11 +1474,21 @@ async def fix_custom_node(request):
 
 @routes.post("/customnode/install/git_url")
 async def install_custom_node_git_url(request):
-    if not is_allowed_security_level('high'):
-        logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
-        return security_403_response()
+    if not is_dedicated_install_allowed(core.get_config()['allow_git_url_install'], args.listen):
+        logging.error(SECURITY_MESSAGE_FLAG_GIT_URL)
+        return security_403_response(flag_token='allow_git_url_install')
 
-    url = await request.text()
+    # Read the body as JSON (not raw text): a cross-origin <form method=POST>
+    # cannot forge an application/json body without a CORS preflight, which this
+    # server does not answer — same body-handler convention as every other
+    # request.json() route (see _reject_simple_form_content_type docstring).
+    # A malformed body or a missing 'url' is a client error (400), not a 500:
+    # don't let JSONDecodeError/KeyError bubble up as a server fault.
+    try:
+        json_data = await request.json()
+        url = json_data['url']
+    except (KeyError, ValueError):
+        return web.Response(status=400, text="Invalid request body: expected JSON object with a 'url' field")
     res = await core.gitclone_install(url)
 
     if res.action == 'skip':
@@ -1461,11 +1504,18 @@ async def install_custom_node_git_url(request):
 
 @routes.post("/customnode/install/pip")
 async def install_custom_node_pip(request):
-    if not is_allowed_security_level('high'):
-        logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
-        return security_403_response()
+    if not is_dedicated_install_allowed(core.get_config()['allow_pip_install'], args.listen):
+        logging.error(SECURITY_MESSAGE_FLAG_PIP)
+        return security_403_response(flag_token='allow_pip_install')
 
-    packages = await request.text()
+    # JSON body (not raw text) for the same preflight-forcing reason as
+    # /customnode/install/git_url above; malformed body or missing 'packages'
+    # is a 400, not a 500.
+    try:
+        json_data = await request.json()
+        packages = json_data['packages']
+    except (KeyError, ValueError):
+        return web.Response(status=400, text="Invalid request body: expected JSON object with a 'packages' field")
     core.pip_install(packages.split(' '))
 
     return web.Response(status=200)

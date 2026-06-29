@@ -44,7 +44,7 @@ import manager_migration
 from node_package import InstalledNodePackage
 
 
-version_code = [3, 40]
+version_code = [3, 41]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
@@ -1699,6 +1699,8 @@ def write_config():
         'always_lazy_install': get_config()['always_lazy_install'],
         'network_mode': get_config()['network_mode'],
         'db_mode': get_config()['db_mode'],
+        'allow_git_url_install': get_config()['allow_git_url_install'],
+        'allow_pip_install': get_config()['allow_pip_install'],
     }
 
     # Sanitize all string values to prevent CRLF injection attacks
@@ -1745,6 +1747,8 @@ def read_config():
                     'network_mode': default_conf.get('network_mode', 'public').lower(),
                     'security_level': default_conf.get('security_level', 'normal').lower(),
                     'db_mode': default_conf.get('db_mode', 'cache').lower(),
+                    'allow_git_url_install': get_bool('allow_git_url_install', False),
+                    'allow_pip_install': get_bool('allow_pip_install', False),
                }
         manager_migration.force_security_level_if_needed(result)
         return result
@@ -1774,6 +1778,8 @@ def read_config():
             'network_mode': 'public',   # public | private | offline
             'security_level': 'normal', # strong | normal | normal- | weak
             'db_mode': 'cache',         # local | cache | remote
+            'allow_git_url_install': False,
+            'allow_pip_install': False,
         }
         manager_migration.force_security_level_if_needed(result)
         return result
