@@ -29,7 +29,7 @@ async def get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
         return await _get_cnr_data(sync_mode, dont_wait)
     except asyncio.TimeoutError:
         logging.error(f"[ComfyUI-Manager] A timeout occurred during the fetch process from ComfyRegistry.")
-        return await _get_cnr_data(sync_mode='cache', dont_wait=True)  # timeout fallback
+        return await _get_cnr_data(sync_mode='local', dont_wait=True)  # timeout fallback
 
 def get_comfyui_ver():
     is_desktop = bool(os.environ.get('__COMFYUI_DESKTOP_VERSION__'))
@@ -162,6 +162,10 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
         if cached_data is not None and (sync_mode == 'local' or not is_cache_expired):
             is_cache_loading = False
             return cached_data.get('nodes', [])
+
+        if sync_mode == 'local':
+            is_cache_loading = False
+            return []
 
     # Fetch CNR
     async def fetch_all(timestamp_filter, existing_nodes):
