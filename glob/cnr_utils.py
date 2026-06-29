@@ -127,7 +127,7 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
         if dont_wait:
             if cached_data is not None:
                 return cached_data.get('nodes', [])
-            return {}
+            return []
 
         if cached_data is not None and manager_util.get_cache_state(uri, expired_days=1) == 'cached':
             return cached_data.get('nodes', [])
