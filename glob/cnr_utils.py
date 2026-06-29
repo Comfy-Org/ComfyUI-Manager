@@ -3,7 +3,7 @@ import json
 import os
 import platform
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
 from urllib.parse import urlencode
 
@@ -99,27 +99,42 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
     cached_data = None
     last_updated = None
     full_nodes = {}
+    is_cache_expired = True
+    cache_built_at = None
 
     if normalized_mode != 'force' and manager_util.get_cache_state(uri, expired_days=None) == 'cached':
         try:
             with open(cache_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
                 cached_data = json.load(json_file)
 
-            if (cached_data.get('comfyui_ver') == comfyui_ver and
+            cache_built_at = cached_data.get('cache_built_at')
+            if cache_built_at:
+                try:
+                    built_dt = datetime.fromisoformat(cache_built_at.replace('Z', '+00:00'))
+                    current_dt = datetime.now(timezone.utc)
+                    delta_dt = current_dt - built_dt
+                    if timedelta(seconds=0) <= delta_dt and delta_dt < timedelta(days=7):
+                        is_cache_expired = False
+                except Exception:
+                    pass
+
+            if not is_cache_expired and (cached_data.get('comfyui_ver') == comfyui_ver and
                     cached_data.get('form_factor') == form_factor):
                 last_updated = cached_data.get('last_updated')
                 for node in cached_data.get('nodes', []):
                     full_nodes[node['id']] = node
             else:
-                logging.info("[ComfyUI-Manager] Environment change detected. Invalidating local ComfyRegistry cache.")
+                logging.info("[ComfyUI-Manager] Registry cache expired or environment changed. Invalidating local cache.")
                 cached_data = None
                 full_nodes = {}
                 last_updated = None
+                is_cache_expired = True
         except Exception as e:
             logging.error(f"[ComfyUI-Manager] Failed to read cached data: {e}")
             cached_data = None
             full_nodes = {}
             last_updated = None
+            is_cache_expired = True
 
     if normalized_mode == 'cache':
         is_cache_loading = True
@@ -130,7 +145,7 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
                 return cached_data.get('nodes', [])
             return []
 
-        if cached_data is not None and manager_util.get_cache_state(uri, expired_days=1) == 'cached':
+        if cached_data is not None and not is_cache_expired:
             is_cache_loading = False
             return cached_data.get('nodes', [])
 
@@ -191,11 +206,17 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
         else:
             new_timestamp = last_updated
 
+        if is_cache_expired or normalized_mode == 'force' or not cache_built_at:
+            new_cache_built_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        else:
+            new_cache_built_at = cache_built_at
+
         cache_to_save = {
             'nodes': json_obj['nodes'],
             'comfyui_ver': comfyui_ver,
             'form_factor': form_factor,
-            'last_updated': new_timestamp
+            'last_updated': new_timestamp,
+            'cache_built_at': new_cache_built_at
         }
         manager_util.save_to_cache(uri, cache_to_save)
         return json_obj['nodes']
