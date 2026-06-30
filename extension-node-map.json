@@ -3229,38 +3229,6 @@
             "title_aux": "ComfyUI_efficient_sam_node"
         }
     ],
-    "https://github.com/Apache0ne/Comfyui-marigold-intrinsics-PaGeR": [
-        [
-            "DepthTooltipOMRHDRIPreviewWebGL",
-            "DepthTooltipOMRHDRIVideoPreviewWebGL",
-            "DepthTooltipOMRPreviewWebGL",
-            "DepthTooltipPreviewWebGL",
-            "DownloadAndLoadMarigoldIIDAppearanceModel",
-            "DownloadAndLoadMarigoldIIDLightingModel",
-            "DownloadAndLoadPaGeRModel",
-            "LoadImageWithNormalDepth",
-            "MarigoldIIDAppearance",
-            "MarigoldIIDAppearanceExtended",
-            "MarigoldIIDLighting",
-            "MarigoldIIDRecomposeASR",
-            "MarigoldIIDSplitLoader",
-            "MarigoldIIDSplitToIIDModel",
-            "MarigoldMaskClearColor",
-            "MarigoldPackOMR",
-            "OMRPreviewWebGL",
-            "PaGeRDA3Runtime",
-            "PaGeRDA3SaveImages",
-            "PaGeRDA3SaveNPZ",
-            "PaGeRDA3SavePointCloud",
-            "PaGeRDepthPostprocess",
-            "PaGeRInferCubemap",
-            "PaGeRNormalPostprocess",
-            "PaGeRSavePointCloud"
-        ],
-        {
-            "title_aux": "Comfyui-marigold-intrinsics-PaGeR"
-        }
-    ],
     "https://github.com/ApexArtist/comfyui-apex-artist": [
         [
             "ApexBatchInfo",
@@ -3411,6 +3379,7 @@
             "AGSoftImageCompare",
             "AGSoftInt",
             "AGSoftLastFrameExtractor",
+            "AGSoftLoadImagesFromDir",
             "AGSoftLoadVideo",
             "AGSoftMathExpression",
             "AGSoftReferenceToLatent",
@@ -4198,6 +4167,16 @@
         ],
         {
             "title_aux": "comfyUI-TiledWan"
+        }
+    ],
+    "https://github.com/Beakfx/mbq": [
+        [
+            "MBQWedge",
+            "MBQWedgeSampler",
+            "MBQWedgeScheduler"
+        ],
+        {
+            "title_aux": "MBQ Wedge"
         }
     ],
     "https://github.com/Beinsezii/bsz-cui-extras": [
@@ -6924,8 +6903,8 @@
             "JLC_ControlNetApplyAdvanced",
             "JLC_ControlNetComposition",
             "JLC_ControlNetOrchestrator",
+            "JLC_ControlNetOrchestratorAdvanced",
             "JLC_DynamicAuxPreprocessorWrapper",
-            "JLC_DynamicControlNetOrchestratorAdvanced",
             "JLC_DynamicLoraLoaderBlockWeightModelClip",
             "JLC_DynamicLoraLoaderBlockWeightModelOnly",
             "JLC_DynamicLoraLoaderModelClip",
@@ -8699,6 +8678,14 @@
             "title_aux": "ComfyUI_EasyRegion"
         }
     ],
+    "https://github.com/EnragedAntelope/EA_LMStudio": [
+        [
+            "EA_LMStudio"
+        ],
+        {
+            "title_aux": "EA_LMStudio"
+        }
+    ],
     "https://github.com/EnragedAntelope/comfy-modelopt": [
         [
             "ModelOptCalibrationHelper",
@@ -9919,6 +9906,14 @@
             "title_aux": "IC-Light-ComfyUI-Node"
         }
     ],
+    "https://github.com/Filexor/SEGA_Anima": [
+        [
+            "File_x SEGA Anima"
+        ],
+        {
+            "title_aux": "SEGA for Anima"
+        }
+    ],
     "https://github.com/FinetunersAI/ComfyUI_Finetuners_Suite": [
         [
             "AutoImageResize",
@@ -10842,6 +10837,15 @@
         ],
         {
             "title_aux": "PG Nodes"
+        }
+    ],
+    "https://github.com/Glashkoff/comfyui-random-seed-batch-generator": [
+        [
+            "Random Seed Batch Generator",
+            "RandomSeedBatchGenerator"
+        ],
+        {
+            "title_aux": "Random Seed Batch Generator"
         }
     ],
     "https://github.com/Glidias/mask2sam": [
@@ -18207,14 +18211,14 @@
             "title_aux": "NKD Klein Tools"
         }
     ],
-    "https://github.com/Nekodificador/ComfyUI-NKD-Popup-Preview": [
+    "https://github.com/Nekodificador/ComfyUI-NKD-Preview-Tools": [
         [
             "NKDMaskPainter",
             "NKDPopupPreviewNode",
             "NKDReferenceImage"
         ],
         {
-            "title_aux": "NKD Popup Preview"
+            "title_aux": "NKD Preview Tools"
         }
     ],
     "https://github.com/Nekodificador/ComfyUI-NKD-Sigmas-Curve": [
@@ -18861,6 +18865,14 @@
         ],
         {
             "title_aux": "ComfyUI JoyAI"
+        }
+    ],
+    "https://github.com/Nynxz/ComfyUI-NK2E": [
+        [
+            "NK2EInContextEditNode"
+        ],
+        {
+            "title_aux": "NK2E"
         }
     ],
     "https://github.com/Nynxz/ComfyUI-NynxzNodes": [
@@ -25586,6 +25598,7 @@
     ],
     "https://github.com/TinyBeeman/ComfyUI-TinyBee": [
         [
+            "Auto Seed",
             "CSV Parser",
             "Combine Lists",
             "Combine Properties",
@@ -25611,6 +25624,7 @@
             "Indexed Entry",
             "Int Compare",
             "Int to Boolean",
+            "Int to Leading String",
             "Interpolate Frames",
             "Intersect Rects",
             "Ints to Rect",
@@ -25634,6 +25648,8 @@
             "Rect to Floats",
             "Rect to Ints",
             "Replace List",
+            "S&R",
+            "Sanitize File Path",
             "Save Image Batch to Zip",
             "Save Image w/Meta",
             "Scale Rect",
@@ -25643,12 +25659,15 @@
             "Sequence",
             "Sort List",
             "Split List",
+            "String Combiner",
             "String Compare",
             "String To List",
             "String to Float",
             "String to Int",
+            "Strip Quotes",
             "Timestamp",
-            "Tiny Random"
+            "Tiny Random",
+            "Token Replace"
         ],
         {
             "title_aux": "ComfyUI-TinyBee"
@@ -26680,6 +26699,7 @@
             "XB_MasterParameter",
             "XB_ROCmKSampler",
             "XB_ROCmKSamplerAdvanced",
+            "XB_ROCmLTXVAEDecode",
             "XB_ROCmMemCleaner",
             "XB_ROCmSamplerCustom",
             "XB_ROCmSamplerCustomAdvanced",
@@ -30356,6 +30376,7 @@
     ],
     "https://github.com/alisson-anjos/ComfyUI-BFSNodes": [
         [
+            "BFSAmvGuideBuilder",
             "BFSAnime2RealBerniniConditioning",
             "BFSHeadSwapBerniniConditioning",
             "BFSHeadSwapLoRADebug",
@@ -36962,6 +36983,7 @@
             "ConditioningAverage",
             "ConditioningCombine",
             "ConditioningConcat",
+            "ConditioningMultiply",
             "ConditioningSetArea",
             "ConditioningSetAreaPercentage",
             "ConditioningSetAreaPercentageVideo",
@@ -50544,17 +50566,6 @@
             "title_aux": "RC Image Compositor"
         }
     ],
-    "https://github.com/kjqwer/SmartSaveImage": [
-        [
-            "Example",
-            "SmartFolderManager",
-            "SmartImageSaver"
-        ],
-        {
-            "nodename_pattern": "Smart",
-            "title_aux": "SmartSaveImage"
-        }
-    ],
     "https://github.com/kk8bit/KayTool": [
         [
             "AB_Images",
@@ -57778,7 +57789,10 @@
     ],
     "https://github.com/nova452/ComfyUI-ConditioningKrea2Rebalance": [
         [
+            "ConditioningIdeogram4Rebalance",
             "ConditioningKrea2Rebalance",
+            "Ideogram4EditRebalance",
+            "Ideogram4EncodeRebalance",
             "Krea2EditRebalance",
             "Krea2EncodeRebalance",
             "RebalanceCFG",
@@ -62191,6 +62205,14 @@
             "title_aux": "Ephemeral Preview Tap"
         }
     ],
+    "https://github.com/ruminar/ComfyUI-GMImageSaver": [
+        [
+            "GMImageJpegSave"
+        ],
+        {
+            "title_aux": "ComfyUI-GMImageSaver"
+        }
+    ],
     "https://github.com/ruminar/ComfyUI-LightQueueCounter": [
         [
             "LightQueueCounterAnyPassthrough",
@@ -65107,6 +65129,14 @@
         ],
         {
             "title_aux": "comfyui_longcat_image"
+        }
+    ],
+    "https://github.com/sorryhyun/ComfyUI-Anima-BlockCompile": [
+        [
+            "AnimaBlockCompile"
+        ],
+        {
+            "title_aux": "Anima Block Compile"
         }
     ],
     "https://github.com/sorryhyun/ComfyUI-Anima-PiD": [
@@ -69073,6 +69103,7 @@
             "vsLinx_LoadLastGeneratedImage",
             "vsLinx_LoadSelectedImagesBatch",
             "vsLinx_LoadSelectedImagesList",
+            "vsLinx_MultiDiffusionTiledHiresFix",
             "vsLinx_MuteOnBool",
             "vsLinx_PipeToAny",
             "vsLinx_UpscaleByFactorWithModel",

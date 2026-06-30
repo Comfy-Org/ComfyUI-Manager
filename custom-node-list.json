@@ -92,6 +92,17 @@
             "description": "A massive node pack consisting of over 200 nodes, including image processing, masking, text handling, and arithmetic operations.\nNOTE: A replacement node pack provided for existing users following the retirement of the original author of the widely used WAS Node Suite."
         },
         {
+            "author": "ketle-man",
+            "title": "Mask Editor One",
+            "id": "comfyui-mask-editor-one",
+            "reference": "https://github.com/ketle-man/comfyui-mask-editor-one",
+            "files": [
+                "https://github.com/ketle-man/comfyui-mask-editor-one"
+            ],
+            "install_type": "git-clone",
+            "description": "A layer-based modal mask editor for ComfyUI with Photoshop-like controls. Features paint, color selection, alpha extraction, vector (Catmull-Rom spline), shape, and text tools, SAM3 AI segmentation, BiRefNet background removal, layer management with Undo/Redo (30 levels), ABR brush import, brush library, and multilingual UI (en/ja/zh)."
+        },
+        {
             "author": "Test.Data",
             "title": "TEST NODEPACK: DON'T INSTALL THIS #1",
             "reference": "https://github.com/ltdrdata/nodepack-test1-do-not-install",
@@ -35849,16 +35860,6 @@
             "description": "SDXL model loader supporting custom clip_g and clip_l embeddings with NVFP4 optimization. (Description by CC)"
         },
         {
-            "author": "Apache0ne",
-            "title": "Comfyui-marigold-intrinsics-PaGeR",
-            "reference": "https://github.com/Apache0ne/Comfyui-marigold-intrinsics-PaGeR",
-            "files": [
-                "https://github.com/Apache0ne/Comfyui-marigold-intrinsics-PaGeR"
-            ],
-            "install_type": "git-clone",
-            "description": "This custom node pack provides Marigold IID nodes and PaGeR ERP geometry nodes."
-        },
-        {
             "author": "easygoing0114",
             "title": "ComfyUI-easygoing-nodes",
             "reference": "https://github.com/easygoing0114/ComfyUI-easygoing-nodes",
@@ -39306,6 +39307,20 @@
             "description": "A self-contained LoRA Slider node for ComfyUI designed to work alongside ComfyUI-Lora-Manager with bipolar strength sliders and batch LoRA loading."
         },
         {
+            "author": "EnragedAntelope",
+            "title": "EA_LMStudio",
+            "id": "ea-lmstudio",
+            "reference": "https://github.com/EnragedAntelope/EA_LMStudio",
+            "files": [
+                "https://github.com/EnragedAntelope/EA_LMStudio"
+            ],
+            "install_type": "git-clone",
+            "pip": [
+                "lmstudio>=1.0.0"
+            ],
+            "description": "LM Studio ComfyUI integration with easy model selection and many optimizations! Features auto model discovery, vision/VLM support, reasoning extraction for DeepSeek R1/Qwen3/QwQ models, and detailed stats with VRAM management."
+        },
+        {
             "author": "enragedantelope",
             "title": "Identity Forge",
             "reference": "https://github.com/EnragedAntelope/comfyui-identity-forge",
@@ -40175,21 +40190,6 @@
             "description": "Direct model downloads to your Runod pod with blazing-fast multi-connection support. No more downloading models to your local machine and re-uploading!"
         },
         {
-            "author": "kjqwer",
-            "title": "SmartSaveImage",
-            "reference": "https://github.com/kjqwer/SmartSaveImage",
-            "files": [
-                "https://github.com/kjqwer/SmartSaveImage"
-            ],
-            "install_type": "git-clone",
-            "description": "Smart Image Saving Nodes - Offers intelligent folder management and image saving capabilities, supporting flexible folder hierarchy control, multiple metadata sources, various image formats, and metadata embedding. It includes two nodes: SmartFolderManager and SmartImageSaver.",
-            "pip": [
-                "Pillow",
-                "piexif"
-            ],
-            "nodename_pattern": "Smart"
-        },
-        {
             "author": "danielpflorian",
             "title": "ComfyUI-WorkflowGenerator",
             "reference": "https://github.com/DanielPFlorian/ComfyUI-WorkflowGenerator",
@@ -40469,6 +40469,16 @@
             ],
             "install_type": "git-clone",
             "description": "JoyAI-Image-Edit (16B MMDiT + Qwen3-VL-8B) instruction image editing for ComfyUI."
+        },
+        {
+            "author": "nynxz",
+            "title": "NK2E",
+            "reference": "https://github.com/Nynxz/ComfyUI-NK2E",
+            "files": [
+                "https://github.com/Nynxz/ComfyUI-NK2E"
+            ],
+            "install_type": "git-clone",
+            "description": "NK2E — experimental, unofficial in-context image editing for Krea 2 (community project; not affiliated with Krea)."
         },
         {
             "author": "huygiatrng",
@@ -46169,13 +46179,13 @@
         },
         {
             "author": "nekodificador",
-            "title": "NKD Popup Preview",
-            "reference": "https://github.com/Nekodificador/ComfyUI-NKD-Popup-Preview",
+            "title": "NKD Preview Tools",
+            "reference": "https://github.com/Nekodificador/ComfyUI-NKD-Preview-Tools",
             "files": [
-                "https://github.com/Nekodificador/ComfyUI-NKD-Popup-Preview"
+                "https://github.com/Nekodificador/ComfyUI-NKD-Preview-Tools"
             ],
             "install_type": "git-clone",
-            "description": "A floating preview window node for ComfyUI. Ideal for multi-monitor setups."
+            "description": "Preview and masking tools for ComfyUI: floating popup preview window (multi-monitor, live TAESD preview) and a procedural mask painter that bridges any IMAGE source into the native mask editor."
         },
         {
             "author": "BacoHubo",
@@ -47793,16 +47803,6 @@
         },
         {
             "author": "nekodificador",
-            "title": "NKD Popup Preview",
-            "reference": "https://github.com/Nekodificador/ComfyUI-NKD-Popup-Preview",
-            "files": [
-                "https://github.com/Nekodificador/ComfyUI-NKD-Popup-Preview"
-            ],
-            "install_type": "git-clone",
-            "description": "A floating preview window node for ComfyUI. Ideal for multi-monitor setups."
-        },
-        {
-            "author": "nekodificador",
             "title": "NKD Klein Tools",
             "reference": "https://github.com/Nekodificador/ComfyUI-NKD-Klein-Tools",
             "files": [
@@ -47860,6 +47860,16 @@
             ],
             "install_type": "git-clone",
             "description": "KSampler-compatible Anima EasyControl image conditioning for ComfyUI."
+        },
+        {
+            "author": "sorryhyun",
+            "title": "Anima Block Compile",
+            "reference": "https://github.com/sorryhyun/ComfyUI-Anima-BlockCompile",
+            "files": [
+                "https://github.com/sorryhyun/ComfyUI-Anima-BlockCompile"
+            ],
+            "install_type": "git-clone",
+            "description": "Anima Block Compile for ComfyUI: a one-purpose node that runs torch.compile on the Anima DiT per transformer block (diffusion_model.blocks.{i}) instead of the whole model. Faster compile, fewer graph breaks. A thin, Anima-named wrapper over ComfyUI core's set_torch_compile_wrapper."
         },
         {
             "author": "spacewarpstudio",
@@ -50638,6 +50648,17 @@
             ],
             "install_type": "git-clone",
             "description": "Review-first checkpoint cycling and handpicking suite for ComfyUI. Auto-cycle checkpoints, review generated images, tag checkpoints, and export cleanup scripts without deleting files immediately."
+        },
+        {
+            "author": "ruminar",
+            "title": "ComfyUI-GMImageSaver",
+            "id": "gmimagesaver",
+            "reference": "https://github.com/ruminar/ComfyUI-GMImageSaver",
+            "files": [
+                "https://github.com/ruminar/ComfyUI-GMImageSaver"
+            ],
+            "install_type": "git-clone",
+            "description": "GraphicsMagick-based direct JPEG saver node for ComfyUI. Saves IMAGE tensors directly as JPEG without intermediate PNG files. JPEG-only, previewless, label-aware, and useful for organized batch/inventory workflows. NOTE: GraphicsMagick must be installed separately and available via GM_PATH or PATH."
         },
         {
             "author": "WuMIn259",
@@ -53882,6 +53903,36 @@
             ],
             "install_type": "git-clone",
             "description": "Organize your ComfyUI workflows for production: a folder manager plus a project layer (exportable internal DB), bulk export and optional Git versioning, from a built-in panel."
+        },
+        {
+            "author": "glashkoff",
+            "title": "Random Seed Batch Generator",
+            "reference": "https://github.com/Glashkoff/comfyui-random-seed-batch-generator",
+            "files": [
+                "https://github.com/Glashkoff/comfyui-random-seed-batch-generator"
+            ],
+            "install_type": "git-clone",
+            "description": "Generate multiple groups of seeds for batch image processing in ComfyUI."
+        },
+        {
+            "author": "File_xor",
+            "title": "SEGA for Anima",
+            "reference": "https://github.com/Filexor/SEGA_Anima",
+            "files": [
+                "https://github.com/Filexor/SEGA_Anima"
+            ],
+            "install_type": "git-clone",
+            "description": "SEGA anima is implementation of \"SEGA: Spectral-Energy Guided Attention for Resolution Extrapolation in Diffusion Transformers\" (arXiv:2605.22668) for Anima model in ComfyUI."
+        },
+        {
+            "author": "beakfx",
+            "title": "MBQ Wedge",
+            "reference": "https://github.com/Beakfx/mbq",
+            "files": [
+                "https://github.com/Beakfx/mbq"
+            ],
+            "install_type": "git-clone",
+            "description": "Compare ComfyUI parameter values without contact sheets — sweep numerics, samplers, or schedulers, then inspect each result full-res in MBQ Viewer."
         }
     ]
 }
