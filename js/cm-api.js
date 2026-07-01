@@ -52,7 +52,7 @@ async function tryInstallCustomNode(event) {
 			}
 		}
 
-		let response = await api.fetchApi("/manager/reboot");
+		let response = await api.fetchApi("/manager/reboot", { method: 'POST' });
 		if(response.status == 403) {
 			await handle403Response(response);
 			return false;
