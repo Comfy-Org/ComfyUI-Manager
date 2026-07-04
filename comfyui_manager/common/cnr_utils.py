@@ -120,7 +120,9 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
                 except Exception:
                     pass
 
-            if not is_db_expired and (cached_data.get('comfyui_ver') == comfyui_ver and
+            if  sync_mode == 'local' or (
+                    not is_db_expired and
+                    cached_data.get('comfyui_ver') == comfyui_ver and
                     cached_data.get('form_factor') == form_factor):
                 last_updated = cached_data.get('last_updated')
                 for node in cached_data.get('nodes', []):
