@@ -245,7 +245,11 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, verbose=False, **kwargs)
             'cache_built_at': new_cache_built_at,
             'cache_created_at': new_cache_created_at
         }
-        manager_util.save_to_cache(uri, cache_to_save)
+        try:
+            manager_util.save_to_cache(uri, cache_to_save)
+        except Exception as e:
+            logging.error(f"[ComfyUI-Manager] Failed to write comfyregistry cache: {e}")
+
         return json_obj['nodes']
     except asyncio.TimeoutError:
         raise
