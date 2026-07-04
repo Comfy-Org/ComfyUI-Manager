@@ -725,7 +725,7 @@ class UnifiedManager:
 
         if update_cnr_map:
             # reload 'cnr_map' and 'repo_cnr_map'
-            cnrs = await cnr_utils.get_cnr_data(sync_mode=cache_mode, dont_wait=dont_wait)
+            cnrs = await cnr_utils.get_cnr_data(sync_mode=cache_mode, dont_wait=dont_wait, verbose=get_config().get('verbose', False))
 
             for x in cnrs:
                 self.cnr_map[x['id']] = x

@@ -21,15 +21,15 @@ lock = asyncio.Lock()
 is_cache_loading = False
 force_refresh_days = 30
 
-async def get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
+async def get_cnr_data(sync_mode=None, dont_wait=True, verbose=False, **kwargs):
     # For backwards compatibility with keyword argument cache_mode
     if sync_mode is None:
         sync_mode = kwargs.get('cache_mode', 'cache')
     try:
-        return await _get_cnr_data(sync_mode, dont_wait)
+        return await _get_cnr_data(sync_mode, dont_wait, verbose=verbose)
     except asyncio.TimeoutError:
         logging.error(f"[ComfyUI-Manager] A timeout occurred during the fetch process from ComfyRegistry.")
-        return await _get_cnr_data(sync_mode='local', dont_wait=True)  # timeout fallback
+        return await _get_cnr_data(sync_mode='local', dont_wait=True, verbose=verbose)  # timeout fallback
 
 def get_comfyui_ver():
     is_desktop = bool(os.environ.get('__COMFYUI_DESKTOP_VERSION__'))
@@ -73,7 +73,7 @@ def get_node_timestamp(node):
     return node.get('created_at')
 
 
-async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
+async def _get_cnr_data(sync_mode=None, dont_wait=True, verbose=False, **kwargs):
     global is_cache_loading
 
     # For backwards compatibility with keyword argument cache_mode
@@ -174,9 +174,6 @@ async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
         remained = True
         page = 1
         nodes_map = dict(existing_nodes)
-        
-        from comfyui_manager.glob import manager_core
-        verbose = manager_core.get_config().get('verbose', False)
 
         while remained:
             params = {
