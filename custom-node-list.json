@@ -54236,6 +54236,18 @@
             ],
             "install_type": "git-clone",
             "description": "Block Swap (RAM Offload) node for native ComfyUI MODEL - run DiT models larger than VRAM by streaming transformer blocks from system RAM."
+        },
+        {
+            "author": "JWLHS",
+            "title": "TINT4 — INT4 Weight-Only Quantization via torchao",
+            "id": "tint4_xpu",
+            "reference": "https://github.com/JWLHS/ComfyUI-TINT4-XPU",
+            "files": [
+                "https://github.com/JWLHS/ComfyUI-TINT4-XPU"
+            ],
+            "install_type": "git-clone",
+            "description": "INT4 weight-only quantization (W4A16) for diffusion models via torchao. Activations remain FP16 — zero quantization quality loss. Full LoRA support: standard + LoKr format compatible, multi-LoRA stack (≤5), IS_CHANGED fingerprint skip (0s repeat generation), SHA256 JSON disk cache (<1s hit), GPU pre-hook bake-in. Supports Intel Arc XPU, NVIDIA CUDA, AMD ROCm. Verified on Krea2 Turbo, Flux2 Klein 9B, Z-Image, Boogu. Includes model analysis CLI. Requires: pip install torchao>=0.17.0"
         }
     ]
 }
+
