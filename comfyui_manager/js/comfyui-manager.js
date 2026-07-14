@@ -1468,6 +1468,12 @@ app.registerExtension({
 					tooltip: "Share"
 				}).element
 			);
+
+			if (app.menu?.settingsGroup?.element) {
+				app.menu.settingsGroup.element.before(cmGroup.element);
+			} else {
+				menu.append(cmGroup.element);
+			}
 		}
 		catch(exception) {
 			console.log('ComfyUI is outdated. New style menu based features are disabled.');
