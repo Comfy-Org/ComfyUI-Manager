@@ -1,6 +1,16 @@
 {
     "custom_nodes": [
         {
+            "author": "sorryhyun",
+            "title": "Distilled ResShift SR",
+            "reference": "https://github.com/sorryhyun/ComfyUI-Distilled-ResShift",
+            "files": [
+                "https://github.com/sorryhyun/ComfyUI-Distilled-ResShift"
+            ],
+            "install_type": "git-clone",
+            "description": "Distilled 1-step ResShift super-resolution (×4 or ×2) as a pixel-space IMAGE to IMAGE node. A ResShift student distilled from a 15-step teacher upsamples any RGB image in one stochastic step (scale dropdown). Self-contained vendored ResShift net (no xformers needed on any GPU); student + vq-f4 VQGAN auto-download on first use."
+        },
+        {
             "author": "Carasibana",
             "title": "ComfyUI-SimpleFloatSlider",
             "reference": "https://github.com/Carasibana/ComfyUI-SimplayboyleFloatSlider",
