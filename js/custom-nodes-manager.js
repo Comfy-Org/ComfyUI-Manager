@@ -1,5 +1,4 @@
 import { app } from "../../scripts/app.js";
-import { ComfyDialog, $el } from "../../scripts/ui.js";
 import { api } from "../../scripts/api.js";
 import { buildGuiFrameCustomHeader,  createSettingsCombo } from "./comfyui-gui-builder.js";
 
@@ -13,6 +12,14 @@ import {
 
 // https://cenfun.github.io/turbogrid/api.html
 import TG from "./turbogrid.esm.js";
+
+// === SHIM FOR NEW COMFYUI (removes ui.js warning) ===
+let ComfyDialog, $el;
+if (window?.comfyAPI?.ui) {
+    ({ ComfyDialog, $el } = window.comfyAPI.ui);
+} else {
+    ({ ComfyDialog, $el } = await import("../../scripts/ui.js"));
+}
 
 loadCss("./custom-nodes-manager.css");
 

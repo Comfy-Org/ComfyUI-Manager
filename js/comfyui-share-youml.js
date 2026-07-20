@@ -1,7 +1,14 @@
 import {app} from "../../scripts/app.js";
 import {api} from "../../scripts/api.js";
-import {ComfyDialog, $el} from "../../scripts/ui.js";
 import { customAlert } from "./common.js";
+
+// === SHIM FOR NEW COMFYUI (removes ui.js warning) ===
+let $el, ComfyDialog;
+if (window?.comfyAPI?.ui) {
+    ({ $el, ComfyDialog } = window.comfyAPI.ui);
+} else {
+    ({ $el, ComfyDialog } = await import("../../scripts/ui.js"));
+}
 
 const BASE_URL = "https://youml.com";
 //const BASE_URL = "http://localhost:3000";
