@@ -77,8 +77,8 @@ async def _get_cnr_data(cache_mode=True, dont_wait=True):
             for x in sub_json_obj['nodes']:
                 full_nodes[x['id']] = x
 
-            if page % 5 == 0:
-                print(f"FETCH ComfyRegistry Data: {page}/{sub_json_obj['totalPages']}")
+            # if page % 5 == 0:
+            #    print(f"FETCH ComfyRegistry Data: {page}/{sub_json_obj['totalPages']}")
 
             page += 1
             time.sleep(0.5)
