@@ -54,7 +54,7 @@ class JsCopyStructuralTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.common_src = JS_COMMON_PATH.read_text()
+        cls.common_src = JS_COMMON_PATH.read_text(encoding="utf-8")
 
     def test_surface_messages_name_their_flag(self):
         """Both install 403 branches pass a flag-naming defaultMessage."""
@@ -76,14 +76,19 @@ class JsCopyStructuralTest(unittest.TestCase):
         """The generic fallback copy stays (exactly its two occurrences in
         handle403Response), and no other handle403Response caller across
         js/ gains a defaultMessage."""
-        self.assertEqual(self.common_src.count(GENERIC_403_COPY), 2)
+        # Count inside handle403Response rather than file-wide. The same
+        # sentence is legitimately reused elsewhere in common.js to build a
+        # batch-uninstall error message, which is not a caller of
+        # handle403Response and so is outside this guard's contract.
+        handle_block = _js_function_block(self.common_src, "handle403Response")
+        self.assertEqual(handle_block.count(GENERIC_403_COPY), 2)
         surface_blocks = "".join(
             _js_function_block(self.common_src, name)
             for name in ("install_pip", "install_via_git_url")
         )
         allowed_two_arg = {a for a in _handle403_call_args(surface_blocks) if "," in a}
         for js_file in sorted((REPO_ROOT / "js").glob("*.js")):
-            source = js_file.read_text()
+            source = js_file.read_text(encoding="utf-8")
             for args in _handle403_call_args(source):
                 if "," in args:
                     self.assertIn(
@@ -98,7 +103,7 @@ class StructuralSecurityGuardsTest(unittest.TestCase):
 
     def test_no_new_install_route_surface(self):
         """No new HTTP surface for git-URL/pip install."""
-        source = MANAGER_SERVER_PATH.read_text()
+        source = MANAGER_SERVER_PATH.read_text(encoding="utf-8")
         routes = set(re.findall(r"@routes\.post\(\"([^\"]+)\"\)", source))
         expected_surfaces = {
             "/customnode/install/git_url",
@@ -117,14 +122,14 @@ class StructuralSecurityGuardsTest(unittest.TestCase):
 
     def test_cm_cli_ungated(self):
         """cm-cli stays a local operator tool — no gate, no flag lookup."""
-        source = CM_CLI_PATH.read_text()
+        source = CM_CLI_PATH.read_text(encoding="utf-8")
         for token in FLAG_TOKENS + ("is_allowed_security_level", "is_dedicated_install_allowed"):
             self.assertNotIn(token, source, "cm-cli.py must stay ungated")
 
     def test_no_autoseed_in_migration(self):
         """The migration module never references the flags (explicit
         opt-in only — no auto-seed from security_level)."""
-        source = MANAGER_MIGRATION_PATH.read_text()
+        source = MANAGER_MIGRATION_PATH.read_text(encoding="utf-8")
         for token in FLAG_TOKENS:
             self.assertNotIn(
                 token, source,
