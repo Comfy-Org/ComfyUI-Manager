@@ -614,63 +614,6 @@ export function showPopover(target, text, className, options) {
 	});
 }
 
-let $tooltip;
-export function hideTooltip(target) {
-	if ($tooltip) {
-		$tooltip.style.display = "none";
-		$tooltip.innerHTML = "";
-		$tooltip.style.top = "0px";
-		$tooltip.style.left = "0px";
-	}
-}
-export function showTooltip(target, text, className = 'cn-tooltip', styleMap = {}) {
-	if (!$tooltip) {
-		$tooltip = document.createElement("div");
-		$tooltip.className = className;
-		$tooltip.style.cssText = `
-			pointer-events: none;
-			position: fixed;
-			z-index: 10001;
-			padding: 20px;
-			color: #1e1e1e;
-			max-width: 350px;
-			filter: drop-shadow(1px 5px 5px rgb(0 0 0 / 30%));
-			${Object.keys(styleMap).map(k=>k+":"+styleMap[k]+";").join("")}
-		`;
-		document.body.appendChild($tooltip);
-	}
-
-	$tooltip.innerHTML = text;
-	$tooltip.style.display = "block";
-	renderPopover($tooltip, target, {
-		positions: ['top', 'bottom', 'right', 'center'],
-		bgColor: "#ffffff",
-		borderColor: "#cccccc",
-		borderRadius: 5
-	});
-}
-
-function initTooltip () {
-	const mouseenterHandler = (e) => {
-        const target = e.target;
-        const text = target.getAttribute('tooltip');
-        if (text) {
-            showTooltip(target, text);
-        }
-    };
-	const mouseleaveHandler = (e) => {
-        const target = e.target;
-        const text = target.getAttribute('tooltip');
-        if (text) {
-            hideTooltip(target);
-        }
-    };
-	document.body.removeEventListener('mouseenter', mouseenterHandler, true);
-	document.body.removeEventListener('mouseleave', mouseleaveHandler, true);
-	document.body.addEventListener('mouseenter', mouseenterHandler, true);
-    document.body.addEventListener('mouseleave', mouseleaveHandler, true);
-}
-
 export async function uninstallNodes(nodeList, options = {}) {
 	const {
 		title = `${nodeList.length} custom nodes`,
@@ -1115,5 +1058,3 @@ export function createUIStateManager(element, selectors) {
 		}
 	};
 }
-
-initTooltip();

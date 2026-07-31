@@ -805,7 +805,7 @@ export class CustomNodesManager {
 			classMap: "cn-pack-author", 
 			formatter: (author, rowItem, columnItem) => {
 				if (rowItem.trust) {
-					return `<span tooltip="This author has been active for more than six months in GitHub">✅ ${author}</span>`;
+					return `<span title="This author has been active for more than six months in GitHub">✅ ${author}</span>`;
 				}
 				return author;
 			}
@@ -836,7 +836,7 @@ export class CustomNodesManager {
 				}
 				const ago = getTimeAgo(last_update);
 				const short = `${last_update}`.split(' ')[0];
-				return `<span tooltip="${ago}">${short}</span>`;
+				return `<span title="${ago}">${short}</span>`;
 			}
 		}];
 
