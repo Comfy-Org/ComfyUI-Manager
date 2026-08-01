@@ -166,8 +166,10 @@ def simple_hash(input_string):
 
     return hash_value
 
+def is_file_created_within_days(file_path, days):
+    if days is None:
+        return True
 
-def is_file_created_within_one_day(file_path):
     if not os.path.exists(file_path):
         return False
 
@@ -175,8 +177,10 @@ def is_file_created_within_one_day(file_path):
     current_time = datetime.now().timestamp()
     time_difference = current_time - file_creation_time
 
-    return time_difference <= 86400
+    return time_difference <= (days * 86400)
 
+def is_file_created_within_one_day(file_path):
+    return is_file_created_within_days(file_path, 1)
 
 async def get_data(uri, silent=False):
     if not silent:
@@ -214,12 +218,12 @@ def get_cache_path(uri):
     return os.path.join(cache_dir, cache_uri+'.json')
 
 
-def get_cache_state(uri):
+def get_cache_state(uri, expired_days=1):
     cache_uri = get_cache_path(uri)
 
     if not os.path.exists(cache_uri):
         return "not-cached"
-    elif is_file_created_within_one_day(cache_uri):
+    elif is_file_created_within_days(cache_uri, expired_days):
         return "cached"
 
     return "expired"

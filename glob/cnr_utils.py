@@ -2,10 +2,12 @@ import asyncio
 import json
 import os
 import platform
-import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 from typing import List
+from urllib.parse import urlencode
 
+import logging
 import manager_core
 import manager_util
 import requests
@@ -17,108 +19,242 @@ base_url = "https://api.comfy.org"
 lock = asyncio.Lock()
 
 is_cache_loading = False
+force_refresh_days = 30
 
-async def get_cnr_data(cache_mode=True, dont_wait=True):
+async def get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
+    # For backwards compatibility with keyword argument cache_mode
+    if sync_mode is None:
+        sync_mode = kwargs.get('cache_mode', 'cache')
     try:
-        return await _get_cnr_data(cache_mode, dont_wait)
+        return await _get_cnr_data(sync_mode, dont_wait)
     except asyncio.TimeoutError:
-        print("A timeout occurred during the fetch process from ComfyRegistry.")
-        return await _get_cnr_data(cache_mode=True, dont_wait=True)  # timeout fallback
+        logging.error(f"[ComfyUI-Manager] A timeout occurred during the fetch process from ComfyRegistry.")
+        return await _get_cnr_data(sync_mode='local', dont_wait=True)  # timeout fallback
 
-async def _get_cnr_data(cache_mode=True, dont_wait=True):
+def get_comfyui_ver():
+    is_desktop = bool(os.environ.get('__COMFYUI_DESKTOP_VERSION__'))
+    if is_desktop:
+        return manager_core.get_current_comfyui_ver() or 'unknown'
+    else:
+        return manager_core.get_comfyui_tag() or 'unknown'
+
+
+def get_form_factor():
+    is_desktop = bool(os.environ.get('__COMFYUI_DESKTOP_VERSION__'))
+    system = platform.system().lower()
+    is_windows = system == 'windows'
+    is_mac = system == 'darwin'
+    is_linux = system == 'linux'
+
+    if is_desktop:
+        if is_windows:
+            return 'desktop-win'
+        elif is_mac:
+            return 'desktop-mac'
+        else:
+            return 'other'
+    else:
+        if is_windows:
+            return 'git-windows'
+        elif is_mac:
+            return 'git-mac'
+        elif is_linux:
+            return 'git-linux'
+        else:
+            return 'other'
+
+
+def get_node_timestamp(node):
+    latest_ver = node.get('latest_version')
+    if isinstance(latest_ver, dict):
+        t = latest_ver.get('createdAt')
+        if t:
+            return t
+    return node.get('created_at')
+
+
+async def _get_cnr_data(sync_mode=None, dont_wait=True, **kwargs):
     global is_cache_loading
 
-    uri = f'{base_url}/nodes'
+    # For backwards compatibility with keyword argument cache_mode
+    if sync_mode is None:
+        sync_mode = kwargs.get('cache_mode', 'cache')
 
-    async def fetch_all():
+    # Normalize sync_mode for backwards compatibility
+    if sync_mode is True or sync_mode == 'cache' or sync_mode == 'local':
+        normalized_mode = 'cache'
+    elif sync_mode == 'force':
+        normalized_mode = 'force'
+    else:
+        normalized_mode = 'remote'
+
+    uri = f'{base_url}/nodes'
+    cache_path = manager_util.get_cache_path(uri)
+
+    comfyui_ver = get_comfyui_ver()
+    form_factor = get_form_factor()
+
+    cached_data = None
+    last_updated = None
+    full_nodes = {}
+    is_cache_expired = True
+    cache_built_at = None
+    cache_created_at = None
+
+    # Load local cache
+    if normalized_mode != 'force' and manager_util.get_cache_state(uri, expired_days=None) == 'cached':
+        try:
+            with open(cache_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
+                cached_data = json.load(json_file)
+
+            # Check `force_refresh_days` cache database expiration for a full refresh sync
+            is_db_expired = True
+            cache_created_at = cached_data.get('cache_created_at')
+            if cache_created_at:
+                try:
+                    created_dt = datetime.fromisoformat(cache_created_at.replace('Z', '+00:00'))
+                    current_dt = datetime.now(timezone.utc)
+                    delta_created = current_dt - created_dt
+                    if timedelta(seconds=0) <= delta_created and delta_created < timedelta(days=force_refresh_days):
+                        is_db_expired = False
+                except Exception:
+                    pass
+
+            if not is_db_expired and (cached_data.get('comfyui_ver') == comfyui_ver and
+                    cached_data.get('form_factor') == form_factor):
+                last_updated = cached_data.get('last_updated')
+                for node in cached_data.get('nodes', []):
+                    full_nodes[node['id']] = node
+            else:
+                logging.info(f"[ComfyUI-Manager] Registry cache DB expired ({force_refresh_days} days) or environment changed. Invalidating local cache.")
+                cached_data = None
+                full_nodes = {}
+                last_updated = None
+                cache_created_at = None
+        except Exception as e:
+            logging.error(f"[ComfyUI-Manager] Failed to read cached data: {e}")
+            cached_data = None
+            full_nodes = {}
+            last_updated = None
+
+    # Separate cache expiration check (1-day period)
+    # It just determines cache is expired, not cache is exist.
+    if cached_data is not None:
+        cache_built_at = cached_data.get('cache_built_at')
+        if cache_built_at:
+            try:
+                built_dt = datetime.fromisoformat(cache_built_at.replace('Z', '+00:00'))
+                current_dt = datetime.now(timezone.utc)
+                delta_dt = current_dt - built_dt
+                if timedelta(seconds=0) <= delta_dt and delta_dt < timedelta(days=1):
+                    is_cache_expired = False
+            except Exception:
+                pass
+
+    # Return Cached data when mode is 'cache'
+    if normalized_mode == 'cache':
+        is_cache_loading = True
+
+        if dont_wait and cached_data is not None:
+            is_cache_loading = False
+            return cached_data.get('nodes', [])
+
+        if cached_data is not None and (sync_mode == 'local' or not is_cache_expired):
+            is_cache_loading = False
+            return cached_data.get('nodes', [])
+
+        if sync_mode == 'local':
+            is_cache_loading = False
+            return []
+
+    # Fetch CNR
+    async def fetch_all(timestamp_filter, existing_nodes):
         remained = True
         page = 1
+        nodes_map = dict(existing_nodes)
 
-        full_nodes = {}
-
-        
-        # Determine form factor based on environment and platform
-        is_desktop = bool(os.environ.get('__COMFYUI_DESKTOP_VERSION__'))
-        system = platform.system().lower()
-        is_windows = system == 'windows'
-        is_mac = system == 'darwin'
-        is_linux = system == 'linux'
-
-        # Get ComfyUI version tag
-        if is_desktop:
-            # extract version from pyproject.toml instead of git tag
-            comfyui_ver = manager_core.get_current_comfyui_ver() or 'unknown'
-        else:
-            comfyui_ver = manager_core.get_comfyui_tag() or 'unknown'
-
-        if is_desktop:
-            if is_windows:
-                form_factor = 'desktop-win'
-            elif is_mac:
-                form_factor = 'desktop-mac'
-            else:
-                form_factor = 'other'
-        else:
-            if is_windows:
-                form_factor = 'git-windows'
-            elif is_mac:
-                form_factor = 'git-mac'
-            elif is_linux:
-                form_factor = 'git-linux'
-            else:
-                form_factor = 'other'
-        
         while remained:
-            # Add comfyui_version and form_factor to the API request
-            sub_uri = f'{base_url}/nodes?page={page}&limit=30&comfyui_version={comfyui_ver}&form_factor={form_factor}'
-            sub_json_obj = await asyncio.wait_for(manager_util.get_data_with_cache(sub_uri, cache_mode=False, silent=True, dont_cache=True), timeout=30)
+            params = {
+                'page': page,
+                'limit': 30,
+                'comfyui_version': comfyui_ver,
+                'form_factor': form_factor,
+            }
+            if timestamp_filter:
+                params['timestamp'] = timestamp_filter
+            sub_uri = f'{base_url}/nodes?{urlencode(params)}'
+
+            sub_json_obj = await asyncio.wait_for(
+                manager_util.get_data_with_cache(sub_uri, cache_mode=False, silent=True, dont_cache=True),
+                timeout=30
+            )
             remained = page < sub_json_obj['totalPages']
 
             for x in sub_json_obj['nodes']:
-                full_nodes[x['id']] = x
+                nodes_map[x['id']] = x
 
             if page % 5 == 0:
-                print(f"FETCH ComfyRegistry Data: {page}/{sub_json_obj['totalPages']}")
+                logging.info(f"[ComfyUI-Manager] FETCH ComfyRegistry Data: {page}/{sub_json_obj['totalPages']}")
 
             page += 1
-            time.sleep(0.5)
+            await asyncio.sleep(0.5)
 
-        print("FETCH ComfyRegistry Data [DONE]")
+        logging.info(f"[ComfyUI-Manager] FETCH ComfyRegistry Data [DONE]")
 
-        for v in full_nodes.values():
+        for v in nodes_map.values():
             if 'latest_version' not in v:
                 v['latest_version'] = dict(version='nightly')
 
-        return {'nodes': list(full_nodes.values())}
-
-    if cache_mode:
-        is_cache_loading = True
-        cache_state = manager_util.get_cache_state(uri)
-
-        if dont_wait:
-            if cache_state == 'not-cached':
-                return {}
-            else:
-                print("[ComfyUI-Manager] The ComfyRegistry cache update is still in progress, so an outdated cache is being used.")
-                with open(manager_util.get_cache_path(uri), 'r', encoding="UTF-8", errors="ignore") as json_file:
-                    return json.load(json_file)['nodes']
-
-        if cache_state == 'cached':
-            with open(manager_util.get_cache_path(uri), 'r', encoding="UTF-8", errors="ignore") as json_file:
-                return json.load(json_file)['nodes']
+        return {'nodes': list(nodes_map.values())}
 
     try:
-        json_obj = await fetch_all()
-        manager_util.save_to_cache(uri, json_obj)
-        return json_obj['nodes']
-    except:
-        res = {}
-        print("Cannot connect to comfyregistry.")
-    finally:
-        if cache_mode:
-            is_cache_loading = False
+        json_obj = await fetch_all(last_updated, full_nodes)
 
-    return res
+        # Set cache's timestamp as the maximum timestamp from fetched nodes.
+        # This way, in the next run, only the latest updates will be fetched.
+        timestamps = [get_node_timestamp(node) for node in json_obj['nodes'] if get_node_timestamp(node)]
+        max_timestamp = max(timestamps) if timestamps else None
+
+        timestamp_format = "%Y-%m-%dT%H:%M:%SZ"
+
+        if max_timestamp:
+            try:
+                ts_str = max_timestamp.replace('Z', '+00:00')
+                dt = datetime.fromisoformat(ts_str) - timedelta(seconds=10)
+                new_timestamp = dt.strftime(timestamp_format)
+            except Exception:
+                new_timestamp = max_timestamp
+        else:
+            new_timestamp = last_updated
+
+
+        new_cache_built_at = datetime.now(timezone.utc).strftime(timestamp_format)
+
+        if normalized_mode == 'force' or not cache_created_at:
+            new_cache_created_at = datetime.now(timezone.utc).strftime(timestamp_format)
+        else:
+            new_cache_created_at = cache_created_at
+
+        cache_to_save = {
+            'nodes': json_obj['nodes'],
+            'comfyui_ver': comfyui_ver,
+            'form_factor': form_factor,
+            'last_updated': new_timestamp,
+            'cache_built_at': new_cache_built_at,
+            'cache_created_at': new_cache_created_at
+        }
+        manager_util.save_to_cache(uri, cache_to_save)
+        return json_obj['nodes']
+    except asyncio.TimeoutError:
+        raise
+    except Exception as e:
+        logging.error(f"[ComfyUI-Manager] Cannot connect to comfyregistry or failed sync: {e}")
+        if cached_data is not None:
+            return cached_data.get('nodes', [])
+        return []
+    finally:
+        if normalized_mode == 'cache':
+            is_cache_loading = False
 
 
 @dataclass
@@ -237,7 +373,7 @@ def generate_cnr_id(fullpath, cnr_id):
             with open(cnr_id_path, "w") as f:
                 return f.write(cnr_id)
     except:
-        print(f"[ComfyUI Manager] unable to create file: {cnr_id_path}")
+        logging.error(f"[ComfyUI-Manager] unable to create file: {cnr_id_path}")
 
 
 def read_cnr_id(fullpath):
