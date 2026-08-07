@@ -663,8 +663,6 @@ export async function uninstallNodes(nodeList, options = {}) {
 
 			if (res.status == 403) {
 				errorMsg += `This action is not allowed with this security level configuration.\n`;
-			} else if (res.status == 404) {
-				errorMsg += `With the current security level configuration, only custom nodes from the <B>"default channel"</B> can be uninstalled.\n`;
 			} else {
 				errorMsg += await res.text() + '\n';
 			}
