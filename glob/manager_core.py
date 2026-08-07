@@ -357,6 +357,8 @@ def normalize_channel(channel):
         return channel
     elif channel.startswith('http://') and get_config()['http_channel_enabled'] == True:
         return channel
+    elif channel.startswith('\\\\') or os.path.isabs(channel):
+        return channel
 
     tmp_dict = get_channel_dict()
     channel_url = tmp_dict.get(channel)
