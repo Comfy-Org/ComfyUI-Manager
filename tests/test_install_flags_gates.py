@@ -386,6 +386,7 @@ class DenialConstantsTest(unittest.TestCase):
 
     def test_flag_constants_content(self):
         self._assert_honest_copy(NS["SECURITY_MESSAGE_FLAG_GIT_URL"], "allow_git_url_install")
+        self.assertIn("loopback", NS["SECURITY_MESSAGE_FLAG_GIT_URL"])
         self._assert_honest_copy(NS["SECURITY_MESSAGE_FLAG_PIP"], "allow_pip_install")
 
     def test_security_403_precedence(self):

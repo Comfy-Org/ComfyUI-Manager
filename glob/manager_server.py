@@ -37,7 +37,7 @@ SECURITY_MESSAGE_MIDDLE_OR_BELOW = "ERROR: To use this action, a security_level 
 SECURITY_MESSAGE_NORMAL_MINUS = "ERROR: To use this feature, you must either set '--listen' to a local IP and set the security level to 'normal-' or lower, or set the security level to 'middle' or 'weak'. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_GENERAL = "ERROR: This installation is not allowed in this security_level. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_NORMAL_MINUS_MODEL = "ERROR: Downloading models that are not in '.safetensors' format is only allowed for models registered in the 'default' channel at this security level. If you want to download this model, set the security level to 'normal-' or lower."
-SECURITY_MESSAGE_FLAG_GIT_URL = "ERROR: This action requires 'allow_git_url_install = true' in config.ini ([default] section). This setting is independent of security_level. Reference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_FLAG_GIT_URL = "ERROR: This action requires 'allow_git_url_install = true' in config.ini ([default] section). This setting is independent of security_level and also requires ComfyUI to be listening on a loopback address. Reference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_FLAG_PIP = "ERROR: This action requires 'allow_pip_install = true' in config.ini ([default] section). This setting is independent of security_level. Reference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 
 routes = PromptServer.instance.routes
