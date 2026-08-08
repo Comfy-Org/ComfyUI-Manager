@@ -1346,25 +1346,30 @@ export class CustomNodesManager {
 			let default_version;
 			let version_cnt = 0;
 
-			if(!is_enable) {
-
-				if(rowItem.cnr_latest != rowItem.originalData.active_version && obj.length > 0) {
-					versions.push('latest');
+			const addVersion = (version) => {
+				if (!version || rowItem.originalData.active_version == version || versions.includes(version)) {
+					return;
 				}
 
-				if(rowItem.originalData.active_version != 'nightly') {
-					versions.push('nightly');
-					default_version = 'nightly';
-					version_cnt++;
+				default_version = version;
+				versions.push(version);
+				version_cnt++;
+			};
+
+			if(!is_enable) {
+				addVersion(rowItem.workflow_version);
+
+				if(rowItem.cnr_latest && rowItem.cnr_latest != 'nightly' && rowItem.cnr_latest != rowItem.originalData.active_version && obj.length > 0) {
+					versions.push('latest');
 				}
 			}
 
 			for(let v of obj) {
-				if(rowItem.originalData.active_version != v.version) {
-					default_version = v.version;
-					versions.push(v.version);
-					version_cnt++;
-				}
+				addVersion(v.version);
+			}
+
+			if(!is_enable && rowItem.originalData.active_version != 'nightly') {
+				addVersion('nightly');
 			}
 
             this.showVersionSelectorDialog(versions, (selected_version) => {
@@ -1440,7 +1445,7 @@ export class CustomNodesManager {
 			this.showStatus(`${label} ${item.title} ...`);
 
 			const data = item.originalData;
-			data.selected_version = selected_version;
+			data.selected_version = selected_version ?? item.workflow_version;
 			data.channel = this.channel;
 			data.mode = this.mode;
 			data.ui_id = hash;
@@ -1684,7 +1689,7 @@ export class CustomNodesManager {
 
 					let item = this.custom_nodes[node.properties.cnr_id];
 					if(item) {
-						hashMap[item.hash] = true;
+						hashMap[item.hash] = this.getWorkflowVersionData(node);
 					}
 					else {
 						console.log(`CM: cannot find '${node.properties.cnr_id}' from cnr list.`);
@@ -1735,7 +1740,7 @@ export class CustomNodesManager {
 			for(let k in unresolved_aux_ids) {
 				let nodepack = aux_id_to_pack[k];
 				if(nodepack) {
-					hashMap[nodepack.hash] = true;
+					hashMap[nodepack.hash] = this.getWorkflowVersionData(allUsedNodes[unresolved_aux_ids[k]]);
 				}
 				else {
 					unresolved_missing_nodes.add(unresolved_aux_ids[k]);
@@ -1748,6 +1753,18 @@ export class CustomNodesManager {
 		}
 
 		return hashMap;
+	}
+
+	getWorkflowVersionData(node) {
+		const workflow_version = node?.properties?.ver?.trim?.();
+		if (!workflow_version || !/^\d+\.\d+(\.\d+)?([+-].*)?$/.test(workflow_version)) {
+			return true;
+		}
+
+		return {
+			workflow_version,
+			version: workflow_version,
+		};
 	}
 
 	async getMissingNodesLegacy(hashMap, missing_nodes) {
