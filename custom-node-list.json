@@ -45001,7 +45001,7 @@
             "install_type": "git-clone",
             "description": "Prompt Style Selector with Preview, Multiple Selecting, Search and Local Base."
         },
-		{
+        {
             "author": "DemonAlone",
             "title": "DemonAlone-JS_Addon-ComfyUI",
             "reference": "https://github.com/DemonAlone/DemonAlone-JS_Addon-ComfyUI",
@@ -60925,7 +60925,10 @@
             ],
             "install_type": "git-clone",
             "description": "Professional ACES and EXR workflow nodes with OCIO 2.1 support and sequence loading.",
-            "pip": ["opencolorio>=2.2.0", "openexr>=3.2.0"]
+            "pip": [
+                "opencolorio>=2.2.0",
+                "openexr>=3.2.0"
+            ]
         },
         {
             "author": "Neurad",
@@ -61018,6 +61021,17 @@
             ],
             "install_type": "git-clone",
             "description": "A ComfyUI node for image layering, blending, compositing, and batch processing."
+        },
+        {
+            "author": "Newaiguy",
+            "title": "MiniMax H3 Memory Efficient Sage Attention (AMD gfx12)",
+            "id": "h3_sage_amd",
+            "reference": "https://github.com/Newaiguy/ComfyUI-h3_sage_amd",
+            "files": [
+                "https://github.com/Newaiguy/ComfyUI-h3_sage_amd"
+            ],
+            "install_type": "git-clone",
+            "description": "AMD gfx12 (RX 9070/9070 XT) memory-efficient Sage Attention for MiniMax H3. Uses native HIP kernel, saves 33% VRAM. Mirrors KJNodes NVIDIA patch."
         }
     ]
 }
