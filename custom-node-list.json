@@ -45001,7 +45001,7 @@
             "install_type": "git-clone",
             "description": "Prompt Style Selector with Preview, Multiple Selecting, Search and Local Base."
         },
-		{
+        {
             "author": "DemonAlone",
             "title": "DemonAlone-JS_Addon-ComfyUI",
             "reference": "https://github.com/DemonAlone/DemonAlone-JS_Addon-ComfyUI",
@@ -60925,7 +60925,10 @@
             ],
             "install_type": "git-clone",
             "description": "Professional ACES and EXR workflow nodes with OCIO 2.1 support and sequence loading.",
-            "pip": ["opencolorio>=2.2.0", "openexr>=3.2.0"]
+            "pip": [
+                "opencolorio>=2.2.0",
+                "openexr>=3.2.0"
+            ]
         },
         {
             "author": "Neurad",
@@ -61029,6 +61032,17 @@
             ],
             "install_type": "git-clone",
             "description": "OpenAI API based prompt rewriting agents for MiniMax H3 T2VA/I2VA/L2VA/FL2VA and Ref2VA workflows, using the official H3 skill files."
+        },
+        {
+            "author": "buqi-code",
+            "title": "buqi-minimax-h3-multigpu",
+            "reference": "https://github.com/buqi-code/buqi-minimax-h3-multigpu",
+            "files": [
+                "https://github.com/buqi-code/buqi-minimax-h3-multigpu"
+            ],
+            "nodename_pattern": "MiniMaxH3SP.*",
+            "install_type": "git-clone",
+            "description": "Multi-GPU (Ulysses sequence-parallel) inference for MiniMax-H3: drop-in UNETLoader replacement sharding the packed video+audio sequence across 2/4/7/8 GPUs, bit-identical output. MiniMax-H3 多卡并行加速节点,逐比特无损。"
         }
     ]
 }
