@@ -798,7 +798,7 @@ async def queue_batch(request):
                     failed.add(x['id'])
 
         elif k == 'update_comfyui':
-            await update_comfyui(None)
+            await _queue_comfyui_update()
 
         elif k == 'disable':
             for x in v:
@@ -1624,6 +1624,10 @@ async def update_comfyui(request):
     rejection = manager_security.reject_simple_form_post(request)
     if rejection is not None:
         return rejection
+    return await _queue_comfyui_update()
+
+
+async def _queue_comfyui_update():
     is_stable = core.get_config()['update_policy'] != 'nightly-comfyui'
     temp_queue_batch.append(("update-comfyui", ('comfyui', is_stable)))
     return web.Response(status=200)
