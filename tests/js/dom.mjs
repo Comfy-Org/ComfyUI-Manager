@@ -39,10 +39,23 @@ const realAppend = body.appendChild.bind(body);
 body.appendChild = (child) => {
 	realAppend(child);
 	// The confirm modal resolves on a click; fire it so the flow continues.
-	const confirmBtn = walk(child).find(
-		(e) => e.tagName === 'BUTTON' && /confirm|yes|ok/i.test(e.textContent || '')
-	);
-	if (confirmBtn) setTimeout(() => confirmBtn.click(), 0);
+	const buttons = walk(child).filter((e) => e.tagName === 'BUTTON');
+	const confirmBtn = buttons.find((e) => /confirm|yes|ok/i.test(e.textContent || ''));
+	if (confirmBtn) {
+		setTimeout(() => confirmBtn.click(), 0);
+	} else if (buttons.length) {
+		// A dialog with buttons, none of which this stub recognizes: the client
+		// would wait forever on customConfirm() and node would hang until the
+		// caller's subprocess timeout, surfacing as a multi-minute mystery
+		// rather than a diagnosis. Name what was seen and stop now.
+		console.error(
+			'capture_dialog: no confirm button matched /confirm|yes|ok/i, so the '
+			+ 'client would block on customConfirm(). Buttons seen: '
+			+ JSON.stringify(buttons.map((b) => b.textContent))
+			+ '. Update the pattern in tests/js/dom.mjs if the button was reworded.'
+		);
+		process.exit(3);
+	}
 	return child;
 };
 

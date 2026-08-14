@@ -59,9 +59,10 @@ _PRE_C1_COMMIT = "14de630433a5f0665881de4ae973c12ea94b02f2"
 #: (`web.Response(status=404, text=...)` in glob/manager_server.py).
 SERVER_404_BODY = "A security error has occurred. Please check the terminal logs"
 
-#: Fragments of the false message the fix removed. Kept as separate patterns
-#: because a reinstatement is more likely to be a reworded variant than a
-#: byte-identical copy.
+#: Fragments of the specific false message the fix removed. These name the known
+#: regression; they are NOT what makes the guard general — a reworded
+#: substitute would evade them, and is caught by the server-body clause instead
+#: (see _c1_violations).
 _FALSE_LEAD_PATTERNS = (
     re.compile(r"default\s+channel", re.I),
     re.compile(r"security\s+level\s+configuration", re.I),
@@ -137,6 +138,11 @@ def _c1_violations(payload):
 
     Both arms call THIS function, so the RED arm demonstrates the failure of
     the same check the GREEN arm passes — not of a differently-worded cousin.
+
+    The load-bearing clause is the FIRST one: any substitution, however it is
+    worded, displaces the server's own text and is caught. The phrase patterns
+    below it only name the specific regression that already happened; a
+    reworded revival would slip past them alone.
     """
     dialog = payload["dialog"]
     problems = []
