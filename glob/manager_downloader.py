@@ -80,10 +80,18 @@ def aria2_download_url(model_url: str, model_dir: str, filename: str):
     import tqdm
     import time
 
-    if model_dir.startswith(core.comfy_path):
-        model_dir = model_dir[len(core.comfy_path) :]
+    # In Docker, aria2 runs in a separate container and can only access
+    # container-relative mount paths (e.g. /models, /custom_nodes), not host
+    # absolute paths. Outside Docker, use the full absolute path directly.
+    in_docker = os.path.exists('/.dockerenv') or os.environ.get('COMFYUI_ARIA2_CONTAINER_PATHS', '').lower() == 'true'
 
-    download_dir = model_dir if model_dir.startswith('/') else os.path.join('/models', model_dir)
+    if in_docker and model_dir.startswith(core.comfy_path):
+        rel = model_dir[len(core.comfy_path):]
+        download_dir = rel if rel.startswith('/') else '/' + rel
+    elif os.path.isabs(model_dir):
+        download_dir = model_dir
+    else:
+        download_dir = os.path.join('/models', model_dir)
 
     download = aria2_find_task(download_dir, filename)
     if download is None:
