@@ -1,0 +1,44 @@
+name: Cleanup Music3 registration diff v2
+
+on:
+  push:
+    branches:
+      - register-minimax-music3-semantic-studio
+    paths:
+      - .github/workflows/cleanup-music3-registration-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: register-minimax-music3-semantic-studio
+      - name: Restore exact original indentation
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path("custom-node-list.json")
+          text = path.read_text(encoding="utf-8")
+          text = text.replace(
+              '\t\t{\n            "author": "DemonAlone",\n            "title": "DemonAlone-nodes-ComfyUI",',
+              '        {\n            "author": "DemonAlone",\n            "title": "DemonAlone-nodes-ComfyUI",',
+              1,
+          )
+          text = text.replace(
+              '        {\n            "author": "DemonAlone",\n            "title": "DemonAlone-JS_Addon-ComfyUI",',
+              '\t\t{\n            "author": "DemonAlone",\n            "title": "DemonAlone-JS_Addon-ComfyUI",',
+              1,
+          )
+          path.write_text(text, encoding="utf-8")
+      - name: Commit precise cleanup
+        run: |
+          git config user.name "ukr8b3g-cmyk"
+          git config user.email "ukr8b3g@gmail.com"
+          git add custom-node-list.json
+          git rm .github/workflows/cleanup-music3-registration-v2.yml
+          git commit -m "Limit Music3 Manager diff to one registration"
+          git push origin HEAD:register-minimax-music3-semantic-studio
