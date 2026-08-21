@@ -1,0 +1,47 @@
+name: Register Music3 once
+
+on:
+  push:
+    branches:
+      - register-minimax-music3-semantic-studio
+    paths:
+      - .github/workflows/register-music3-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: register-minimax-music3-semantic-studio
+      - name: Add Manager entry
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+
+          path = Path("custom-node-list.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          url = "https://github.com/ukr8b3g-cmyk/MiniMax-Music3-Semantic-Studio"
+          nodes = data["custom_nodes"]
+          if not any(item.get("reference") == url or url in item.get("files", []) for item in nodes):
+              nodes.append({
+                  "author": "ukr8b3g-cmyk",
+                  "title": "MiniMax Music3 Semantic Studio",
+                  "reference": url,
+                  "files": [url],
+                  "install_type": "git-clone",
+                  "description": "Semantic Timeline, lyrics and generation authoring for MiniMax Music 3 in ComfyUI, with Capture / Freeze Audio workflow and a non-destructive Audio Editor with built-in DSP and optional Windows VST3 hosting."
+              })
+          path.write_text(json.dumps(data, ensure_ascii=False, indent=4) + "\n", encoding="utf-8")
+      - name: Commit registration only
+        run: |
+          git config user.name "ukr8b3g-cmyk"
+          git config user.email "ukr8b3g@gmail.com"
+          git add custom-node-list.json
+          git rm .github/workflows/register-music3-once.yml
+          git commit -m "Register MiniMax Music3 Semantic Studio"
+          git push origin HEAD:register-minimax-music3-semantic-studio
