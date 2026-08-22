@@ -131,7 +131,7 @@ customHoverStyle.innerHTML = `
         transition: background-color 0.2s ease-in-out !important;
         
         /* Your exact calibrated optical visual balance */
-        transform: translate(-55%, -50%) !important; 
+        transform: translate(-74.5%, -50%) !important; 
     }
 
     /* 4. Trigger the gray coloration ONLY onto our floating background layer on cursor hover */
