@@ -135,23 +135,24 @@ customHoverStyle.innerHTML = `
     }
 
     /* 4. Trigger the gray coloration ONLY onto our floating background layer on cursor hover */
-    #cm-manager-dialog .p-dialog-header-close:hover::before,
-    #cm-manager-dialog .p-dialog-close:hover::before,
-    #cm-manager-dialog button[class*="-close"]:hover::before,
-    #cm-manager-dialog button[onclick*="close"]:hover::before,
-    .comfy-modal .p-dialog-header-close:hover::before,
-    .comfy-modal .p-dialog-close:hover::before,
-    .comfy-modal button[class*="-close"]:hover::before,
-    .comfy-modal button[onclick*="close"]:hover::before,
-    .comfy-dialog .comfy-menu-close:hover::before,
-    .comfy-dialog button[class*="close"]:hover::before,
-    .comfy-panel .comfy-menu-close:hover::before,
-    .comfy-panel button[class*="close"]:hover::before,
-    div[class*="cn-manager"] button[class*="close"]:hover::before,
-    div[class*="cn-manager"] .comfy-menu-close:hover::before,
-    div[class*="mm-manager"] button[class*="close"]:hover::before,
-    div[class*="mm-manager"] .comfy-menu-close:hover::before {
+    #cm-manager-dialog .p-dialog-header-close:focus-visible::before,
+    #cm-manager-dialog .p-dialog-close:focus-visible::before,
+    #cm-manager-dialog button[class*="-close"]:focus-visible::before,
+    #cm-manager-dialog button[onclick*="close"]:focus-visible::before,
+    .comfy-modal .p-dialog-header-close:focus-visible::before,
+    .comfy-modal .p-dialog-close:focus-visible::before,
+    .comfy-modal button[class*="-close"]:focus-visible::before,
+    .comfy-modal button[onclick*="close"]:focus-visible::before,
+    .comfy-dialog .comfy-menu-close:focus-visible::before,
+    .comfy-dialog button[class*="close"]:focus-visible::before,
+    .comfy-panel .comfy-menu-close:focus-visible::before,
+    .comfy-panel button[class*="close"]:focus-visible::before,
+    div[class*="cn-manager"] button[class*="close"]:focus-visible::before,
+    div[class*="cn-manager"] .comfy-menu-close:focus-visible::before,
+    div[class*="mm-manager"] button[class*="close"]:focus-visible::before,
+    div[class*="mm-manager"] .comfy-menu-close:focus-visible::before {
         background-color: rgba(255, 255, 255, 0.15) !important;
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75) !important;
     }
 `;
 document.head.appendChild(customHoverStyle);
