@@ -26,7 +26,7 @@ import { buildGuiFrame, createSettingsCombo } from "./comfyui-gui-builder.js";
 let manager_version = await getVersion();
 
 // =========================================================================
-// HOVER GREY CIRCLE HOOK (RESTRICTED TO MAIN DIALOGS ONLY)
+// HOVER GREY CIRCLE HOOK (RESTRICTED TO MAIN DIALOGS ONLY - RGBA FIX)
 // =========================================================================
 const customHoverStyle = document.createElement('style');
 customHoverStyle.innerHTML = `
@@ -106,6 +106,7 @@ customHoverStyle.innerHTML = `
     .comfy-modal .p-dialog-close:hover::before,
     .comfy-modal button[class*="-close"]:hover::before,
     .comfy-modal button[onclick*="close"]:hover::before {
+        /* Fixed the typo here: changed 'rg' to 'rgba' to restore the alpha transparency color */
         background-color: rgba(255, 255, 255, 0.15) !important;
     }
 `;
