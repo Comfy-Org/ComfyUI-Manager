@@ -26,15 +26,18 @@ import { buildGuiFrame, createSettingsCombo } from "./comfyui-gui-builder.js";
 let manager_version = await getVersion();
 
 // =========================================================================
-// HOVER GREY CIRCLE HOOK (INDEPENDENT SEPARATED FLOATING HOVER LAYER)
+// HOVER GREY CIRCLE HOOK (RESTRICTED TO MAIN DIALOGS ONLY)
 // =========================================================================
 const customHoverStyle = document.createElement('style');
 customHoverStyle.innerHTML = `
-    /* 1. Setup the main close button container cleanly */
-    .p-dialog-header-close,
-    .p-dialog-close,
-    button[class*="-close"],
+    /* 1. Setup the main close button container cleanly - SCOPED */
+    #cm-manager-dialog .p-dialog-header-close,
+    #cm-manager-dialog .p-dialog-close,
+    #cm-manager-dialog button[class*="-close"],
     #cm-manager-dialog button[onclick*="close"],
+    .comfy-modal .p-dialog-header-close,
+    .comfy-modal .p-dialog-close,
+    .comfy-modal button[class*="-close"],
     .comfy-modal button[onclick*="close"] {
         border: none !important;
         outline: none !important;
@@ -53,12 +56,15 @@ customHoverStyle.innerHTML = `
         overflow: visible !important;
     }
 
-    /* 2. Lock the "X" character itself dead-center using perfect structural text metrics */
-    .p-dialog-header-close *,
-    .p-dialog-close *,
-    button[class*="-close"] * {
+    /* 2. Lock the "X" character itself dead-center - SCOPED */
+    #cm-manager-dialog .p-dialog-header-close *,
+    #cm-manager-dialog .p-dialog-close *,
+    #cm-manager-dialog button[class*="-close"] *,
+    .comfy-modal .p-dialog-header-close *,
+    .comfy-modal .p-dialog-close *,
+    .comfy-modal button[class*="-close"] * {
         position: relative !important;
-        z-index: 2 !important; /* Forces the character to always float above the circle background */
+        z-index: 2 !important;
         display: inline-block !important;
         line-height: 32px !important;
         height: 32px !important;
@@ -68,11 +74,14 @@ customHoverStyle.innerHTML = `
         margin: 0 !important;
     }
 
-    /* 3. Create a clean hidden circular layer right behind the icon character */
-    .p-dialog-header-close::before,
-    .p-dialog-close::before,
-    button[class*="-close"]::before,
+    /* 3. Create a clean hidden circular layer right behind the icon character - SCOPED */
+    #cm-manager-dialog .p-dialog-header-close::before,
+    #cm-manager-dialog .p-dialog-close::before,
+    #cm-manager-dialog button[class*="-close"]::before,
     #cm-manager-dialog button[onclick*="close"]::before,
+    .comfy-modal .p-dialog-header-close::before,
+    .comfy-modal .p-dialog-close::before,
+    .comfy-modal button[class*="-close"]::before,
     .comfy-modal button[onclick*="close"]::before {
         content: "" !important;
         position: absolute !important;
@@ -85,19 +94,17 @@ customHoverStyle.innerHTML = `
         background-color: transparent !important;
         box-sizing: border-box !important;
         transition: background-color 0.2s ease-in-out !important;
-        
-        /* -------------------------------------------------------------
-           OPTICAL ADJUSTMENT SHIFT RULES:
-           Changed from -55% to -74.5% to nudge the circle slightly left!
-           ------------------------------------------------------------- */
         transform: translate(-74.5%, -50%) !important; 
     }
 
-    /* 4. Trigger the gray coloration ONLY onto our floating background layer on cursor hover */
-    .p-dialog-header-close:hover::before,
-    .p-dialog-close:hover::before,
-    button[class*="-close"]:hover::before,
+    /* 4. Trigger the gray coloration ONLY onto our floating background layer on cursor hover - SCOPED */
+    #cm-manager-dialog .p-dialog-header-close:hover::before,
+    #cm-manager-dialog .p-dialog-close:hover::before,
+    #cm-manager-dialog button[class*="-close"]:hover::before,
     #cm-manager-dialog button[onclick*="close"]:hover::before,
+    .comfy-modal .p-dialog-header-close:hover::before,
+    .comfy-modal .p-dialog-close:hover::before,
+    .comfy-modal button[class*="-close"]:hover::before,
     .comfy-modal button[onclick*="close"]:hover::before {
         background-color: rgba(255, 255, 255, 0.15) !important;
     }
