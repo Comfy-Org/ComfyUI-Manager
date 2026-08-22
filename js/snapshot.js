@@ -66,10 +66,18 @@ snapshotCustomStyle.innerHTML = `
         transform: translate(-55%, -50%) !important; 
     }
 
-    /* 4. Trigger the grey circular fill exclusively on cursor hover */
+    /* 4. Trigger the grey circular fill on cursor hover OR keyboard focus */
     [id*="snapshot"] button[class*="close"]:hover::before,
-    [id*="snapshot"] .comfy-menu-close:hover::before {
+    [id*="snapshot"] .comfy-menu-close:hover::before,
+    [id*="snapshot"] button[class*="close"]:focus-visible::before,
+    [id*="snapshot"] .comfy-menu-close:focus-visible::before {
         background-color: rgba(255, 255, 255, 0.15) !important;
+    }
+
+    /* 5. Add an accessibility glow ring ONLY during keyboard navigation focus */
+    [id*="snapshot"] button[class*="close"]:focus-visible::before,
+    [id*="snapshot"] .comfy-menu-close:focus-visible::before {
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75) !important;
     }
 `;
 document.head.appendChild(snapshotCustomStyle);
