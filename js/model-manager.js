@@ -28,6 +28,135 @@ const pageHtml = `
 </div>
 `;
 
+// =========================================================================
+// HOVER GREY CIRCLE HOOK (GLOBAL - DIALOGS, CUSTOM-NODES, & MODEL MANAGER)
+// =========================================================================
+const customHoverStyle = document.createElement('style');
+customHoverStyle.innerHTML = `
+    /* 1. Setup the main close button container cleanly across all dialogs and panels */
+    #cm-manager-dialog .p-dialog-header-close,
+    #cm-manager-dialog .p-dialog-close,
+    #cm-manager-dialog button[class*="-close"],
+    #cm-manager-dialog button[onclick*="close"],
+    .comfy-modal .p-dialog-header-close,
+    .comfy-modal .p-dialog-close,
+    .comfy-modal button[class*="-close"],
+    .comfy-modal button[onclick*="close"],
+    .comfy-dialog .comfy-menu-close,
+    .comfy-dialog button[class*="close"],
+    .comfy-panel .comfy-menu-close,
+    .comfy-panel button[class*="close"],
+    
+    /* CUSTOM-NODES-MANAGER SELECTORS */
+    div[class*="cn-manager"] button[class*="close"],
+    div[class*="cn-manager"] .comfy-menu-close,
+    .cn-manager-dialog button[class*="close"],
+    .cn-manager-dialog .comfy-menu-close,
+    
+    /* TARGETS THE MODEL-MANAGER.JS DIALOG LAYOUT CLASSES */
+    div[class*="mm-manager"] button[class*="close"],
+    div[class*="mm-manager"] .comfy-menu-close,
+    .mm-manager-dialog button[class*="close"],
+    .mm-manager-dialog .comfy-menu-close {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        background-color: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+        position: relative !important;
+        width: 32px !important;
+        height: 32px !important;
+        overflow: visible !important;
+    }
+
+    /* 2. Lock the "X" character itself dead-center using perfect structural text metrics */
+    #cm-manager-dialog .p-dialog-header-close *,
+    #cm-manager-dialog .p-dialog-close *,
+    #cm-manager-dialog button[class*="-close"] *,
+    .comfy-modal .p-dialog-header-close *,
+    .comfy-modal .p-dialog-close *,
+    .comfy-modal button[class*="-close"] *,
+    .comfy-dialog .comfy-menu-close *,
+    .comfy-dialog button[class*="close"] *,
+    .comfy-panel .comfy-menu-close *,
+    .comfy-panel button[class*="close"] *,
+    div[class*="cn-manager"] button[class*="close"] *,
+    div[class*="cn-manager"] .comfy-menu-close *,
+    div[class*="mm-manager"] button[class*="close"] *,
+    div[class*="mm-manager"] .comfy-menu-close * {
+        position: relative !important;
+        z-index: 2 !important;
+        display: inline-block !important;
+        line-height: 32px !important;
+        height: 32px !important;
+        width: 32px !important;
+        text-align: center !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* 3. Create a clean hidden circular layer right behind the icon character */
+    #cm-manager-dialog .p-dialog-header-close::before,
+    #cm-manager-dialog .p-dialog-close::before,
+    #cm-manager-dialog button[class*="-close"]::before,
+    #cm-manager-dialog button[onclick*="close"]::before,
+    .comfy-modal .p-dialog-header-close::before,
+    .comfy-modal .p-dialog-close::before,
+    .comfy-modal button[class*="-close"]::before,
+    .comfy-modal button[onclick*="close"]::before,
+    .comfy-dialog .comfy-menu-close::before,
+    .comfy-dialog button[class*="close"]::before,
+    .comfy-panel .comfy-menu-close::before,
+    .comfy-panel button[class*="close"]::before,
+    div[class*="cn-manager"] button[class*="close"]::before,
+    div[class*="cn-manager"] .comfy-menu-close::before,
+    div[class*="mm-manager"] button[class*="close"]::before,
+    div[class*="mm-manager"] .comfy-menu-close::before {
+        content: "" !important;
+        position: absolute !important;
+        z-index: 1 !important;
+        top: 50% !important;
+        left: 50% !important;
+        width: 30px !important;
+        height: 30px !important;
+        border-radius: 50% !important;
+        background-color: transparent !important;
+        box-sizing: border-box !important;
+        transition: background-color 0.2s ease-in-out !important;
+        
+        /* Your exact calibrated optical visual balance */
+        transform: translate(-74.5%, -50%) !important; 
+    }
+
+    /* 4. Trigger the gray coloration ONLY onto our floating background layer on cursor hover */
+    #cm-manager-dialog .p-dialog-header-close:focus-visible::before,
+    #cm-manager-dialog .p-dialog-close:focus-visible::before,
+    #cm-manager-dialog button[class*="-close"]:focus-visible::before,
+    #cm-manager-dialog button[onclick*="close"]:focus-visible::before,
+    .comfy-modal .p-dialog-header-close:focus-visible::before,
+    .comfy-modal .p-dialog-close:focus-visible::before,
+    .comfy-modal button[class*="-close"]:focus-visible::before,
+    .comfy-modal button[onclick*="close"]:focus-visible::before,
+    .comfy-dialog .comfy-menu-close:focus-visible::before,
+    .comfy-dialog button[class*="close"]:focus-visible::before,
+    .comfy-panel .comfy-menu-close:focus-visible::before,
+    .comfy-panel button[class*="close"]:focus-visible::before,
+    div[class*="cn-manager"] button[class*="close"]:focus-visible::before,
+    div[class*="cn-manager"] .comfy-menu-close:focus-visible::before,
+    div[class*="mm-manager"] button[class*="close"]:focus-visible::before,
+    div[class*="mm-manager"] .comfy-menu-close:focus-visible::before {
+        background-color: rgba(255, 255, 255, 0.15) !important;
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75) !important;
+    }
+`;
+document.head.appendChild(customHoverStyle);
+
 export class ModelManager {
 	static instance = null;
 
