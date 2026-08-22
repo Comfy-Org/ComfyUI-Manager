@@ -4,6 +4,76 @@ import { ComfyDialog, $el } from "../../scripts/ui.js";
 import { manager_instance, rebootAPI, show_message, handle403Response, loadCss } from  "./common.js";
 import { buildGuiFrame } from "./comfyui-gui-builder.js";
 
+// =========================================================================
+// PERMANENT FIX FOR SNAPSHOT MANAGER CLOSE BUTTON (LOCAL SOURCE HOOK)
+// =========================================================================
+const snapshotCustomStyle = document.createElement('style');
+snapshotCustomStyle.innerHTML = `
+    /* 1. Clear out the unstyled bounding box and borders on idle */
+    [id*="snapshot"] button[class*="close"],
+    [id*="snapshot"] .p-dialog-header-close,
+    [id*="snapshot"] .comfy-menu-close,
+    .snapshot-dialog button[class*="close"],
+    .snapshot-dialog .comfy-menu-close {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        background-color: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+        position: relative !important;
+        width: 32px !important;
+        height: 32px !important;
+        overflow: visible !important;
+    }
+
+    /* 2. Dead-center the inner font "X" text element inside the layout box */
+    [id*="snapshot"] button[class*="close"] *,
+    [id*="snapshot"] .comfy-menu-close * {
+        position: relative !important;
+        z-index: 2 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        width: auto !important;
+        height: auto !important;
+        line-height: 1 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* 3. Pre-create the hidden circular layer right behind the icon character */
+    [id*="snapshot"] button[class*="close"]::before,
+    [id*="snapshot"] .comfy-menu-close::before {
+        content: "" !important;
+        position: absolute !important;
+        z-index: 1 !important;
+        top: 50% !important;
+        left: 50% !important;
+        width: 30px !important;
+        height: 30px !important;
+        border-radius: 50% !important;
+        background-color: transparent !important;
+        box-sizing: border-box !important;
+        transition: background-color 0.2s ease-in-out !important;
+        
+        /* Applied your verified eye-centered sub-manager ratio alignment lock */
+        transform: translate(-55%, -50%) !important; 
+    }
+
+    /* 4. Trigger the grey circular fill exclusively on cursor hover */
+    [id*="snapshot"] button[class*="close"]:hover::before,
+    [id*="snapshot"] .comfy-menu-close:hover::before {
+        background-color: rgba(255, 255, 255, 0.15) !important;
+    }
+`;
+document.head.appendChild(snapshotCustomStyle);
+
 loadCss("./snapshot.css");
 
 async function restore_snapshot(target) {
