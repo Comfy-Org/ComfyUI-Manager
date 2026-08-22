@@ -25,6 +25,85 @@ import { buildGuiFrame, createSettingsCombo } from "./comfyui-gui-builder.js";
 
 let manager_version = await getVersion();
 
+// =========================================================================
+// HOVER GREY CIRCLE HOOK (INDEPENDENT SEPARATED FLOATING HOVER LAYER)
+// =========================================================================
+const customHoverStyle = document.createElement('style');
+customHoverStyle.innerHTML = `
+    /* 1. Setup the main close button container cleanly */
+    .p-dialog-header-close,
+    .p-dialog-close,
+    button[class*="-close"],
+    #cm-manager-dialog button[onclick*="close"],
+    .comfy-modal button[onclick*="close"] {
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+        background-color: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        box-sizing: border-box !important;
+        position: relative !important;
+        width: 32px !important;
+        height: 32px !important;
+        overflow: visible !important;
+    }
+
+    /* 2. Lock the "X" character itself dead-center using perfect structural text metrics */
+    .p-dialog-header-close *,
+    .p-dialog-close *,
+    button[class*="-close"] * {
+        position: relative !important;
+        z-index: 2 !important; /* Forces the character to always float above the circle background */
+        display: inline-block !important;
+        line-height: 32px !important;
+        height: 32px !important;
+        width: 32px !important;
+        text-align: center !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* 3. Create a clean hidden circular layer right behind the icon character */
+    .p-dialog-header-close::before,
+    .p-dialog-close::before,
+    button[class*="-close"]::before,
+    #cm-manager-dialog button[onclick*="close"]::before,
+    .comfy-modal button[onclick*="close"]::before {
+        content: "" !important;
+        position: absolute !important;
+        z-index: 1 !important;
+        top: 50% !important;
+        left: 50% !important;
+        width: 30px !important;
+        height: 30px !important;
+        border-radius: 50% !important;
+        background-color: transparent !important;
+        box-sizing: border-box !important;
+        transition: background-color 0.2s ease-in-out !important;
+        
+        /* -------------------------------------------------------------
+           OPTICAL ADJUSTMENT SHIFT RULES:
+           Changed from -55% to -74.5% to nudge the circle slightly left!
+           ------------------------------------------------------------- */
+        transform: translate(-74.5%, -50%) !important; 
+    }
+
+    /* 4. Trigger the gray coloration ONLY onto our floating background layer on cursor hover */
+    .p-dialog-header-close:hover::before,
+    .p-dialog-close:hover::before,
+    button[class*="-close"]:hover::before,
+    #cm-manager-dialog button[onclick*="close"]:hover::before,
+    .comfy-modal button[onclick*="close"]:hover::before {
+        background-color: rgba(255, 255, 255, 0.15) !important;
+    }
+`;
+document.head.appendChild(customHoverStyle);
+
 var docStyle = document.createElement('style');
 docStyle.innerHTML = `
 .comfy-toast {
@@ -259,8 +338,11 @@ const style = `
 	width: auto;
 	position: relative;
 	overflow: hidden;
-	background-color: var(--comfy-menu-secondary-bg);
-	border-color: var(--border-color);
+	cursor: pointer;
+	padding: 0.5em 0.5em;
+	border: 1px solid var(--border-color);
+	border-radius: 6px;
+	background: var(--comfy-menu-secondary-bg);
 	color: var(--input-text);
 }
 
@@ -272,6 +354,9 @@ const style = `
 	background-color: #500000 !important;
 	border-color: #88181b !important;
 	color: white !important;
+	width: 100%;
+	padding: 0.5em 0.5em;
+	border-radius: 6px;
 }
 
 .cm-button-red:hover {
