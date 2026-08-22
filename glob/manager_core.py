@@ -2791,11 +2791,31 @@ def lookup_installed_custom_nodes_legacy(repo_name):
 
 def simple_check_custom_node(url):
     dir_name = os.path.splitext(os.path.basename(url))[0].replace(".git", "")
-    dir_path = os.path.join(get_default_custom_nodes_path(), dir_name)
-    if os.path.exists(dir_path):
-        return 'installed'
-    elif os.path.exists(dir_path+'.disabled'):
-        return 'disabled'
+    custom_nodes_path = get_default_custom_nodes_path()
+    normalized_name = dir_name.casefold()
+
+    try:
+        entries = os.listdir(custom_nodes_path)
+    except OSError:
+        return 'not-installed'
+
+    for entry in entries:
+        if entry.casefold() == normalized_name and os.path.isdir(os.path.join(custom_nodes_path, entry)):
+            return 'installed'
+
+    for entry in entries:
+        if entry.casefold() == f'{normalized_name}.disabled' and os.path.isdir(os.path.join(custom_nodes_path, entry)):
+            return 'disabled'
+
+    disabled_path = os.path.join(custom_nodes_path, '.disabled')
+    try:
+        disabled_entries = os.listdir(disabled_path)
+    except OSError:
+        return 'not-installed'
+
+    for entry in disabled_entries:
+        if entry.casefold() == normalized_name and os.path.isdir(os.path.join(disabled_path, entry)):
+            return 'disabled'
 
     return 'not-installed'
 
@@ -2973,27 +2993,7 @@ async def extract_nodes_from_workflow(filepath, mode='local', channel_url='defau
         print(f"Invalid workflow file: {filepath}")
         exit(-1)
 
-    # extract nodes
-    used_nodes = set()
-
-    def extract_nodes(sub_workflow):
-        for x in sub_workflow['nodes']:
-            node_name = x.get('type')
-
-            # skip virtual nodes
-            if node_name in ['Reroute', 'Note']:
-                continue
-
-            if node_name is not None and not (node_name.startswith('workflow/') or node_name.startswith('workflow>')):
-                used_nodes.add(node_name)
-
-    if 'nodes' in workflow:
-        extract_nodes(workflow)
-
-        if 'extra' in workflow:
-            if 'groupNodes' in workflow['extra']:
-                for x in workflow['extra']['groupNodes'].values():
-                    extract_nodes(x)
+    used_nodes = collect_nodes_from_workflow(workflow)
 
     # lookup dependent custom nodes
     ext_map = await get_data_by_mode(mode, 'extension-node-map.json', channel_url)
@@ -3052,6 +3052,52 @@ async def extract_nodes_from_workflow(filepath, mode='local', channel_url='defau
             unknown_nodes.add(node_name)
 
     return used_exts, unknown_nodes
+
+
+def collect_nodes_from_workflow(workflow):
+    used_nodes = set()
+    definitions = workflow.get('definitions', {})
+    subgraphs = definitions.get('subgraphs', []) if isinstance(definitions, dict) else []
+    if isinstance(subgraphs, dict):
+        subgraphs = [dict(subgraph, id=subgraph.get('id', subgraph_id))
+                     for subgraph_id, subgraph in subgraphs.items() if isinstance(subgraph, dict)]
+    elif not isinstance(subgraphs, list):
+        subgraphs = []
+
+    subgraph_ids = {subgraph.get('id') for subgraph in subgraphs if subgraph.get('id') is not None}
+
+    def extract_nodes(sub_workflow):
+        if not isinstance(sub_workflow, dict):
+            return
+
+        for node in sub_workflow.get('nodes', []):
+            add_node(node)
+
+    def add_node(node):
+        if not isinstance(node, dict):
+            return
+
+        node_name = node.get('class_type') or node.get('type')
+        if not isinstance(node_name, str) or node_name in subgraph_ids:
+            return
+
+        if node_name not in ['Reroute', 'Note'] and not (node_name.startswith('workflow/') or node_name.startswith('workflow>')):
+            used_nodes.add(node_name)
+
+    extract_nodes(workflow)
+
+    group_nodes = workflow.get('extra', {}).get('groupNodes', {})
+    if isinstance(group_nodes, dict):
+        for group_node in group_nodes.values():
+            extract_nodes(group_node)
+
+    for subgraph in subgraphs:
+        extract_nodes(subgraph)
+
+    for node in workflow.values():
+        add_node(node)
+
+    return used_nodes
 
 
 def unzip(model_path):
