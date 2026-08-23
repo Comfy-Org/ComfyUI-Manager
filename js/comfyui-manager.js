@@ -32,11 +32,11 @@ const customHoverStyle = document.createElement('style');
 customHoverStyle.innerHTML = `
     /* 1. Setup the main close button container cleanly across all windows */
     #cm-manager-dialog .p-dialog-header-close,
-    #cm-manager-dialog .p-dialog-close-button,
+    #cm-manager-dialog .p-dialog-close,
     #cm-manager-dialog button[class*="-close"],
     #cm-manager-dialog button[onclick*="close"],
     .comfy-modal .p-dialog-header-close,
-    .comfy-modal .p-dialog-close-button,
+    .comfy-modal .p-dialog-close,
     .comfy-modal button[class*="-close"],
     .comfy-modal button[onclick*="close"],
     .comfy-dialog .comfy-menu-close,
@@ -73,10 +73,10 @@ customHoverStyle.innerHTML = `
 
     /* 2. Lock the "X" character itself dead-center using perfect structural text metrics */
     #cm-manager-dialog .p-dialog-header-close *,
-    #cm-manager-dialog .p-dialog-close-button *,
+    #cm-manager-dialog .p-dialog-close *,
     #cm-manager-dialog button[class*="-close"] *,
     .comfy-modal .p-dialog-header-close *,
-    .comfy-modal .p-dialog-close-button *,
+    .comfy-modal .p-dialog-close *,
     .comfy-modal button[class*="-close"] *,
     .comfy-dialog .comfy-menu-close *,
     .comfy-dialog button[class*="close"] *,
@@ -102,11 +102,11 @@ customHoverStyle.innerHTML = `
 
     /* 3. Create a clean hidden circular layer right behind the icon character */
     #cm-manager-dialog .p-dialog-header-close::before,
-    #cm-manager-dialog .p-dialog-close-button::before,
+    #cm-manager-dialog .p-dialog-close::before,
     #cm-manager-dialog button[class*="-close"]::before,
     #cm-manager-dialog button[onclick*="close"]::before,
     .comfy-modal .p-dialog-header-close::before,
-    .comfy-modal .p-dialog-close-button::before,
+    .comfy-modal .p-dialog-close::before,
     .comfy-modal button[class*="-close"]::before,
     .comfy-modal button[onclick*="close"]::before,
     .comfy-dialog .comfy-menu-close::before,
@@ -136,11 +136,11 @@ customHoverStyle.innerHTML = `
 
     /* 4. Trigger the grey circular fill on cursor hover OR keyboard focus */
     #cm-manager-dialog .p-dialog-header-close:hover::before,
-    #cm-manager-dialog .p-dialog-close-button:hover::before,
+    #cm-manager-dialog .p-dialog-close:hover::before,
     #cm-manager-dialog button[class*="-close"]:hover::before,
     #cm-manager-dialog button[onclick*="close"]:hover::before,
     .comfy-modal .p-dialog-header-close:hover::before,
-    .comfy-modal .p-dialog-close-button:hover::before,
+    .comfy-modal .p-dialog-close:hover::before,
     .comfy-modal button[class*="-close"]:hover::before,
     .comfy-modal button[onclick*="close"]:hover::before,
     .comfy-dialog .comfy-menu-close:hover::before,
@@ -156,10 +156,10 @@ customHoverStyle.innerHTML = `
     .comfy-modal button[style*="float: right"]:hover::before,
     
     #cm-manager-dialog .p-dialog-header-close:focus-visible::before,
-    #cm-manager-dialog .p-dialog-close-button:focus-visible::before,
+    #cm-manager-dialog .p-dialog-close:focus-visible::before,
     #cm-manager-dialog button[class*="-close"]:focus-visible::before,
     .comfy-modal .p-dialog-header-close:focus-visible::before,
-    .comfy-modal .p-dialog-close-button:focus-visible::before,
+    .comfy-modal .p-dialog-close:focus-visible::before,
     .comfy-modal button[class*="-close"]:focus-visible::before,
     .comfy-dialog .comfy-menu-close:focus-visible::before,
     .comfy-dialog button[class*="close"]:focus-visible::before,
@@ -171,10 +171,10 @@ customHoverStyle.innerHTML = `
 
     /* 5. Add an accessibility glow ring ONLY during keyboard navigation focus */
     #cm-manager-dialog .p-dialog-header-close:focus-visible::before,
-    #cm-manager-dialog .p-dialog-close-button:focus-visible::before,
+    #cm-manager-dialog .p-dialog-close:focus-visible::before,
     #cm-manager-dialog button[class*="-close"]:focus-visible::before,
     .comfy-modal .p-dialog-header-close:focus-visible::before,
-    .comfy-modal .p-dialog-close-button:focus-visible::before,
+    .comfy-modal .p-dialog-close:focus-visible::before,
     .comfy-modal button[class*="-close"]:focus-visible::before,
     .comfy-dialog .comfy-menu-close:focus-visible::before,
     .comfy-dialog button[class*="close"]:focus-visible::before,
