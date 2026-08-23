@@ -1,6 +1,197 @@
 {
     "custom_nodes": [
         {
+            "author": "fatak98",
+            "title": "Eulerian Motion Fluid Animator",
+            "reference": "https://github.com/Fatak98/ComfyUI-Eulerian-Motion",
+            "files": [
+                "https://github.com/Fatak98/ComfyUI-Eulerian-Motion"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI custom node wrapping Meta AI's Eulerian Motion Fields research model for fluid cinemagraphs."
+        },
+        {
+            "author": "local",
+            "title": "ComfyUI Force Cleanup",
+            "reference": "https://github.com/3289004205/ComfyUI-Force-Cleanup",
+            "files": [
+                "https://github.com/3289004205/ComfyUI-Force-Cleanup"
+            ],
+            "install_type": "git-clone",
+            "description": "Schedule native ComfyUI model and execution-cache cleanup after a prompt."
+        },
+        {
+            "author": "hearmeman24",
+            "title": "Fast Upscale Model - HearmemanAI",
+            "reference": "https://github.com/Hearmeman24/ComfyUI-HearmemanAI-Upscale",
+            "files": [
+                "https://github.com/Hearmeman24/ComfyUI-HearmemanAI-Upscale"
+            ],
+            "install_type": "git-clone",
+            "description": "A fast drop-in replacement for ComfyUI's Upscale Image (using Model). Batches frames, blends tiles on the GPU, and defaults to no tiling."
+        },
+        {
+            "author": "cicalooo",
+            "title": "Krea2-UniDepth",
+            "reference": "https://github.com/cicalooo/ComfyUI-Krea2-UniDepth",
+            "files": [
+                "https://github.com/cicalooo/ComfyUI-Krea2-UniDepth"
+            ],
+            "install_type": "git-clone",
+            "description": "Krea2-UniDepth native functional depth and image-reference conditioning."
+        },
+        {
+            "author": "EternalShade3D",
+            "title": "Aspect Ratio Size Picker",
+            "reference": "https://github.com/EternalShade3D/ComfyUI-AspectRatioSizePicker",
+            "files": [
+                "https://github.com/EternalShade3D/ComfyUI-AspectRatioSizePicker"
+            ],
+            "install_type": "git-clone",
+            "description": "A single, no-nonsense node to pick text-to-image dimensions from an aspect-ratio dropdown, a long-edge slider, and an invert toggle. Outputs width/height (INT) plus an info STRING that previews the resolved size, orientation and common long-edge reference sizes."
+        },
+        {
+            "author": "alexw5702-afk",
+            "title": "Krea 2 AnyPaint",
+            "reference": "https://github.com/alexw5702-afk/krea2-anypaint",
+            "files": [
+                "https://github.com/alexw5702-afk/krea2-anypaint"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI nodes for Krea 2 AnyPaint arbitrary-mask inpainting and outpainting"
+        },
+        {
+            "author": "ketle-man",
+            "title": "Chat TE",
+            "id": "chat-te",
+            "reference": "https://github.com/ketle-man/comfyui-chat-te",
+            "files": [
+                "https://github.com/ketle-man/comfyui-chat-te"
+            ],
+            "install_type": "git-clone",
+            "description": "Chat with an already-loaded Qwen2.5-VL / Qwen3-VL text encoder instead of loading a separate LLM -- multi-turn, vision-capable chat sharing the same VRAM. Exposes both a sidebar panel and an OpenAI-compatible /v1/chat/completions endpoint."
+        },
+        {
+            "author": "Tutu",
+            "title": "ComfyUI-TutuKrea2T-Enhancer",
+            "reference": "https://github.com/zhaotututu/ComfyUI-TutuKrea2T-Enhancer",
+            "files": [
+                "https://github.com/zhaotututu/ComfyUI-TutuKrea2T-Enhancer"
+            ],
+            "install_type": "git-clone",
+            "description": "Tutu-maintained Krea2 Turbo prompt-adherence enhancer for ComfyUI"
+        },
+        {
+            "author": "lokitsar",
+            "title": "Krea2 Multi-LoRA Composer",
+            "reference": "https://github.com/lokitsar/ComfyUI-Krea2-MultiLoRA-Composer",
+            "files": [
+                "https://github.com/lokitsar/ComfyUI-Krea2-MultiLoRA-Composer"
+            ],
+            "install_type": "git-clone",
+            "description": "Token-aware spatial Multi-LoRA composition and transparent supersampling for Krea 2 in ComfyUI."
+        },
+        {
+            "author": "tritant",
+            "title": "ModelMerge Krea 2 + Quant (INT8/INT4)",
+            "reference": "https://github.com/tritant/ComfyUI_Krea2_ModelMerger_Converter_int8_int4",
+            "files": [
+                "https://github.com/tritant/ComfyUI_Krea2_ModelMerger_Converter_int8_int4"
+            ],
+            "install_type": "git-clone",
+            "description": "This node lets you merge two full Krea 2 bf16 models and up to three LoRAs and quantize to int8/int4"
+        },
+        {
+            "author": "Burgstall-labs",
+            "title": "ComfyUI-SAM3D-BodyMod",
+            "reference": "https://github.com/Burgstall-labs/ComfyUI-SAM3D-BodyMod",
+            "files": [
+                "https://github.com/Burgstall-labs/ComfyUI-SAM3D-BodyMod"
+            ],
+            "install_type": "git-clone",
+            "description": "Fit, stylize, transfer, and camera-drive SAM3D Body MHR pose data in ComfyUI."
+        },
+        {
+            "author": "lvquan",
+            "title": "CS Hybrid 4K Image-to-Video",
+            "reference": "https://github.com/lvqunx/comfyui-cs-hybrid",
+            "files": [
+                "https://github.com/lvqunx/comfyui-cs-hybrid"
+            ],
+            "install_type": "git-clone",
+            "description": "Compressed-sensing hybrid 4K image-to-video: RAFT flow transfer, dual-channel Laplacian recompose, CS tile scheduler, keyframe refresh helpers."
+        },
+        {
+            "author": "redwing",
+            "title": "ComfyUI-StringKit",
+            "reference": "https://github.com/luku756/ComfyUI-StringKit",
+            "files": [
+                "https://github.com/luku756/ComfyUI-StringKit"
+            ],
+            "install_type": "git-clone",
+            "description": "String utility nodes for ComfyUI: attach titles to prompts, loop them through your workflow, assemble save paths, and derive a distinct seed per image."
+        },
+        {
+            "author": "artfat-creator",
+            "title": "Artfat Resolution",
+            "reference": "https://github.com/artfat-creator/ComfyUI-Artfat-Resolution",
+            "files": [
+                "https://github.com/artfat-creator/ComfyUI-Artfat-Resolution"
+            ],
+            "install_type": "git-clone",
+            "description": "Resolution picker for low-base + upscale workflows: preset sizes, custom ratio or exact manual W×H, two upscale stages (base → mid → final), plus an empty LATENT and a live readout. Built for Krea 2 / Selfism."
+        },
+        {
+            "author": "Latentnaut",
+            "title": "comfyui-311-inpaint",
+            "reference": "https://github.com/Latentnaut/ComfyUI-311-Inpaint",
+            "files": [
+                "https://github.com/Latentnaut/ComfyUI-311-Inpaint"
+            ],
+            "install_type": "git-clone",
+            "description": "Inpaint helper nodes for ComfyUI (311 series). First node: Add Margins — pad an image and its mask with extra width/height, centered on a configurable fill color."
+        },
+        {
+            "author": "aoiro0x0",
+            "title": "Interval Timer",
+            "reference": "https://github.com/aoiro0X0/ComfyUI-Interval-Timer",
+            "files": [
+                "https://github.com/aoiro0X0/ComfyUI-Interval-Timer"
+            ],
+            "install_type": "git-clone",
+            "description": "Measure the combined wall-clock time of a section of ComfyUI nodes."
+        },
+        {
+            "author": "kasunmalinda",
+            "title": "ComfyUI-KM-VideoReview",
+            "reference": "https://github.com/KasunMalinda/ComfyUI-KM-VideoReview",
+            "files": [
+                "https://github.com/KasunMalinda/ComfyUI-KM-VideoReview"
+            ],
+            "install_type": "git-clone",
+            "description": "RV-style interactive A/B video review player node for ComfyUI - wipe, side-by-side, difference, frame-accurate transport"
+        },
+        {
+            "author": "sparknight",
+            "title": "Lazy Fallback Switch",
+            "reference": "https://github.com/SparknightLLC/ComfyUI-LazyFallbackSwitch",
+            "files": [
+                "https://github.com/SparknightLLC/ComfyUI-LazyFallbackSwitch"
+            ],
+            "install_type": "git-clone",
+            "description": "Lazy indexed switches with a default route for ComfyUI."
+        },
+        {
+            "author": "wcde",
+            "title": "Ideogram 4 VAE Coordinate Bridge",
+            "reference": "https://github.com/wcde/ComfyUI-Ideogram4-VAE-Coordinate-Bridge",
+            "files": [
+                "https://github.com/wcde/ComfyUI-Ideogram4-VAE-Coordinate-Bridge"
+            ],
+            "install_type": "git-clone",
+            "description": "A standalone ComfyUI node that bridges Ideogram 4 model latents to the connected Flux.2 VAE normalization."
+        },
+        {
             "author": "DenRakEiw",
             "title": "ComfyGotchi",
             "reference": "https://github.com/DenRakEiw/ComfyGotchi",
@@ -30,17 +221,6 @@
             ],
             "install_type": "git-clone",
             "description": "A ComfyUI custom node pack for image captioning and text generation with ToriiGate-0.5, a fine-tuned Qwen3.5-4B model."
-        },
-        {
-            "author": "mickmumpitz",
-            "title": "ComfyUI-SplatKit",
-            "id": "splatkit",
-            "reference": "https://github.com/mickmumpitz/ComfyUI-SplatKit",
-            "files": [
-                "https://github.com/mickmumpitz/ComfyUI-SplatKit"
-            ],
-            "install_type": "git-clone",
-            "description": "Build 3D Gaussian Splat training datasets from a single 360 panorama, inside ComfyUI."
         },
         {
             "author": "Andy294753951",
