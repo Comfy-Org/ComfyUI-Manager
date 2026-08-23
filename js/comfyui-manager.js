@@ -26,11 +26,11 @@ import { buildGuiFrame, createSettingsCombo } from "./comfyui-gui-builder.js";
 let manager_version = await getVersion();
 
 // =========================================================================
-// HOVER GREY CIRCLE HOOK (GLOBAL - WITH FIXED KEYBOARD FOCUS SUPPORT)
+// HOVER & KEYBOARD ACCESSIBILITY GLOW RING HOOK (GLOBAL CORE SHIELD)
 // =========================================================================
 const customHoverStyle = document.createElement('style');
 customHoverStyle.innerHTML = `
-    /* 1. Setup the main close button container cleanly across all modules */
+    /* 1. Setup the main close button container cleanly across all windows */
     #cm-manager-dialog .p-dialog-header-close,
     #cm-manager-dialog .p-dialog-close,
     #cm-manager-dialog button[class*="-close"],
@@ -43,18 +43,17 @@ customHoverStyle.innerHTML = `
     .comfy-dialog button[class*="close"],
     .comfy-panel .comfy-menu-close,
     .comfy-panel button[class*="close"],
-    
-    /* CUSTOM-NODES-MANAGER SELECTORS */
     div[class*="cn-manager"] button[class*="close"],
     div[class*="cn-manager"] .comfy-menu-close,
     .cn-manager-dialog button[class*="close"],
     .cn-manager-dialog .comfy-menu-close,
-    
-    /* MODEL-MANAGER SELECTORS */
     div[class*="mm-manager"] button[class*="close"],
     div[class*="mm-manager"] .comfy-menu-close,
     .mm-manager-dialog button[class*="close"],
-    .mm-manager-dialog .comfy-menu-close {
+    .mm-manager-dialog .comfy-menu-close,
+    .comfy-modal div[style*="position: fixed"] button,
+    .comfy-modal div button[style*="float: right"],
+    .comfy-modal button[style*="float: right"] {
         border: none !important;
         outline: none !important;
         box-shadow: none !important;
@@ -86,7 +85,10 @@ customHoverStyle.innerHTML = `
     div[class*="cn-manager"] button[class*="close"] *,
     div[class*="cn-manager"] .comfy-menu-close *,
     div[class*="mm-manager"] button[class*="close"] *,
-    div[class*="mm-manager"] .comfy-menu-close * {
+    div[class*="mm-manager"] .comfy-menu-close *,
+    .comfy-modal div[style*="position: fixed"] button *,
+    .comfy-modal div button[style*="float: right"] *,
+    .comfy-modal button[style*="float: right"] * {
         position: relative !important;
         z-index: 2 !important;
         display: inline-block !important;
@@ -114,7 +116,10 @@ customHoverStyle.innerHTML = `
     div[class*="cn-manager"] button[class*="close"]::before,
     div[class*="cn-manager"] .comfy-menu-close::before,
     div[class*="mm-manager"] button[class*="close"]::before,
-    div[class*="mm-manager"] .comfy-menu-close::before {
+    div[class*="mm-manager"] .comfy-menu-close::before,
+    .comfy-modal div[style*="position: fixed"] button::before,
+    .comfy-modal div button[style*="float: right"]::before,
+    .comfy-modal button[style*="float: right"]::before {
         content: "" !important;
         position: absolute !important;
         z-index: 1 !important;
@@ -125,11 +130,11 @@ customHoverStyle.innerHTML = `
         border-radius: 50% !important;
         background-color: transparent !important;
         box-sizing: border-box !important;
-        transition: background-color 0.2s ease-in-out !important;
+        transition: background-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out !important;
         transform: translate(-74.5%, -50%) !important; 
     }
 
-    /* 4. Trigger the gray coloration ONLY onto our floating background layer on cursor hover */
+    /* 4. Trigger the grey circular fill on cursor hover OR keyboard focus */
     #cm-manager-dialog .p-dialog-header-close:hover::before,
     #cm-manager-dialog .p-dialog-close:hover::before,
     #cm-manager-dialog button[class*="-close"]:hover::before,
@@ -145,28 +150,37 @@ customHoverStyle.innerHTML = `
     div[class*="cn-manager"] button[class*="close"]:hover::before,
     div[class*="cn-manager"] .comfy-menu-close:hover::before,
     div[class*="mm-manager"] button[class*="close"]:hover::before,
-    div[class*="mm-manager"] .comfy-menu-close:hover::before {
-        background-color: rgba(255, 255, 255, 0.15) !important;
-    }
-
-    /* 5. Show the same close-button layer during keyboard focus (FIXED WITHOUT BROKEN BACKTICKS) */
+    div[class*="mm-manager"] .comfy-menu-close:hover::before,
+    .comfy-modal div[style*="position: fixed"] button:hover::before,
+    .comfy-modal div button[style*="float: right"]:hover::before,
+    .comfy-modal button[style*="float: right"]:hover::before,
+    
     #cm-manager-dialog .p-dialog-header-close:focus-visible::before,
     #cm-manager-dialog .p-dialog-close:focus-visible::before,
     #cm-manager-dialog button[class*="-close"]:focus-visible::before,
-    #cm-manager-dialog button[onclick*="close"]:focus-visible::before,
     .comfy-modal .p-dialog-header-close:focus-visible::before,
     .comfy-modal .p-dialog-close:focus-visible::before,
     .comfy-modal button[class*="-close"]:focus-visible::before,
-    .comfy-modal button[onclick*="close"]:focus-visible::before,
     .comfy-dialog .comfy-menu-close:focus-visible::before,
     .comfy-dialog button[class*="close"]:focus-visible::before,
-    .comfy-panel .comfy-menu-close:focus-visible::before,
-    .comfy-panel button[class*="close"]:focus-visible::before,
-    div[class*="cn-manager"] button[class*="close"]:focus-visible::before,
-    div[class*="cn-manager"] .comfy-menu-close:focus-visible::before,
-    div[class*="mm-manager"] button[class*="close"]:focus-visible::before,
-    div[class*="mm-manager"] .comfy-menu-close:focus-visible::before {
+    div[class*="cn-manager"] button:focus-visible::before,
+    div[class*="mm-manager"] button:focus-visible::before,
+    .comfy-modal button[style*="float: right"]:focus-visible::before {
         background-color: rgba(255, 255, 255, 0.15) !important;
+    }
+
+    /* 5. Add an accessibility glow ring ONLY during keyboard navigation focus */
+    #cm-manager-dialog .p-dialog-header-close:focus-visible::before,
+    #cm-manager-dialog .p-dialog-close:focus-visible::before,
+    #cm-manager-dialog button[class*="-close"]:focus-visible::before,
+    .comfy-modal .p-dialog-header-close:focus-visible::before,
+    .comfy-modal .p-dialog-close:focus-visible::before,
+    .comfy-modal button[class*="-close"]:focus-visible::before,
+    .comfy-dialog .comfy-menu-close:focus-visible::before,
+    .comfy-dialog button[class*="close"]:focus-visible::before,
+    div[class*="cn-manager"] button:focus-visible::before,
+    div[class*="mm-manager"] button:focus-visible::before,
+    .comfy-modal button[style*="float: right"]:focus-visible::before {
         box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75) !important;
     }
 `;
