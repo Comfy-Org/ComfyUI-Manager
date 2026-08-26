@@ -1467,7 +1467,7 @@ export class CustomNodesManager {
 			});
 
 			if (res.status != 200) {
-				errorMsg = `'${item.title}': `;
+				errorMsg = `'${sanitizeHTML(String(item.title))}': `;
 
 				if(res.status == 403) {
 					try {
@@ -1480,10 +1480,8 @@ export class CustomNodesManager {
 					} catch {
 						errorMsg += `This action is not allowed with this security level configuration.\n`;
 					}
-				} else if(res.status == 404) {
-					errorMsg += `With the current security level configuration, only custom nodes from the <B>"default channel"</B> can be installed.\n`;
 				} else {
-					errorMsg += await res.text() + '\n';
+					errorMsg += sanitizeHTML(await res.text()) + '\n';
 				}
 
 				break;

@@ -235,7 +235,7 @@ export async function install_pip(packages) {
 	});
 
 	if(res.status == 403) {
-		await handle403Response(res, "To use this feature, set 'allow_pip_install = true' in config.ini ([default] section), then restart ComfyUI (the config is read once at startup). This setting is independent of security_level.");
+		await handle403Response(res, "To use this feature you need BOTH: (1) 'allow_pip_install = true' in config.ini ([default] section), AND (2) ComfyUI launched with a loopback --listen (127.0.0.1 or ::1). Both values are read once at ComfyUI startup, so changing either one needs a restart, done with the server down: stop ComfyUI, change the setting, then start it again.");
 		return;
 	}
 
@@ -271,7 +271,7 @@ export async function install_via_git_url(url, manager_dialog) {
 	});
 
 	if(res.status == 403) {
-		await handle403Response(res, "To use this feature, set 'allow_git_url_install = true' in config.ini ([default] section), then restart ComfyUI (the config is read once at startup). This setting is independent of security_level.");
+		await handle403Response(res, "To use this feature you need BOTH: (1) 'allow_git_url_install = true' in config.ini ([default] section), AND (2) ComfyUI launched with a loopback --listen (127.0.0.1 or ::1). Both values are read once at ComfyUI startup, so changing either one needs a restart, done with the server down: stop ComfyUI, change the setting, then start it again.");
 		return;
 	}
 
@@ -659,14 +659,12 @@ export async function uninstallNodes(nodeList, options = {}) {
 		});
 
 		if (res.status != 200) {
-			errorMsg = `'${nodeItem.title || nodeItem.name}': `;
+			errorMsg = `'${sanitizeHTML(String(nodeItem.title || nodeItem.name))}': `;
 
 			if (res.status == 403) {
 				errorMsg += `This action is not allowed with this security level configuration.\n`;
-			} else if (res.status == 404) {
-				errorMsg += `With the current security level configuration, only custom nodes from the <B>"default channel"</B> can be uninstalled.\n`;
 			} else {
-				errorMsg += await res.text() + '\n';
+				errorMsg += sanitizeHTML(await res.text()) + '\n';
 			}
 
 			break;

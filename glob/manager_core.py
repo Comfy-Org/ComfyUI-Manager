@@ -1679,34 +1679,146 @@ class ManagerFuncs:
 manager_funcs = ManagerFuncs()
 
 
+#: The keys `write_config()` owns in `config.ini`'s `[default]` section.
+#: Anything else in the file - other keys, other sections - is hand-maintained
+#: content that this function must carry through untouched.
+#: `preview_method` is the one key that is NOT snapshot-backed: it is always
+#: written from the live `manager_funcs.get_current_preview_method()`.
+WRITTEN_CONFIG_KEYS = (
+    'preview_method',
+    'git_exe',
+    'use_uv',
+    'channel_url',
+    'share_option',
+    'bypass_ssl',
+    'file_logging',
+    'component_policy',
+    'update_policy',
+    'windows_selector_event_loop_policy',
+    'model_download_by_agent',
+    'downgrade_blacklist',
+    'security_level',
+    'always_lazy_install',
+    'network_mode',
+    'db_mode',
+    'allow_git_url_install',
+    'allow_pip_install',
+)
+
+
+class DirtyTrackingConfig(dict):
+    """Config mapping that records which keys were changed after it was built.
+
+    `write_config()` must persist ONLY the setting a caller actually changed,
+    otherwise it re-writes the other keys from the process-lifetime startup
+    snapshot and silently reverts whatever the user hand-edited in the
+    meantime. Every settings caller mutates the cached config the same way -
+    a subscript assignment such as `get_config()['db_mode'] = mode` - so
+    recording `__setitem__` is what makes "only what changed" knowable.
+    `update()` is covered too, so a future caller written that way cannot
+    lose its change silently.
+
+    The wrapper is applied in `get_config()` AFTER `read_config()` has
+    returned, and that ordering is load-bearing:
+    `manager_migration.force_security_level_if_needed()` mutates the config
+    through a parameter alias from inside BOTH `read_config()` branches. If
+    that mutation were recorded, `security_level` would be dirty before the
+    user does anything, and every write would push the forced value over the
+    user's on-disk one - the exact clobber this tracking exists to remove.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dirty_keys = set()
+
+    def __setitem__(self, key, value):
+        self.dirty_keys.add(key)
+        super().__setitem__(key, value)
+
+    def update(self, *args, **kwargs):
+        incoming = dict(*args, **kwargs)
+        self.dirty_keys.update(incoming)
+        super().update(incoming)
+
+
 def write_config():
+    """Persist changed Manager settings without clobbering the rest of the file.
+
+    The write starts from what is CURRENTLY on disk and overlays only the keys
+    a caller actually changed (tracked by `DirtyTrackingConfig`) plus the live
+    `preview_method`. Consequences, in the order users notice them:
+
+      - a value hand-edited while the server is up is no longer reverted by an
+        unrelated settings change;
+      - keys this function does not own (`http_channel_enabled`,
+        `default_cache_as_channel_url`, anything a user added) survive;
+      - sections other than `[default]` survive.
+
+    Reads still come from the startup snapshot until the process restarts, so
+    the "stop -> edit -> start" advice in the install-denial messages stays
+    correct; what changes is that the edit is no longer destroyed in between.
+    """
     config = configparser.ConfigParser(strict=False)
+    try:
+        loaded = config.read(manager_config_path)
+    except Exception as e:
+        # An unparsable config.ini must not make a settings change raise. Fall
+        # back to the pre-merge behaviour and rewrite the file from scratch.
+        print(f"[ComfyUI-Manager] Warning: '{manager_config_path}' could not be parsed ({e}); rewriting it from the current settings.")
+        config = configparser.ConfigParser(strict=False)
+    else:
+        # `read()` opens each filename inside its own `try/except OSError` and
+        # SKIPS the ones it could not open, so a file that exists but denies
+        # reads comes back as a normal return with an EMPTY parser - not as the
+        # exception handled above. Merging from that parser would find no
+        # `[default]`, fall into the bootstrap branch below, and rewrite the
+        # file from defaults: every foreign key and every other section gone,
+        # with the settings change still reporting success.
+        #
+        # A write that cannot see the current contents has nothing to merge
+        # onto, so refuse it and leave the file alone. The caller surfaces the
+        # error (the settings endpoint answers 500), which is what the same
+        # permission problem already does when writes are denied too.
+        if not loaded and os.path.exists(manager_config_path):
+            raise OSError(f"'{manager_config_path}' exists but could not be read; refusing to overwrite it with default settings. Fix the file's permissions, then retry.")
 
-    config['default'] = {
-        'preview_method': manager_funcs.get_current_preview_method(),
-        'git_exe': get_config()['git_exe'],
-        'use_uv': get_config()['use_uv'],
-        'channel_url': get_config()['channel_url'],
-        'share_option': get_config()['share_option'],
-        'bypass_ssl': get_config()['bypass_ssl'],
-        "file_logging": get_config()['file_logging'],
-        'component_policy': get_config()['component_policy'],
-        'update_policy': get_config()['update_policy'],
-        'windows_selector_event_loop_policy': get_config()['windows_selector_event_loop_policy'],
-        'model_download_by_agent': get_config()['model_download_by_agent'],
-        'downgrade_blacklist': get_config()['downgrade_blacklist'],
-        'security_level': get_config()['security_level'],
-        'always_lazy_install': get_config()['always_lazy_install'],
-        'network_mode': get_config()['network_mode'],
-        'db_mode': get_config()['db_mode'],
-        'allow_git_url_install': get_config()['allow_git_url_install'],
-        'allow_pip_install': get_config()['allow_pip_install'],
-    }
+    cached = get_config()
 
-    # Sanitize all string values to prevent CRLF injection attacks
-    for key, value in config['default'].items():
-        if isinstance(value, str):
-            config['default'][key] = value.replace('\r', '').replace('\n', '').replace('\x00', '')
+    if config.has_section('default'):
+        # Ordinary settings change: persist only what this caller changed.
+        # The `getattr` fallback covers a `cached_config` that is a plain dict
+        # (nothing in this tree does that - it is here so a caller that
+        # bypasses get_config() degrades to the old full rewrite rather than
+        # writing nothing at all).
+        changed_keys = getattr(cached, 'dirty_keys', set(WRITTEN_CONFIG_KEYS))
+        # Intersecting with WRITTEN_CONFIG_KEYS means a key this function does
+        # not own is NOT persisted even when a caller dirties it - unchanged
+        # from before, since those keys were never written either. Two such
+        # keys are live in the config today (`http_channel_enabled`,
+        # `default_cache_as_channel_url`): an endpoint that wants to persist
+        # one must add it to WRITTEN_CONFIG_KEYS, or the write will silently
+        # do nothing.
+        keys = [key for key in WRITTEN_CONFIG_KEYS if key in changed_keys]
+    else:
+        # Bootstrap: no `[default]` on disk (fresh install - the caller at
+        # manager_server.py:2098 is guarded by `if not os.path.exists`), or a
+        # file that could not be parsed. Seed the full default set.
+        config['default'] = {}
+        keys = list(WRITTEN_CONFIG_KEYS)
+
+    updates = {key: cached[key] for key in keys}
+    # `preview_method` is written on EVERY write, from the live value rather
+    # than from disk - it is the one setting the running process, not the
+    # file, is authoritative for. So it is also the one key a hand edit does
+    # not survive; that is unchanged behaviour, not a gap in the merge.
+    updates['preview_method'] = manager_funcs.get_current_preview_method()
+
+    section = config['default']
+    for key, value in updates.items():
+        # Sanitize to prevent CRLF injection. Applied to the values written
+        # here; values already on disk are carried through verbatim, so the
+        # merge cannot corrupt hand-maintained content.
+        section[key] = str(value).replace('\r', '').replace('\n', '').replace('\x00', '')
 
     directory = os.path.dirname(manager_config_path)
     if not os.path.exists(directory):
@@ -1714,6 +1826,22 @@ def write_config():
 
     with open(manager_config_path, 'w') as configfile:
         config.write(configfile)
+
+    # The write succeeded, so these keys now MATCH the file and are no longer
+    # pending changes. Without this the set is add-only: a key the user once
+    # changed through the UI stays dirty for the life of the process, and the
+    # next unrelated write overlays its stale cached value back over whatever
+    # the user has hand-edited since - the same clobber this function exists to
+    # remove, just deferred by one settings change.
+    #
+    # Discard exactly the keys THIS write persisted, never the whole set: a
+    # caller may have dirtied a key that was not selected here - one this
+    # function does not own, and therefore one it never persists at all (the
+    # WRITTEN_CONFIG_KEYS note above). That marker is not this write's to
+    # drop; `clear()` would lose it. The hasattr guard mirrors the `getattr`
+    # above, for a cache that is a plain dict.
+    if hasattr(cached, 'dirty_keys'):
+        cached.dirty_keys.difference_update(keys)
 
 
 def read_config():
@@ -1789,7 +1917,11 @@ def get_config():
     global cached_config
 
     if cached_config is None:
-        cached_config = read_config()
+        # Wrapped HERE, after read_config() has returned: the migration hook it
+        # calls internally mutates the config through a parameter alias, and
+        # that mutation must NOT count as a user change (see
+        # DirtyTrackingConfig).
+        cached_config = DirtyTrackingConfig(read_config())
         if cached_config['http_channel_enabled']:
             print("[ComfyUI-Manager] Warning: http channel enabled, make sure server in secure env")
 

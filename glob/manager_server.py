@@ -33,12 +33,13 @@ logging.info("[ComfyUI-Manager] network_mode: " + core.get_config()['network_mod
 comfy_ui_hash = "-"
 comfyui_tag = None
 
-SECURITY_MESSAGE_MIDDLE_OR_BELOW = "ERROR: To use this action, a security_level of `middle or below` is required. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_MIDDLE_OR_BELOW = "ERROR: To use this action, security_level must be any value other than 'strong' (allowed: normal, normal-, weak). security_level is read once at ComfyUI startup, so changing it needs a restart, done with the server down: STOP ComfyUI, edit config.ini, then start it again. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_NORMAL_MINUS = "ERROR: To use this feature, you must either set '--listen' to a local IP and set the security level to 'normal-' or lower, or set the security level to 'middle' or 'weak'. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_GENERAL = "ERROR: This installation is not allowed in this security_level. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
-SECURITY_MESSAGE_NORMAL_MINUS_MODEL = "ERROR: Downloading models that are not in '.safetensors' format is only allowed for models registered in the 'default' channel at this security level. If you want to download this model, set the security level to 'normal-' or lower."
-SECURITY_MESSAGE_FLAG_GIT_URL = "ERROR: This action requires 'allow_git_url_install = true' in config.ini ([default] section). This setting is independent of security_level. Reference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
-SECURITY_MESSAGE_FLAG_PIP = "ERROR: This action requires 'allow_pip_install = true' in config.ini ([default] section). This setting is independent of security_level. Reference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_NORMAL_MINUS_MODEL = "ERROR: Downloading models not in '.safetensors' format is only allowed for models registered in the 'default' channel at this security level. To download this model, set security_level to 'weak' - or to 'normal-' if ComfyUI is listening on a loopback address (--listen 127.0.0.1 or ::1). Both security_level and the listen address are read once at ComfyUI startup, so changing either needs a restart, done with the server down: stop ComfyUI, edit config.ini, then start it again."
+SECURITY_MESSAGE_FLAG_GIT_URL = "ERROR: This action requires BOTH: (1) 'allow_git_url_install = true' in config.ini ([default] section), AND (2) ComfyUI launched with a loopback --listen (127.0.0.1 or ::1) - currently listening on {listen}. BOTH values are read once at ComfyUI startup, so changing either one needs a restart, done with the server down: STOP ComfyUI, change the setting, then start it again. Both are independent of security_level. Reference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_FLAG_PIP = "ERROR: This action requires BOTH: (1) 'allow_pip_install = true' in config.ini ([default] section), AND (2) ComfyUI launched with a loopback --listen (127.0.0.1 or ::1) - currently listening on {listen}. BOTH values are read once at ComfyUI startup, so changing either one needs a restart, done with the server down: STOP ComfyUI, change the setting, then start it again. Both are independent of security_level. Reference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_BLOCKED_RISK = "ERROR: This node pack is classified as blocked-risk and cannot be installed at any security_level. This is not a configuration problem - contact the administrator if you believe the classification is wrong.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 
 routes = PromptServer.instance.routes
 
@@ -1494,12 +1495,12 @@ async def install_custom_node(request):
         # term is load-bearing here — the 'middle' entry gate above has
         # no network-position term.
         if not is_dedicated_install_allowed(core.get_config()['allow_git_url_install'], args.listen):
-            logging.error(SECURITY_MESSAGE_FLAG_GIT_URL)
+            logging.error(SECURITY_MESSAGE_FLAG_GIT_URL.format(listen=args.listen))
             return web.Response(status=404, text="A security error has occurred. Please check the terminal logs")
     elif not is_allowed_security_level(risky_level):
         # 'block' arm stays an unconditional deny (is_allowed_security_level
         # returns False for 'block'); 'middle'/'low' arms unchanged.
-        logging.error(SECURITY_MESSAGE_GENERAL)
+        logging.error(SECURITY_MESSAGE_BLOCKED_RISK)
         return web.Response(status=404, text="A security error has occurred. Please check the terminal logs")
 
     install_item = json_data.get('ui_id'), node_spec_str, json_data['channel'], json_data['mode'], skip_post_install
@@ -1556,7 +1557,7 @@ async def fix_custom_node(request):
 @routes.post("/customnode/install/git_url")
 async def install_custom_node_git_url(request):
     if not is_dedicated_install_allowed(core.get_config()['allow_git_url_install'], args.listen):
-        logging.error(SECURITY_MESSAGE_FLAG_GIT_URL)
+        logging.error(SECURITY_MESSAGE_FLAG_GIT_URL.format(listen=args.listen))
         return security_403_response(flag_token='allow_git_url_install')
 
     # Read the body as JSON (not raw text): a cross-origin <form method=POST>
@@ -1586,7 +1587,7 @@ async def install_custom_node_git_url(request):
 @routes.post("/customnode/install/pip")
 async def install_custom_node_pip(request):
     if not is_dedicated_install_allowed(core.get_config()['allow_pip_install'], args.listen):
-        logging.error(SECURITY_MESSAGE_FLAG_PIP)
+        logging.error(SECURITY_MESSAGE_FLAG_PIP.format(listen=args.listen))
         return security_403_response(flag_token='allow_pip_install')
 
     # JSON body (not raw text) for the same preflight-forcing reason as
