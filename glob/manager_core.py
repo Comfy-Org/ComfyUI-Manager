@@ -3479,13 +3479,24 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
         if x in git_info:
             del git_info[x]
 
-    for repo_url in git_info.keys():
+    for repo_url, repo_info in git_info.items():
         repo_name = os.path.basename(repo_url)
         if repo_name.endswith('.git'):
             repo_name = repo_name[:-4]
 
         to_path = os.path.join(get_default_custom_nodes_path(), repo_name)
-        unified_manager.repo_install(repo_url, to_path, instant_execution=True, no_deps=False, return_postinstall=False)
+        res = unified_manager.repo_install(repo_url, to_path, instant_execution=True, no_deps=False, return_postinstall=False)
+        if not res.result:
+            print(f"[ComfyUI-Manager] Failed to restore '{repo_url}': {res.msg}")
+            failed.append(repo_name)
+            continue
+
+        commit_hash = repo_info.get('hash')
+        if commit_hash and repo_switch_commit(to_path, commit_hash) is None:
+            print(f"[ComfyUI-Manager] Failed to check out '{commit_hash}' for '{repo_url}'")
+            failed.append(f"{repo_name}@{commit_hash}")
+            continue
+
         cloned_repos.append(repo_name)
 
     manager_util.restore_pip_snapshot(pips, git_helper_extras)
