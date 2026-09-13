@@ -109,7 +109,14 @@ class StrictVersion:
         self.parse_version_string()
 
     def parse_version_string(self):
-        parts = self.version_string.split('.')
+        # Handle semver pre-release suffix: "1.2.3-beta.1" → core="1.2.3", pre="beta.1"
+        core = self.version_string
+        if '-' in core:
+            dash_pos = core.index('-')
+            self.pre_release = core[dash_pos + 1:]
+            core = core[:dash_pos]
+
+        parts = core.split('.')
         if not parts:
             raise ValueError("Version string must not be empty")
 
@@ -117,8 +124,8 @@ class StrictVersion:
         self.minor = int(parts[1]) if len(parts) > 1 else 0
         self.patch = int(parts[2]) if len(parts) > 2 else 0
 
-        # Handling pre-release versions if present
-        if len(parts) > 3:
+        # Also handle legacy 4-part dot notation: "1.2.3.beta1"
+        if self.pre_release is None and len(parts) > 3:
             self.pre_release = parts[3]
 
     def __str__(self):
