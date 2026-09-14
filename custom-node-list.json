@@ -1,6 +1,17 @@
 {
     "custom_nodes": [
         {
+            "author": "maosika-ai",
+            "title": "ComfyUI-ReShot",
+            "id": "reshot",
+            "reference": "https://github.com/maosika-ai/ComfyUI-ReShot",
+            "files": [
+                "https://github.com/maosika-ai/ComfyUI-ReShot"
+            ],
+            "install_type": "git-clone",
+            "description": "Copy the shot, not the actors: reference video → depth map, OpenPose skeleton (DWPose, tracked and smoothed) or canny line video for Seedance 2.0/2.5 reference video, MiniMax H3 Fun ControlNet (depth / pose / canny) and Wan VACE. Six nodes: Depth / Pose / Canny as IMAGE→IMAGE and VIDEO→VIDEO with the model presets (fps, frame-size multiples) applied. Apache-2.0."
+        },
+        {
             "author": "Carasibana",
             "title": "ComfyUI-SimpleFloatSlider",
             "reference": "https://github.com/Carasibana/ComfyUI-SimplayboyleFloatSlider",
