@@ -641,7 +641,7 @@ export async function uninstallNodes(nodeList, options = {}) {
 	let errorMsg = "";
 	let target_items = [];
 
-	await api.fetchApi('/manager/queue/reset');
+	await api.fetchApi('/manager/queue/reset', { method: 'POST' });
 
 	for (const nodeItem of nodeList) {
 		target_items.push(nodeItem);
@@ -676,7 +676,16 @@ export async function uninstallNodes(nodeList, options = {}) {
 		show_message("[Uninstall Errors]\n" + errorMsg);
 		return { success: false, error: errorMsg, targets: target_items };
 	} else {
-		await api.fetchApi('/manager/queue/start');
+		// the queue endpoints are POST-only - a GET here silently fails to start the
+		// worker, leaving every queued uninstall sitting untouched in the queue
+		const startRes = await api.fetchApi('/manager/queue/start', { method: 'POST' });
+		if (startRes.status != 200) {
+			errorMsg = `Couldn't start the uninstall queue (HTTP ${startRes.status}). Nothing was uninstalled.\n`;
+			onError(errorMsg);
+			show_message("[Uninstall Errors]\n" + errorMsg);
+			return { success: false, error: errorMsg, targets: target_items };
+		}
+
 		onSuccess(target_items);
 		showTerminal();
 		return { success: true, targets: target_items };
