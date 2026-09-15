@@ -899,6 +899,11 @@ def collect_node_types_in_graph(graph, subgraph_definitions, node_set, workflow_
         else:
             for property_key in ["cnr_id", "ver"]:
                 if property_key in properties:
+                    # a non-string cnr_id reaches findPackageByCnrId on the client, where
+                    # cnrId.toLowerCase() throws and takes the whole usage analysis with it
+                    if property_key == "cnr_id" and not isinstance(properties[property_key], str):
+                        logging.warning(f"Node {node['id']} has a non-string cnr_id in {workflow_file_path} - ignoring it")
+                        continue
                     node_data_to_return[property_key] = properties[property_key]
 
         # add it to the list for this workflow
