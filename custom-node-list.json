@@ -1,6 +1,16 @@
 {
     "custom_nodes": [
         {
+            "author": "syugoji",
+            "title": "Unbake",
+            "reference": "https://github.com/syugoji/ComfyUI-Unbake",
+            "files": [
+                "https://github.com/syugoji/ComfyUI-Unbake"
+            ],
+            "install_type": "git-clone",
+            "description": "Drop an image and get the ComfyUI workflow back: a Civitai link, a PNG with metadata, or your own output. Unbake reads the PNG info — prompt, seed, sampler, steps, CFG, LoRAs — rebuilds the graph, and sorts the missing models by how you would obtain them. Then it runs a validated XY plot (parameter sweep) that throws if anything other than the axis you declared has moved, so the comparison you are looking at is actually a comparison."
+        },
+        {
             "author": "Carasibana",
             "title": "ComfyUI-SimpleFloatSlider",
             "reference": "https://github.com/Carasibana/ComfyUI-SimplayboyleFloatSlider",
