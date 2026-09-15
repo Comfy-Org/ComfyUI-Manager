@@ -782,6 +782,9 @@ export class CustomNodesManager {
 				if (rowItem.conflicts) {
 					list.push(`<div class="cn-pack-conflicts">${rowItem.conflicts} conflict${(rowItem.conflicts>1?'s':'')}</div>`);
 				}
+				if (rowItem.potentialConflicts) {
+					list.push(`<div class="cn-pack-conflicts">${rowItem.potentialConflicts} potential conflict${(rowItem.potentialConflicts>1?'s':'')}</div>`);
+				}
 				list.push('</div>');
 				return list.join("");
 			}
@@ -1154,8 +1157,9 @@ export class CustomNodesManager {
 		list.push(`<div class="cn-nodes-list">`);
 	
 		nodesList.forEach((it, i) => {
+			const conflicts = it.conflicts || it.potentialConflicts;
 			let rowClass = 'cn-nodes-row'
-			if (it.conflicts) {
+			if (conflicts) {
 				rowClass += ' cn-nodes-conflict';
 			}
 
@@ -1163,8 +1167,9 @@ export class CustomNodesManager {
 			list.push(`<div class="cn-nodes-sn">${i+1}</div>`);
 			list.push(`<div class="cn-nodes-name">${it.name}</div>`);
 
-			if (it.conflicts) {
-				list.push(`<div class="cn-conflicts-list"><div class="cn-nodes-conflict cn-icon">${icons.conflicts}</div><b>Conflict with</b>${it.conflicts.map(c => {
+			if (conflicts) {
+				const label = it.conflicts ? 'Conflict with enabled packs' : 'Potential conflict if installed/enabled with';
+				list.push(`<div class="cn-conflicts-list"><div class="cn-nodes-conflict cn-icon">${icons.conflicts}</div><b>${label}</b>${conflicts.map(c => {
 					return `<div class="cn-nodes-pack" hash="${c.hash}">${c.title}</div>`;
 				}).join("<b>,</b>")}</div>`);
 			}
@@ -1249,13 +1254,17 @@ export class CustomNodesManager {
 			cList.forEach(key => {
 				const nodeItem = node_packs[key];
 				const extItem = nodeItem.nodesMap[extName];
-				if(!extItem.conflicts) {
-					extItem.conflicts = []
+				// Catalog entries are not necessarily installed or enabled. Only
+				// enabled peers can conflict; inactive packs get a separate preview.
+				const conflictsList = cList.filter(k => k !== key && node_packs[k].state === 'enabled');
+				if (!conflictsList.length) {
+					return;
 				}
-				const conflictsList = cList.filter(k => k !== key);
+				const field = nodeItem.state === 'enabled' ? 'conflicts' : 'potentialConflicts';
+				extItem[field] = [];
 				conflictsList.forEach(k => {
 					const nItem = node_packs[k];
-					extItem.conflicts.push({
+					extItem[field].push({
 						key: k,
 						title: nItem.title, 
 						hash: nItem.hash
@@ -1269,6 +1278,7 @@ export class CustomNodesManager {
 			if (nodeItem.nodesMap) {
 				nodeItem.nodesList = Object.values(nodeItem.nodesMap);
 				nodeItem.conflicts = nodeItem.nodesList.filter(it => it.conflicts).length;
+				nodeItem.potentialConflicts = nodeItem.nodesList.filter(it => it.potentialConflicts).length;
 			}
 		})
 	
