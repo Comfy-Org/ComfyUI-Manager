@@ -876,6 +876,11 @@ def collect_node_types_in_graph(graph, subgraph_definitions, node_set, workflow_
             continue
 
         node_type = node["type"]
+        # an unhashable type (list/dict) would blow up the subgraph lookup below, and any
+        # non-string is junk in the report either way
+        if not isinstance(node_type, str):
+            logging.warning(f"Node {node['id']} has a non-string type in {workflow_file_path} - skipping it")
+            continue
 
         # a node whose type is a subgraph id is an instance of that subgraph, not a real node type:
         # descend into the definition instead of reporting the (meaningless) subgraph uuid
