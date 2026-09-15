@@ -850,11 +850,22 @@ def collect_node_types_in_graph(graph, subgraph_definitions, node_set, workflow_
     # a subgraph definition can carry its own nested definitions - register them before walking the nodes
     nested_definitions = graph.get("definitions")
     if isinstance(nested_definitions, dict):
-        for subgraph in nested_definitions.get("subgraphs", []):
-            if isinstance(subgraph, dict) and "id" in subgraph:
-                subgraph_definitions.setdefault(subgraph["id"], subgraph)
+        nested_subgraphs = nested_definitions.get("subgraphs")
+        if isinstance(nested_subgraphs, list):
+            for subgraph in nested_subgraphs:
+                if isinstance(subgraph, dict) and "id" in subgraph:
+                    subgraph_definitions.setdefault(subgraph["id"], subgraph)
 
-    for node in graph.get("nodes", []):
+    nodes = graph.get("nodes")
+    if not isinstance(nodes, list):
+        logging.warning(f"{workflow_file_path} has a malformed 'nodes' value - skipping this graph")
+        return
+
+    for node in nodes:
+        # a malformed entry shouldn't take the whole workflow down with it
+        if not isinstance(node, dict):
+            logging.warning(f"Found a non-object node in {workflow_file_path} - skipping it")
+            continue
         if "id" not in node:
             logging.warning("Found a node with no ID - possibly corrupt/invalid workflow?")
             continue
@@ -877,12 +888,13 @@ def collect_node_types_in_graph(graph, subgraph_definitions, node_set, workflow_
             continue
 
         node_data_to_return = {"type": node_type}
-        if "properties" not in node:
+        properties = node.get("properties")
+        if not isinstance(properties, dict):
             logging.warning(f"Node {node['id']} has no properties field - can't determine cnr_id")
         else:
             for property_key in ["cnr_id", "ver"]:
-                if property_key in node["properties"]:
-                    node_data_to_return[property_key] = node["properties"][property_key]
+                if property_key in properties:
+                    node_data_to_return[property_key] = properties[property_key]
 
         # add it to the list for this workflow
         if not node_data_to_return in node_set:
