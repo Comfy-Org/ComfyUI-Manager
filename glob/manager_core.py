@@ -850,6 +850,11 @@ class UnifiedManager:
                 return {}
 
         # validate channel - only the channel set by the user is allowed.
+        get_channel_dict()
+        config_channel_url = get_config().get('channel_url')
+        if config_channel_url:
+            valid_channels.add(config_channel_url)
+
         if channel_url not in valid_channels:
             logging.error(f'[ComfyUI-Manager] An invalid channel was used: {channel_url}')
             raise InvalidChannel(channel_url)
@@ -1644,6 +1649,10 @@ def get_channel_dict():
                 if len(channel_info) == 2:
                     channel_dict[channel_info[0]] = channel_info[1]
                     valid_channels.add(channel_info[1])
+
+        channel_url = get_config().get('channel_url')
+        if channel_url:
+            valid_channels.add(channel_url)
 
     return channel_dict
 
