@@ -8,7 +8,7 @@
                 "https://github.com/Einzieg/ComfyUI-custom-api"
             ],
             "install_type": "git-clone",
-            "description": "Custom model APIs for text, vision, image generation and editing. Topbar provider management, model discovery, request templates, an administrator-controlled outbound allow-list, and ComfyUI-native English/Chinese localization."
+            "description": "Custom model APIs for text, vision, image generation and editing. Provider management, model discovery, request templates, authenticated management, public-network access with explicit local-service grants or a strict origin allow-list, and English UI with native ComfyUI localization."
         },
         {
             "author": "Carasibana",
@@ -36459,6 +36459,16 @@
             "description": "ComfyUI custom node — UIT Sampler for HiDream-O1-Image"
         },
         {
+            "author": "easygoing0114",
+            "title": "Cliption Integrated",
+            "reference": "https://github.com/easygoing0114/ComfyUI-cliption-integrated",
+            "files": [
+                "https://github.com/easygoing0114/ComfyUI-cliption-integrated"
+            ],
+            "install_type": "git-clone",
+            "description": "Integrated beam-search-only fork of pharmapsychotic's ComfyUI-Cliption, combining the CLIPtion loader and beam search into a single node"
+        },
+        {
             "author": "writer-in-fancy-pants",
             "title": "Octo Json Presets",
             "reference": "https://github.com/writer-in-fancy-pants/octo_json_presets",
@@ -40861,16 +40871,6 @@
             "description": "Custom node pack creating fake/dummy nodes to replace missing, obsolete, or cloud-specific nodes, allowing legacy workflows to load visually without errors while preserving connections. (Description by CC)"
         },
         {
-            "author": "granddyser",
-            "title": "Wan-video-extender",
-            "reference": "https://github.com/Granddyser/wan-video-extender",
-            "files": [
-                "https://github.com/Granddyser/wan-video-extender"
-            ],
-            "install_type": "git-clone",
-            "description": "Wan Video Extender extends a short video or a single image into a longer, temporally consistent clip using a VACE based control latent. It runs in multiple extension loops. Each loop can have its own prompt and optional LoRA, so you can evolve the scene step by step without rebuilding the graph."
-        },
-        {
             "author": "akawana",
             "title": "AK XZ Axis (XY for any KSampler)",
             "reference": "https://github.com/akawana/ComfyUI-AK-XZ-Axis",
@@ -41249,16 +41249,6 @@
             ],
             "install_type": "git-clone",
             "description": "Resolution picker and latent generator for ComfyUI. Select presets like HD, FullHD, 2K, 4K, 8K with aspect ratios (1:1, 9:16, 4:5, 21:9 etc.) via dropdowns. Automatically snaps width/height to latent-safe multiples of 64. Ideal for EmptyLatentImage, AnimateDiff, ControlNet, video formats, and KSampler workflows. Outputs clean INT values or ready-to-use LATENT tensor."
-        },
-        {
-            "author": "Bharanidharan",
-            "title": "faceExtractor for ComfyUI",
-            "reference": "https://github.com/llikethat/ComfyUI-faceExtractor",
-            "files": [
-                "https://github.com/llikethat/ComfyUI-faceExtractor"
-            ],
-            "install_type": "git-clone",
-            "description": "Custom Node to detect face matching the input reference image."
         },
         {
             "author": "Pondowner857",
@@ -43096,6 +43086,16 @@
             "description": "Automatic multi-segment Wan Animate 2 sampling for ComfyUI."
         },
         {
+            "author": "vjumpkung",
+            "title": "ComfyUI SCAIL-2 Loop Sampler",
+            "reference": "https://github.com/vjumpkung/comfyui-scail-2-loop-sampler",
+            "files": [
+                "https://github.com/vjumpkung/comfyui-scail-2-loop-sampler"
+            ],
+            "install_type": "git-clone",
+            "description": "Automatic multi-segment SCAIL-2 character replacement sampling for ComfyUI."
+        },
+        {
             "author": "Paddel87",
             "title": "ComfyUI_fal_image",
             "reference": "https://github.com/Paddel87/ComfyUI_fal_image",
@@ -44841,6 +44841,17 @@
             ],
             "install_type": "git-clone",
             "description": "A custom node extension that adds project management functionality to ComfyUI."
+        },
+        {
+            "author": "MajoorWaldi",
+            "title": "H3 GuideMaster",
+            "id": "comfyui-majoor-h3-guidemaster",
+            "reference": "https://github.com/MajoorWaldi/ComfyUI-Majoor-H3-GuideMaster",
+            "files": [
+                "https://github.com/MajoorWaldi/ComfyUI-Majoor-H3-GuideMaster"
+            ],
+            "install_type": "git-clone",
+            "description": "A MiniMax H3 guide, local filmstrip, and endpoint-anchor timeline for ComfyUI."
         },
         {
             "author": "sinanzoo2nd",
@@ -47219,6 +47230,16 @@
             ],
             "install_type": "git-clone",
             "description": "ComfyUI node for postfx library - Theme-based image post-processing & film-emulation pipeline — pure Python, CPU, no GPU."
+        },
+        {
+            "author": "0xBeycan",
+            "title": "ComfyUI-PreFlight",
+            "reference": "https://github.com/0xBeycan/ComfyUI-PreFlight",
+            "files": [
+                "https://github.com/0xBeycan/ComfyUI-PreFlight"
+            ],
+            "install_type": "git-clone",
+            "description": "Predict how Instagram, TikTok and X will treat your content before you post it. Local Qwen-VL observation + deterministic rules engine. No API keys, runs fully offline."
         },
         {
             "author": "nic-schi",
@@ -59093,16 +59114,6 @@
             "description": "A custom node for ComfyUI designed to load, organize, and preview text prompts from local .txt files with support for multiline prompts and real-time dynamic previews."
         },
         {
-            "author": "mahshid1378",
-            "title": "ThinkSound_Wrapper",
-            "reference": "https://github.com/mahshid1378/ThinkSound_Wrapper",
-            "files": [
-                "https://github.com/mahshid1378/ThinkSound_Wrapper"
-            ],
-            "install_type": "git-clone",
-            "description": "A ComfyUI wrapper implementation of ThinkSound - an advanced AI model for generating high-quality audio from text descriptions and video content using Chain-of-Thought reasoning."
-        },
-        {
             "author": "maomaozi",
             "title": "comfyui-dsocr-bbox",
             "reference": "https://github.com/maomaozi/comfyui-dsocr-bbox",
@@ -60213,6 +60224,26 @@
             "description": "Suite of native custom nodes for high-precision multi-frame storyboard generation, structural isolation, frame extraction, and cinematic tuning. (Description by CC)"
         },
         {
+            "author": "domg73",
+            "title": "ComfyUI-LoadImageCrop",
+            "reference": "https://github.com/domg73/ComfyUI-LoadImageCrop",
+            "files": [
+                "https://github.com/domg73/ComfyUI-LoadImageCrop"
+            ],
+            "install_type": "git-clone",
+            "description": "An extended Load Image node with an aspect-ratio-locked, WYSIWYG crop rectangle that outputs the cropped IMAGE and MASK."
+        },
+        {
+            "author": "domg73",
+            "title": "ComfyUI-LoadVideoCrop",
+            "reference": "https://github.com/domg73/ComfyUI-LoadVideoCrop",
+            "files": [
+                "https://github.com/domg73/ComfyUI-LoadVideoCrop"
+            ],
+            "install_type": "git-clone",
+            "description": "An extended Load Video node with an aspect-ratio-locked, WYSIWYG crop rectangle that outputs the cropped VIDEO."
+        },
+        {
             "author": "cody-li",
             "title": "ComfyUI-LTX2PromptArchitectOllama",
             "reference": "https://github.com/cody-li/ComfyUI-LTX2PromptArchitectOllama",
@@ -60972,6 +61003,16 @@
             "description": "2D Discrete Wavelet Transform (DWT) nodes for ComfyUI. Requires comfyui-signed-image (install separately)."
         },
         {
+            "author": "nobutakakuroki",
+            "title": "ComfyUI-FFT-2D",
+            "reference": "https://github.com/NobutakaKuroki/ComfyUI-FFT-2D",
+            "files": [
+                "https://github.com/NobutakaKuroki/ComfyUI-FFT-2D"
+            ],
+            "install_type": "git-clone",
+            "description": "2D frequency-domain image processing nodes for ComfyUI."
+        },
+        {
             "author": "Mistralys",
             "title": "comfyui-random-nodes",
             "reference": "https://github.com/Mistralys/comfyui-random-nodes",
@@ -61244,6 +61285,46 @@
             ],
             "install_type": "git-clone",
             "description": "One install for the full MSCH collection: 35 video effects, slideshow, typography, lyric-sync and MiniMax H3 nodes, plus theme and editor bridge. Replaces the separate msch-* packs."
+        },
+        {
+            "author": "ssain3d-lgtm",
+            "title": "Run Once Group Toggle",
+            "reference": "https://github.com/ssain3d-lgtm/comfyui-run-once-group",
+            "files": [
+                "https://github.com/ssain3d-lgtm/comfyui-run-once-group"
+            ],
+            "install_type": "git-clone",
+            "description": "Switch chosen groups to Bypass, Mute or Active for one queue submit, then put every node back to the mode it actually had."
+        },
+        {
+            "author": "cpzombie",
+            "title": "Cpzombie",
+            "reference": "https://github.com/ConnorPietrasik/ComfyUI-Prompt-Rewriters",
+            "files": [
+                "https://github.com/ConnorPietrasik/ComfyUI-Prompt-Rewriters"
+            ],
+            "install_type": "git-clone",
+            "description": "A couple nodes to rewrite prompts using your local LLM (or other api I guess) because copy/paste is a lot of work. Currently only for MiniMax H3 Text to Video and Ref to Video."
+        },
+        {
+            "author": "cephy",
+            "title": "Cephy Lazy Nodes",
+            "reference": "https://github.com/Molinist/ComfyUI-Cephy-Lazy-Nodes",
+            "files": [
+                "https://github.com/Molinist/ComfyUI-Cephy-Lazy-Nodes"
+            ],
+            "install_type": "git-clone",
+            "description": "Small ComfyUI nodes that remove needless workflow friction."
+        },
+        {
+            "author": "v3rm1ll1on",
+            "title": "ComfyUI Expert Wildcard Prompt",
+            "reference": "https://github.com/v3rm1ll1on/ComfyUI-Expert-Wildcard-Prompt",
+            "files": [
+                "https://github.com/v3rm1ll1on/ComfyUI-Expert-Wildcard-Prompt"
+            ],
+            "install_type": "git-clone",
+            "description": "AST-based prompt parser with inline negative routing, smart percentage wildcards, and visual debugging"
         },
         {
             "author": "ntdviet",
