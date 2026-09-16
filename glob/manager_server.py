@@ -842,6 +842,75 @@ async def fetch_updates(request):
         traceback.print_exc()
         return web.Response(status=400)
     
+def collect_node_types_in_graph(graph, subgraph_definitions, node_set, workflow_file_path, visited_subgraph_ids):
+    """
+    collect the node type info of a single graph (the root workflow, or a subgraph definition)
+    into node_set, recursing into any subgraph that the graph instantiates
+    """
+    # a subgraph definition can carry its own nested definitions - register them before walking the nodes
+    nested_definitions = graph.get("definitions")
+    if isinstance(nested_definitions, dict):
+        nested_subgraphs = nested_definitions.get("subgraphs")
+        if isinstance(nested_subgraphs, list):
+            for subgraph in nested_subgraphs:
+                if isinstance(subgraph, dict) and "id" in subgraph:
+                    subgraph_definitions.setdefault(subgraph["id"], subgraph)
+
+    nodes = graph.get("nodes")
+    if not isinstance(nodes, list):
+        logging.warning(f"{workflow_file_path} has a malformed 'nodes' value - skipping this graph")
+        return
+
+    for node in nodes:
+        # a malformed entry shouldn't take the whole workflow down with it
+        if not isinstance(node, dict):
+            logging.warning(f"Found a non-object node in {workflow_file_path} - skipping it")
+            continue
+        if "id" not in node:
+            logging.warning("Found a node with no ID - possibly corrupt/invalid workflow?")
+            continue
+        # if there's no type, throw a warning
+        if "type" not in node:
+            logging.warning(f"Node type not found in {workflow_file_path} for node ID {node['id']}")
+            # skip to next node
+            continue
+
+        node_type = node["type"]
+        # an unhashable type (list/dict) would blow up the subgraph lookup below, and any
+        # non-string is junk in the report either way
+        if not isinstance(node_type, str):
+            logging.warning(f"Node {node['id']} has a non-string type in {workflow_file_path} - skipping it")
+            continue
+
+        # a node whose type is a subgraph id is an instance of that subgraph, not a real node type:
+        # descend into the definition instead of reporting the (meaningless) subgraph uuid
+        if node_type in subgraph_definitions:
+            # guard against a subgraph that (directly or indirectly) instantiates itself
+            if node_type not in visited_subgraph_ids:
+                visited_subgraph_ids.add(node_type)
+                collect_node_types_in_graph(subgraph_definitions[node_type], subgraph_definitions, node_set,
+                                            workflow_file_path, visited_subgraph_ids)
+            continue
+
+        node_data_to_return = {"type": node_type}
+        properties = node.get("properties")
+        if not isinstance(properties, dict):
+            logging.warning(f"Node {node['id']} has no properties field - can't determine cnr_id")
+        else:
+            for property_key in ["cnr_id", "ver"]:
+                if property_key in properties:
+                    # a non-string cnr_id reaches findPackageByCnrId on the client, where
+                    # cnrId.toLowerCase() throws and takes the whole usage analysis with it
+                    if property_key == "cnr_id" and not isinstance(properties[property_key], str):
+                        logging.warning(f"Node {node['id']} has a non-string cnr_id in {workflow_file_path} - ignoring it")
+                        continue
+                    node_data_to_return[property_key] = properties[property_key]
+
+        # add it to the list for this workflow
+        if not node_data_to_return in node_set:
+            node_set.append(node_data_to_return)
+
+
 @routes.get("/customnode/get_node_types_in_workflows")
 async def get_node_types_in_workflows(request):
     try:
@@ -857,7 +926,7 @@ async def get_node_types_in_workflows(request):
         if not os.path.isdir(workflow_files_base_path):
             logging.debug("workflows base path doesn't exist - nothing to do...")
             return web.Response(status=204)
-        
+
         # get all JSON files under the workflow directory
         workflow_file_relative_paths: list[str] = glob.glob(pathname="**/*.json", root_dir=workflow_files_base_path, recursive=True)
 
@@ -872,8 +941,10 @@ async def get_node_types_in_workflows(request):
             try:
                 workflow_file_absolute_path = os.path.abspath(os.path.join(workflow_files_base_path, workflow_file_path))
                 logging.debug(f"starting work on {workflow_file_absolute_path}")
-                # load the JSON file
-                workflow_file_data = json.load(open(workflow_file_absolute_path, "r"))
+                # load the JSON file - workflows are always UTF-8 (and may carry a BOM), never the platform's
+                # default encoding, which would fail on any workflow containing non-ASCII text
+                with open(workflow_file_absolute_path, "r", encoding="utf-8-sig") as workflow_file:
+                    workflow_file_data = json.load(workflow_file)
 
                 # make sure there's a nodes key (otherwise this might not actually be a workflow file)
                 if "nodes" not in workflow_file_data:
@@ -886,38 +957,26 @@ async def get_node_types_in_workflows(request):
                 # we can't use an actual set, because you can't use dicts as set members
                 node_set = []
 
-                # iterate over each node in the workflow
-                for node in workflow_file_data["nodes"]:
-                    if "id" not in node:
-                        logging.warning("Found a node with no ID - possibly corrupt/invalid workflow?")
-                        continue
-                    # if there's no type, throw a warning
-                    if "type" not in node:
-                        logging.warning(f"Node type not found in {workflow_file_path} for node ID {node['id']}")
-                        # skip to next node
-                        continue
+                # subgraph definitions are stored flat at the root of the workflow, keyed by their uuid;
+                # nodes inside them never appear in the root "nodes" list, so they have to be walked separately
+                subgraph_definitions = {}
+                definitions = workflow_file_data.get("definitions")
+                if isinstance(definitions, dict):
+                    for subgraph in definitions.get("subgraphs", []):
+                        if isinstance(subgraph, dict) and "id" in subgraph:
+                            subgraph_definitions[subgraph["id"]] = subgraph
 
-                    node_data_to_return = {"type": node["type"]}
-                    if "properties" not in node:
-                        logging.warning(f"Node ${node['id']} has no properties field - can't determine cnr_id")
-                    else:
-                        for property_key in ["cnr_id", "ver"]:
-                            if property_key in node["properties"]:
-                                node_data_to_return[property_key] = node["properties"][property_key]                  
-                    
-                    # add it to the list for this workflow
-                    if not node_data_to_return in node_set:
-                        node_set.append(node_data_to_return)
+                collect_node_types_in_graph(workflow_file_data, subgraph_definitions, node_set,
+                                            workflow_file_path, set())
 
                 # annoyingly, Python can't serialize sets to JSON
                 new_mapping["node_types"] = list(node_set)
-                workflow_node_mappings.append(new_mapping)            
+                workflow_node_mappings.append(new_mapping)
 
             except Exception as e:
                 logging.warning(f"Couldn't open {workflow_file_path}: {e}")
 
         return web.json_response(workflow_node_mappings, content_type='application/json')
-    
     except:
         traceback.print_exc()
         return web.Response(status=500)
