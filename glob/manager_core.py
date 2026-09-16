@@ -3213,6 +3213,8 @@ async def get_unified_total_nodes(channel, mode, regsitry_cache_mode='cache'):
             item = dict(author=author, title=title, reference=reference, repository=repository, install_type=install_type,
                         description=description, state=state, updatable=updatable, version=ver)
 
+            item['update-state'] = 'true' if updatable else 'false'
+            
             if active_version:
                 item['active_version'] = active_version
 
