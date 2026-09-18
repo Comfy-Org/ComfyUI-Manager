@@ -85,6 +85,7 @@ assert _spec is not None and _spec.loader is not None
 _udr_module = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = _udr_module
 _spec.loader.exec_module(_udr_module)
+sys.modules["comfyui_manager.common"].unified_dep_resolver = _udr_module
 
 # Pull symbols into the test namespace
 CollectedDeps = _udr_module.CollectedDeps
@@ -942,6 +943,36 @@ class TestResolveAndInstall:
         specs = {spec for _, spec in attributed["torch"]}
         assert specs == {"torch>=2.1", "torch<2.0"}
 
+    def test_multiline_conflict_attribution(self, tmp_path):
+        from comfyui_manager.common.unified_dep_resolver import attribute_conflicts
+
+        p1 = _make_node_pack(str(tmp_path), "pack_a", "python-slugify==8.0.4\n")
+        p2 = _make_node_pack(str(tmp_path), "pack_b", "text-unidecode==1.2\n")
+        p3 = _make_node_pack(str(tmp_path), "unrelated", "numpy>=1.20\n")
+        resolver = _resolver([p1, p2, p3])
+        stderr = (
+            "debug: checking numpy>=1.20\n"
+            "error: No solution found when resolving dependencies\n"
+            "  cause: Because python-slugify==8.0.4 depends on text-unidecode>=1.3 "
+            "and you require python-slugify==8.0.4, we can conclude that you require text-unidecode>=1.3.\n"
+            "         And because you require text-unidecode==1.2, "
+            "we can conclude that your requirements are unsatisfiable.\n"
+            "debug: finished checking numpy>=1.20\n"
+        )
+
+        with mock.patch.object(resolver, "_get_uv_cmd", return_value=["uv"]):
+            with mock.patch("subprocess.run", return_value=subprocess.CompletedProcess(
+                [], 1, stdout="", stderr=stderr,
+            )) as run:
+                result = resolver.resolve_and_install()
+
+        assert not result.success
+        run.assert_called_once()
+        assert attribute_conflicts(result.collected.sources, result.lockfile.conflicts) == {
+            "python_slugify": [(p1, "python-slugify==8.0.4")],
+            "text_unidecode": [(p2, "text-unidecode==1.2")],
+        }
+
     def test_conflict_attribution_no_false_positive_on_underscore_prefix(self, tmp_path):
         """'torch' must NOT match 'torch_audio' in conflict text (underscore boundary)."""
         from comfyui_manager.common.unified_dep_resolver import attribute_conflicts
@@ -1232,6 +1263,27 @@ class TestParseConflicts:
         assert "conflicting" in result[0]
         assert "conflict" in result[1]
 
+    def test_preserves_indented_diagnostic_continuations(self):
+        stderr = (
+            "info: checking packages\n"
+            "error: No solution found when resolving dependencies\n"
+            "  cause: package-a requires package-b>=2\n"
+            "         but package-b==1 is required\n"
+            "\n"
+            "  debug: unrelated trace\n"
+            "error: second diagnostic\n"
+            "  its continuation\n"
+            "info: finished\n"
+            "  debug: unrelated detail\n"
+        )
+        assert UnifiedDepResolver._parse_conflicts(stderr) == [
+            "error: No solution found when resolving dependencies",
+            "cause: package-a requires package-b>=2",
+            "but package-b==1 is required",
+            "error: second diagnostic",
+            "its continuation",
+        ]
+
     def test_extracts_error_lines(self):
         stderr = "ERROR: No matching distribution found for nonexistent-pkg\n"
         result = UnifiedDepResolver._parse_conflicts(stderr)
@@ -1259,8 +1311,7 @@ class TestParseConflicts:
             "debug: trace output\n"
         )
         result = UnifiedDepResolver._parse_conflicts(stderr)
-        assert len(result) == 1
-        assert "failed to resolve" in result[0]
+        assert result == ["error: failed to resolve"]
 
 
 # ===========================================================================

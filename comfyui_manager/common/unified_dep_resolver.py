@@ -656,10 +656,15 @@ class UnifiedDepResolver:
     def _parse_conflicts(stderr: str) -> list[str]:
         """Extract conflict descriptions from ``uv pip compile`` stderr."""
         conflicts: list[str] = []
-        for line in stderr.splitlines():
-            line = line.strip()
-            if line and ('conflict' in line.lower() or 'error' in line.lower()):
+        in_diagnostic = False
+        for raw_line in stderr.splitlines():
+            line = raw_line.strip()
+            if line and ('conflict' in line.lower() or 'error' in line.lower()
+                         or (in_diagnostic and raw_line[0].isspace())):
                 conflicts.append(line)
+                in_diagnostic = True
+            else:
+                in_diagnostic = False
         return conflicts or [stderr.strip()] if stderr.strip() else []
 
     @staticmethod
