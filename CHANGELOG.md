@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [4.3] - 2026-09-19
+
+### Security
+
+- Prevent HTML and URL injection in the legacy Manager UI while preserving
+  supported formatting and links.
+- Require loopback-only listeners or `allow_flagged_nodepack_install = true`
+  to install Flagged CNR versions through either Manager API. This requirement
+  is additional to the existing installation security checks.
+
+### Fixed
+
+- Preserve administrator settings when saving configuration from the Manager UI.
+- Clear legacy install progress state when batch submission fails.
+- Attribute multiline uv dependency conflicts to the affected nodepacks while
+  filtering unrelated stderr output.
+
 ## [4.2.2] - 2026-06-15
 
 ### Security
@@ -173,5 +190,6 @@ programmatic clients.
   perform the change from a trusted entry point. Read access via `GET` is
   unaffected.
 
+[4.3]: https://github.com/Comfy-Org/ComfyUI-Manager/compare/v4.2.2...v4.3
 [4.2.2]: https://github.com/Comfy-Org/ComfyUI-Manager/compare/v4.2.1...v4.2.2
 [4.2.1]: https://github.com/Comfy-Org/ComfyUI-Manager/compare/v4.1b6...v4.2.1
