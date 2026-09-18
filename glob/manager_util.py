@@ -3,6 +3,8 @@ description:
     `manager_util` is the lightest module shared across the prestartup_script, main code, and cm-cli of ComfyUI-Manager.
 """
 import traceback
+import ipaddress
+import socket
 
 import aiohttp
 import json
@@ -25,6 +27,50 @@ cache_dir = os.path.join(comfyui_manager_path, '.cache')  # This path is also up
 
 use_uv = False
 bypass_ssl = False
+
+FLAGGED_NODEPACK_INSTALL_ERROR = (
+    'This action is not allowed by the current security configuration. '
+    'See the terminal for details.'
+)
+FLAGGED_NODEPACK_INSTALL_GUIDANCE = (
+    'Installation of this flagged CNR version is blocked. To satisfy the additional '
+    'flagged-version requirement, choose one of the following:\n'
+    '1. Run ComfyUI with loopback-only listeners, for example --listen 127.0.0.1 '
+    'or --listen ::1. All configured listen addresses must be loopback.\n'
+    '   Do not use bare --listen or any non-loopback address, such as 0.0.0.0 or ::.\n'
+    '2. For a trusted private network, set allow_flagged_nodepack_install = true '
+    'in the [default] section of ComfyUI-Manager\'s config.ini.\n'
+    'Restart ComfyUI after changing the listener or configuration. '
+    'All other installation security checks still apply.'
+)
+
+
+def is_loopback_listener(listen_address: str) -> bool:
+    """All addresses bound by --listen must resolve exclusively to loopback."""
+    if not isinstance(listen_address, str) or not listen_address:
+        return False
+    for address in listen_address.split(','):
+        address = address.strip()
+        if not address:
+            return False
+        try:
+            if ipaddress.ip_address(address).is_loopback:
+                continue
+        except ValueError:
+            pass
+        try:
+            resolved = socket.getaddrinfo(address, None, type=socket.SOCK_STREAM)
+        except OSError:
+            return False
+        if not resolved or any(not ipaddress.ip_address(item[4][0]).is_loopback for item in resolved):
+            return False
+    return True
+
+
+def is_cnr_install_allowed(status: str, allow_flagged: bool, listen_address: str) -> bool:
+    """Only flagged versions require loopback or the private-network opt-in."""
+    return status != 'NodeVersionStatusFlagged' or bool(allow_flagged) or is_loopback_listener(listen_address)
+
 
 def add_python_path_to_env():
     if platform.system() != "Windows":

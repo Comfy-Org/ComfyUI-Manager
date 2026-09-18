@@ -613,6 +613,12 @@ if os.path.exists(restore_snapshot_path):
         if 'COMFYUI_FOLDERS_BASE_PATH' not in new_env:
             new_env["COMFYUI_FOLDERS_BASE_PATH"] = comfy_path
 
+        from comfy.cli_args import args
+
+        allow_flagged = default_conf.get('allow_flagged_nodepack_install', '').lower() == 'true'
+        new_env['_COMFYUI_MANAGER_CNR_ALLOW_FLAGGED'] = str(
+            allow_flagged or manager_util.is_loopback_listener(args.listen)
+        ).lower()
         cmd_str = [sys.executable, cm_cli_path, 'restore-snapshot', restore_snapshot_path]
         exit_code = process_wrap(cmd_str, custom_nodes_base_path, handler=msg_capture, env=new_env)
 
@@ -661,9 +667,18 @@ def execute_lazy_install_script(repo_path, executable):
         process_wrap(install_cmd, repo_path, env=new_env)
 
 
-def execute_lazy_cnr_switch(target, zip_url, from_path, to_path, no_deps, custom_nodes_path):
+def execute_lazy_cnr_switch(target, zip_url, from_path, to_path, no_deps, custom_nodes_path, status=''):
     import uuid
     import shutil
+    from comfy.cli_args import args
+
+    allow_flagged = default_conf.get('allow_flagged_nodepack_install', '').lower() == 'true'
+    if not manager_util.is_cnr_install_allowed(status or 'NodeVersionStatusFlagged', allow_flagged, args.listen):
+        if not status:
+            logging.error("Cannot execute reserved CNR switch for '%s': stored Registry status is missing. Request the installation again so its current status can be checked.", target)
+        else:
+            logging.error(manager_util.FLAGGED_NODEPACK_INSTALL_GUIDANCE)
+        return False
 
     # 1. download
     archive_name = f"CNR_temp_{str(uuid.uuid4())}.zip"  # should be unpredictable name - security precaution
@@ -710,6 +725,8 @@ def execute_lazy_cnr_switch(target, zip_url, from_path, to_path, no_deps, custom
     tracking_info_file = os.path.join(to_path, '.tracking')
     with open(tracking_info_file, "w", encoding='utf-8') as file:
         file.write('\n'.join(list(extracted)))
+
+    return True
 
 
 script_executed = False
@@ -766,8 +783,9 @@ def execute_startup_script():
                         execute_lazy_install_script(script[0], script[2])
 
                     elif script[1] == "#LAZY-CNR-SWITCH-SCRIPT":
-                        execute_lazy_cnr_switch(script[0], script[2], script[3], script[4], script[5], script[6])
-                        execute_lazy_install_script(script[3], script[7])
+                        status = script[8] if len(script) > 8 else ''
+                        if execute_lazy_cnr_switch(script[0], script[2], script[3], script[4], script[5], script[6], status):
+                            execute_lazy_install_script(script[3], script[7])
 
                     elif script[1] == "#LAZY-DELETE-NODEPACK":
                         execute_lazy_delete(script[2])

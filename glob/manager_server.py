@@ -162,6 +162,9 @@ async def get_risky_level(files, pip_packages):
 
 
 class ManagerFuncsInComfyUI(core.ManagerFuncs):
+    def is_flagged_install_allowed(self):
+        return core.get_config()['allow_flagged_nodepack_install'] or manager_util.is_loopback_listener(args.listen)
+
     def get_current_preview_method(self):
         if args.preview_method == latent_preview.LatentPreviewMethod.Auto:
             return "auto"
@@ -518,7 +521,7 @@ async def task_worker():
     global model_result
     global tasks_in_progress
 
-    async def do_install(item) -> str:
+    async def do_install(item, operation) -> str:
         ui_id, node_spec_str, channel, mode, skip_post_install = item
 
         try:
@@ -528,7 +531,10 @@ async def task_worker():
                 return f"Cannot resolve install target: '{node_spec_str}'"
 
             node_name, version_spec, is_specified = node_spec
-            res = await core.unified_manager.install_by_id(node_name, version_spec, channel, mode, return_postinstall=skip_post_install)
+            if operation == 'reinstall':
+                res = await core.unified_manager.reinstall_by_id(node_name, version_spec, channel, mode)
+            else:
+                res = await core.unified_manager.install_by_id(node_name, version_spec, channel, mode, return_postinstall=skip_post_install)
             # discard post install if skip_post_install mode
 
             if res.action not in ['skip', 'enable', 'install-git', 'install-cnr', 'switch-cnr']:
@@ -575,7 +581,7 @@ async def task_worker():
                     base_res['msg'] = 'success'
                     return base_res
 
-            base_res['msg'] = f"An error occurred while updating '{node_name}'."
+            base_res['msg'] = res.msg or f"An error occurred while updating '{node_name}'."
             logging.error(f"\nERROR: An error occurred while updating '{node_name}'. (res.result={res.result}, res.action={res.action})")
             return base_res
         except Exception:
@@ -728,8 +734,8 @@ async def task_worker():
             tasks_in_progress.add((kind, item[0]))
 
         try:
-            if kind == 'install':
-                msg = await do_install(item)
+            if kind in ('install', 'reinstall'):
+                msg = await do_install(item, kind)
             elif kind == 'install-model':
                 msg = await do_install_model(item)
             elif kind == 'update':
@@ -1391,8 +1397,7 @@ async def import_fail_info(request):
 
 @routes.post("/manager/queue/reinstall")
 async def reinstall_custom_node(request):
-    await uninstall_custom_node(request)
-    await install_custom_node(request)
+    return await _queue_node_install(request, "reinstall")
 
 
 @routes.post("/manager/queue/reset")
@@ -1422,16 +1427,20 @@ async def queue_count(request):
 
 @routes.post("/manager/queue/install")
 async def install_custom_node(request):
+    return await _queue_node_install(request, "install")
+
+
+async def _queue_node_install(request, operation):
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
 
     json_data = await request.json()
 
-    # non-nightly cnr is safe
+    # CNR version status is checked by the worker before installation.
     risky_level = None
     cnr_id = json_data.get('id')
-    skip_post_install = json_data.get('skip_post_install')
+    skip_post_install = False if operation == 'reinstall' else json_data.get('skip_post_install')
 
     git_url = None
 
@@ -1504,7 +1513,7 @@ async def install_custom_node(request):
         return web.Response(status=404, text="A security error has occurred. Please check the terminal logs")
 
     install_item = json_data.get('ui_id'), node_spec_str, json_data['channel'], json_data['mode'], skip_post_install
-    task_queue.put(("install", install_item))
+    task_queue.put((operation, install_item))
 
     return web.Response(status=200)
 
