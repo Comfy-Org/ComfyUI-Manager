@@ -27,6 +27,22 @@ from aiohttp import web
 is_personal_cloud_mode = False
 handler_policy = {}
 
+FLAGGED_NODEPACK_INSTALL_ERROR = (
+    'This action is not allowed by the current security configuration. '
+    'See the terminal for details.'
+)
+FLAGGED_NODEPACK_INSTALL_GUIDANCE = (
+    'Installation of this flagged CNR version is blocked. To satisfy the additional '
+    'flagged-version requirement, choose one of the following:\n'
+    '1. Run ComfyUI with loopback-only listeners, for example --listen 127.0.0.1 '
+    'or --listen ::1. All configured listen addresses must be loopback.\n'
+    '   Do not use bare --listen or any non-loopback address, such as 0.0.0.0 or ::.\n'
+    '2. For a trusted private network, set allow_flagged_nodepack_install = true '
+    'in the [default] section of ComfyUI-Manager\'s config.ini.\n'
+    'Restart ComfyUI after changing the listener or configuration. '
+    'All other installation security checks still apply.'
+)
+
 
 # CORS "simple request" Content-Type set per Fetch spec §3.2.3. Browsers send
 # <form method=POST> submissions with one of these three MIME types and do NOT
@@ -81,6 +97,32 @@ def is_loopback(address):
         return ipaddress.ip_address(address).is_loopback
     except ValueError:
         return False
+
+
+def is_loopback_listener(listen_address: str) -> bool:
+    """All addresses bound by --listen must resolve exclusively to loopback."""
+    import socket
+
+    if not isinstance(listen_address, str) or not listen_address:
+        return False
+    for address in listen_address.split(','):
+        address = address.strip()
+        if not address:
+            return False
+        if is_loopback(address):
+            continue
+        try:
+            resolved = socket.getaddrinfo(address, None, type=socket.SOCK_STREAM)
+        except OSError:
+            return False
+        if not resolved or any(not is_loopback(item[4][0]) for item in resolved):
+            return False
+    return True
+
+
+def is_cnr_install_allowed(status: str, allow_flagged: bool, listen_address: str) -> bool:
+    """Only flagged versions require loopback or the private-network opt-in."""
+    return status != 'NodeVersionStatusFlagged' or bool(allow_flagged) or is_loopback_listener(listen_address)
 
 
 def is_dedicated_install_allowed(flag_value: bool, listen_address: str, network_mode: str) -> bool:

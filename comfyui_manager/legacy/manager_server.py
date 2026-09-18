@@ -162,6 +162,9 @@ async def get_risky_level(files, pip_packages):
 
 
 class ManagerFuncsInComfyUI(core.ManagerFuncs):
+    def is_flagged_install_allowed(self):
+        return core.get_config()['allow_flagged_nodepack_install'] or manager_security.is_loopback_listener(args.listen)
+
     def run_script(self, cmd, cwd='.'):
         if len(cmd) > 0 and cmd[0].startswith("#"):
             logging.error(f"[ComfyUI-Manager] Unexpected behavior: `{cmd}`")
@@ -468,7 +471,7 @@ async def task_worker():
 
     await core.unified_manager.reload('cache')
 
-    async def do_install(item) -> str:
+    async def do_install(item, operation) -> str:
         ui_id, node_spec_str, channel, mode, skip_post_install = item
 
         try:
@@ -478,7 +481,15 @@ async def task_worker():
                 return f"Cannot resolve install target: '{node_spec_str}'"
 
             node_name, version_spec, is_specified = node_spec
-            res = await core.unified_manager.install_by_id(node_name, version_spec, channel, mode, return_postinstall=skip_post_install) # discard post install if skip_post_install mode
+            # Check the resolved target, including requests with misleading metadata.
+            level = 'middle+' if version_spec in ('nightly', 'unknown') else 'middle'
+            if not is_allowed_security_level(level):
+                logging.error(SECURITY_MESSAGE_MIDDLE_P if level == 'middle+' else SECURITY_MESSAGE_MIDDLE)
+                return 'Installation blocked by security policy'
+            if operation == 'reinstall':
+                res = await core.unified_manager.reinstall_by_id(node_name, version_spec, channel, mode)
+            else:
+                res = await core.unified_manager.install_by_id(node_name, version_spec, channel, mode, return_postinstall=skip_post_install)
 
             if res.action not in ['skip', 'enable', 'install-git', 'install-cnr', 'switch-cnr']:
                 logging.error(f"[ComfyUI-Manager] Installation failed:\n{res.msg}")
@@ -530,7 +541,7 @@ async def task_worker():
                     base_res['msg'] = 'success'
                     return base_res
 
-            base_res['msg'] = f"An error occurred while updating '{node_name}'."
+            base_res['msg'] = res.msg or f"An error occurred while updating '{node_name}'."
             logging.error(f"\nERROR: An error occurred while updating '{node_name}'. (res.result={res.result}, res.action={res.action})")
             return base_res
         except Exception:
@@ -705,8 +716,8 @@ async def task_worker():
             tasks_in_progress.add((kind, item[0]))
 
         try:
-            if kind == 'install':
-                msg = await do_install(item)
+            if kind in ('install', 'reinstall'):
+                msg = await do_install(item, kind)
             elif kind == 'enable':
                 msg = await do_enable(item)
             elif kind == 'install-model':
@@ -770,19 +781,9 @@ async def queue_batch(request):
         if k == 'update_all':
             await _update_all({'mode': v})
 
-        elif k == 'reinstall':
+        elif k in ('install', 'reinstall'):
             for x in v:
-                res = await _uninstall_custom_node(x)
-                if res.status != 200:
-                    failed.add(x['id'])
-                else:
-                    res = await _install_custom_node(x)
-                    if res.status != 200:
-                        failed.add(x['id'])
-
-        elif k == 'install':
-            for x in v:
-                res = await _install_custom_node(x)
+                res = await _queue_node_install(x, k)
                 if res.status != 200:
                     failed.add(x['id'])
 
@@ -1459,15 +1460,15 @@ async def queue_count(request):
         'is_processing': is_processing})
 
 
-async def _install_custom_node(json_data):
-    if not is_allowed_security_level('middle+'):
-        logging.error(SECURITY_MESSAGE_MIDDLE_P)
+async def _queue_node_install(json_data, operation):
+    if not is_allowed_security_level('middle'):
+        logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
 
-    # non-nightly cnr is safe
+    # CNR versions are checked for flagged status by the install worker.
     risky_level = None
     cnr_id = json_data.get('id')
-    skip_post_install = json_data.get('skip_post_install')
+    skip_post_install = False if operation == 'reinstall' else json_data.get('skip_post_install')
 
     git_url = None
 
@@ -1509,10 +1510,11 @@ async def _install_custom_node(json_data):
         else:
             return web.Response(status=404, text=f"Following node pack doesn't provide `nightly` version: ${git_url}")
 
-    # goal265 S-C (middle+ entry gate above UNCHANGED): unknown git URL ('high+')
-    # -> dedicated-flag full predicate replaces the security_level check (spec §1.2);
-    # unknown pip ('block') -> unconditional deny via is_allowed_security_level (Q1).
-    # Flag-deny PRESERVES today's 404 response shape at this position (R1).
+    if risky_level != 'low' and not is_allowed_security_level('middle+'):
+        logging.error(SECURITY_MESSAGE_MIDDLE_P)
+        return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
+
+    # Unknown Git installs also require the dedicated flag; preserve the 404 response.
     if risky_level == 'high+':
         if not _dedicated_install_allowed('allow_git_url_install'):
             logging.error(SECURITY_MESSAGE_FLAG_GIT_URL.format(
@@ -1523,7 +1525,7 @@ async def _install_custom_node(json_data):
         return web.Response(status=404, text="A security error has occurred. Please check the terminal logs")
 
     install_item = json_data.get('ui_id'), node_spec_str, json_data['channel'], json_data['mode'], skip_post_install
-    temp_queue_batch.append(("install", install_item))
+    temp_queue_batch.append((operation, install_item))
 
     return web.Response(status=200)
 

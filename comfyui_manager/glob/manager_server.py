@@ -44,7 +44,7 @@ from comfyui_manager.glob.utils import (
 from server import PromptServer
 
 from . import manager_core as core
-from ..common import manager_util
+from ..common import manager_util, manager_security
 from ..common import cm_global
 from ..common import manager_downloader
 from ..common import context
@@ -133,6 +133,9 @@ def error_response(
 
 
 class ManagerFuncsInComfyUI(core.ManagerFuncs):
+    def is_flagged_install_allowed(self):
+        return core.get_config()['allow_flagged_nodepack_install'] or manager_security.is_loopback_listener(args.listen)
+
     def run_script(self, cmd, cwd="."):
         if len(cmd) > 0 and cmd[0].startswith("#"):
             logging.error(f"[ComfyUI-Manager] Unexpected behavior: `{cmd}`")
@@ -815,10 +818,6 @@ async def task_worker():
     await core.unified_manager.reload(ManagerDatabaseSource.cache.value)
 
     async def do_install(params: InstallPackParams) -> str:
-        if not security_utils.is_allowed_security_level('middle+'):
-            logging.error(SECURITY_MESSAGE_MIDDLE_P)
-            return OperationResult.failed.value
-
         node_id = params.id
         node_version = params.selected_version
         channel = params.channel
@@ -844,6 +843,11 @@ async def task_worker():
                 return f"Cannot resolve install target: '{node_id}@{node_version}'"
 
             node_name, version_spec, is_specified = node_spec
+            # CNR versions have their own flagged-status check before download.
+            level = 'middle+' if version_spec in ('nightly', 'unknown') else 'middle'
+            if not security_utils.is_allowed_security_level(level):
+                logging.error(SECURITY_MESSAGE_MIDDLE_P if level == 'middle+' else SECURITY_MESSAGE_MIDDLE)
+                return OperationResult.failed.value
             res = await core.unified_manager.install_by_id(
                 node_name,
                 version_spec,
@@ -915,7 +919,7 @@ async def task_worker():
                     base_res["msg"] = OperationResult.success.value
                     return base_res
 
-            base_res["msg"] = f"An error occurred while updating '{node_name}'."
+            base_res["msg"] = res.msg or f"An error occurred while updating '{node_name}'."
             logging.error(
                 f"\nERROR: An error occurred while updating '{node_name}'. (res.result={res.result}, res.action={res.action})"
             )
@@ -2176,4 +2180,3 @@ threading.Thread(target=lambda: asyncio.run(default_cache_update())).start()
 if not os.path.exists(context.manager_config_path):
     core.get_config()
     core.write_config()
-

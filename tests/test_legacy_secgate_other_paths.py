@@ -240,7 +240,7 @@ def test_p1_install_custom_node_denies_at_strong_403(ms, gate):
     """P1 deny: at sl=strong the middle+ entry gate (first statement of
     _install_custom_node) returns 403 before any further processing."""
     gate("strong", is_local_mode=True)
-    resp = _run(ms._install_custom_node({}))
+    resp = _run(ms._queue_node_install({}, "install"))
     assert resp.status == 403
 
 
@@ -263,7 +263,7 @@ def test_p1_install_custom_node_passes_entry_gate_at_normal(ms, gate, monkeypatc
         "channel": "default",
         "mode": "cache",
     }
-    resp = _run(ms._install_custom_node(dict(json_data)))
+    resp = _run(ms._queue_node_install(dict(json_data), "install"))
     assert resp.status == 200
 
 
@@ -286,7 +286,7 @@ def test_p2_unknown_pip_block_denies_404_even_at_weak(ms, gate, monkeypatch):
         "channel": "default",
         "mode": "cache",
     }
-    resp = _run(ms._install_custom_node(dict(json_data)))
+    resp = _run(ms._queue_node_install(dict(json_data), "install"))
     assert resp.status == 404
 
 
