@@ -36,6 +36,7 @@ from ..common import cm_global
 from ..common.config_writer import DirtyTrackingConfig, write_config_merged
 from ..common import cnr_utils
 from ..common import manager_util
+from ..common import manager_security
 from ..common import git_utils
 from ..common import manager_downloader
 from ..common.node_package import InstalledNodePackage
@@ -867,10 +868,10 @@ class UnifiedManager:
 
         return res
 
-    def reserve_cnr_switch(self, target, zip_url, from_path, to_path, no_deps):
+    def reserve_cnr_switch(self, target, zip_url, from_path, to_path, no_deps, status=''):
         script_path = os.path.join(context.manager_startup_script_path, "install-scripts.txt")
         with open(script_path, "a") as file:
-            obj = [target, "#LAZY-CNR-SWITCH-SCRIPT", zip_url, from_path, to_path, no_deps, get_default_custom_nodes_path(), sys.executable]
+            obj = [target, "#LAZY-CNR-SWITCH-SCRIPT", zip_url, from_path, to_path, no_deps, get_default_custom_nodes_path(), sys.executable, status]
             file.write(f"{obj}\n")
 
         print(f"Installation reserved: {target}")
@@ -896,35 +897,45 @@ class UnifiedManager:
 
         return result
 
+    def _get_cnr_install_info(self, node_id, version_spec):
+        node_info = cnr_utils.install_node(node_id, version_spec)
+        if node_info is not None and node_info.status == 'NodeVersionStatusFlagged' and not manager_funcs.is_flagged_install_allowed():
+            logging.error(manager_security.FLAGGED_NODEPACK_INSTALL_GUIDANCE)
+            raise PermissionError(manager_security.FLAGGED_NODEPACK_INSTALL_ERROR)
+        return node_info
+
     def cnr_switch_version(self, node_id, version_spec=None, instant_execution=False, no_deps=False, return_postinstall=False):
-        if instant_execution:
-            return self.cnr_switch_version_instant(node_id, version_spec, instant_execution, no_deps, return_postinstall)
-        else:
-            return self.cnr_switch_version_lazy(node_id, version_spec, no_deps, return_postinstall)
-
-    def cnr_switch_version_lazy(self, node_id, version_spec=None, no_deps=False, return_postinstall=False):
-        """
-        switch between cnr version (lazy mode)
-        """
-
         result = ManagedResult('switch-cnr')
 
-        node_info = cnr_utils.install_node(node_id, version_spec)
+        try:
+            node_info = self._get_cnr_install_info(node_id, version_spec)
+        except PermissionError as exc:
+            return result.fail(str(exc))
         if node_info is None or not node_info.download_url:
             return result.fail(f'not available node: {node_id}@{version_spec}')
 
-        version_spec = node_info.version
+        return self._cnr_switch_version(node_id, node_info, instant_execution, no_deps, return_postinstall)
 
-        if self.active_nodes[node_id][0] == version_spec:
+    def _cnr_switch_version(self, node_id, node_info, instant_execution=False, no_deps=False, return_postinstall=False):
+        """Execute a switch using the checked CNR response."""
+        if self.active_nodes[node_id][0] == node_info.version:
             return ManagedResult('skip').with_msg("Up to date")
 
+        if instant_execution:
+            return self._cnr_switch_version_instant(node_id, node_info, no_deps, return_postinstall)
+        return self._cnr_switch_version_lazy(node_id, node_info, no_deps, return_postinstall)
+
+    def _cnr_switch_version_lazy(self, node_id, node_info, no_deps=False, return_postinstall=False):
+        """Reserve a switch using the validated install response."""
+        result = ManagedResult('switch-cnr')
+        version_spec = node_info.version
         zip_url = node_info.download_url
         from_path = self.active_nodes[node_id][1]
         target = node_id
         to_path = os.path.join(get_default_custom_nodes_path(), target)
 
         def postinstall():
-            return self.reserve_cnr_switch(target, zip_url, from_path, to_path, no_deps)
+            return self.reserve_cnr_switch(target, zip_url, from_path, to_path, no_deps, node_info.status)
 
         if return_postinstall:
             return result.with_postinstall(postinstall)
@@ -934,23 +945,12 @@ class UnifiedManager:
 
         return result
 
-    def cnr_switch_version_instant(self, node_id, version_spec=None, instant_execution=True, no_deps=False, return_postinstall=False):
-        """
-        switch between cnr version
-        """
-
-        # 1. download
+    def _cnr_switch_version_instant(self, node_id, node_info, no_deps=False, return_postinstall=False):
+        """Apply a switch using the validated install response."""
         result = ManagedResult('switch-cnr')
-
-        node_info = cnr_utils.install_node(node_id, version_spec)
-        if node_info is None or not node_info.download_url:
-            return result.fail(f'not available node: {node_id}@{version_spec}')
-
         version_spec = node_info.version
 
-        if self.active_nodes[node_id][0] == version_spec:
-            return ManagedResult('skip').with_msg("Up to date")
-
+        # 1. download
         archive_name = f"CNR_temp_{str(uuid.uuid4())}.zip"  # should be unpredictable name - security precaution
         download_path = os.path.join(get_default_custom_nodes_path(), archive_name)
         manager_downloader.basic_download_url(node_info.download_url, get_default_custom_nodes_path(), archive_name)
@@ -995,7 +995,7 @@ class UnifiedManager:
         result.target = version_spec
 
         def postinstall():
-            res = self.execute_install_script(f"{node_id}@{version_spec}", install_path, instant_execution=instant_execution, no_deps=no_deps)
+            res = self.execute_install_script(f"{node_id}@{version_spec}", install_path, instant_execution=True, no_deps=no_deps)
             return res
 
         if return_postinstall:
@@ -1277,9 +1277,23 @@ class UnifiedManager:
         if 'comfyui-manager' in node_id.lower():
             return result.fail(f"ignored: installing '{node_id}'")
 
-        node_info = cnr_utils.install_node(node_id, version_spec)
+        try:
+            node_info = self._get_cnr_install_info(node_id, version_spec)
+        except PermissionError as exc:
+            return result.fail(str(exc))
         if node_info is None or not node_info.download_url:
             return result.fail(f'not available node: {node_id}@{version_spec}')
+
+        result = self._cnr_install(node_id, node_info, instant_execution, no_deps, return_postinstall)
+        # Keep the requested version in the public result.
+        if result.target is not None:
+            result.target = version_spec
+        return result
+
+    def _cnr_install(self, node_id, node_info, instant_execution=False, no_deps=False, return_postinstall=False):
+        """Install using the checked CNR response."""
+        result = ManagedResult('install-cnr')
+        version_spec = node_info.version
 
         archive_name = f"CNR_temp_{str(uuid.uuid4())}.zip"  # should be unpredictable name - security precaution
         download_path = os.path.join(get_default_custom_nodes_path(), archive_name)
@@ -1469,31 +1483,13 @@ class UnifiedManager:
             else:
                 version_spec = self.resolve_unspecified_version(node_id)
 
-        if version_spec == 'unknown' or version_spec == 'nightly':
+        if version_spec in ('unknown', 'nightly'):
             try:
-                custom_nodes = await self.get_custom_nodes(channel, mode)
-            except InvalidChannel as e:
-                return ManagedResult('fail').fail(f'Invalid channel is used: {e.channel}')
-
-            the_node = custom_nodes.get(node_id)
-            if the_node is not None:
-                if version_spec == 'unknown':
-                    repo_url = the_node['files'][0]
-                else:  # nightly
-                    repo_url = the_node['repository']
-            else:
-                # Fallback for nightly only: use repository URL from CNR map
-                # when node is registered in CNR but absent from nightly manifest
-                if version_spec == 'nightly':
-                    cnr_fallback = self.cnr_map.get(node_id)
-                    if cnr_fallback is not None and cnr_fallback.get('repository'):
-                        repo_url = cnr_fallback['repository']
-                    else:
-                        result = ManagedResult('install')
-                        return result.fail(f"Node '{node_id}@{version_spec}' not found in [{channel}, {mode}]")
-                else:
-                    result = ManagedResult('install')
-                    return result.fail(f"Node '{node_id}@{version_spec}' not found in [{channel}, {mode}]")
+                repo_url = await self._get_git_install_url(node_id, version_spec, channel, mode)
+            except InvalidChannel as exc:
+                return ManagedResult('fail').fail(f'Invalid channel is used: {exc.channel}')
+            except LookupError as exc:
+                return ManagedResult('install').fail(str(exc))
 
         if self.is_enabled(node_id, version_spec):
             return ManagedResult('skip').with_target(f"{node_id}@{version_spec}")
@@ -1501,32 +1497,16 @@ class UnifiedManager:
         elif self.is_disabled(node_id, version_spec):
             return self.unified_enable(node_id, version_spec)
 
-        elif version_spec == 'unknown' or version_spec == 'nightly':
-            to_path = os.path.abspath(os.path.join(get_default_custom_nodes_path(), node_id))
+        elif version_spec in ('unknown', 'nightly'):
+            return self._install_git(node_id, version_spec, repo_url, instant_execution, no_deps, return_postinstall)
 
-            if version_spec == 'nightly':
-                # disable cnr nodes
-                if self.is_enabled(node_id, 'cnr'):
-                    self.unified_disable(node_id, False)
-
-                # use `repo name` as a dir name instead of `cnr id` if system added nodepack (i.e. publisher is null)
-                cnr = self.cnr_map.get(node_id)
-
-                if cnr is not None and cnr.get('publisher') is None:
-                    repo_name = os.path.basename(git_utils.normalize_url(repo_url))
-                    to_path = os.path.abspath(os.path.join(get_default_custom_nodes_path(), repo_name))
-
-            res = self.repo_install(repo_url, to_path, instant_execution=instant_execution, no_deps=no_deps, return_postinstall=return_postinstall)
-            if res.result:
-                if version_spec == 'unknown':
-                    self.unknown_active_nodes[node_id] = repo_url, to_path
-                elif version_spec == 'nightly':
-                    cnr_utils.generate_cnr_id(to_path, node_id)
-                    self.active_nodes[node_id] = 'nightly', to_path
-            else:
-                return res
-
-            return res.with_target(version_spec)
+        # Check before changing the existing pack, then reuse this response.
+        try:
+            node_info = self._get_cnr_install_info(node_id, version_spec)
+        except PermissionError as exc:
+            return ManagedResult('install-cnr').fail(str(exc))
+        if node_info is None or not node_info.download_url:
+            return ManagedResult('install-cnr').fail(f'not available node: {node_id}@{version_spec}')
 
         if self.is_enabled(node_id, 'nightly'):
             # disable nightly nodes
@@ -1539,16 +1519,88 @@ class UnifiedManager:
         if self.is_disabled(node_id, "cnr"):
             # enable and switch version if cnr is disabled (not specified version)
             self.unified_enable(node_id, "cnr")
-            return self.cnr_switch_version(node_id, version_spec, no_deps=no_deps, return_postinstall=return_postinstall)
+            return self._cnr_switch_version(node_id, node_info, instant_execution, no_deps, return_postinstall)
 
         if self.is_enabled(node_id, "cnr"):
-            return self.cnr_switch_version(node_id, version_spec, no_deps=no_deps, return_postinstall=return_postinstall)
+            return self._cnr_switch_version(node_id, node_info, instant_execution, no_deps, return_postinstall)
 
-        res = self.cnr_install(node_id, version_spec, instant_execution=instant_execution, no_deps=no_deps, return_postinstall=return_postinstall)
+        res = self._cnr_install(node_id, node_info, instant_execution, no_deps, return_postinstall)
         if res.result:
             self.active_nodes[node_id] = version_spec, res.to_path
 
         return res
+
+    async def _get_git_install_url(self, node_id, version_spec, channel, mode):
+        custom_nodes = await self.get_custom_nodes(channel, mode)
+        node = custom_nodes.get(node_id)
+        if node is not None:
+            return node['files'][0] if version_spec == 'unknown' else node['repository']
+        if version_spec == 'nightly':
+            cnr = self.cnr_map.get(node_id)
+            if cnr is not None and cnr.get('repository'):
+                return cnr['repository']
+        raise LookupError(f"Node '{node_id}@{version_spec}' not found in [{channel}, {mode}]")
+
+    def _install_git(self, node_id, version_spec, repo_url, instant_execution=False, no_deps=False, return_postinstall=False):
+        to_path = os.path.abspath(os.path.join(get_default_custom_nodes_path(), node_id))
+
+        if version_spec == 'nightly':
+            # disable cnr nodes
+            if self.is_enabled(node_id, 'cnr'):
+                self.unified_disable(node_id, False)
+
+            # use `repo name` as a dir name instead of `cnr id` if system added nodepack (i.e. publisher is null)
+            cnr = self.cnr_map.get(node_id)
+
+            if cnr is not None and cnr.get('publisher') is None:
+                repo_name = os.path.basename(git_utils.normalize_url(repo_url))
+                to_path = os.path.abspath(os.path.join(get_default_custom_nodes_path(), repo_name))
+
+        res = self.repo_install(repo_url, to_path, instant_execution=instant_execution, no_deps=no_deps, return_postinstall=return_postinstall)
+        if res.result:
+            if version_spec == 'unknown':
+                self.unknown_active_nodes[node_id] = repo_url, to_path
+            elif version_spec == 'nightly':
+                cnr_utils.generate_cnr_id(to_path, node_id)
+                self.active_nodes[node_id] = 'nightly', to_path
+        else:
+            return res
+
+        return res.with_target(version_spec)
+
+    async def reinstall_by_id(self, node_id, version_spec, channel=None, mode=None):
+        if 'comfyui-manager' in node_id.lower():
+            return ManagedResult('skip').fail(f"ignored: installing '{node_id}'")
+
+        if version_spec in ('unknown', 'nightly'):
+            try:
+                repo_url = await self._get_git_install_url(node_id, version_spec, channel, mode)
+            except InvalidChannel as exc:
+                return ManagedResult('fail').fail(f'Invalid channel is used: {exc.channel}')
+            except LookupError as exc:
+                return ManagedResult('install').fail(str(exc))
+        else:
+            try:
+                node_info = self._get_cnr_install_info(node_id, version_spec)
+            except PermissionError as exc:
+                return ManagedResult('install-cnr').fail(str(exc))
+            if node_info is None or not node_info.download_url:
+                return ManagedResult('install-cnr').fail(f'not available node: {node_id}@{version_spec}')
+
+        removed = self.unified_uninstall(node_id, version_spec == 'unknown')
+        if not removed.result:
+            return removed
+
+        for item in removed.items:
+            path = item if version_spec == 'unknown' else item[1]
+            self.processed_install.discard(os.path.join(path, 'install.py'))
+        if version_spec in ('unknown', 'nightly'):
+            return self._install_git(node_id, version_spec, repo_url)
+
+        result = self._cnr_install(node_id, node_info)
+        if result.result:
+            self.active_nodes[node_id] = node_info.version, result.to_path
+        return result
 
 
 unified_manager = UnifiedManager()
@@ -1660,6 +1712,10 @@ class ManagerFuncs:
     def __init__(self):
         pass
 
+    def is_flagged_install_allowed(self):
+        # Server-scheduled restore children inherit only the resolved permission.
+        return os.environ.get('_COMFYUI_MANAGER_CNR_ALLOW_FLAGGED', 'true') == 'true'
+
     def run_script(self, cmd, cwd='.'):
         if len(cmd) > 0 and cmd[0].startswith("#"):
             print(f"[ComfyUI-Manager] Unexpected behavior: `{cmd}`")
@@ -1691,6 +1747,7 @@ WRITTEN_CONFIG_KEYS = (
     'db_mode',
     'allow_git_url_install',
     'allow_pip_install',
+    'allow_flagged_nodepack_install',
 )
 
 
@@ -1730,6 +1787,7 @@ def read_config():
                     'db_mode': default_conf.get('db_mode', DBMode.CACHE.value).lower(),
                     'allow_git_url_install': get_bool('allow_git_url_install', False),
                     'allow_pip_install': get_bool('allow_pip_install', False),
+                    'allow_flagged_nodepack_install': get_bool('allow_flagged_nodepack_install', False),
                }
 
     except Exception:
@@ -1755,6 +1813,7 @@ def read_config():
             'db_mode': DBMode.CACHE.value,
             'allow_git_url_install': False,
             'allow_pip_install': False,
+            'allow_flagged_nodepack_install': False,
         }
 
 
@@ -3192,15 +3251,20 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
                     skip_node_packs.append(f"{x[0]}@{x[1]}")
                 elif not ps.result:
                     failed.append(f"{x[0]}@{x[1]}")
+                    logging.error(ps.msg)
 
-            # install listed cnr nodes
+            # Do not retry processed switches as fresh installs.
+            checked_cnr = {node_id for node_id, _ in todo_checkout}
             for k, v in cnr_info.items():
-                if 'comfyui-manager' in k:
+                if 'comfyui-manager' in k or k in checked_cnr:
                     continue
 
                 ps = await unified_manager.install_by_id(k, version_spec=v, instant_execution=True, return_postinstall=True)
                 if ps.action == 'install-cnr' and ps.result:
                     installed_node_packs.append(f"{k}@{v}")
+                elif not ps.result:
+                    failed.append(f"{k}@{v}")
+                    logging.error(ps.msg)
 
                 if ps is not None and ps.result:
                     if hasattr(ps, 'postinstall'):
