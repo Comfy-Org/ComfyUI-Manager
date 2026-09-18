@@ -1,7 +1,7 @@
 import {app} from "../../scripts/app.js";
 import {api} from "../../scripts/api.js";
 import {ComfyDialog, $el} from "../../scripts/ui.js";
-import { customAlert } from "./common.js";
+import { customAlert, safeHref } from "./common.js";
 
 const BASE_URL = "https://youml.com";
 //const BASE_URL = "http://localhost:3000";
@@ -420,7 +420,7 @@ export class YouMLShareDialog extends ComfyDialog {
             }
           }
           this.message.innerHTML = `${messagePrefix} To turn your workflow into an interactive app, ` +
-            `<a href="${recipePageUrl}" target="_blank">visit it on YouML</a>`;
+            `<a href="${safeHref(recipePageUrl)}" target="_blank" rel="noopener noreferrer">visit it on YouML</a>`;
 
           this.uploadedImages = [];
           this.nameInput.value = "";

@@ -4,7 +4,8 @@ import {
 	manager_instance,
 	fetchData, md5, show_message, customAlert, infoToast, showTerminal,
 	storeColumnWidth, restoreColumnWidth, loadCss, uninstallNodes,
-	analyzeWorkflowUsage, sizeToBytes, createFlyover, createUIStateManager
+	analyzeWorkflowUsage, sizeToBytes, createFlyover, createUIStateManager,
+	sanitizeHTML, safeHref
 } from "./common.js";
 import { api } from "../../scripts/api.js";
 
@@ -220,7 +221,8 @@ export class NodeUsageAnalyzer {
 			maxWidth: 500,
 			classMap: 'nu-pack-name',
 			formatter: function (name, rowItem, columnItem, cellNode) {
-				return `<a href=${rowItem.reference} target="_blank"><b>${name}</b></a>`;
+				// Names are escaped during loadData; references need URL and attribute handling.
+				return `<a href="${safeHref(rowItem.reference)}" target="_blank" rel="noopener noreferrer"><b>${name}</b></a>`;
 			}
 		}, {
 			id: 'used_in_count',
@@ -283,7 +285,8 @@ export class NodeUsageAnalyzer {
 		workflowList.forEach((workflow, i) => {
 			list.push(`<div class="cn-nodes-row">`);
 			list.push(`<div class="cn-nodes-sn">${i + 1}</div>`);
-			list.push(`<div class="cn-nodes-name">${workflow.filename}</div>`);
+			// Workflow filenames are raw server data.
+			list.push(`<div class="cn-nodes-name">${sanitizeHTML(String(workflow.filename))}</div>`);
 			list.push(`<div class="cn-nodes-details">${workflow.nodeCount} node${workflow.nodeCount > 1 ? 's' : ''}</div>`);
 			list.push(`</div>`);
 		});
@@ -346,7 +349,8 @@ export class NodeUsageAnalyzer {
 			target_items.push(item);
 
 
-			this.ui.showStatus(`Install ${item.name} ...`);
+			// Here item.name is a raw pack key, not a server-escaped title.
+			this.ui.showStatus(`Install ${sanitizeHTML(String(item.name))} ...`);
 
 			const data = item.originalData;
 			data.ui_id = item.hash;
@@ -357,12 +361,13 @@ export class NodeUsageAnalyzer {
 			});
 
 			if (res.status != 200) {
-				errorMsg = `'${item.name}': `;
+				// Escape raw task errors for both HTML message destinations.
+				errorMsg = `'${sanitizeHTML(String(item.name))}': `;
 
 				if (res.status == 403) {
 					errorMsg += `This action is not allowed with this security level configuration.\n`;
 				} else {
-					errorMsg += await res.text() + '\n';
+					errorMsg += sanitizeHTML(await res.text()) + '\n';
 				}
 
 				break;
@@ -466,8 +471,9 @@ export class NodeUsageAnalyzer {
 		for (let hash in result) {
 			let v = result[hash];
 
+			// Escape raw task errors for both HTML message destinations.
 			if (v != 'success' && v != 'skip')
-				errorMsg += v + '\n';
+				errorMsg += sanitizeHTML(String(v)) + '\n';
 		}
 
 		for (let k in self.install_context.targets) {
@@ -591,7 +597,7 @@ export class NodeUsageAnalyzer {
 			if (result.error.toString().includes('204')) {
 				this.showMessage("No workflows were found for analysis.");
 			} else {
-				this.showError(result.error);
+				this.showError(sanitizeHTML(String(result.error)));
 				this.hideLoading();
 				return;
 			}
@@ -612,7 +618,8 @@ export class NodeUsageAnalyzer {
 			const workflowDetails = result.workflowDetailsMap?.get(packKey) || [];
 
 			models.push({
-				title: pack.title || packKey,
+				// Preserve server-escaped titles; escape only the raw pack-key fallback.
+				title: pack.title || sanitizeHTML(String(packKey)),
 				reference: pack.reference || pack.files?.[0] || '#',
 				used_in_count: usedCount,
 				workflowDetails: workflowDetails,
@@ -639,6 +646,7 @@ export class NodeUsageAnalyzer {
 
 	// ===========================================================================================
 
+	// Messages accept HTML; see createUIStateManager in common.js.
 	showSelection(msg) {
 		this.element.querySelector(".nu-manager-selection").innerHTML = msg;
 	}

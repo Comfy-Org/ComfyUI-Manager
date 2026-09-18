@@ -304,7 +304,6 @@ print_comfyui_version()
 core.check_invalid_nodes()
 
 
-
 def setup_environment():
     git_exe = core.get_config()['git_exe']
 
@@ -969,14 +968,22 @@ async def update_all(request):
 
 
 def convert_markdown_to_html(input_text):
+    """Parse source markdown, escaping text and URLs at their HTML boundaries."""
     pattern_a = re.compile(r'\[a/([^]]+)]\(([^)]+)\)')
     pattern_w = re.compile(r'\[w/([^]]+)]')
     pattern_i = re.compile(r'\[i/([^]]+)]')
     pattern_bold = re.compile(r'\*\*([^*]+)\*\*')
     pattern_white = re.compile(r'%%([^*]+)%%')
 
+    # Format link labels separately from URLs; escape URLs when inserted.
+    hrefs = []
+
     def replace_a(match):
-        return f"<a href='{match.group(2)}' target='blank'>{match.group(1)}</a>"
+        # Entities written in the source URL (e.g. &amp;) retain their meaning.
+        url = manager_util.unescape_html_entities(match.group(2))
+        hrefs.append(manager_util.sanitize_url(url))
+        text = manager_util.escape_html_text(match.group(1))
+        return f"<a href='\x00H{len(hrefs) - 1}\x00' target='_blank' rel='noopener noreferrer'>{text}</a>"
 
     def replace_w(match):
         return f"<p class='cm-warn-note'>{match.group(1)}</p>"
@@ -990,20 +997,35 @@ def convert_markdown_to_html(input_text):
     def replace_white(match):
         return f"<font color='white'>{match.group(1)}</font>"
 
-    input_text = input_text.replace('\\[', '&#91;').replace('\\]', '&#93;').replace('<', '&lt;').replace('>', '&gt;')
+    # NUL dropped first so the input cannot forge the href placeholders.
+    input_text = input_text.replace('\x00', '')
+    input_text = input_text.replace('\\[', '&#91;').replace('\\]', '&#93;')
 
-    result_text = re.sub(pattern_a, replace_a, input_text)
+    # Parse links before escaping prose, so generated text entities never enter URLs.
+    parts = []
+    start = 0
+    for match in pattern_a.finditer(input_text):
+        parts.append(manager_util.sanitize_tag(input_text[start:match.start()]))
+        parts.append(replace_a(match))
+        start = match.end()
+    parts.append(manager_util.sanitize_tag(input_text[start:]))
+    result_text = ''.join(parts)
     result_text = re.sub(pattern_w, replace_w, result_text)
     result_text = re.sub(pattern_i, replace_i, result_text)
     result_text = re.sub(pattern_bold, replace_bold, result_text)
     result_text = re.sub(pattern_white, replace_white, result_text)
+    result_text = result_text.replace("\n", "<BR>")
 
-    return result_text.replace("\n", "<BR>")
+    return re.sub(
+        r'\x00H(\d+)\x00',
+        lambda m: manager_util.escape_html_attribute(hrefs[int(m.group(1))]),
+        result_text,
+    )
 
 
 def populate_markdown(x):
     if 'description' in x:
-        x['description'] = convert_markdown_to_html(manager_util.sanitize_tag(x['description']))
+        x['description'] = convert_markdown_to_html(x['description'])
 
     if 'name' in x:
         x['name'] = manager_util.sanitize_tag(x['name'])
@@ -1780,7 +1802,6 @@ async def set_db_mode_handler(request):
     return web.Response(status=200)
 
 
-
 @routes.get("/manager/policy/component")
 async def get_component_policy(request):
     return web.Response(text=core.get_config()['component_policy'], status=200)
@@ -1834,19 +1855,6 @@ async def set_channel_url_list(request):
     return web.Response(status=200)
 
 
-def add_target_blank(html_text):
-    pattern = r'(<a\s+href="[^"]*"\s*[^>]*)(>)'
-
-    def add_target(match):
-        if 'target=' not in match.group(1):
-            return match.group(1) + ' target="_blank"' + match.group(2)
-        return match.group(0)
-
-    modified_html = re.sub(pattern, add_target, html_text)
-
-    return modified_html
-
-
 @routes.get("/manager/notice")
 async def get_notice(request):
     url = "github.com"
@@ -1862,7 +1870,8 @@ async def get_notice(request):
                 match = pattern.search(html_content)
 
                 if match:
-                    markdown_content = match.group(1)
+                    # Sanitize remote HTML before appending Manager's version text.
+                    markdown_content = manager_util.sanitize_html_fragment(match.group(1))
                     version_tag = os.environ.get('__COMFYUI_DESKTOP_VERSION__')
                     if version_tag is not None:
                         markdown_content += f"<HR>ComfyUI: {version_tag} [Desktop]"
@@ -1875,8 +1884,6 @@ async def get_notice(request):
                                                  f"&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;({core.comfy_ui_commit_datetime.date()})")
                     # markdown_content += f"<BR>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;()"
                     markdown_content += f"<BR>Manager: {core.version_str}"
-
-                    markdown_content = add_target_blank(markdown_content)
 
                     try:
                         if '__COMFYUI_DESKTOP_VERSION__' not in os.environ:

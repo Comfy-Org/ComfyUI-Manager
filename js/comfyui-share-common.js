@@ -4,7 +4,7 @@ import { $el, ComfyDialog } from "../../scripts/ui.js";
 import { CopusShareDialog } from "./comfyui-share-copus.js";
 import { OpenArtShareDialog } from "./comfyui-share-openart.js";
 import { YouMLShareDialog } from "./comfyui-share-youml.js";
-import { customAlert } from "./common.js";
+import { customAlert, safeHref, sanitizeHTML } from "./common.js";
 
 export const SUPPORTED_OUTPUT_NODE_TYPES = [
 	"PreviewImage",
@@ -937,7 +937,7 @@ export class ShareDialog extends ComfyDialog {
 			const response_json = await response.json();
 
 			if (response_json.comfyworkflows.url) {
-				this.final_message.innerHTML = "Your art has been shared: <a href='" + response_json.comfyworkflows.url + "' target='_blank'>" + response_json.comfyworkflows.url + "</a>";
+				this.final_message.innerHTML = "Your art has been shared: <a href='" + safeHref(response_json.comfyworkflows.url) + "' target='_blank' rel='noopener noreferrer'>" + sanitizeHTML(response_json.comfyworkflows.url) + "</a>";
 				if (response_json.matrix.success) {
 					this.final_message.innerHTML += "<br>Your art has been shared in the ComfyUI Matrix server's #share channel!";
 				}
