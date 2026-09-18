@@ -83,11 +83,13 @@ from ..data_models import (
     ComfyUISwitchVersionParams,
 )
 
-from .constants import (
-    model_dir_name_map,
+from ..common.security_messages import (
     SECURITY_MESSAGE_MIDDLE,
     SECURITY_MESSAGE_MIDDLE_P,
     SECURITY_MESSAGE_HIGH_P,
+)
+from .constants import (
+    model_dir_name_map,
 )
 
 if not manager_util.is_manager_pip_package():

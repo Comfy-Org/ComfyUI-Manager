@@ -8,11 +8,13 @@ import {
 	fetchData, md5, icons, show_message, customConfirm, customAlert, customPrompt,
 	sanitizeHTML, infoToast, showTerminal, setNeedRestart,
 	storeColumnWidth, restoreColumnWidth, getTimeAgo, copyText, loadCss,
-	showPopover, hidePopover, generateUUID
+	showPopover, hidePopover, generateUUID, sanitizeUrl
 } from  "./common.js";
 
+// Registry titles, names and descriptions are server-escaped; other fields are raw.
+
 // https://cenfun.github.io/turbogrid/api.html
-import TG from "./turbogrid.esm.js";
+import ManagerGrid from "./manager-grid.js";
 
 loadCss("./custom-nodes-manager.css");
 
@@ -363,19 +365,20 @@ export class CustomNodesManager {
 			installGroups.enabled = installGroups.enabled.filter(it => it !== "disable" && it !== "uninstall" && it !== "switch");
 		}
 
-		let list = installGroups[action];
+		const list = installGroups[action];
 
-		if(is_selected_button || rowItem?.version === "unknown") {
-			list = list.filter(it => it !== "switch");
-		}
-
-		if (!list) {
+		if (!Array.isArray(list)) {
 			return "";
 		}
 
-		return list.map(id => {
+		const shown = (is_selected_button || rowItem?.version === "unknown")
+			? list.filter(it => it !== "switch")
+			: list;
+
+		return shown.map(id => {
 			const bt = buttons[id];
-			return `<button class="cn-btn-${id} p-button p-component" group="${action}" mode="${bt.mode}">${bt.label}</button>`;
+			// `action` is registry-derived and lands in an attribute.
+			return `<button class="cn-btn-${id} p-button p-component" group="${sanitizeHTML(String(action ?? ''))}" mode="${bt.mode}">${bt.label}</button>`;
 		}).join("");
 	}
 
@@ -518,7 +521,7 @@ export class CustomNodesManager {
 
 	initGrid() {
 		const container = this.element.querySelector(".cn-manager-grid");
-		const grid = new TG.Grid(container);
+		const grid = new ManagerGrid(container);
 		this.grid = grid;
 
 		this.flyover = this.createFlyover(container);
@@ -579,6 +582,9 @@ export class CustomNodesManager {
 
 
 		grid.setOption({
+			highlightKeywords: {
+				textGenerator: (row, column) => column === 'author' ? sanitizeHTML(String(row[column] ?? '')) : row[column]
+			},
 			theme: 'dark',
 			selectVisible: true,
 			selectMultiple: true,
@@ -646,7 +652,8 @@ export class CustomNodesManager {
 
 		let res = await response.json();
 
-		let title = `<FONT COLOR=GREEN><B>Error message occurred while importing the '${rowItem.title}' module.</B></FONT><BR><HR><BR>`
+		// `title` is server-escaped; `res['msg']` below is raw and is escaped.
+		let title = `<FONT COLOR=GREEN><B>Error message occurred while importing the '${String(rowItem.title ?? '')}' module.</B></FONT><BR><HR><BR>`
 
 		if(res.code == 400)
 		{
@@ -711,11 +718,12 @@ export class CustomNodesManager {
 
 				const link = document.createElement('a');
 				if(rowItem.originalData.repository)
-					link.href = rowItem.originalData.repository;
+					link.href = sanitizeUrl(rowItem.originalData.repository);
 				else
-					link.href = rowItem.reference;
+					link.href = sanitizeUrl(rowItem.reference);
 				link.target = '_blank';
-				link.innerHTML = `<b>${title}</b>`;
+				link.rel = 'noopener noreferrer';
+				link.innerHTML = `<b>${String(title ?? '')}</b>`;
 				link.title = rowItem.originalData.id;
 				container.appendChild(link);
 
@@ -734,11 +742,11 @@ export class CustomNodesManager {
 				}
 				if(rowItem.cnr_latest && version != rowItem.cnr_latest) {
 					if(version == 'nightly') {
-						return `<div>${version}</div><div>[${rowItem.cnr_latest}]</div>`;
+						return `<div>${sanitizeHTML(String(version))}</div><div>[${sanitizeHTML(String(rowItem.cnr_latest))}]</div>`;
 					}
-					return `<div>${version}</div><div>[↑${rowItem.cnr_latest}]</div>`;
+					return `<div>${sanitizeHTML(String(version))}</div><div>[↑${sanitizeHTML(String(rowItem.cnr_latest))}]</div>`;
 				}
-				return version;
+				return sanitizeHTML(String(version));
 			}
 		}, {
 			id: 'action',
@@ -777,13 +785,13 @@ export class CustomNodesManager {
 			width: 400,
 			maxWidth: 5000,
 			invisible: !this.hasAlternatives(),
-			classMap: 'cn-pack-desc'
+			classMap: 'cn-pack-desc'  // composed HTML; tags are escaped in getAlternatives
 		}, {
 			id: 'description',
 			name: 'Description',
 			width: 400,
 			maxWidth: 5000,
-			classMap: 'cn-pack-desc'
+			classMap: 'cn-pack-desc'  // composed HTML from the server (convert_markdown_to_html)
 		}, {
 			id: 'author',
 			name: 'Author',
@@ -791,9 +799,9 @@ export class CustomNodesManager {
 			classMap: "cn-pack-author", 
 			formatter: (author, rowItem, columnItem) => {
 				if (rowItem.trust) {
-					return `<span tooltip="This author has been active for more than six months in GitHub">✅ ${author}</span>`;
+					return `<span tooltip="This author has been active for more than six months in GitHub">✅ ${sanitizeHTML(String(author ?? ''))}</span>`;
 				}
-				return author;
+				return sanitizeHTML(String(author ?? ''));
 			}
 		}, {
 			id: 'stars',
@@ -807,7 +815,7 @@ export class CustomNodesManager {
 				if (typeof stars === 'number') {
 					return stars.toLocaleString();
 				}
-				return stars;
+				return sanitizeHTML(String(stars ?? ''));
 			}
 		}, {
 			id: 'last_update',
@@ -822,7 +830,7 @@ export class CustomNodesManager {
 				}
 				const ago = getTimeAgo(last_update);
 				const short = `${last_update}`.split(' ')[0];
-				return `<span tooltip="${ago}">${short}</span>`;
+				return `<span tooltip="${ago}">${sanitizeHTML(String(short))}</span>`;
 			}
 		}];
 
@@ -1211,7 +1219,7 @@ export class CustomNodesManager {
 		const rowItem = d.rowItem;
 		const isNotInstalled = rowItem.action == "not-installed";
 
-		let titleHtml = `<div class="cn-nodes-pack" hash="${rowItem.hash}">${rowItem.title}</div>`;
+		let titleHtml = `<div class="cn-nodes-pack" hash="${rowItem.hash}">${String(rowItem.title ?? '')}</div>`;
 		if (isNotInstalled) {
 			titleHtml += '<div class="cn-pack-badge">Not Installed</div>'
 		}
@@ -1227,11 +1235,12 @@ export class CustomNodesManager {
 
 			list.push(`<div class="${rowClass}">`);
 			list.push(`<div class="cn-nodes-sn">${i+1}</div>`);
-			list.push(`<div class="cn-nodes-name">${it.name}</div>`);
+			// `it.name` is a raw node name from getmappings (not the pack name)
+			list.push(`<div class="cn-nodes-name">${sanitizeHTML(String(it.name ?? ''))}</div>`);
 
 			if (it.conflicts) {
 				list.push(`<div class="cn-conflicts-list"><div class="cn-nodes-conflict cn-icon">${icons.conflicts}</div><b>Conflict with</b>${it.conflicts.map(c => {
-					return `<div class="cn-nodes-pack" hash="${c.hash}">${c.title}</div>`;
+					return `<div class="cn-nodes-pack" hash="${c.hash}">${String(c.title ?? '')}</div>`;
 				}).join("<b>,</b>")}</div>`);
 			}
 			list.push(`</div>`);
@@ -1349,7 +1358,7 @@ export class CustomNodesManager {
 			return;
 		}
 
-		const selectedMap = {};
+		const selectedMap = Object.create(null);
 		selectedList.forEach(item => {
 			let type = item.action;
 			if (item.restart) {
@@ -1367,8 +1376,10 @@ export class CustomNodesManager {
 		const list = [];
 		Object.keys(selectedMap).forEach(v => {
 			const filterItem = this.getFilterItem(v);
+			// `v` is a registry-supplied `state`; escape it when no filter label matches.
+			const typeLabel = filterItem ? filterItem.label : sanitizeHTML(String(v ?? ''));
 			list.push(`<div class="cn-selected-buttons">
-				<span>Selected <b>${selectedMap[v].length}</b> ${filterItem ? filterItem.label : v}</span>
+				<span>Selected <b>${selectedMap[v].length}</b> ${typeLabel}</span>
 				${this.grid.hasMask ? "" : this.getActionButtons(v, null, true)}
 			</div>`);
 		});
@@ -1466,7 +1477,6 @@ export class CustomNodesManager {
 		target.classList.add("cn-btn-loading");
 		this.showError("");
 
-		let needRestart = false;
 		let errorMsg = "";
 
 		let target_items = [];
@@ -1475,13 +1485,13 @@ export class CustomNodesManager {
 
 		for (const hash of list) {
 			const item = this.grid.getRowItemBy("hash", hash);
-			target_items.push(item);
 
 			if (!item) {
-				errorMsg = `Not found custom node: ${hash}`;
+				errorMsg = `Not found custom node: ${sanitizeHTML(String(hash))}`;
 				break;
 			}
 
+			target_items.push(item);
 			this.grid.scrollRowIntoView(item);
 
 			if (!this.focusInstall(item, mode)) {
@@ -1538,23 +1548,48 @@ export class CustomNodesManager {
 			this.batch_id = generateUUID();
 			batch['batch_id'] = this.batch_id;
 
-			const res = await api.fetchApi(`/v2/manager/queue/batch`, {
-				method: 'POST',
-				body: JSON.stringify(batch)
-			});
+			let failed;
+			try {
+				const { data, error } = await fetchData(`/v2/manager/queue/batch`, {
+					method: 'POST',
+					body: JSON.stringify(batch)
+				});
+				if (error) throw error;
+				if (!Array.isArray(data?.failed)) throw new Error('Invalid batch response.');
+				failed = data.failed;
+			} catch (error) {
+				errorMsg = `Failed to submit installation request: ${sanitizeHTML(String(error))}`;
+				this.showError(errorMsg);
+				show_message("[Installation Errors]\n" + errorMsg);
+				target.classList.remove("cn-btn-loading");
+				this.element.querySelectorAll(".cn-btn-loading").forEach(button => {
+					button.classList.remove("cn-btn-loading");
+				});
+				this.hideLoading();
+				this.hideStop();
+				this.install_context = undefined;
+				return;
+			}
+			for (const id of failed) {
+				const item = target_items.find(item => item.originalData.id === id);
+				errorMsg += `[FAIL] ${item?.title ?? sanitizeHTML(String(id))}\n`;
+			}
+			if (errorMsg) {
+				this.showError(errorMsg);
+				show_message("[Installation Errors]\n" + errorMsg);
+			}
 
-			let failed = await res.json();
+			showTerminal();
 
-			if(failed.length > 0) {
-				for(let k in failed) {
-					let hash = failed[k];
-					const item = this.grid.getRowItemBy("hash", hash);
-					errorMsg = `[FAIL] ${item.title}`;
-				}
+			// No queued work means the server will not send batch-done.
+			if (target_items.every(item => failed.includes(item.originalData.id))) {
+				this.hideLoading();
+				this.hideStop();
+				this.install_context = undefined;
+				return;
 			}
 
 			this.showStop();
-			showTerminal();
 		}
 	}
 
@@ -1601,7 +1636,7 @@ export class CustomNodesManager {
 			let v = result[hash];
 
 			if(v != 'success' && v != 'skip')
-				errorMsg += v+'\n';
+				errorMsg += sanitizeHTML(String(v))+'\n';
 		}
 
 		for(let k in self.install_context.targets) {
@@ -1719,7 +1754,7 @@ export class CustomNodesManager {
 		if(unresolved_cnr_list.length > 0) {
 			let error_msg = "Failed to find the following ComfyRegistry list.\nThe cache may be outdated, or the nodes may have been removed from ComfyRegistry.<HR>";
 			for(let i in unresolved_cnr_list) {
-				error_msg += '<li>'+unresolved_cnr_list[i]+'</li>';
+				error_msg += '<li>'+sanitizeHTML(String(unresolved_cnr_list[i]))+'</li>';
 			}
 
 			show_message(error_msg);
@@ -1769,7 +1804,7 @@ export class CustomNodesManager {
 		this.showStatus(`Loading missing nodes (${mode}) ...`);
 		const res = await fetchData(`/v2/customnode/getmappings?mode=${mode}`);
 		if (res.error) {
-			this.showError(`Failed to get custom node mappings: ${res.error}`);
+			this.showError(`Failed to get custom node mappings: ${sanitizeHTML(String(res.error))}`);
 			return;
 		}
 
@@ -1884,7 +1919,7 @@ export class CustomNodesManager {
 		this.showStatus(`Loading alternatives (${mode}) ...`);
 		const res = await fetchData(`/v2/customnode/alternatives?mode=${mode}`);
 		if (res.error) {
-			this.showError(`Failed to get alternatives: ${res.error}`);
+			this.showError(`Failed to get alternatives: ${sanitizeHTML(String(res.error))}`);
 			return [];
 		}
 
@@ -1901,7 +1936,7 @@ export class CustomNodesManager {
 			}
 
 			const tags = `${item.tags}`.split(",").map(tag => {
-				return `<div>${tag.trim()}</div>`;
+				return `<div>${sanitizeHTML(tag.trim())}</div>`;
 			}).join("");
 
 			hashMap[custom_node.hash] = {
@@ -1948,7 +1983,7 @@ export class CustomNodesManager {
 		this.custom_nodes = node_packs;
 
 		if(this.channel !== 'default') {
-			this.element.querySelector(".cn-manager-channel").innerHTML = `Channel: ${this.channel} (Incomplete list)`;
+			this.element.querySelector(".cn-manager-channel").innerHTML = `Channel: ${sanitizeHTML(String(this.channel))} (Incomplete list)`;
 		}
 
 		for (const k in node_packs) {
@@ -2077,6 +2112,7 @@ export class CustomNodesManager {
 	// ===========================================================================================
 
 	showSelection(msg) {
+		// Takes composed HTML (buttons included); ingredients are escaped in renderSelected.
 		this.element.querySelector(".cn-manager-selection").innerHTML = msg;
 	}
 
@@ -2084,18 +2120,17 @@ export class CustomNodesManager {
 		this.showMessage(err, "red");
 	}
 
+	// Messages contain HTML: preserve server-escaped names and escape raw values at the caller.
 	showMessage(msg, color) {
-		if (color) {
-			msg = `<font color="${color}">${msg}</font>`;
-		}
-		this.element.querySelector(".cn-manager-message").innerHTML = msg;
+		const element = this.element.querySelector(".cn-manager-message");
+		element.style.color = color || "";
+		element.innerHTML = msg ?? "";
 	}
 
 	showStatus(msg, color) {
-		if (color) {
-			msg = `<font color="${color}">${msg}</font>`;
-		}
-		this.element.querySelector(".cn-manager-status").innerHTML = msg;
+		const element = this.element.querySelector(".cn-manager-status");
+		element.style.color = color || "";
+		element.innerHTML = msg ?? "";
 	}
 
 	showLoading() {

@@ -5,19 +5,24 @@ Browser-based E2E tests for the ComfyUI-Manager legacy UI.
 ## Prerequisites
 
 1. **E2E environment** built via `python tests/e2e/scripts/setup_e2e_env.py`
-2. **Playwright installed**: `npx playwright install chromium`
+2. **Playwright runner and Chromium** (from the repository root):
+   `npm install --no-save --package-lock=false @playwright/test@1.59.1`, then
+   `npx playwright install chromium`.
 3. **ComfyUI running** with legacy UI enabled:
 
 ```bash
 E2E_ROOT=/tmp/e2e_full_test
 PORT=8199
-$E2E_ROOT/venv/bin/python $E2E_ROOT/comfyui/main.py \
+PYTHONPATH="$PWD" $E2E_ROOT/venv/bin/python $E2E_ROOT/comfyui/main.py \
   --listen 127.0.0.1 --port $PORT \
-  --enable-manager-legacy-ui \
+  --enable-manager --enable-manager-legacy-ui \
   --cpu
 ```
 
 ## Running Tests
+
+Run from the repository root. XSS fixtures execute the checkout's Python renderer
+using `python3`; set `PYTHON=/path/to/python` to select another interpreter.
 
 ```bash
 # With server already running:
@@ -42,3 +47,6 @@ PORT=8199 npx playwright test --debug
 | `legacy-ui-model-manager.spec.ts` | Model list grid, filter, search |
 | `legacy-ui-snapshot.spec.ts` | Snapshot list, save, remove |
 | `legacy-ui-navigation.spec.ts` | Dialog open/close, nested navigation, no duplicates |
+| `custom-nodes-xss.spec.ts` | Node metadata, Markdown, links, errors, search highlighting |
+| `model-manager-xss.spec.ts` | Model metadata, links, errors, search highlighting |
+| `legacy-message-errors.spec.ts` | Batch rejection IDs, name readability, DOM colors, lookup errors |
