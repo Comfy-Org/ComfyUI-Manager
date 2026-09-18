@@ -33,6 +33,7 @@ from packaging import version
 import uuid
 
 from ..common import cm_global
+from ..common.config_writer import DirtyTrackingConfig, write_config_merged
 from ..common import cnr_utils
 from ..common import manager_util
 from ..common import git_utils
@@ -1672,39 +1673,30 @@ class ManagerFuncs:
 manager_funcs = ManagerFuncs()
 
 
+# Settings owned by this server; other keys and sections are preserved.
+WRITTEN_CONFIG_KEYS = (
+    'git_exe',
+    'use_uv',
+    'channel_url',
+    'share_option',
+    'bypass_ssl',
+    'file_logging',
+    'update_policy',
+    'windows_selector_event_loop_policy',
+    'model_download_by_agent',
+    'downgrade_blacklist',
+    'security_level',
+    'always_lazy_install',
+    'network_mode',
+    'db_mode',
+    'allow_git_url_install',
+    'allow_pip_install',
+)
+
+
 def write_config():
-    config = configparser.ConfigParser(strict=False)
-
-    config['default'] = {
-        'git_exe': get_config()['git_exe'],
-        'use_uv': get_config()['use_uv'],
-        'channel_url': get_config()['channel_url'],
-        'share_option': get_config()['share_option'],
-        'bypass_ssl': get_config()['bypass_ssl'],
-        "file_logging": get_config()['file_logging'],
-        'update_policy': get_config()['update_policy'],
-        'windows_selector_event_loop_policy': get_config()['windows_selector_event_loop_policy'],
-        'model_download_by_agent': get_config()['model_download_by_agent'],
-        'downgrade_blacklist': get_config()['downgrade_blacklist'],
-        'security_level': get_config()['security_level'],
-        'always_lazy_install': get_config()['always_lazy_install'],
-        'network_mode': get_config()['network_mode'],
-        'db_mode': get_config()['db_mode'],
-        'allow_git_url_install': get_config()['allow_git_url_install'],
-        'allow_pip_install': get_config()['allow_pip_install'],
-    }
-
-    # Sanitize all string values to prevent CRLF injection attacks
-    for key, value in config['default'].items():
-        if isinstance(value, str):
-            config['default'][key] = value.replace('\r', '').replace('\n', '').replace('\x00', '')
-
-    directory = os.path.dirname(context.manager_config_path)
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
-    with open(context.manager_config_path, 'w') as configfile:
-        config.write(configfile)
+    """Persist changed settings through the shared writer."""
+    write_config_merged(context.manager_config_path, get_config(), WRITTEN_CONFIG_KEYS)
 
 
 def read_config():
@@ -1770,7 +1762,8 @@ def get_config():
     global cached_config
 
     if cached_config is None:
-        cached_config = read_config()
+        # Start tracking changes after the startup configuration is loaded.
+        cached_config = DirtyTrackingConfig(read_config())
         if cached_config['http_channel_enabled']:
             print("[ComfyUI-Manager] Warning: http channel enabled, make sure server in secure env")
 

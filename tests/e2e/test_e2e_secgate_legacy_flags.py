@@ -59,6 +59,7 @@ otherwise (harness precedent: tests/e2e/test_e2e_secgate_default.py).
 from __future__ import annotations
 
 import configparser
+import json
 import os
 import shutil
 import subprocess
@@ -504,6 +505,94 @@ class TestFlagsOffWeakLevel:
             "SC-09: batch unknown-URL install must be denied with "
             f"allow_git_url_install=false even at sl=weak. failed={failed!r}"
         )
+
+
+# ===========================================================================
+# The 403 denial reason code
+#
+# A denied install returns 403 with a JSON body naming the flag that denied it
+# — `{"reason": "allow_git_url_install"}` or `{"reason": "allow_pip_install"}`
+# — so the browser can tell the user WHICH setting to change instead of
+# guessing from the endpoint it happened to call. The full
+# SECURITY_MESSAGE_FLAG_* text still goes to the terminal via `logging.error`;
+# only the flag name goes on the wire.
+#
+# Every other assertion on these endpoints tests `status_code` alone, so
+# nothing else in this file can see the body at all — these rows are the only
+# coverage the wire contract has.
+#
+# Reuses CFG-D (git=F, pip=F, sl=weak) — the config that already produces a 403
+# on both arms, so these rows add no new server boot.
+# ===========================================================================
+
+class TestDenialReasonCode:
+    """The 403 body must name WHICH flag denied — and nothing more."""
+
+    def _denial_body(self, resp):
+        """Parse the 403 body as the wire contract, with the failure message
+        carrying what was actually received."""
+        assert resp.status_code == 403, (
+            f"precondition: expected 403, got {resp.status_code}"
+        )
+        try:
+            return json.loads(resp.text)
+        except json.JSONDecodeError as exc:
+            pytest.fail(
+                "the 403 body is not JSON. Expected a JSON object carrying "
+                "the denial reason code; "
+                f"observed {resp.text!r} (len={len(resp.text)}). "
+                f"JSONDecodeError: {exc}. A 403 emitted with no `text=` leaves "
+                "the body EMPTY, and the client then has nothing to derive its "
+                "message from."
+            )
+
+    def test_t9_pip_denial_body_names_the_flag(self, comfyui_flags_d):
+        """The pip 403 body carries the reason code.
+
+        Expected: a JSON OBJECT whose `reason` is the string
+        `allow_pip_install`.
+        """
+        resp = _post_pip("text-unidecode")
+        body = self._denial_body(resp)
+
+        assert isinstance(body, dict), (
+            "the 403 body must be a JSON OBJECT (the client's guard is "
+            "`typeof data === 'object' && data !== null && typeof data.reason "
+            f"=== 'string'`); observed {type(body).__name__} {body!r}"
+        )
+        assert body.get("reason") == "allow_pip_install", (
+            "expected the pip 403 body to carry "
+            "{'reason': 'allow_pip_install'} so the client can name the "
+            f"condition the SERVER actually failed on; observed {body!r}"
+        )
+
+    def test_t9_git_url_denial_body_names_the_flag(self, comfyui_flags_d):
+        """The git_url 403 body carries its own code.
+
+        A separate node from the pip arm on purpose: the two emissions are
+        separate `return` statements, so one can be changed while the other is
+        missed.
+        """
+        resp = _post_git_url(UNKNOWN_GIT_URL)
+        body = self._denial_body(resp)
+
+        assert isinstance(body, dict), (
+            "the 403 body must be a JSON OBJECT; observed "
+            f"{type(body).__name__} {body!r}"
+        )
+        assert body.get("reason") == "allow_git_url_install", (
+            "expected the git_url 403 body to carry "
+            f"{{'reason': 'allow_git_url_install'}}; observed {body!r}"
+        )
+
+    def test_t9b_denial_body_discloses_nothing_further(self, comfyui_flags_d):
+        """Denied requests expose only the failed flag name."""
+        responses = {
+            "allow_pip_install": _post_pip("text-unidecode"),
+            "allow_git_url_install": _post_git_url(UNKNOWN_GIT_URL),
+        }
+        for reason, response in responses.items():
+            assert self._denial_body(response) == {"reason": reason}
 
 
 # ===========================================================================

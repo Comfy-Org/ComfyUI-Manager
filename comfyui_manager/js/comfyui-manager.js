@@ -14,7 +14,7 @@ import { OpenArtShareDialog } from "./comfyui-share-openart.js";
 import {
 	free_models, install_pip, install_via_git_url, manager_instance,
 	rebootAPI, setManagerInstance, show_message, customAlert, customPrompt,
-	infoToast, showTerminal, setNeedRestart, generateUUID
+	infoToast, showTerminal, setNeedRestart, generateUUID, sanitizeHTML, sanitizeUrl
 } from "./common.js";
 import { CustomNodesManager } from "./custom-nodes-manager.js";
 import { ModelManager } from "./model-manager.js";
@@ -722,13 +722,14 @@ async function onQueueStatus(event) {
 				msg += "The following custom nodes have been updated:<ul>";
 				for(let x in success_list) {
 					let k = success_list[x];
-					let url = event.detail.nodepack_result[k].url;
-					let title = event.detail.nodepack_result[k].title;
+					// queue results are server-authored and not escaped upstream
+					let url = sanitizeUrl(event.detail.nodepack_result[k].url);
+					let title = sanitizeHTML(String(event.detail.nodepack_result[k].title ?? ''));
 					if(url) {
-						msg += `<li><a href='${url}' target='_blank'>${title}</a></li>`;
+						msg += `<li><a href='${sanitizeHTML(url)}' target='_blank' rel='noopener noreferrer'>${title}</a></li>`;
 					}
 					else {
-						msg += `<li>${k}</li>`;
+						msg += `<li>${sanitizeHTML(String(k))}</li>`;
 					}
 				}
 				msg += "</ul>";
@@ -741,13 +742,13 @@ async function onQueueStatus(event) {
 			msg += '<br>The update for the following custom nodes has failed:<ul>';
 			for(let x in failed_list) {
 				let k = failed_list[x];
-				let url = event.detail.nodepack_result[k].url;
-				let title = event.detail.nodepack_result[k].title;
+				let url = sanitizeUrl(event.detail.nodepack_result[k].url);
+				let title = sanitizeHTML(String(event.detail.nodepack_result[k].title ?? ''));
 				if(url) {
-					msg += `<li><a href='${url}' target='_blank'>${title}</a></li>`;
+					msg += `<li><a href='${sanitizeHTML(url)}' target='_blank' rel='noopener noreferrer'>${title}</a></li>`;
 				}
 				else {
-					msg += `<li>${k}</li>`;
+					msg += `<li>${sanitizeHTML(String(k))}</li>`;
 				}
 			}
 

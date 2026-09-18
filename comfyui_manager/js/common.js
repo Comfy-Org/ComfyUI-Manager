@@ -216,7 +216,7 @@ export async function install_pip(packages) {
 	});
 
 	if(res.status == 403) {
-		show_message("To use this feature, set <code>allow_pip_install = true</code> in the [default] section of config.ini. This setting is independent of security_level.<BR>Note: if the ComfyUI listener is not local, <code>network_mode = personal_cloud</code> is also required.");
+		show_message(await install_denial_message(res, 'allow_pip_install'));
 		return;
 	}
 
@@ -251,7 +251,7 @@ export async function install_via_git_url(url, manager_dialog) {
 	});
 
 	if(res.status == 403) {
-		show_message("To use this feature, set <code>allow_git_url_install = true</code> in the [default] section of config.ini. This setting is independent of security_level.<BR>Note: if the ComfyUI listener is not local, <code>network_mode = personal_cloud</code> is also required.");
+		show_message(await install_denial_message(res, 'allow_git_url_install'));
 		return;
 	}
 
@@ -660,3 +660,53 @@ function initTooltip () {
 }
 
 initTooltip();
+// Installation flags and network mode take effect after a restart.
+const INSTALL_DENIAL_RESTART_NOTE = "<BR>Both values are read once at ComfyUI startup, so changing either one needs a restart, done with the server down: STOP ComfyUI, change the setting, then start it again.";
+
+export const INSTALL_DENIAL_MESSAGES = {
+	allow_git_url_install: "To use this feature, set <code>allow_git_url_install = true</code> in the [default] section of config.ini. This setting is independent of security_level.<BR>Note: if the ComfyUI listener is not local, <code>network_mode = personal_cloud</code> is also required." + INSTALL_DENIAL_RESTART_NOTE,
+	allow_pip_install: "To use this feature, set <code>allow_pip_install = true</code> in the [default] section of config.ini. This setting is independent of security_level.<BR>Note: if the ComfyUI listener is not local, <code>network_mode = personal_cloud</code> is also required." + INSTALL_DENIAL_RESTART_NOTE
+};
+
+// Last resort when no entry above applies. Names no flag on purpose.
+const INSTALL_DENIAL_UNKNOWN_REASON = "This action was refused by the server, and the client could not determine which setting caused it. The server terminal log states the exact condition. Please contact the administrator.";
+
+// Use the endpoint's flag when the 403 response body is missing or malformed.
+export async function install_denial_message(res, fallbackReason) {
+	let reason = fallbackReason;
+	try {
+		const data = await res.json();
+		if (typeof data === 'object' && data !== null && typeof data.reason === 'string'
+			&& Object.prototype.hasOwnProperty.call(INSTALL_DENIAL_MESSAGES, data.reason)) {
+			reason = data.reason;
+		}
+	}
+	catch {
+		// absent / non-JSON body: keep the fallback
+	}
+	return INSTALL_DENIAL_MESSAGES[reason] ?? INSTALL_DENIAL_UNKNOWN_REASON;
+}
+
+/**
+ * Scheme allow-list for registry-supplied URLs that land in an href.
+ * Returns the URL if it is http(s) or relative, otherwise "". Never throws.
+ */
+export function sanitizeUrl(url) {
+	const raw = String(url ?? '').trim();
+	if (!raw) {
+		return '';
+	}
+	let parsed;
+	try {
+		parsed = new URL(raw);
+	}
+	catch {
+		// not absolute: keep a scheme-less relative path, drop anything else
+		return /^[a-z][a-z0-9+.\-]*:/i.test(raw) ? '' : raw;
+	}
+	// URL parsing already normalised the scheme (`java\tscript:` collapses).
+	if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+		return raw;
+	}
+	return '';
+}
