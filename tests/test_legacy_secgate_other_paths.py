@@ -145,12 +145,17 @@ def _run(coro):
 
 
 class FakeRequest:
-    """Minimal stand-in for an aiohttp request. ``content_type`` satisfies
-    ``reject_simple_form_post``; nothing else is read on the deny path (the
-    gate returns before any body access)."""
+    """Minimal request exposing ``content_type`` and an optional JSON body.
 
-    def __init__(self, content_type="application/json"):
+    The security gate reads only ``content_type``; batch-handler tests also read
+    the JSON body through ``json``."""
+
+    def __init__(self, content_type="application/json", json_data=None):
         self.content_type = content_type
+        self.json_data = json_data
+
+    async def json(self):
+        return self.json_data
 
 
 # ===========================================================================
@@ -338,3 +343,30 @@ def test_p4_install_model_safetensors_skips_high_plus_gate_200(ms, gate, monkeyp
     json_data = {"filename": "model.safetensors", "url": "http://example/m.safetensors", "ui_id": "u"}
     resp = _run(ms._install_model(dict(json_data)))
     assert resp.status == 200
+
+
+def test_queue_batch_update_comfyui_skips_no_body_content_type_gate(ms, monkeypatch):
+    """Regression for #2843: the body-reading batch handler must queue the
+    update without invoking the Content-Type gate for no-body handlers."""
+    request = FakeRequest(content_type="text/plain", json_data={"update_comfyui": True})
+    config = dict(ms.core.read_config())
+    config["update_policy"] = "stable-comfyui"
+    monkeypatch.setattr(ms.core, "get_config", lambda: dict(config))
+    monkeypatch.setattr(ms, "temp_queue_batch", [])
+    monkeypatch.setattr(ms, "finalize_temp_queue_batch", lambda *a, **k: None)
+    monkeypatch.setattr(ms, "_queue_start", lambda: None)
+
+    resp = _run(ms.queue_batch(request))
+
+    assert resp.status == 200
+    assert ms.temp_queue_batch == [("update-comfyui", ("comfyui", True))]
+
+
+def test_direct_update_comfyui_keeps_simple_form_content_type_gate(ms, monkeypatch):
+    """The direct no-body endpoint must continue rejecting simple-form POSTs."""
+    monkeypatch.setattr(ms, "temp_queue_batch", [])
+
+    resp = _run(ms.update_comfyui(FakeRequest(content_type="text/plain")))
+
+    assert resp.status == 400
+    assert ms.temp_queue_batch == []
