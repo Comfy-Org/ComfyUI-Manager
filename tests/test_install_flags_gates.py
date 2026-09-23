@@ -56,7 +56,7 @@ _WANTED_CONSTS = {
 _HANDLER_NAMES = {
     "install_custom_node_git_url",   # S-A
     "install_custom_node_pip",       # S-B
-    "install_custom_node",           # S-C
+    "_queue_node_install",           # S-C
 }
 
 
@@ -435,14 +435,14 @@ class BindingProofTest(unittest.TestCase):
         for name, flag in (
             ("install_custom_node_git_url", "allow_git_url_install"),
             ("install_custom_node_pip", "allow_pip_install"),
-            ("install_custom_node", "allow_git_url_install"),
+            ("_queue_node_install", "allow_git_url_install"),
         ):
             with self.subTest(handler=name):
                 src = ast.unparse(HANDLERS[name])
                 self.assertIn("is_dedicated_install_allowed(", src)
                 self.assertIn(flag, src)
                 self.assertIn("args.listen", src)
-        sc_literals = self._ias_literal_calls(HANDLERS["install_custom_node"])
+        sc_literals = self._ias_literal_calls(HANDLERS["_queue_node_install"])
         self.assertIn("middle", sc_literals, "entry gate must stay UNCHANGED")
         self.assertIn(None, sc_literals, "a variable-arg retained path must remain")
 

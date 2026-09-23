@@ -1,7 +1,7 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js"
 import { ComfyDialog, $el } from "../../scripts/ui.js";
-import { manager_instance, rebootAPI, show_message, handle403Response, loadCss } from  "./common.js";
+import { manager_instance, rebootAPI, show_message, handle403Response, loadCss, sanitizeHTML } from  "./common.js";
 import { buildGuiFrame } from "./comfyui-gui-builder.js";
 
 loadCss("./snapshot.css");
@@ -133,7 +133,7 @@ export class SnapshotManager extends ComfyDialog {
 	startRestore(target) {
 		const self = SnapshotManager.instance;
 
-		self.updateMessage(`<BR><font color="green">Restore snapshot '${target.name}'</font>`);
+		self.updateMessage(`<BR><font color="green">Restore snapshot '${sanitizeHTML(target.name)}'</font>`);
 
 		for(let i in self.restore_buttons) {
 			self.restore_buttons[i].disabled = true;
@@ -214,7 +214,7 @@ export class SnapshotManager extends ComfyDialog {
 				data1.style.textAlign = "center";
 				data1.innerHTML = i+1;
 				var data2 = document.createElement('td');
-				data2.innerHTML = `&nbsp;${data}`;
+				data2.innerHTML = `&nbsp;${sanitizeHTML(data)}`;
 				var data_button = document.createElement('td');
 				data_button.style.textAlign = "center";
 				data_button.className = "data-btns";

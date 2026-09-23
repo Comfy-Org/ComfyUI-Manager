@@ -455,16 +455,32 @@ except Exception as e:
 
 
 def ensure_dependencies():
+    requirements_path = os.path.join(os.path.dirname(__file__), "requirements.txt")
     try:
         import git     # noqa: F401
         import toml    # noqa: F401
         import rich    # noqa: F401
         import chardet # noqa: F401
-    except ModuleNotFoundError:
-        my_path = os.path.dirname(__file__)
-        requirements_path = os.path.join(my_path, "requirements.txt")
+        from importlib.metadata import version
+        from packaging.requirements import Requirement
 
-        print("## ComfyUI-Manager: installing dependencies. (GitPython)")
+        # Check the declared version before loading the native extension, so an
+        # older nh3 can be upgraded without loading its binary into this process.
+        with open(requirements_path) as requirements:
+            for line in requirements:
+                line = re.split(r'\s+#', line.strip(), maxsplit=1)[0]
+                if not line or line.startswith(('#', '-')):
+                    continue
+                nh3_requirement = Requirement(line)
+                if nh3_requirement.name.lower() == 'nh3':
+                    break
+            else:
+                raise ValueError('requirements.txt does not declare nh3')
+        if version('nh3') not in nh3_requirement.specifier:
+            raise ModuleNotFoundError(str(nh3_requirement))
+        import nh3     # noqa: F401
+    except ModuleNotFoundError:
+        print("## ComfyUI-Manager: installing dependencies.")
         try:
             subprocess.check_output(manager_util.make_pip_cmd(['install', '-r', requirements_path]))
         except subprocess.CalledProcessError:
@@ -472,7 +488,7 @@ def ensure_dependencies():
             try:
                 subprocess.check_output(manager_util.make_pip_cmd(['install', '--user', '-r', requirements_path]))
             except subprocess.CalledProcessError:
-                print("## [ERROR] ComfyUI-Manager: Failed to install the GitPython package in the correct Python environment. Please install it manually in the appropriate environment. (You can seek help at https://app.element.io/#/room/%23comfyui_space%3Amatrix.org)")
+                print("## [ERROR] ComfyUI-Manager: Failed to install required packages in the correct Python environment. Please install requirements.txt manually in the appropriate environment. (You can seek help at https://app.element.io/#/room/%23comfyui_space%3Amatrix.org)")
 
     try:
         print("## ComfyUI-Manager: installing dependencies done.")
@@ -613,6 +629,12 @@ if os.path.exists(restore_snapshot_path):
         if 'COMFYUI_FOLDERS_BASE_PATH' not in new_env:
             new_env["COMFYUI_FOLDERS_BASE_PATH"] = comfy_path
 
+        from comfy.cli_args import args
+
+        allow_flagged = default_conf.get('allow_flagged_nodepack_install', '').lower() == 'true'
+        new_env['_COMFYUI_MANAGER_CNR_ALLOW_FLAGGED'] = str(
+            allow_flagged or manager_util.is_loopback_listener(args.listen)
+        ).lower()
         cmd_str = [sys.executable, cm_cli_path, 'restore-snapshot', restore_snapshot_path]
         exit_code = process_wrap(cmd_str, custom_nodes_base_path, handler=msg_capture, env=new_env)
 
@@ -661,9 +683,18 @@ def execute_lazy_install_script(repo_path, executable):
         process_wrap(install_cmd, repo_path, env=new_env)
 
 
-def execute_lazy_cnr_switch(target, zip_url, from_path, to_path, no_deps, custom_nodes_path):
+def execute_lazy_cnr_switch(target, zip_url, from_path, to_path, no_deps, custom_nodes_path, status=''):
     import uuid
     import shutil
+    from comfy.cli_args import args
+
+    allow_flagged = default_conf.get('allow_flagged_nodepack_install', '').lower() == 'true'
+    if not manager_util.is_cnr_install_allowed(status or 'NodeVersionStatusFlagged', allow_flagged, args.listen):
+        if not status:
+            logging.error("Cannot execute reserved CNR switch for '%s': stored Registry status is missing. Request the installation again so its current status can be checked.", target)
+        else:
+            logging.error(manager_util.FLAGGED_NODEPACK_INSTALL_GUIDANCE)
+        return False
 
     # 1. download
     archive_name = f"CNR_temp_{str(uuid.uuid4())}.zip"  # should be unpredictable name - security precaution
@@ -710,6 +741,8 @@ def execute_lazy_cnr_switch(target, zip_url, from_path, to_path, no_deps, custom
     tracking_info_file = os.path.join(to_path, '.tracking')
     with open(tracking_info_file, "w", encoding='utf-8') as file:
         file.write('\n'.join(list(extracted)))
+
+    return True
 
 
 script_executed = False
@@ -766,8 +799,9 @@ def execute_startup_script():
                         execute_lazy_install_script(script[0], script[2])
 
                     elif script[1] == "#LAZY-CNR-SWITCH-SCRIPT":
-                        execute_lazy_cnr_switch(script[0], script[2], script[3], script[4], script[5], script[6])
-                        execute_lazy_install_script(script[3], script[7])
+                        status = script[8] if len(script) > 8 else ''
+                        if execute_lazy_cnr_switch(script[0], script[2], script[3], script[4], script[5], script[6], status):
+                            execute_lazy_install_script(script[3], script[7])
 
                     elif script[1] == "#LAZY-DELETE-NODEPACK":
                         execute_lazy_delete(script[2])

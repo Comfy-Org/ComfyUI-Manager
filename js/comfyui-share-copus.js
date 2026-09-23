@@ -1,6 +1,6 @@
 import { app } from "../../scripts/app.js";
 import { $el, ComfyDialog } from "../../scripts/ui.js";
-import { customAlert } from "./common.js";
+import { customAlert, safeHref } from "./common.js";
 
 const env = "prod";
 
@@ -883,7 +883,7 @@ export class CopusShareDialog extends ComfyDialog {
         const { data } = res.data;
         if (data) {
           const url = `${DEFAULT_HOMEPAGE_URL}/work/${data}`;
-          this.message.innerHTML = `Workflow has been shared successfully. <a href="${url}" target="_blank">Click here to view it.</a>`;
+          this.message.innerHTML = `Workflow has been shared successfully. <a href="${safeHref(url)}" target="_blank" rel="noopener noreferrer">Click here to view it.</a>`;
           this.previewImage.src = "";
           this.previewImage.style.display = "none";
           this.uploadedImages = [];

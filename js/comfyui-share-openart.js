@@ -1,7 +1,7 @@
 import {app} from "../../scripts/app.js";
 import {api} from "../../scripts/api.js";
 import {ComfyDialog, $el} from "../../scripts/ui.js";
-import { customAlert } from "./common.js";
+import { customAlert, safeHref } from "./common.js";
 
 const LOCAL_STORAGE_KEY = "openart_comfy_workflow_key";
 const DEFAULT_HOMEPAGE_URL = "https://openart.ai/workflows/dev?developer=true";
@@ -511,7 +511,7 @@ export class OpenArtShareDialog extends ComfyDialog {
         const {workflow_id} = response.data;
         if (workflow_id) {
           const url = `https://openart.ai/workflows/-/-/${workflow_id}`;
-          this.message.innerHTML = `Workflow has been shared successfully. <a href="${url}" target="_blank">Click here to view it.</a>`;
+          this.message.innerHTML = `Workflow has been shared successfully. <a href="${safeHref(url)}" target="_blank" rel="noopener noreferrer">Click here to view it.</a>`;
           this.previewImage.src = "";
           this.previewImage.style.display = "none";
           this.uploadedImages = [];

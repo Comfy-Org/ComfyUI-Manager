@@ -427,6 +427,40 @@ export function sanitizeHTML(str) {
 		.replace(/'/g, "&#039;");
 }
 
+// Keep URL handling aligned with glob/manager_util.py; covered by shared cases.
+export const SAFE_URL_SCHEMES = ['http', 'https'];
+const URL_SCHEME_NOISE = /[\x00-\x20\x7f]/g;
+const URL_HEAD_DELIMITERS = ['/', '?', '#'];
+// Match Python str.strip(); JavaScript trim() uses different Unicode whitespace.
+const URL_TRIM = /^[\t-\r\x1c-\x20\x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+|[\t-\r\x1c-\x20\x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+$/g;
+const trimUrl = (value) => value.replace(URL_TRIM, '');
+
+export function sanitizeUrl(url) {
+	const raw = (url === null || url === undefined) ? '' : String(url);
+	const probe = raw.replace(URL_SCHEME_NOISE, '');
+	if (!probe) {
+		return '#';
+	}
+
+	let cut = probe.length;
+	for (const delimiter of URL_HEAD_DELIMITERS) {
+		const found = probe.indexOf(delimiter);
+		if (found !== -1) {
+			cut = Math.min(cut, found);
+		}
+	}
+	const head = probe.slice(0, cut);
+
+	if (head.includes(':')) {
+		return SAFE_URL_SCHEMES.includes(head.split(':', 1)[0].toLowerCase()) ? trimUrl(raw) : '#';
+	}
+
+	return trimUrl(raw);
+}
+
+// Validate the URL, then escape it for a quoted href attribute.
+export const safeHref = (url) => sanitizeHTML(sanitizeUrl(url));
+
 export function showTerminal() {
 	try {
 		const panel = app.extensionManager.bottomPanel;
@@ -646,7 +680,9 @@ export async function uninstallNodes(nodeList, options = {}) {
 	for (const nodeItem of nodeList) {
 		target_items.push(nodeItem);
 
-		onProgress(`Uninstall ${nodeItem.title || nodeItem.name} ...`);
+		// Titles are escaped by the caller; the name fallback is a raw pack key.
+		const displayTitle = nodeItem.title || sanitizeHTML(String(nodeItem.name));
+		onProgress(`Uninstall ${displayTitle} ...`);
 
 		const data = nodeItem.originalData || nodeItem;
 		data.channel = channel;
@@ -659,7 +695,7 @@ export async function uninstallNodes(nodeList, options = {}) {
 		});
 
 		if (res.status != 200) {
-			errorMsg = `'${sanitizeHTML(String(nodeItem.title || nodeItem.name))}': `;
+			errorMsg = `'${displayTitle}': `;
 
 			if (res.status == 403) {
 				errorMsg += `This action is not allowed with this security level configuration.\n`;
@@ -988,14 +1024,14 @@ export function createFlyover(container, options = {}) {
 	return flyover;
 }
 
-// Shared UI State Methods - consolidated from multiple managers
+// Message methods accept HTML; callers escape raw data and preserve formatted content.
 export function createUIStateManager(element, selectors) {
 	return {
 		showSelection: (msg) => {
 			const el = element.querySelector(selectors.selection);
 			if (el) el.innerHTML = msg;
 		},
-		
+
 		showError: (err) => {
 			const el = element.querySelector(selectors.message);
 			if (el) {
@@ -1003,7 +1039,7 @@ export function createUIStateManager(element, selectors) {
 				el.innerHTML = msg;
 			}
 		},
-		
+
 		showMessage: (msg, color) => {
 			const el = element.querySelector(selectors.message);
 			if (el) {
@@ -1013,7 +1049,7 @@ export function createUIStateManager(element, selectors) {
 				el.innerHTML = msg;
 			}
 		},
-		
+
 		showStatus: (msg, color) => {
 			const el = element.querySelector(selectors.status);
 			if (el) {

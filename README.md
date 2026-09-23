@@ -458,6 +458,51 @@ Changes take effect after a **restart** (no hot reload).
 > outdated ComfyUI deployments.
 
 
+### Flagged CNR versions: `allow_flagged_nodepack_install`
+
+Manager checks the version status in the existing CNR install response; no
+additional Registry request is needed. Active versions continue to install
+normally, subject to the existing security policy. Registry refusals (including
+HTTP 404) still prevent installation.
+
+Flagged versions must also satisfy the existing security policy and Registry
+checks. In addition, they require either **all** `--listen` addresses to be
+loopback, such as `127.0.0.1` or `::1`, or the explicit override below.
+A mixed loopback/non-loopback listener is non-local.
+
+For a **trusted private network**, administrators can explicitly allow flagged
+versions on non-loopback listeners:
+
+```ini
+[default]
+allow_flagged_nodepack_install = true
+```
+
+The default is `false`; only the case-insensitive value `true` enables it.
+Restart ComfyUI after editing the setting. This option does not detect private
+networks and is independent of `network_mode`. It does not bypass
+`security_level`, `allow_git_url_install`, or `allow_pip_install`.
+
+When the flagged-version check denies an action, the UI reports that the current
+security configuration does not allow it and directs users to the terminal.
+Only the terminal provides the loopback-only `--listen` examples, the private
+network override setting, and the instruction to restart ComfyUI after changes.
+
+Enabling an already installed version does not query the Registry or reinstall it.
+Older deferred switches without a stored status require loopback-only listeners
+or the override. Otherwise they are rejected without changing the installed pack;
+request the installation again so Manager can check its current Registry status.
+
+The check applies to server-initiated installation, reinstallation, version switches, updates,
+and snapshot restores. A policy refusal preserves the existing nodepack.
+Scheduled version switches save the returned status and check the current
+listener and setting again at startup, before downloading or running scripts.
+Server-scheduled snapshot restores inherit the permission computed from the
+server's current listener and setting. Standalone `cm-cli` commands remain local
+administrator operations and do not use the server listener policy.
+Saved statuses are not refreshed from the Registry.
+
+
 # Disclaimer
 
 * This extension simply provides the convenience of installing custom nodes and does not guarantee their proper functioning.

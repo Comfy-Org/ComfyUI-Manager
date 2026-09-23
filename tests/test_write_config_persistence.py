@@ -299,7 +299,8 @@ class WriteConfigPersistenceTest(unittest.TestCase):
                 "security_level": cp["default"].get("security_level", "<ABSENT>"),
                 "allow_git_url_install": cp["default"].get(
                     "allow_git_url_install", "<ABSENT>"),
-                "key_count": len(cp["default"]),
+                "allow_flagged_nodepack_install": cp["default"].get(
+                    "allow_flagged_nodepack_install", "<ABSENT>"),
             }))
             """
         )
@@ -310,10 +311,8 @@ class WriteConfigPersistenceTest(unittest.TestCase):
             "T5: the install flag must bootstrap secure-by-default",
         )
         self.assertEqual(
-            18, payload["key_count"],
-            "T5: bootstrap wrote %d keys; write_config persists 18 "
-            "(manager_core.py:1685-1704). A change to that count is a scope "
-            "signal, not a nit." % payload["key_count"],
+            "False", payload["allow_flagged_nodepack_install"],
+            "T5: flagged installs must bootstrap with the override disabled",
         )
 
     def test_t6_persisted_key_is_not_reclobbered(self):

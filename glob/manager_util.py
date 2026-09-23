@@ -3,6 +3,8 @@ description:
     `manager_util` is the lightest module shared across the prestartup_script, main code, and cm-cli of ComfyUI-Manager.
 """
 import traceback
+import ipaddress
+import socket
 
 import aiohttp
 import json
@@ -16,6 +18,8 @@ import logging
 import platform
 import shlex
 from functools import lru_cache
+from html import escape, unescape
+from html.entities import html5
 
 
 cache_lock = threading.Lock()
@@ -25,6 +29,50 @@ cache_dir = os.path.join(comfyui_manager_path, '.cache')  # This path is also up
 
 use_uv = False
 bypass_ssl = False
+
+FLAGGED_NODEPACK_INSTALL_ERROR = (
+    'This action is not allowed by the current security configuration. '
+    'See the terminal for details.'
+)
+FLAGGED_NODEPACK_INSTALL_GUIDANCE = (
+    'Installation of this flagged CNR version is blocked. To satisfy the additional '
+    'flagged-version requirement, choose one of the following:\n'
+    '1. Run ComfyUI with loopback-only listeners, for example --listen 127.0.0.1 '
+    'or --listen ::1. All configured listen addresses must be loopback.\n'
+    '   Do not use bare --listen or any non-loopback address, such as 0.0.0.0 or ::.\n'
+    '2. For a trusted private network, set allow_flagged_nodepack_install = true '
+    'in the [default] section of ComfyUI-Manager\'s config.ini.\n'
+    'Restart ComfyUI after changing the listener or configuration. '
+    'All other installation security checks still apply.'
+)
+
+
+def is_loopback_listener(listen_address: str) -> bool:
+    """All addresses bound by --listen must resolve exclusively to loopback."""
+    if not isinstance(listen_address, str) or not listen_address:
+        return False
+    for address in listen_address.split(','):
+        address = address.strip()
+        if not address:
+            return False
+        try:
+            if ipaddress.ip_address(address).is_loopback:
+                continue
+        except ValueError:
+            pass
+        try:
+            resolved = socket.getaddrinfo(address, None, type=socket.SOCK_STREAM)
+        except OSError:
+            return False
+        if not resolved or any(not ipaddress.ip_address(item[4][0]).is_loopback for item in resolved):
+            return False
+    return True
+
+
+def is_cnr_install_allowed(status: str, allow_flagged: bool, listen_address: str) -> bool:
+    """Only flagged versions require loopback or the private-network opt-in."""
+    return status != 'NodeVersionStatusFlagged' or bool(allow_flagged) or is_loopback_listener(listen_address)
+
 
 def add_python_path_to_env():
     if platform.system() != "Windows":
@@ -266,6 +314,84 @@ async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=Fals
 
 def sanitize_tag(x):
     return x.replace('<', '&lt;').replace('>', '&gt;')
+
+
+SAFE_URL_SCHEMES = frozenset({'http', 'https'})
+_URL_SCHEME_NOISE = re.compile(r'[\x00-\x20\x7f]')
+_URL_HEAD_DELIMITERS = ('/', '?', '#')
+
+
+def escape_html_attribute(value):
+    """Escape a value for a quoted HTML attribute."""
+    return escape(str(value), quote=True)
+
+
+_HTML_ENTITY = re.compile(r'&(#[0-9]+|#[xX][0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);')
+_HTML_TEXT_TOKEN = re.compile(_HTML_ENTITY.pattern + "|[&<>\"']")
+
+
+def unescape_html_entities(text):
+    """Decode complete entities once, leaving query keys such as &notebook intact."""
+    def replace(match):
+        entity = match.group(1)
+        if entity.startswith('#'):
+            return unescape(match.group(0))
+        return html5.get(entity + ';', match.group(0))
+
+    return _HTML_ENTITY.sub(replace, text)
+
+
+def escape_html_text(value):
+    """Escape HTML text without double-escaping existing entities."""
+    return _HTML_TEXT_TOKEN.sub(
+        lambda m: m.group(0) if m.group(1) else escape_html_attribute(m.group(0)),
+        str(value).replace('\x00', ''),
+    )
+
+
+def sanitize_url(url):
+    """Allow HTTP(S), relative URLs and anchors.
+
+    HTML callers must also escape the result as an attribute."""
+    raw = '' if url is None else str(url)
+    probe = _URL_SCHEME_NOISE.sub('', raw)
+    if not probe:
+        return '#'
+
+    cut = len(probe)
+    for delimiter in _URL_HEAD_DELIMITERS:
+        found = probe.find(delimiter)
+        if found != -1:
+            cut = min(cut, found)
+    head = probe[:cut]
+
+    if ':' in head:
+        return raw.strip() if head.split(':', 1)[0].lower() in SAFE_URL_SCHEMES else '#'
+
+    return raw.strip()
+
+
+def sanitize_html_fragment(fragment):
+    """Sanitize notice HTML, preserving its formatting and opening links safely."""
+    # prestartup_script imports this module before installing dependencies.
+    import nh3
+
+    return nh3.clean(
+        '' if fragment is None else str(fragment),
+        tags=nh3.ALLOWED_TAGS | {'font'},
+        attributes={
+            **nh3.ALLOWED_ATTRIBUTES,
+            '*': {'class', 'title', 'align', 'width', 'height'},
+            'font': {'color'},
+        },
+        # These elements previously hid their contents from the notice.
+        clean_content_tags={
+            'script', 'style', 'iframe', 'object', 'embed', 'svg', 'math',
+            'template', 'noscript', 'textarea', 'title',
+        },
+        url_schemes=SAFE_URL_SCHEMES,
+        set_tag_attribute_values={'a': {'target': '_blank'}},
+    )
 
 
 def extract_package_as_zip(file_path, extract_path):
