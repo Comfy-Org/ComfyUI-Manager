@@ -51,6 +51,11 @@ message_collapses = [skip_pip_spam]
 import_failed_extensions = set()
 cm_global.variables['cm.on_revision_detected_handler'] = []
 enable_file_logging = True
+# When file logging is on, strip ANSI color/escape codes from the bytes written to
+# the disk log so the file stays plain and readable. The console ALWAYS keeps its
+# original (colored) output -- this only ever touches the file branch of sync_write.
+# Default on; set `strip_ansi_file_logging = False` in config.ini to keep ANSI in the file.
+strip_ansi_file_logging = True
 
 
 def register_message_collapse(f):
@@ -123,11 +128,17 @@ def check_file_logging():
     if 'file_logging' in default_conf and default_conf['file_logging'].lower() == 'false':
         enable_file_logging = False
 
+def check_strip_ansi_file_logging():
+    global strip_ansi_file_logging
+    if 'strip_ansi_file_logging' in default_conf and default_conf['strip_ansi_file_logging'].lower() == 'false':
+        strip_ansi_file_logging = False
+
 
 read_config()
 read_uv_mode()
 security_check.security_check()
 check_file_logging()
+check_strip_ansi_file_logging()
 
 cm_global.pip_overrides = {}
 
@@ -280,6 +291,14 @@ try:
     pat_tqdm = r'\d+%.*\[(.*?)\]'
     pat_import_fail = r'seconds \(IMPORT FAILED\):(.*)$'
 
+    # CSI (ECMA-48) escape sequences: ESC [ <params: digits/;/> <?> <final letter>.
+    # Covers SGR colors (\x1b[31m, \x1b[0m, \x1b[1;32m), private modes (\x1b[?25l),
+    # cursor moves and erase codes (\x1b[2J, \x1b[0K). It never matches a real '\n',
+    # so line structure/timestamps are untouched. Self-contained on purpose -- we do
+    # NOT route this through colorama, which is the exact dependency that proved
+    # unreliable in issue #3259.
+    pat_ansi = r'\x1b\[[0-9;?]*[a-zA-Z]'
+
     is_start_mode = True
 
 
@@ -339,13 +358,24 @@ try:
             else:
                 self.sync_write(message)
 
+        def _file_message(self, message):
+            # The exact bytes that go to the disk log. When strip_ansi_file_logging
+            # is on, ANSI escape sequences are removed so the file is plain and
+            # readable. This is the ONLY place the file content diverges from what
+            # the console receives -- the console path below always uses the
+            # original, unmodified message, so its coloring is never affected.
+            if strip_ansi_file_logging:
+                return re.sub(pat_ansi, '', message)
+            return message
+
         def sync_write(self, message, file_only=False):
             with log_lock:
+                file_message = self._file_message(message)
                 timestamp = current_timestamp()
                 if self.last_char != '\n':
-                    log_file.write(message)
+                    log_file.write(file_message)
                 else:
-                    log_file.write(f"[{timestamp}] {message}")
+                    log_file.write(f"[{timestamp}] {file_message}")
 
                 try:
                     log_file.flush()
