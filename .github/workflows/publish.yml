@@ -17,7 +17,7 @@ jobs:
     if: ${{ github.repository_owner == 'ltdrdata' }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Publish Custom Node
         uses: Comfy-Org/publish-node-action@v1
         with:
