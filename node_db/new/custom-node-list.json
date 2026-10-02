@@ -9895,6 +9895,18 @@
             ],
             "install_type": "git-clone",
             "description": "EzFlex preset suite for ComfyUI: models combo loader, resolution/latent selector, node switch master & group presets, parameter presets, preview any, prompt helper, media loader/output."
+        },
+        {
+            "author": "jesse890423",
+            "title": "ComfyUI-Qwen-TTS-5x",
+            "id": "qwen3-tts-comfyui-5x",
+            "reference": "https://github.com/jesse890423/ComfyUI-Qwen-TTS-5x",
+            "nodename_pattern": "^FB_Qwen3TTS",
+            "files": [
+                "https://github.com/jesse890423/ComfyUI-Qwen-TTS-5x"
+            ],
+            "install_type": "git-clone",
+            "description": "Speech synthesis, voice cloning and voice design nodes for Qwen3-TTS, patched for transformers 5.x (verified on 5.14.1 / ComfyUI 0.37.0 / torch 2.13.0).\n\nFork of flybirdxx/ComfyUI-Qwen-TTS v1.0.7, which declares transformers>=4.57.0,<5.0.0. This fork adapts the four affected files so the plugin runs on transformers 5.x: pad_token_id no longer copied onto PretrainedConfig, ROPE_INIT_FUNCTIONS['default'] removed, create_causal_mask signature change, cache_position missing on decode (shape crash), and inv_freq left as uninitialised meta memory (silent failure producing wrong-sounding audio).\n\nIdentical nodes to upstream; do not install both. If you need the original 4.x behaviour, install flybirdxx/ComfyUI-Qwen-TTS pinned to transformers 4.57.3.\n\nLicense: Apache-2.0 (code). Model weights are not included and remain under the Qwen3-TTS License Agreement from Alibaba Cloud."
         }
     ]
 }
