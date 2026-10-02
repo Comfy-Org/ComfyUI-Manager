@@ -87,7 +87,9 @@ async def _get_cnr_data(cache_mode=True, dont_wait=True):
 
         for v in full_nodes.values():
             if 'latest_version' not in v:
-                v['latest_version'] = dict(version='nightly')
+                # Keep the missing Registry release explicit. Falling back to
+                # "nightly" would silently substitute a GitHub branch.
+                v['latest_version'] = dict(version='pending')
 
         return {'nodes': list(full_nodes.values())}
 

@@ -548,7 +548,8 @@ class UnifiedManager:
             # 2. unknown
 
             if node_name in self.cnr_map:
-                version_spec = self.cnr_map[node_name]['latest_version']['version']
+                latest = self.cnr_map[node_name].get('latest_version', {}).get('version')
+                version_spec = latest or 'pending'
             else:
                 version_spec = "unknown"
 
@@ -582,7 +583,8 @@ class UnifiedManager:
                     print(f"ERROR: '{node_name}' is not a CNR node.")
                     return None
                 else:
-                    version_spec = self.cnr_map[node_name]['latest_version']['version']
+                    latest = self.cnr_map[node_name].get('latest_version', {}).get('version')
+                    version_spec = latest or 'pending'
 
         elif guess_mode in ['active', 'inactive']:
             node_name = spec[0]
@@ -654,9 +656,9 @@ class UnifiedManager:
 
     def is_updatable(self, node_id):
         cur_ver = self.get_cnr_active_version(node_id)
-        latest_ver = self.cnr_map[node_id]['latest_version']['version']
+        latest_ver = self.cnr_map[node_id].get('latest_version', {}).get('version')
 
-        if cur_ver and latest_ver:
+        if cur_ver and latest_ver and latest_ver != 'pending':
             return self.safe_version(latest_ver) > self.safe_version(cur_ver)
 
         return False
@@ -891,10 +893,8 @@ class UnifiedManager:
             if len(v['files']) == 1:
                 cnr = self.get_cnr_by_repo(v['files'][0])
                 if cnr:
-                    if 'latest_version' not in cnr:
-                        v['cnr_latest'] = '0.0.0'
-                    else:
-                        v['cnr_latest'] = cnr['latest_version']['version']
+                    v['cnr_latest'] = cnr.get('latest_version', {}).get('version', 'pending')
+                    v['install_type'] = 'cnr'
                     v['id'] = cnr['id']
                     v['author'] = cnr['publisher']['name']
                     v['title'] = cnr['name']
@@ -1105,6 +1105,9 @@ class UnifiedManager:
 
         if 'comfyui-manager' in node_id.lower():
             return result.fail(f"ignored: enabling '{node_id}'")
+
+        if version_spec == 'nightly' and node_id in self.cnr_map:
+            return result.fail(f"GitHub nightly installs are disabled for Registry node '{node_id}'.")
 
         if version_spec is None:
             version_spec = self.resolve_unspecified_version(node_id, guess_mode='inactive')
@@ -1474,6 +1477,11 @@ class UnifiedManager:
         if version_spec is None:
             return ManagedResult('update').fail(f'Update not available: {node_id}@{version_spec}').with_ver(version_spec)
 
+        if version_spec == 'nightly' and node_id in self.cnr_map:
+            return ManagedResult('update').fail(
+                f"GitHub nightly updates are disabled for Registry node '{node_id}'."
+            ).with_ver(version_spec)
+
         if version_spec == 'nightly':
             return self.repo_update(self.active_nodes[node_id][1], instant_execution=instant_execution, no_deps=no_deps, return_postinstall=return_postinstall).with_target('nightly').with_ver('nightly')
         elif version_spec == 'unknown':
@@ -1502,6 +1510,21 @@ class UnifiedManager:
 
             else:
                 version_spec = self.resolve_unspecified_version(node_id)
+
+                if version_spec is None and node_id in self.cnr_map:
+                    return ManagedResult('install-cnr').fail(
+                        f"No active Registry release is available for '{node_id}'. The latest upload is pending review."
+                    )
+
+        if version_spec == 'pending':
+            return ManagedResult('install-cnr').fail(
+                f"No active Registry release is available for '{node_id}'. The latest upload is pending review."
+            )
+
+        if version_spec == 'nightly' and node_id in self.cnr_map:
+            return ManagedResult('install-cnr').fail(
+                f"GitHub nightly installs are disabled for Registry node '{node_id}'."
+            )
 
         if version_spec in ('unknown', 'nightly'):
             try:
@@ -1559,6 +1582,11 @@ class UnifiedManager:
         return node['files'][0] if version_spec == 'unknown' else node['repository']
 
     def _install_git(self, node_id, version_spec, repo_url, instant_execution=False, no_deps=False, return_postinstall=False):
+        if version_spec == 'nightly' and node_id in self.cnr_map:
+            return ManagedResult('install-git').fail(
+                f"GitHub nightly installs are disabled for Registry node '{node_id}'."
+            )
+
         if version_spec == 'nightly':
             # disable cnr nodes
             if self.is_enabled(node_id, 'cnr'):
@@ -1580,6 +1608,11 @@ class UnifiedManager:
     async def reinstall_by_id(self, node_id, version_spec, channel=None, mode=None):
         if 'comfyui-manager' in node_id.lower():
             return ManagedResult('skip').fail(f"ignored: installing '{node_id}'")
+
+        if version_spec == 'nightly' and node_id in self.cnr_map:
+            return ManagedResult('install-git').fail(
+                f"GitHub nightly reinstalls are disabled for Registry node '{node_id}'."
+            )
 
         if version_spec in ('unknown', 'nightly'):
             try:
@@ -3216,7 +3249,7 @@ async def get_unified_total_nodes(channel, mode, regsitry_cache_mode='cache'):
                 v['state'] = 'not-installed'
 
             if 'version' not in v:
-                v['version'] = cnr['latest_version']['version']
+                v['version'] = cnr.get('latest_version', {}).get('version', 'pending')
 
             v['update-state'] = 'true' if updatable else 'false'
         else:
@@ -3273,7 +3306,7 @@ async def get_unified_total_nodes(channel, mode, regsitry_cache_mode='cache'):
                 state = 'not-installed'
 
             if ver is None:
-                ver = cnr['latest_version']['version']
+                ver = cnr.get('latest_version', {}).get('version', 'pending')
 
             item = dict(author=author, title=title, reference=reference, repository=repository, install_type=install_type,
                         description=description, state=state, updatable=updatable, version=ver)

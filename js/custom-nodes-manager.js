@@ -1358,11 +1358,11 @@ export class CustomNodesManager {
 
 			if(!is_enable) {
 
-				if(rowItem.cnr_latest != rowItem.originalData.active_version && obj.length > 0) {
+				if(rowItem.cnr_latest && rowItem.cnr_latest != 'pending' && rowItem.originalData.version != 'pending' && rowItem.cnr_latest != rowItem.originalData.active_version && obj.length > 0) {
 					versions.push('latest');
 				}
 
-				if(rowItem.originalData.active_version != 'nightly') {
+				if(rowItem.originalData.install_type != 'cnr' && rowItem.originalData.active_version != 'nightly') {
 					versions.push('nightly');
 					default_version = 'nightly';
 					version_cnt++;
