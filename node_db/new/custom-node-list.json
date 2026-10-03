@@ -9895,6 +9895,18 @@
             ],
             "install_type": "git-clone",
             "description": "EzFlex preset suite for ComfyUI: models combo loader, resolution/latent selector, node switch master & group presets, parameter presets, preview any, prompt helper, media loader/output."
+        },
+        {
+            "author": "jesse890423",
+            "title": "comfyui_media_toolbox",
+            "id": "comfyui_media_toolbox",
+            "reference": "https://github.com/jesse890423/comfyui_media_toolbox",
+            "nodename_pattern": "^(LoadAudioAdvanced|SaveAudioPlatformExport|LoadVideoAdvanced|SaveVideoConverter)$",
+            "files": [
+                "https://github.com/jesse890423/comfyui_media_toolbox"
+            ],
+            "install_type": "git-clone",
+            "description": "全中文界面的音频/视频加载与格式转换节点。绝对路径加载本地文件且不产生副本；视频可直接提取音轨；长音视频可按时间范围截断；一次导出多种格式并自动适配源参数；同格式转换零成本直转；内置国内主流音乐平台合规校验。附英文语言包（ComfyUI 里 Interface→Language 切 English 即可）。\n\n[Chinese UI] Audio & video load / format-conversion nodes for ComfyUI: absolute-path loading without creating copies, extract audio from video, trim by time range, multi-format export auto-adapting to the source, instant same-format passthrough, and platform compliance presets. Ships an English language pack."
         }
     ]
 }
