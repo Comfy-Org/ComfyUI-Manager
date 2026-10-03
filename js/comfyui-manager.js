@@ -259,8 +259,11 @@ const style = `
 	width: auto;
 	position: relative;
 	overflow: hidden;
-	background-color: var(--comfy-menu-secondary-bg);
-	border-color: var(--border-color);
+	cursor: pointer;
+	padding: 0.5em 0.5em;
+	border: 1px solid var(--border-color);
+	border-radius: 6px;
+	background: var(--comfy-menu-secondary-bg);
 	color: var(--input-text);
 }
 
@@ -272,6 +275,9 @@ const style = `
 	background-color: #500000 !important;
 	border-color: #88181b !important;
 	color: white !important;
+	width: 100%;
+	padding: 0.5em 0.5em;
+	border-radius: 6px;
 }
 
 .cm-button-red:hover {
@@ -286,6 +292,8 @@ const style = `
 
 .cm-experimental-button {
 	width: 100%;
+	padding: 0.5em 0.5em;
+	border-radius: 6px;
 }
 
 .cm-experimental {
