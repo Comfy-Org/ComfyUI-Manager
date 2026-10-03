@@ -5007,6 +5007,14 @@
             "title_aux": "ComfyUI YetAnotherSafetyChecker"
         }
     ],
+    "https://github.com/BetaDoggo/Comfyui-Sparse-SLA-Attention": [
+        [
+            "H3SLAAttention"
+        ],
+        {
+            "title_aux": "Comfyui-Sparse-Attention"
+        }
+    ],
     "https://github.com/BetaDoggo/comfyui-image-resize-plus": [
         [
             "ImageResize+"
@@ -11706,7 +11714,13 @@
         [
             "GImageSaveImmich",
             "GImageSaveWithExtraMetadata",
+            "GLoadImageFromImmich",
+            "GPromptEnhancerLoaderAPI",
+            "GPromptEnhancerLoaderGGUF",
+            "GPromptEnhancerLoaderGGUFEdit",
+            "GPromptEnhancerPair",
             "GPrompts",
+            "GPromptsEnhanced",
             "LoadImagesBatch",
             "StringFormatter"
         ],
@@ -14990,9 +15004,12 @@
             "ElevenLabsPro_AudioTrim",
             "ElevenLabsPro_CostEstimator",
             "ElevenLabsPro_Dialogue",
+            "ElevenLabsPro_DialogueTimestamps",
             "ElevenLabsPro_FetchVoices",
+            "ElevenLabsPro_ForcedAlignment",
             "ElevenLabsPro_GetVoiceByName",
             "ElevenLabsPro_Music",
+            "ElevenLabsPro_MusicPlan",
             "ElevenLabsPro_SFX",
             "ElevenLabsPro_STS",
             "ElevenLabsPro_STT",
@@ -15003,6 +15020,7 @@
             "ElevenLabsPro_VoiceClone",
             "ElevenLabsPro_VoiceCreate",
             "ElevenLabsPro_VoiceDesign",
+            "ElevenLabsPro_VoiceRemix",
             "ElevenLabsPro_VoiceSelector",
             "ElevenLabsPro_VoiceSettingsPreset",
             "ElevenLabsPro_VoiceTagInserter"
@@ -15045,6 +15063,7 @@
             "NanoBanana_MultiTurn",
             "NanoBanana_MusicGen",
             "NanoBanana_NetworkRoute",
+            "NanoBanana_OmniVideoGen",
             "NanoBanana_Outpaint",
             "NanoBanana_PromptRefiner",
             "NanoBanana_SafetySettings",
@@ -15054,6 +15073,7 @@
             "NanoBanana_TextGen",
             "NanoBanana_TextGenCode",
             "NanoBanana_TextGenSearch",
+            "NanoBanana_TextGenURL",
             "NanoBanana_ThinkingConfig",
             "NanoBanana_VideoGen",
             "NanoBanana_Vision",
@@ -27512,6 +27532,7 @@
             "StarDynamicLora",
             "StarDynamicLoraModelOnly",
             "StarEasyTextStorage",
+            "StarFP16UnetConverter",
             "StarFP8Converter",
             "StarFlux2Conditioner",
             "StarFlux2Inpainter",
@@ -27528,6 +27549,7 @@
             "StarImageLoaderOptions",
             "StarImageLoop",
             "StarImageShifter",
+            "StarJsonPreview",
             "StarKrea2Unbound",
             "StarLTXVGetLastFrame",
             "StarLTXVLoadLastImage",
@@ -27550,6 +27572,7 @@
             "StarModelPacker",
             "StarMultiInputsToOne",
             "StarNewsScraper",
+            "StarNodes_LTXScheduler_Qwen2x_Options",
             "StarOllamaPromptHelper",
             "StarPSDSaver",
             "StarPSDSaver2",
@@ -27562,6 +27585,7 @@
             "StarQwenEditEncoder",
             "StarQwenEditPlusConditioner",
             "StarQwenImageEditInputs",
+            "StarQwenOutpainter",
             "StarQwenRebalancePrompter",
             "StarQwenRegionalPrompter",
             "StarRGBAConverter",
@@ -28009,6 +28033,7 @@
             "SupersideGrokImagineImageV2EditNode",
             "SupersideGrowMaskWithBlurNode",
             "SupersideIdeogramUpscaleNode",
+            "SupersideIdeogramV45EditNode",
             "SupersideImageCompareNode",
             "SupersideImageComparerNode",
             "SupersideImageCompositeMaskedNode",
@@ -28503,14 +28528,6 @@
         ],
         {
             "title_aux": "comfyUI_TJ_NormalLighting"
-        }
-    ],
-    "https://github.com/TK22-26/comfyui-inspect-image-overlay": [
-        [
-            "InspectImageOverlay"
-        ],
-        {
-            "title_aux": "Inspect Image Overlay"
         }
     ],
     "https://github.com/TK3R/ComfyUI_TK3R_Ext": [
@@ -33643,6 +33660,7 @@
     ],
     "https://github.com/aifeifei798/ComfyUI-FeiFei": [
         [
+            "CinematicFrameSubtitle",
             "FeiFeiAspectRatio",
             "FeiFeiFilmGrainTone",
             "FeiFeiImageCaptioner",
@@ -34728,6 +34746,9 @@
             "BFSAnime2RealBerniniConditioning",
             "BFSCropSize",
             "BFSEntitySheet2x2",
+            "BFSH3Duet",
+            "BFSH3SidePanel",
+            "BFSH3SidePanelCrop",
             "BFSHeadSwapBerniniConditioning",
             "BFSHeadSwapLoRADebug",
             "BFSHeadSwapMaskedSampler",
@@ -34738,6 +34759,12 @@
             "BFSMiniMaxH3GuideTarget",
             "BFSMiniMaxH3IdentityReference",
             "BFSMultiRefSheetBuilder",
+            "BFSShotH3Conditioning",
+            "BFSShotH3Duet",
+            "BFSShotJoin",
+            "BFSShotPlanner",
+            "BFSShotRepack",
+            "BFSShotUnpack",
             "EditAnythingPromptFixer",
             "FaceSequenceBatch",
             "FrameRangedFaceLoader",
@@ -36699,6 +36726,7 @@
             "BadaAsyncGeminiStudio",
             "BadaGoogleTranslator",
             "BadaPresetHub",
+            "BadaPromptGenerator",
             "BadaRegionalPrompt",
             "VisualGridPromptNode"
         ],
@@ -42477,6 +42505,7 @@
             "Flux2ImageNode",
             "Flux2ProImageNode",
             "Flux2Scheduler",
+            "Flux3ImageNode",
             "Flux3VideoNodeBase",
             "FluxDisableGuidance",
             "FluxEraseNode",
@@ -45287,9 +45316,11 @@
         [
             "AnimaOneTJNode",
             "Flux2KleinOneTJNode",
+            "ItdaStudioOneTJNode",
             "Krea2OneTJNode",
             "MiniMaxH3OneTJNode",
             "MusicMakerOneTJNode",
+            "QwenImage21OneTJNode",
             "QwenImageEdit2511OneTJNode",
             "SDXLOneTJNode",
             "TJStudioOneTextOutput",
@@ -47611,6 +47642,16 @@
             "title_aux": "ComfyUI-MiniMaxH3-PerRowMasking"
         }
     ],
+    "https://github.com/ethanfel/ComfyUI-MiniMaxH3-Timed-References": [
+        [
+            "MiniMaxH3AddQwenImageReference",
+            "MiniMaxH3AddTimedImageReference",
+            "MiniMaxH3AddTimedVideoReference"
+        ],
+        {
+            "title_aux": "MiniMax H3 Timed References"
+        }
+    ],
     "https://github.com/ethanfel/ComfyUI-SAM-Audio": [
         [
             "SAMAudioPipelineLoader",
@@ -49908,7 +49949,8 @@
     ],
     "https://github.com/gabe-init/ComfyUI-Openrouter_node": [
         [
-            "OpenRouterNode"
+            "OpenRouterNode",
+            "openrouter_node"
         ],
         {
             "title_aux": "ComfyUI OpenRouter Node"
@@ -50039,6 +50081,7 @@
             "Flux2Max_BFL",
             "Flux2ProPreview_BFL",
             "Flux2Pro_BFL",
+            "Flux3Image_BFL",
             "FluxConfig_BFL",
             "FluxCredits_BFL",
             "FluxDeblur_BFL",
@@ -52068,26 +52111,38 @@
     ],
     "https://github.com/heyburns/PortraitUtils": [
         [
-            "AutoAdjustNode",
-            "AutoColorConfigNode",
-            "AutoWBColorMatch",
+            "AutoAdjustV2",
             "ComparisonGate",
-            "CropImageByMargins",
-            "CropMaskByMargins",
-            "ExtractConfigValue",
             "FilenameAppendSuffix",
-            "FitAspectHeadSafe",
-            "FluxResolutionPrepare",
-            "IntelligentAutoCrop",
-            "LoadImageCombined",
-            "MQBBoxMin",
-            "OutpaintConfigNode",
-            "OutpaintPaddingComputeNode",
-            "PairedImageLoader",
-            "ProcessScannedPhoto",
-            "SimpleImageSaver",
-            "StitchByMask",
-            "UniversalProjectConfig"
+            "OutpaintPaddingComputeV2",
+            "PortraitActiveEditorTarget",
+            "PortraitAutoCropPreview",
+            "PortraitCropConfigV2",
+            "PortraitCropImageMarginsPreview",
+            "PortraitCropMaskMarginsPreview",
+            "PortraitCropPromptV2",
+            "PortraitEditConfigV2",
+            "PortraitEditPromptV2",
+            "PortraitEditorResultGate",
+            "PortraitEditorTargetBeacon",
+            "PortraitFinishConfigV2",
+            "PortraitFinishScaleV2",
+            "PortraitFinishSeedV2",
+            "PortraitImageSaverPreview",
+            "PortraitOutpaintConfigV2",
+            "PortraitOutpaintPromptV2",
+            "PortraitPairedLoaderPreview",
+            "PortraitPhotoLoaderPreview",
+            "PortraitPhotoPanelSplitV2",
+            "PortraitPhotoPrepareV2",
+            "PortraitPrepareCropBoxV2",
+            "PortraitPrepareDimensionsV2",
+            "PortraitPrepareScaleV2",
+            "PortraitPrepareSummaryV2",
+            "PortraitScannedPhotoPreview",
+            "PortraitSourceSaveInfoV2",
+            "PortraitStitchPreview",
+            "PortraitWhiteBalancePreview"
         ],
         {
             "title_aux": "PortraitUtils"
@@ -52582,7 +52637,6 @@
             "AILab_QwenVL_GGUF_Advanced",
             "AILab_QwenVL_GGUF_PromptEnhancer",
             "AILab_QwenVL_PromptEnhancer",
-            "QwenVL_LivepeerRender",
             "QwenVL_LoadMedia",
             "QwenVL_Unified",
             "QwenVL_Unified_Advanced",
@@ -64918,6 +64972,8 @@
             "GridMedianFixer",
             "PixelGrid_Analyze",
             "PixelGrid_ApplyPalette",
+            "PixelGrid_Autofixer",
+            "PixelGrid_HexToNames",
             "PixelGrid_KMeans",
             "PixelGrid_MergeSimilar",
             "PixelGrid_PaletteToImage"
@@ -68940,6 +68996,7 @@
             "PixaromaImageComposition",
             "PixaromaImageInfo",
             "PixaromaImageResize",
+            "PixaromaInfo",
             "PixaromaInpaintCrop",
             "PixaromaInpaintStitch",
             "PixaromaLabel",
@@ -73832,6 +73889,8 @@
             "LodestoneLoRAMultiMerger",
             "LodestoneLoRAThreeMerger",
             "LodestoneLoRATwoMerger",
+            "MiniMaxH3DiffusersLoRAConvert",
+            "MiniMaxH3FoldAdaLN",
             "ModelMetaKeys",
             "ModelPruneKeys",
             "ModelRenameKeys",
@@ -77772,6 +77831,7 @@
             "TACaptioning",
             "TACleanupSwitch",
             "TADiscordLink",
+            "TAFastLaplacianSharpen",
             "TAFilenameGenerator",
             "TAFluxGuidanceGate",
             "TAHelpLink",
@@ -79409,6 +79469,14 @@
         ],
         {
             "title_aux": "ImageBlender"
+        }
+    ],
+    "https://github.com/vctrprzvfx/ComfyUI-VFX-Naming": [
+        [
+            "VFXNamingConvention"
+        ],
+        {
+            "title_aux": "VFX Naming Convention"
         }
     ],
     "https://github.com/veighnsche/comfyui_gr85": [
@@ -84075,6 +84143,8 @@
             "LMStudioConfigurationNode",
             "LoadChapterCatalogsNode",
             "LoadConsolidatedReferencesNode",
+            "NarrativeContinuityNode",
+            "NovelCinematicSimplifierNode",
             "SelectChaptersNode",
             "SpatialContinuityNode"
         ],
@@ -84622,6 +84692,14 @@
         ],
         {
             "title_aux": "ComfyUI-Prompt-Format-Converter"
+        }
+    ],
+    "https://github.com/zjkhurry/ComfyUI-TRELLIS.2-mac": [
+        [
+            "Trellis2Shape"
+        ],
+        {
+            "title_aux": "ComfyUI TRELLIS.2 mac"
         }
     ],
     "https://github.com/zl9739379/ComfyUI-ArkVideoGenerate": [
