@@ -9901,12 +9901,12 @@
             "title": "comfyui_media_toolbox",
             "id": "comfyui_media_toolbox",
             "reference": "https://github.com/jesse890423/comfyui_media_toolbox",
-            "nodename_pattern": "^(LoadAudioAdvanced|SaveAudioPlatformExport|LoadVideoAdvanced|SaveVideoConverter)$",
+            "nodename_pattern": "^(LoadAudioAdvanced|SaveAudioPlatformExport|LoadVideoAdvanced|SaveVideoConverter|VideoReportNode)$",
             "files": [
                 "https://github.com/jesse890423/comfyui_media_toolbox"
             ],
             "install_type": "git-clone",
-            "description": "全中文界面的音频/视频加载与格式转换节点。绝对路径加载本地文件且不产生副本；视频可直接提取音轨；长音视频可按时间范围截断；一次导出多种格式并自动适配源参数；同格式转换零成本直转；内置国内主流音乐平台合规校验。附英文语言包（ComfyUI 里 Interface→Language 切 English 即可）。\n\n[Chinese UI] Audio & video load / format-conversion nodes for ComfyUI: absolute-path loading without creating copies, extract audio from video, trim by time range, multi-format export auto-adapting to the source, instant same-format passthrough, and platform compliance presets. Ships an English language pack."
+            "description": "Audio/video load and format-conversion nodes for ComfyUI. Reads and writes only inside the ComfyUI input/output directories; every path is resolved with realpath and confirmed with commonpath, so absolute paths, '..' traversal and outside symlinks are rejected. Extract the audio track from a video, trim long media by time range, export several formats in one run with parameters auto-adapted to the source, instant same-format passthrough with no re-encoding, a standalone video parameter report, and built-in compliance checks for mainstream Chinese music platforms. English UI by default; a Simplified Chinese translation is available from Interface -> Language.\n\nFiles are read from the ComfyUI input directory (drag and drop, or the upload button on the load nodes) and written to the output directory under a relative prefix. Report text follows the interface language by default and can be pinned per node."
         }
     ]
 }
