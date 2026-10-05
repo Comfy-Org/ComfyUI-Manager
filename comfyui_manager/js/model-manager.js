@@ -535,11 +535,17 @@ export class ModelManager {
 
 	async onQueueStatus(event) {
 		let self = ModelManager.instance;
+		const detail = event.detail;
 
-		if(event.detail.status == 'in_progress' && event.detail.ui_target == 'model_manager') {
-			const hash = event.detail.target;
+		if (!self?.install_context || detail.batch_id !== self.batch_id) {
+			return;
+		}
+
+		if(detail.status == 'in_progress' && detail.ui_target == 'model_manager') {
+			const hash = detail.target;
 
 			const item = self.grid.getRowItemBy("hash", hash);
+			if (!item) return;
 
 			item.refresh = true;
 			self.grid.setRowSelected(item, false);
@@ -547,24 +553,20 @@ export class ModelManager {
 //			self.grid.updateCell(item, "tg-column-select");
 			self.grid.updateRow(item);
 		}
-		else if(event.detail.status == 'batch-done') {
+		else if(detail.status == 'batch-done') {
 			self.hideStop();
-			self.onQueueCompleted(event.detail);
+			self.onQueueCompleted(detail);
 		}
 	}
 
 	async onQueueCompleted(info) {
-		let result = info.model_result;
-
-		if(result.length == 0) {
-			return;
-		}
-
 		let self = ModelManager.instance;
 
-		if(!self.install_context) {
+		if(!self?.install_context || info.batch_id !== self.batch_id) {
 			return;
 		}
+		const result = info.model_result ?? {};
+		const resultCount = Object.keys(result).length;
 
 		let btn = self.install_context.btn;
 
@@ -588,12 +590,18 @@ export class ModelManager {
 		if (errorMsg) {
 			self.showError(errorMsg);
 			show_message("Installation Error:\n"+errorMsg);
+		} else if (resultCount) {
+			self.showStatus(`Install ${resultCount} models successfully`);
 		} else {
-			self.showStatus(`Install ${result.length} models successfully`);
+			self.showStatus('No models were installed');
 		}
 
-		self.showRefresh();
-		self.showMessage(`To apply the installed model, please click the 'Refresh' button.`, "red")
+		if (resultCount) {
+			self.showRefresh();
+			if (!errorMsg) {
+				self.showMessage(`To apply the installed model, please click the 'Refresh' button.`, "red")
+			}
+		}
 
 		infoToast('Tasks done', `[ComfyUI-Manager] All model downloading tasks in the queue have been completed.\n${info.done_count}/${info.total_count}`);
 		self.install_context = undefined;
