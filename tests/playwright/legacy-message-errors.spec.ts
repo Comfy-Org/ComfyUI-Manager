@@ -169,6 +169,72 @@ for (const kind of ['nodes', 'models']) {
   });
 }
 
+for (const outcome of ['success', 'failure', 'empty']) {
+  test(`models: only the active batch can update progress and complete (${outcome})`, async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(String(error)));
+    await page.goto('/');
+    await waitForComfyUI(page);
+    await routeModelList(page, [makeModel('victim')]);
+
+    let batch: { batch_id: string; install_model: { ui_id: string }[] };
+    await page.route('**/v2/manager/queue/batch', async route => {
+      batch = route.request().postDataJSON();
+      await route.fulfill({ json: { failed: [] } });
+    });
+    await openManagerMenu(page);
+    await openModelManager(page);
+    await page.evaluate(async () => {
+      const { ModelManager } = await import('/extensions/comfyui-manager-legacy/model-manager.js');
+      const manager = ModelManager.instance;
+      const button = manager.element.querySelector('.cmm-btn-install');
+      await manager.installModels(manager.modelList, button);
+    });
+    await expect(page.locator('.cmm-manager-stop')).toBeVisible();
+
+    const target = batch!.install_model[0].ui_id;
+    const status = (batchId: string, state: string, modelResult: Record<string, string>) => ({
+      status: state, batch_id: batchId, ui_target: 'model_manager', target,
+      model_result: modelResult, done_count: 1, total_count: 1,
+    });
+    const dispatch = async (detail: ReturnType<typeof status>) => {
+      await page.evaluate(async value => {
+        const { api } = await import('/scripts/api.js');
+        api.dispatchEvent(new CustomEvent('cm-queue-status', { detail: value }));
+      }, detail);
+    };
+    const state = () => page.evaluate(async hash => {
+      const { ModelManager } = await import('/extensions/comfyui-manager-legacy/model-manager.js');
+      const manager = ModelManager.instance;
+      return { pending: !!manager.install_context, refresh: !!manager.grid.getRowItemBy('hash', hash)?.refresh };
+    }, target);
+
+    await dispatch(status('other-batch', 'in_progress', {}));
+    expect(await state()).toEqual({ pending: true, refresh: false });
+    await dispatch(status('other-batch', 'batch-done', { [target]: 'success' }));
+    await expect(page.locator('.cmm-manager-stop')).toBeVisible();
+    expect(await state()).toEqual({ pending: true, refresh: false });
+
+    await dispatch(status(batch!.batch_id, 'in_progress', {}));
+    expect(await state()).toEqual({ pending: true, refresh: true });
+    const result = outcome === 'empty' ? {} : { [target]: outcome === 'success' ? 'success' : 'download failed' };
+    await dispatch(status(batch!.batch_id, 'batch-done', result));
+    await expect(page.locator('.cmm-manager-stop')).toBeHidden();
+    expect((await state()).pending).toBe(false);
+    if (outcome === 'success') {
+      await expect(page.locator('.cmm-manager-status')).toContainText('Install 1 models successfully');
+    } else if (outcome === 'failure') {
+      await expect(page.locator('.cmm-manager-message')).toContainText('download failed');
+    } else {
+      await expect(page.locator('.cmm-manager-status')).toContainText('No models were installed');
+    }
+
+    await dispatch(status(batch!.batch_id, 'batch-done', { [target]: 'success' }));
+    expect((await state()).pending).toBe(false);
+    expect(errors).toEqual([]);
+  });
+}
+
 test('nodes: lookup errors and missing row IDs remain literal text', async ({ page }) => {
   await page.goto('/');
   await waitForComfyUI(page);
