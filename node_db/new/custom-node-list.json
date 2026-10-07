@@ -1,6 +1,126 @@
 {
     "custom_nodes": [
         {
+            "author": "manzakin",
+            "title": "SimpleShot",
+            "reference": "https://github.com/manzakin/ComfyUI-SimpleShot",
+            "files": [
+                "https://github.com/manzakin/ComfyUI-SimpleShot"
+            ],
+            "install_type": "git-clone",
+            "description": "MiniMax-H3 video with sound in one node: prompt, an optional first and last frame, and nothing that can be set wrongly. Core-only, no second pack to install."
+        },
+        {
+            "author": "jmtoball",
+            "title": "Simple List Picker",
+            "reference": "https://github.com/jmtoball/comfyui-simple-list-picker",
+            "files": [
+                "https://github.com/jmtoball/comfyui-simple-list-picker"
+            ],
+            "install_type": "git-clone",
+            "description": "Pick one item out of a ComfyUI list by index, with an index that can step once per queued job."
+        },
+        {
+            "author": "aki",
+            "title": "AICU Utils",
+            "reference": "https://github.com/aicuai/comfyui-aicu-utils",
+            "files": [
+                "https://github.com/aicuai/comfyui-aicu-utils"
+            ],
+            "install_type": "git-clone",
+            "description": "Small, dependency-free utility nodes used by AICU's ComfyLTS lines and books. Starts with Resize Shortest Side To."
+        },
+        {
+            "author": "lukas-9936",
+            "title": "MiniMax H3 PDD Acceleration",
+            "reference": "https://github.com/lukas-9936/ComfyUI-MiniMax-H3-PDD",
+            "files": [
+                "https://github.com/lukas-9936/ComfyUI-MiniMax-H3-PDD"
+            ],
+            "install_type": "git-clone",
+            "description": "Native ComfyUI loader for Alibaba PAI MiniMax-H3 PDD acceleration LoRAs"
+        },
+        {
+            "author": "tom-m-2020",
+            "title": "ComfyUI-SpotEdit",
+            "reference": "https://github.com/tom-m-2020/ComfyUI-SpotEdit",
+            "files": [
+                "https://github.com/tom-m-2020/ComfyUI-SpotEdit"
+            ],
+            "install_type": "git-clone",
+            "description": "Discontinued ComfyUI node package providing ApplyNativeFlux2SpotEdit for native Flux.2 SpotEdit-style image editing. (Description by CC)"
+        },
+        {
+            "author": "gritai",
+            "title": "ComfyUI-PixelLock",
+            "reference": "https://github.com/GritAI-Labs/ComfyUI-PixelLock",
+            "files": [
+                "https://github.com/GritAI-Labs/ComfyUI-PixelLock"
+            ],
+            "install_type": "git-clone",
+            "description": "Pixel-Lock for Qwen-Edit: composite only the edited region back onto the original so unedited pixels stay pixel-identical (no zoom-drift, no whole-image degradation, multi-round safe). Auto-bypasses global/style edits. Tensor-native, zero deps. Validated across a 374-edit sweep."
+        },
+        {
+            "author": "h1531095",
+            "title": "ComfyUI TextInputSelector",
+            "reference": "https://github.com/h1531095/Comfyui-TextInputSelector",
+            "files": [
+                "https://github.com/h1531095/Comfyui-TextInputSelector"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI text input node with prefix/suffix blocks and Python-slice-style block selection"
+        },
+        {
+            "author": "nonamefaces",
+            "title": "Seedream Official Input",
+            "reference": "https://github.com/NoNameFaces/ComfyUI-SeedreamOfficialInput",
+            "files": [
+                "https://github.com/NoNameFaces/ComfyUI-SeedreamOfficialInput"
+            ],
+            "install_type": "git-clone",
+            "description": "Seedream node that uploads reference images at official BytePlus limits (6000px / 36MP) instead of ComfyUI's silent 2048x2048 downscale."
+        },
+        {
+            "author": "lakeside529",
+            "title": "Anima 3.8B LoRA Bridge",
+            "reference": "https://github.com/Lakeside529/ComfyUI-Anima-3.8B-LoRA-Bridge",
+            "files": [
+                "https://github.com/Lakeside529/ComfyUI-Anima-3.8B-LoRA-Bridge"
+            ],
+            "install_type": "git-clone",
+            "description": "Load Anima Base and Anima 2.9B LoRAs on the inherited layers of Anima 3.8B."
+        },
+        {
+            "author": "bmad4ever",
+            "title": "comfyui_videofillergrid",
+            "reference": "https://github.com/bmad4ever/comfyui_videofillergrid",
+            "files": [
+                "https://github.com/bmad4ever/comfyui_videofillergrid"
+            ],
+            "install_type": "git-clone",
+            "description": "A single node, VideoFillerGrid Assemble, that joins source clips and (generated) transition clips that bridge them into one video, following an order list, and writes it straight to disk."
+        },
+        {
+            "author": "24latents",
+            "title": "Emulsion",
+            "reference": "https://github.com/24latents/ComfyUI-Emulsion",
+            "files": [
+                "https://github.com/24latents/ComfyUI-Emulsion"
+            ],
+            "install_type": "git-clone",
+            "description": "JSON-preset color grading for ComfyUI (Lightroom-preset style) — replaces a chain of post-processing nodes with a single node, plus a preset extraction node."
+        },
+        {
+            "author": "chinoll",
+            "title": "TileMix-comfyui",
+            "reference": "https://github.com/chinoll/TileMix-comfyui",
+            "files": [
+                "https://github.com/chinoll/TileMix-comfyui"
+            ],
+            "install_type": "git-clone",
+            "description": "Bidirectional tile-centric mixed-precision (FP16/INT8) attention for ComfyUI diffusion transformers, with a Krea 2 gated-MMDiT patch."
+        },
+        {
             "author": "ANe5s",
             "title": "Krea2 Harness",
             "reference": "https://github.com/ANe5s/ComfyUI-Krea2-Harness",
