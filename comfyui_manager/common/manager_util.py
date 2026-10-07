@@ -28,6 +28,30 @@ use_uv = False
 use_unified_resolver = False
 bypass_ssl = False
 
+# When False, ComfyUI-Manager will not attempt to install, upgrade, or
+# uninstall Python packages on its own (prestartup auto-healing, the unified
+# dependency resolver, and per-node `pip install -r requirements.txt`). This
+# is intended for distro-packaged or otherwise externally-managed Python
+# environments (e.g. Nix, Guix, system package managers, locked-down
+# corporate images) where the interpreter is read-only.
+#
+# Read-only pip operations (`list`, `freeze`, `show`) still run so the UI,
+# inventory, and security checks keep working.
+dependency_management_enabled = True
+
+
+_OFF_VALUES = frozenset({'off', 'false', '0', 'no', 'disabled'})
+
+
+def is_off_value(value):
+    """Return True if a config or env-var string spells "off".
+
+    Anything else — including the empty string and unknown words — is treated
+    as "on", so a typo doesn't silently disable dependency management.
+    """
+    return value.strip().lower() in _OFF_VALUES
+
+
 def is_manager_pip_package():
     return not os.path.exists(os.path.join(comfyui_manager_path, '..', 'custom_nodes'))
 
@@ -412,6 +436,10 @@ class PIPFixer:
         self.manager_files_path = manager_files_path
 
     def fix_broken(self):
+        if not dependency_management_enabled:
+            logging.info("[ComfyUI-Manager] dependency management disabled; skipping PIPFixer.fix_broken()")
+            return
+
         new_pip_versions = get_installed_packages(True)
 
         # remove `comfy` python package

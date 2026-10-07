@@ -207,6 +207,7 @@ The following settings are applied based on the section marked as `is_default`.
     [default]
     git_exe = <Manually specify the path to the git executable. If left empty, the default git executable path will be used.>
     use_uv = <Use uv instead of pip for dependency installation.>
+    dependency_management = <on|off; defaults to on. Disable automatic startup package changes in externally-managed Python environments.>
     default_cache_as_channel_url = <Determines whether to retrieve the DB designated as channel_url at startup>
     bypass_ssl = <Set to True if SSL errors occur to disable SSL.>
     file_logging = <Configure whether to create a log file used by ComfyUI-Manager.>
@@ -225,7 +226,11 @@ The following settings are applied based on the section marked as `is_default`.
       - public: An environment that uses a typical public network.
       - private: An environment that uses a closed network, where a private node DB is configured via `channel_url`. (Uses cache if available)
       - offline: An environment that does not use any external connections when using an offline network. (Uses cache if available)
-      - personal_cloud: Applies relaxed security features in cloud environments such as Google Colab or Runpod, where strong security is not required. 
+      - personal_cloud: Applies relaxed security features in cloud environments such as Google Colab or Runpod, where strong security is not required.
+
+    * `dependency_management = off` skips PIPFixer auto-healing, the startup unified dependency resolver, and per-node requirements installation during lazy startup processing. Read-only package inventory operations remain available.
+      - `COMFYUI_MANAGER_DEPENDENCY_MANAGEMENT=on|off` overrides the config setting. `false`, `0`, `no`, and `disabled` also disable it (case-insensitive).
+      - Explicit install/update commands and custom-node `install.py` scripts remain available and can modify the environment. This setting is not a sandbox; externally-managed installations should use `--no-deps` for explicit node operations where supported and provision dependencies separately.
 
 
 ## Additional Feature
