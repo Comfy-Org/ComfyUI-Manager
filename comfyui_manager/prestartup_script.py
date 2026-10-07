@@ -97,7 +97,7 @@ def read_unified_resolver_mode():
 def read_dependency_management_mode():
     # Config: [default] dependency_management = on|off (default on).
     # Env override: COMFYUI_MANAGER_DEPENDENCY_MANAGEMENT=on|off wins over config.
-    # `off` opts out of every Python-package mutation Manager performs at
+    # `off` opts out of automatic Python-package mutation Manager performs at
     # startup (PIPFixer auto-heal, unified resolver, per-node pip install).
     # Intended for distro-packaged / externally-managed Python environments
     # where the interpreter is read-only (Nix, Guix, system packages, etc.).
@@ -789,9 +789,7 @@ def execute_startup_script():
 # Runs unconditionally when enabled, independent of install-scripts.txt existence.
 if manager_util.use_unified_resolver and not manager_util.dependency_management_enabled:
     logging.info("[ComfyUI-Manager] dependency management disabled; skipping unified dependency resolver")
-    manager_util.use_unified_resolver = False
-
-if manager_util.use_unified_resolver:
+elif manager_util.use_unified_resolver:
     try:
         from .common.unified_dep_resolver import (
             UnifiedDepResolver,
