@@ -15814,22 +15814,6 @@
             "title_aux": "ComfyUI-SoX-Mixdown"
         }
     ],
-    "https://github.com/Jokimbe/ComfyUI-DrawThings-gRPC": [
-        [
-            "DrawThingsControlNet",
-            "DrawThingsHints",
-            "DrawThingsLoRA",
-            "DrawThingsNegative",
-            "DrawThingsPositive",
-            "DrawThingsPrompt",
-            "DrawThingsRefiner",
-            "DrawThingsSampler",
-            "DrawThingsUpscaler"
-        ],
-        {
-            "title_aux": "ComfyUI-DrawThings-gRPC"
-        }
-    ],
     "https://github.com/Jonseed/ComfyUI-Detail-Daemon": [
         [
             "DetailDaemonGraphSigmasNode",
@@ -46099,6 +46083,17 @@
             "DrawThingsUpscaler"
         ],
         {
+            "preemptions": [
+                "DrawThingsControlNet",
+                "DrawThingsHints",
+                "DrawThingsLoRA",
+                "DrawThingsNegative",
+                "DrawThingsPositive",
+                "DrawThingsPrompt",
+                "DrawThingsRefiner",
+                "DrawThingsSampler",
+                "DrawThingsUpscaler"
+            ],
             "title_aux": "draw-things-comfyui"
         }
     ],
