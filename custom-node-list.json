@@ -27662,16 +27662,6 @@
             "description": "Simple node to convert lora_stack output into string to generate a1111-style lora strength output text, like <lora:name:0.69>. Used to include your Lora names from Lora Stack in text input-output nodes and so on."
         },
         {
-            "author": "Jokimbe",
-            "title": "ComfyUI-DrawThings-gRPC",
-            "reference": "https://github.com/Jokimbe/ComfyUI-DrawThings-gRPC",
-            "files": [
-                "https://github.com/Jokimbe/ComfyUI-DrawThings-gRPC"
-            ],
-            "install_type": "git-clone",
-            "description": "Connect to any Draw Things gRPC server"
-        },
-        {
             "author": "Temult",
             "title": "TWanSigmaGraph",
             "reference": "https://github.com/Temult/TWanSigmaGraph",
@@ -42141,6 +42131,17 @@
             "reference": "https://github.com/drawthingsai/draw-things-comfyui",
             "files": [
                 "https://github.com/drawthingsai/draw-things-comfyui"
+            ],
+            "preemptions": [
+                "DrawThingsControlNet",
+                "DrawThingsHints",
+                "DrawThingsLoRA",
+                "DrawThingsNegative",
+                "DrawThingsPositive",
+                "DrawThingsPrompt",
+                "DrawThingsRefiner",
+                "DrawThingsSampler",
+                "DrawThingsUpscaler"
             ],
             "install_type": "git-clone",
             "description": "The official Draw Things extension for ComfyUI. Sends image-generation requests to Draw Things over gRPC. Supports Bridge Mode for DT+ cloud and local model execution."
