@@ -176,6 +176,34 @@ export function buildGuiFrameCustomHeader(dialogId, customHeader, content, owner
 		}
 	);
 
+    // =========================================================================
+    // UNIVERSAL ZERO-FLASH CLOSE BUTTON FACTORY OVERRIDE
+    // =========================================================================
+    if (close_button) {
+        close_button.className += " comfy-close-btn"; // Hooks cleanly into your global hover circle sheet
+
+        // Instantly strips the default layout styles before the browser can draw them
+        close_button.style.setProperty("float", "none", "important");
+        close_button.style.setProperty("position", "absolute", "important");
+        close_button.style.setProperty("top", "12px", "important");
+        close_button.style.setProperty("right", "12px", "important");
+        close_button.style.setProperty("border", "none", "important");
+        close_button.style.setProperty("outline", "none", "important");
+        close_button.style.setProperty("box-shadow", "none", "important");
+        close_button.style.setProperty("background", "transparent", "important");
+        close_button.style.setProperty("background-color", "transparent", "important");
+        close_button.style.setProperty("padding", "0", "important");
+        close_button.style.setProperty("margin", "0", "important");
+        close_button.style.setProperty("width", "32px", "important");
+        close_button.style.setProperty("height", "32px", "important");
+        close_button.style.setProperty("display", "inline-flex", "important");
+        close_button.style.setProperty("align-items", "center", "important");
+        close_button.style.setProperty("justify-content", "center", "important");
+        close_button.style.setProperty("overflow", "visible", "important");
+        close_button.style.setProperty("line-height", "1", "important");
+        close_button.style.setProperty("cursor", "pointer", "important");
+    }	
+	
 	const _customHeader = normalizeContent(customHeader);
 	const dialog_header = $el("div.p-dialog-header",
 		[
