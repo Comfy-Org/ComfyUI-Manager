@@ -374,6 +374,10 @@ class DenialConstantsTest(unittest.TestCase):
     def _assert_honest_copy(self, const, flag_name):
         self.assertIn(flag_name, const, "constant must name the responsible flag")
         self.assertIn("config.ini", const, "constant must name config.ini")
+        # The gate is `flag AND loopback` (is_dedicated_install_allowed), so a
+        # message that stops at the flag sends non-loopback users to re-check a
+        # setting they already enabled.
+        self.assertIn("loopback", const, "constant must name the loopback requirement")
         for cause_phrasing in (
             "is not allowed in this security_level",
             "set the security level",
