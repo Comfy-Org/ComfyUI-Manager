@@ -101,7 +101,7 @@ export class NodeUsageAnalyzer {
 
 			".nu-manager-stop": {
 				click: () => {
-					api.fetchApi('/manager/queue/reset');
+					api.fetchApi('/manager/queue/reset', { method: 'POST' });
 					infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 				}
 			},
@@ -340,7 +340,7 @@ export class NodeUsageAnalyzer {
 		let needRefresh = false;
 		let errorMsg = "";
 
-		await api.fetchApi('/manager/queue/reset');
+		await api.fetchApi('/manager/queue/reset', { method: 'POST' });
 
 		let target_items = [];
 
@@ -387,7 +387,7 @@ export class NodeUsageAnalyzer {
 			}
 		}
 		else {
-			await api.fetchApi('/manager/queue/start');
+			await api.fetchApi('/manager/queue/start', { method: 'POST' });
 			this.ui.showStop();
 			showTerminal();
 		}
@@ -609,6 +609,13 @@ export class NodeUsageAnalyzer {
 		Object.keys(node_packs).forEach((packKey, index) => {
 			const pack = node_packs[packKey];
 
+			// packs that aren't in the node DB come back without an 'id'; the uninstall
+			// endpoint keys off it, so backfill it from the pack key (as the custom node
+			// manager does) or the uninstall is queued against a null node name
+			if (pack.id === undefined) {
+				pack.id = packKey;
+			}
+
 			// Only include installed packages (filter out "not-installed" packages)
 			if (pack.state === "not-installed") {
 				return; // Skip non-installed packages
@@ -624,6 +631,7 @@ export class NodeUsageAnalyzer {
 				used_in_count: usedCount,
 				workflowDetails: workflowDetails,
 				name: packKey,
+				hash: md5(packKey),
 				originalData: pack
 			});
 		});
