@@ -18,6 +18,25 @@ loadCss("./custom-nodes-manager.css");
 
 const gridId = "node";
 
+// Compare dot-separated numeric version specs. Returns 1 if a > b, -1 if a < b,
+// 0 if equal, or null when either spec is not fully numeric (e.g. "nightly",
+// "1.2.3rc1"), in which case callers keep the legacy string behavior.
+function compareVersionSpecs(a, b) {
+	const pa = String(a).split(".").map((x) => /^\d+$/.test(x) ? parseInt(x, 10) : NaN);
+	const pb = String(b).split(".").map((x) => /^\d+$/.test(x) ? parseInt(x, 10) : NaN);
+	if (pa.some(Number.isNaN) || pb.some(Number.isNaN)) {
+		return null;
+	}
+	const len = Math.max(pa.length, pb.length);
+	for (let i = 0; i < len; i++) {
+		const x = pa[i] || 0;
+		const y = pb[i] || 0;
+		if (x > y) return 1;
+		if (x < y) return -1;
+	}
+	return 0;
+}
+
 const pageHtml = `
 <div class="cn-manager cn-manager-dark">
 	<div class="cn-manager-grid"></div>
@@ -757,7 +776,16 @@ export class CustomNodesManager {
 					if(version == 'nightly') {
 						return `<div>${safeVersion}</div><div>[${safeLatest}]</div>`;
 					}
-					return `<div>${safeVersion}</div><div>[↑${safeLatest}]</div>`;
+					// Flag an update only when the registry version is provably newer
+					// (cmp === 1). cmp === -1/0 means the local install is already
+					// current or newer (issue #3272: 1.78.1 was flagged as updatable
+					// to 1.47.0). cmp === null keeps the legacy string behavior for
+					// specs this helper cannot parse.
+					const cmp = compareVersionSpecs(rowItem.cnr_latest, version);
+					if(cmp === null || cmp === 1) {
+						return `<div>${safeVersion}</div><div>[↑${safeLatest}]</div>`;
+					}
+					return safeVersion;
 				}
 				return safeVersion;
 			}
