@@ -8,7 +8,17 @@
                 "https://github.com/adachi0130/Adachi-Inpaint-Workbench"
             ],
             "install_type": "git-clone",
-            "description": "Paint the inpaint mask directly on the node canvas instead of a modal mask editor, with no save/load round-trip per stroke. The connected inpaint node hosts the live painting tools and WebUI-style sampling controls, and supports whole-image or padded masked-area sampling with original-resolution compositing, Alt temporary erase, Ctrl+wheel brush size, hover image comparison and one-click adoption of a result as the next source image. MIT licensed; reuses ComfyUI's NumPy, Pillow and PyTorch."
+            "description": "Paint the inpaint mask directly on the node canvas instead of a modal mask editor, with no save/load round-trip per stroke. The connected inpaint node hosts the live painting tools and WebUI-style sampling controls, and supports whole-image or padded masked-area sampling with original-resolution compositing, Alt temporary erase, Ctrl+wheel brush size, hover image comparison and one-click adoption of a result as the next source image. All user-facing strings default to English and the node pack follows the ComfyUI language setting through the locales/ mechanism. MIT licensed; reuses ComfyUI's NumPy, Pillow and PyTorch."
+        },
+        {
+            "author": "Tumbislav Nilski",
+            "title": "ComfyUI-ModelArchivist",
+            "reference": "https://github.com/tumbislav/ComfyUI-ModelArchivist",
+            "files": [
+                "https://github.com/tumbislav/ComfyUI-ModelArchivist"
+            ],
+            "install_type": "git-clone",
+            "description": "A librarian tool for your models, workflows, datasets and basically anything else you use."
         },
         {
             "author": "Carasibana",
@@ -37123,6 +37133,17 @@
             "description": "VNCCS is a comprehensive tool for creating character sprites for visual novels."
         },
         {
+            "author": "MIUProject",
+            "title": "VNCCS Utils - Collection of utility nodes",
+            "id": "vnccs-utils",
+            "reference": "https://github.com/AHEKOT/ComfyUI_VNCCS_Utils",
+            "files": [
+                "https://github.com/AHEKOT/ComfyUI_VNCCS_Utils"
+            ],
+            "install_type": "git-clone",
+            "description": "OFFICIAL VNCCS utility nodes: Pose Studio, UniCanvas, and 3D Factory."
+        },
+        {
             "author": "wzken",
             "title": "Steganos Node for ComfyUI",
             "reference": "https://github.com/wzken/ComfyUI-Steganos-Node",
@@ -54614,7 +54635,7 @@
                 "https://github.com/Archerkattri/ComfyUI-TRELLIS-HiCache"
             ],
             "install_type": "git-clone",
-            "description": "Training-free TRELLIS image-to-3D acceleration: forecast the flow-matching velocity on skipped DiT steps (HiCache Hermite / HiCache++ DMD, via hicache-pp) across both the sparse-structure and SLaT stages. ~2x faster, near-lossless. Drop between the TRELLIS loader and sampler."
+            "description": "Training-free TRELLIS image-to-3D acceleration: forecast the flow-matching velocity on skipped DiT steps (HiCache Hermite / HiCache++ DMD, via hicache-pp) across both the sparse-structure and SLaT stages. The README reports historical RTX 5090 results but does not establish current-commit GPU validation. Drop between the TRELLIS loader and sampler."
         },
         {
             "author": "archerkattri",
@@ -54634,7 +54655,7 @@
                 "https://github.com/Archerkattri/ComfyUI-TRELLIS2-HiCache"
             ],
             "install_type": "git-clone",
-            "description": "Training-free TRELLIS.2 image-to-3D acceleration: forecast the flow-matching velocity on skipped DiT steps (HiCache Hermite / HiCache++ DMD, via hicache-pp) across the sparse-structure and shape-SLaT stages (texture optional). ~2x faster, near-lossless. Pairs with visualbruno/ComfyUI-Trellis2."
+            "description": "Training-free TRELLIS.2 image-to-3D acceleration: forecast the flow-matching velocity on skipped DiT steps (HiCache Hermite / HiCache++ DMD, via hicache-pp) across the sparse-structure and shape-SLaT stages (texture optional). The README reports historical RTX 5090 results but does not establish current-commit GPU validation. Pairs with visualbruno/ComfyUI-Trellis2."
         },
         {
             "author": "bonestudio",
@@ -62330,6 +62351,17 @@
             ],
             "install_type": "unzip",
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
+        },
+        {
+            "author": "xelionaj",
+            "title": "ComfyUI-XeLion",
+            "id": "comfyui-xelion",
+            "reference": "https://github.com/xelionaj/ComfyUI-XeLion",
+            "files": [
+                "https://github.com/xelionaj/ComfyUI-XeLion"
+            ],
+            "install_type": "git-clone",
+            "description": "A small utility custom nodes."
         }
     ]
 }
