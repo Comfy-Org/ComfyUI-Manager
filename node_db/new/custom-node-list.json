@@ -1,6 +1,16 @@
 {
     "custom_nodes": [
         {
+            "author": "adachi0130",
+            "title": "Adachi-Inpaint-Workbench",
+            "reference": "https://github.com/adachi0130/Adachi-Inpaint-Workbench",
+            "files": [
+                "https://github.com/adachi0130/Adachi-Inpaint-Workbench"
+            ],
+            "install_type": "git-clone",
+            "description": "Paint the inpaint mask directly on the node canvas instead of a modal mask editor, with no save/load round-trip per stroke. The connected inpaint node hosts the live painting tools and WebUI-style sampling controls, and supports whole-image or padded masked-area sampling with original-resolution compositing, Alt temporary erase, Ctrl+wheel brush size, hover image comparison and one-click adoption of a result as the next source image. All user-facing strings default to English and the node pack follows the ComfyUI language setting through the locales/ mechanism. MIT licensed; reuses ComfyUI's NumPy, Pillow and PyTorch."
+        },
+        {
             "author": "Tumbislav Nilski",
             "title": "ComfyUI-ModelArchivist",
             "reference": "https://github.com/tumbislav/ComfyUI-ModelArchivist",
