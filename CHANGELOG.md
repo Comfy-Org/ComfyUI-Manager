@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Fixed
+
+- Report the `desktop-linux` form factor to the registry for Desktop installs
+  on Linux, which previously reported `other`.
+
 ## [4.3] - 2026-09-19
 
 ### Security
