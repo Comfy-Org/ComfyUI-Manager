@@ -1,6 +1,70 @@
 {
     "custom_nodes": [
         {
+            "author": "Tumbislav Nilski",
+            "title": "ComfyUI-ModelArchivist",
+            "reference": "https://github.com/tumbislav/ComfyUI-ModelArchivist",
+            "files": [
+                "https://github.com/tumbislav/ComfyUI-ModelArchivist"
+            ],
+            "install_type": "git-clone",
+            "description": "A librarian tool for your models, workflows, datasets and basically anything else you use."
+        },
+        {
+            "author": "jesse890423",
+            "title": "comfyui_media_toolbox",
+            "id": "comfyui_media_toolbox",
+            "reference": "https://github.com/jesse890423/comfyui_media_toolbox",
+            "nodename_pattern": "^(LoadAudioAdvanced|SaveAudioPlatformExport|LoadVideoAdvanced|SaveVideoConverter|VideoReportNode)$",
+            "files": [
+                "https://github.com/jesse890423/comfyui_media_toolbox"
+            ],
+            "install_type": "git-clone",
+            "description": "Audio/video load and format-conversion nodes for ComfyUI. Reads and writes only inside the ComfyUI input/output directories; every path is resolved with realpath and confirmed with commonpath, so absolute paths, '..' traversal and outside symlinks are rejected. Extract the audio track from a video, trim long media by time range, export several formats in one run with parameters auto-adapted to the source, instant same-format passthrough with no re-encoding, a standalone video parameter report, and built-in compliance checks for mainstream Chinese music platforms. English UI by default; a Simplified Chinese translation is available from Interface -> Language.\n\nFiles are read from the ComfyUI input directory (drag and drop, or the upload button on the load nodes) and written to the output directory under a relative prefix. Report text follows the interface language by default and can be pinned per node."
+        },
+        {
+            "author": "MIUProject",
+            "title": "VNCCS Utils - Collection of utility nodes",
+            "id": "vnccs-utils",
+            "reference": "https://github.com/AHEKOT/ComfyUI_VNCCS_Utils",
+            "files": [
+                "https://github.com/AHEKOT/ComfyUI_VNCCS_Utils"
+            ],
+            "install_type": "git-clone",
+            "description": "OFFICIAL VNCCS utility nodes: Pose Studio, UniCanvas, and 3D Factory."
+        },
+        {
+            "author": "xelionaj",
+            "title": "ComfyUI-XeLion",
+            "id": "comfyui-xelion",
+            "reference": "https://github.com/xelionaj/ComfyUI-XeLion",
+            "files": [
+                "https://github.com/xelionaj/ComfyUI-XeLion"
+            ],
+            "install_type": "git-clone",
+            "description": "A small utility custom nodes."
+        },
+        {
+            "author": "Antigravity & LatentForge Team",
+            "title": "ComfyUI-ZeroCopy-Continuity",
+            "reference": "https://github.com/latentforge-dev/ComfyUI-ZeroCopy-Continuity",
+            "files": [
+                "https://github.com/latentforge-dev/ComfyUI-ZeroCopy-Continuity"
+            ],
+            "install_type": "git-clone",
+            "description": "Permanent GPU VRAM Pinning & Lossless Latent Continuity Chaining for Multi-Shot DiT Pipelines on NVIDIA RTX 5090 / 4090 / Blackwell GPUs"
+        },
+        {
+            "author": "CopySight (original node by Filliptm)",
+            "title": "CopySight",
+            "reference": "https://github.com/copysight/ComfyUI-CopySight",
+            "files": [
+                "https://github.com/copysight/ComfyUI-CopySight"
+            ],
+            "install_type": "git-clone",
+            "description": "Check one image for IP similarity using CopySight. Returns an annotated image and JSON report. Requires an enabled CopySight key and service credits."
+        },
+        {
             "author": "jesse890423",
             "title": "ComfyUI-Qwen-TTS-5x",
             "id": "comfyui-qwen-tts-5x",
@@ -9358,7 +9422,7 @@
                 "https://github.com/Archerkattri/ComfyUI-TRELLIS2-HiCache"
             ],
             "install_type": "git-clone",
-            "description": "Training-free TRELLIS.2 image-to-3D acceleration: forecast the flow-matching velocity on skipped DiT steps (HiCache Hermite / HiCache++ DMD, via hicache-pp) across the sparse-structure and shape-SLaT stages (texture optional). ~2x faster, near-lossless. Pairs with visualbruno/ComfyUI-Trellis2."
+            "description": "Training-free TRELLIS.2 image-to-3D acceleration: forecast the flow-matching velocity on skipped DiT steps (HiCache Hermite / HiCache++ DMD, via hicache-pp) across the sparse-structure and shape-SLaT stages (texture optional). The README reports historical RTX 5090 results but does not establish current-commit GPU validation. Pairs with visualbruno/ComfyUI-Trellis2."
         },
         {
             "author": "Stillfront",
@@ -10242,18 +10306,6 @@
             ],
             "install_type": "git-clone",
             "description": "EzFlex preset suite for ComfyUI: models combo loader, resolution/latent selector, node switch master & group presets, parameter presets, preview any, prompt helper, media loader/output."
-        },
-        {
-            "author": "jesse890423",
-            "title": "comfyui_media_toolbox",
-            "id": "comfyui_media_toolbox",
-            "reference": "https://github.com/jesse890423/comfyui_media_toolbox",
-            "nodename_pattern": "^(LoadAudioAdvanced|SaveAudioPlatformExport|LoadVideoAdvanced|SaveVideoConverter|VideoReportNode)$",
-            "files": [
-                "https://github.com/jesse890423/comfyui_media_toolbox"
-            ],
-            "install_type": "git-clone",
-            "description": "Audio/video load and format-conversion nodes for ComfyUI. Reads and writes only inside the ComfyUI input/output directories; every path is resolved with realpath and confirmed with commonpath, so absolute paths, '..' traversal and outside symlinks are rejected. Extract the audio track from a video, trim long media by time range, export several formats in one run with parameters auto-adapted to the source, instant same-format passthrough with no re-encoding, a standalone video parameter report, and built-in compliance checks for mainstream Chinese music platforms. English UI by default; a Simplified Chinese translation is available from Interface -> Language.\n\nFiles are read from the ComfyUI input directory (drag and drop, or the upload button on the load nodes) and written to the output directory under a relative prefix. Report text follows the interface language by default and can be pinned per node."
         }
     ]
 }
