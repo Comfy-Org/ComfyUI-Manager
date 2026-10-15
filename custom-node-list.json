@@ -1,16 +1,6 @@
 {
     "custom_nodes": [
         {
-            "author": "Tumbislav Nilski",
-            "title": "ComfyUI-ModelArchivist",
-            "reference": "https://github.com/tumbislav/ComfyUI-ModelArchivist",
-            "files": [
-                "https://github.com/tumbislav/ComfyUI-ModelArchivist"
-            ],
-            "install_type": "git-clone",
-            "description": "A librarian tool for your models, workflows, datasets and basically anything else you use."
-        },
-        {
             "author": "Carasibana",
             "title": "ComfyUI-SimpleFloatSlider",
             "reference": "https://github.com/Carasibana/ComfyUI-SimplayboyleFloatSlider",
@@ -62124,6 +62114,59 @@
             "description": "Speech synthesis, voice cloning and voice design nodes for Qwen3-TTS, patched for transformers 5.x (verified on 5.14.1 / ComfyUI 0.37.0 / torch 2.13.0).\n\nFork of flybirdxx/ComfyUI-Qwen-TTS v1.0.7, which declares transformers>=4.57.0,<5.0.0. This fork adapts the four affected files so the plugin runs on transformers 5.x: pad_token_id no longer copied onto PretrainedConfig, ROPE_INIT_FUNCTIONS['default'] removed, create_causal_mask signature change, cache_position missing on decode (shape crash), and inv_freq left as uninitialised meta memory (silent failure producing wrong-sounding audio).\n\nThe folder created under custom_nodes/ is named ComfyUI-Qwen-TTS-5x.\n\nNode CLASS names are identical to upstream (FB_Qwen3TTS*), so the two packages must not be enabled at the same time -- disable or remove one of them. If you need the original 4.x behaviour, install flybirdxx/ComfyUI-Qwen-TTS pinned to transformers 4.57.3.\n\nLicense: Apache-2.0 (code). Model weights are not included and remain under the Qwen3-TTS License Agreement from Alibaba Cloud."
         },
         {
+            "author": "jesse890423",
+            "title": "comfyui_media_toolbox",
+            "id": "comfyui_media_toolbox",
+            "reference": "https://github.com/jesse890423/comfyui_media_toolbox",
+            "nodename_pattern": "^(LoadAudioAdvanced|SaveAudioPlatformExport|LoadVideoAdvanced|SaveVideoConverter|VideoReportNode)$",
+            "files": [
+                "https://github.com/jesse890423/comfyui_media_toolbox"
+            ],
+            "install_type": "git-clone",
+            "description": "Audio/video load and format-conversion nodes for ComfyUI. Reads and writes only inside the ComfyUI input/output directories; every path is resolved with realpath and confirmed with commonpath, so absolute paths, '..' traversal and outside symlinks are rejected. Extract the audio track from a video, trim long media by time range, export several formats in one run with parameters auto-adapted to the source, instant same-format passthrough with no re-encoding, a standalone video parameter report, and built-in compliance checks for mainstream Chinese music platforms. English UI by default; a Simplified Chinese translation is available from Interface -> Language.\n\nFiles are read from the ComfyUI input directory (drag and drop, or the upload button on the load nodes) and written to the output directory under a relative prefix. Report text follows the interface language by default and can be pinned per node."
+        },
+        {
+            "author": "Tumbislav Nilski",
+            "title": "ComfyUI-ModelArchivist",
+            "reference": "https://github.com/tumbislav/ComfyUI-ModelArchivist",
+            "files": [
+                "https://github.com/tumbislav/ComfyUI-ModelArchivist"
+            ],
+            "install_type": "git-clone",
+            "description": "A librarian tool for your models, workflows, datasets and basically anything else you use."
+        },
+        {
+            "author": "xelionaj",
+            "title": "ComfyUI-XeLion",
+            "id": "comfyui-xelion",
+            "reference": "https://github.com/xelionaj/ComfyUI-XeLion",
+            "files": [
+                "https://github.com/xelionaj/ComfyUI-XeLion"
+            ],
+            "install_type": "git-clone",
+            "description": "A small utility custom nodes."
+        },
+        {
+            "author": "Antigravity & LatentForge Team",
+            "title": "ComfyUI-ZeroCopy-Continuity",
+            "reference": "https://github.com/latentforge-dev/ComfyUI-ZeroCopy-Continuity",
+            "files": [
+                "https://github.com/latentforge-dev/ComfyUI-ZeroCopy-Continuity"
+            ],
+            "install_type": "git-clone",
+            "description": "Permanent GPU VRAM Pinning & Lossless Latent Continuity Chaining for Multi-Shot DiT Pipelines on NVIDIA RTX 5090 / 4090 / Blackwell GPUs"
+        },
+        {
+            "author": "CopySight (original node by Filliptm)",
+            "title": "CopySight",
+            "reference": "https://github.com/copysight/ComfyUI-CopySight",
+            "files": [
+                "https://github.com/copysight/ComfyUI-CopySight"
+            ],
+            "install_type": "git-clone",
+            "description": "Check one image for IP similarity using CopySight. Returns an annotated image and JSON report. Requires an enabled CopySight key and service credits."
+        },
+        {
             "author": "ntdviet",
             "title": "ntdviet/comfyui-ext",
             "reference": "https://github.com/ntdviet/comfyui-ext",
@@ -62341,17 +62384,6 @@
             ],
             "install_type": "unzip",
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
-        },
-        {
-            "author": "xelionaj",
-            "title": "ComfyUI-XeLion",
-            "id": "comfyui-xelion",
-            "reference": "https://github.com/xelionaj/ComfyUI-XeLion",
-            "files": [
-                "https://github.com/xelionaj/ComfyUI-XeLion"
-            ],
-            "install_type": "git-clone",
-            "description": "A small utility custom nodes."
         }
     ]
 }
