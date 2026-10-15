@@ -62177,6 +62177,17 @@
             "description": "Paint the inpaint mask directly on the node canvas instead of a modal mask editor, with no save/load round-trip per stroke. The connected inpaint node hosts the live painting tools and WebUI-style sampling controls, and supports whole-image or padded masked-area sampling with original-resolution compositing, Alt temporary erase, Ctrl+wheel brush size, hover image comparison and one-click adoption of a result as the next source image. All user-facing strings default to English and the node pack follows the ComfyUI language setting through the locales/ mechanism. MIT licensed; reuses ComfyUI's NumPy, Pillow and PyTorch."
         },
         {
+            "author": "Iakov Savelev",
+            "title": "Flow-WLS & DPM++ Extended Samplers",
+            "id": "research-unipc-dpmpp",
+            "reference": "https://github.com/YakovSava/research-unipc-dpmpp",
+            "files": [
+                "https://github.com/YakovSava/research-unipc-dpmpp"
+            ],
+            "install_type": "git-clone",
+            "description": "Fast and regularized Flow Matching and Diffusion samplers (Flow-WLS Savitzky-Golay multistep, CAB-2..6, and high-order DPM++ solvers) achieving stable few-step generation in 10 steps with zero artifacts."
+        },
+        {
             "author": "ntdviet",
             "title": "ntdviet/comfyui-ext",
             "reference": "https://github.com/ntdviet/comfyui-ext",
