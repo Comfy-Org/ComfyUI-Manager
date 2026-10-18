@@ -1717,6 +1717,41 @@ def get_channel_list():
     return channel_list
 
 
+def get_default_channel_url():
+    """
+    Resolve the URL that the `default` channel points to.
+
+    `manager_server.get_risky_level` needs the `default` channel's
+    `custom-node-list.json`. It used to hardcode the upstream
+    `raw.githubusercontent.com` URL, which bypassed any `channels.list`
+    (or `config.ini`) rewrite - e.g. when the manager runs behind a mirror
+    or a proxy - and silently fell back to the bundled database.
+
+    Resolution order:
+      1. the `default` entry of `channels.list`
+      2. `config.ini`'s `channel_url` (the channel used when a request does
+         not name one; keeps custom-fork setups working when `default` was
+         removed from `channels.list`)
+      3. `DEFAULT_CHANNEL` (upstream), i.e. the legacy hardcoded behavior
+
+    Reading `channels.list` may fail (permissions, malformed file); the
+    risk check must not break because of that, so failures step down to
+    the next fallback.
+    """
+    channel_url = None
+
+    try:
+        channel_url = get_channel_dict().get('default')
+    except Exception as e:
+        print(f"[ComfyUI-Manager] Failed to read channels.list: {e}")
+
+    if not channel_url:
+        channel_url = get_config().get('channel_url') or DEFAULT_CHANNEL
+
+    # `get_data_by_mode` appends '/<filename>' itself.
+    return channel_url.rstrip('/')
+
+
 class ManagerFuncs:
     def __init__(self):
         pass
