@@ -349,7 +349,7 @@ class HtmlByDesignSinkTest(unittest.TestCase):
                 '"");',
                 '"");',
                 '`<span>Selected <b>${selectedList.length}</b> models <button '
-                'class="cmm-btn-install p-button p-component" mode="install">Install</button>`);',
+                'class="cmm-btn-install cm-ui-button" mode="install">Install</button>`);',
             ],
             "node-usage-analyzer.js": [
                 '"");',

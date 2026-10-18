@@ -24,13 +24,13 @@ const pageHtml = `
 	<div class="cn-manager-selection"></div>
 	<div class="cn-manager-message"></div>
 	<div class="cn-manager-footer">
-		<button class="cn-manager-restart p-button p-component">Restart</button>
-		<button class="cn-manager-stop p-button p-component">Stop</button>
+		<button class="cn-manager-restart cm-ui-button">Restart</button>
+		<button class="cn-manager-stop cm-ui-button">Stop</button>
 		<div class="cn-flex-auto"></div>
-		<button class="cn-manager-used-in-workflow p-button p-component">Used In Workflow</button>
-		<button class="cn-manager-check-update p-button p-component">Check Update</button>
-		<button class="cn-manager-check-missing p-button p-component">Check Missing</button>
-		<button class="cn-manager-install-url p-button p-component">Install via Git URL</button>
+		<button class="cn-manager-used-in-workflow cm-ui-button">Used In Workflow</button>
+		<button class="cn-manager-check-update cm-ui-button">Check Update</button>
+		<button class="cn-manager-check-missing cm-ui-button">Check Missing</button>
+		<button class="cn-manager-install-url cm-ui-button">Install via Git URL</button>
 	</div>
 </div>
 `;
@@ -85,7 +85,7 @@ export class CustomNodesManager {
 			// 	$el("select.cn-manager-filter")
 			// ]),
 			createSettingsCombo("Filter", $el("select.cn-manager-filter")),
-			$el("input.cn-manager-keywords.p-inputtext.p-component", { type: "search", placeholder: "Search" }),
+			$el("input.cn-manager-keywords.cm-ui-input", { type: "search", placeholder: "Search" }),
 			$el("div.cn-manager-status"),
 			$el("div.cn-flex-auto"),
 			$el("div.cn-manager-channel")
@@ -384,7 +384,7 @@ export class CustomNodesManager {
 
 		return list.map(id => {
 			const bt = buttons[id];
-			return `<button class="cn-btn-${id} p-button p-component" group="${sanitizeHTML(String(action))}" mode="${bt.mode}">${bt.label}</button>`;
+			return `<button class="cn-btn-${id} cm-ui-button" group="${sanitizeHTML(String(action))}" mode="${bt.mode}">${bt.label}</button>`;
 		}).join("");
 	}
 
