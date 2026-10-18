@@ -1761,6 +1761,9 @@ def get_default_channel_url():
             return DEFAULT_CHANNEL.rstrip('/')
         print(f"[ComfyUI-Manager] Warning: the default channel '{channel_url}' uses unencrypted HTTP; "
               "risk-check data fetched from it can be tampered with in transit.")
+        # Normalize the scheme: `manager_util.get_data` recognizes URLs via a
+        # lowercase `startswith('http')`, so `HtTp://...` must not survive as-is.
+        return 'http://' + channel_url[len('http://'):]
 
     return channel_url
 

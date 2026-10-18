@@ -172,7 +172,9 @@ class PlainHttpWarningTest(unittest.TestCase):
 
         url, output = self._resolve_capturing_output(
             ChannelListStub({"default": weird_url}), http_channel_enabled=True)
-        self.assertEqual(url, weird_url)
+        # Scheme normalized to lowercase so manager_util.get_data() treats it
+        # as a URL (a gate that passes must also permit the GET).
+        self.assertEqual(url, "http://lan-mirror.example.com/ComfyUI-Manager/main")
         self.assertIn("unencrypted HTTP", output)
 
     def test_https_channel_does_not_warn(self):
