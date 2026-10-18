@@ -64,7 +64,8 @@ class ChannelListStub:
         self.error = error
 
 
-def _make_resolver(channels: ChannelListStub, config_channel_url: Any = None):
+def _make_resolver(channels: ChannelListStub, config_channel_url: Any = None,
+                   http_channel_enabled: bool = False):
     """Exec only `get_default_channel_url` with stubbed collaborators."""
     if channels.error is not None:
         def get_channel_dict():
@@ -76,7 +77,10 @@ def _make_resolver(channels: ChannelListStub, config_channel_url: Any = None):
     ns: dict = {
         "DEFAULT_CHANNEL": UPSTREAM,
         "get_channel_dict": get_channel_dict,
-        "get_config": lambda: {"channel_url": config_channel_url},
+        "get_config": lambda: {
+            "channel_url": config_channel_url,
+            "http_channel_enabled": http_channel_enabled,
+        },
     }
     module = ast.Module(body=[_resolver_node()], type_ignores=[])
     exec(compile(module, "manager_core_resolver", "exec"), ns)
@@ -127,21 +131,33 @@ class DefaultChannelResolutionTest(unittest.TestCase):
 
 
 class PlainHttpWarningTest(unittest.TestCase):
-    """Plain-HTTP channels are user-chosen; the resolver only makes the
-    transport risk visible (a warning), it does not block or rewrite."""
+    """Plain-HTTP channels follow the existing `normalize_channel` policy:
+    ignored unless `http_channel_enabled` is true; a warning is logged when
+    they are used. The resolver never rewrites the user's URL itself."""
 
-    def _resolve_capturing_output(self, channels, config_channel_url=None):
+    def _resolve_capturing_output(self, channels, config_channel_url=None,
+                                  http_channel_enabled=False):
         import contextlib
         import io
-        resolve = _make_resolver(channels, config_channel_url)
+        resolve = _make_resolver(channels, config_channel_url,
+                                 http_channel_enabled=http_channel_enabled)
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             url = resolve()
         return url, buf.getvalue()
 
-    def test_http_channel_warns_but_is_returned_unchanged(self):
+    def test_http_channel_ignored_when_http_disabled(self):
+        """Mirrors normalize_channel: no http:// unless http_channel_enabled."""
         http_url = "http://lan-mirror.example.com/ComfyUI-Manager/main"
         url, output = self._resolve_capturing_output(ChannelListStub({"default": http_url}))
+        self.assertEqual(url, UPSTREAM)
+        self.assertIn("Ignoring plain-HTTP default channel", output)
+        self.assertIn(http_url, output)
+
+    def test_http_channel_used_with_warning_when_http_enabled(self):
+        http_url = "http://lan-mirror.example.com/ComfyUI-Manager/main"
+        url, output = self._resolve_capturing_output(
+            ChannelListStub({"default": http_url}), http_channel_enabled=True)
         self.assertEqual(url, http_url)
         self.assertIn("unencrypted HTTP", output)
         self.assertIn(http_url, output)
@@ -150,6 +166,7 @@ class PlainHttpWarningTest(unittest.TestCase):
         url, output = self._resolve_capturing_output(ChannelListStub({"default": MIRROR}))
         self.assertEqual(url, MIRROR)
         self.assertNotIn("unencrypted HTTP", output)
+        self.assertNotIn("Ignoring plain-HTTP", output)
 
 
 class RiskyLevelWiringTest(unittest.TestCase):

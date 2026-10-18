@@ -1751,10 +1751,14 @@ def get_default_channel_url():
     channel_url = channel_url.rstrip('/')
 
     if channel_url.startswith('http://'):
-        # Plain HTTP is only reachable when the user configured it that way
-        # (e.g. a LAN mirror, or http_channel_enabled = true). The manager
-        # already trusts user-configured channels everywhere else; just make
-        # the transport risk visible instead of silently downgrading it.
+        # Mirror the existing HTTP policy: `normalize_channel` only accepts
+        # http:// channels when `http_channel_enabled` is true. A plain-HTTP
+        # default channel is the user's own choice, but it must be an
+        # explicit one, and the transport risk stays visible either way.
+        if not get_config().get('http_channel_enabled'):
+            print(f"[ComfyUI-Manager] Ignoring plain-HTTP default channel '{channel_url}' "
+                  "because http_channel_enabled is false; using the upstream default channel.")
+            return DEFAULT_CHANNEL.rstrip('/')
         print(f"[ComfyUI-Manager] Warning: the default channel '{channel_url}' uses unencrypted HTTP; "
               "risk-check data fetched from it can be tampered with in transit.")
 
