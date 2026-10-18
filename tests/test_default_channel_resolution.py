@@ -126,6 +126,32 @@ class DefaultChannelResolutionTest(unittest.TestCase):
         self.assertEqual(resolve(), UPSTREAM)
 
 
+class PlainHttpWarningTest(unittest.TestCase):
+    """Plain-HTTP channels are user-chosen; the resolver only makes the
+    transport risk visible (a warning), it does not block or rewrite."""
+
+    def _resolve_capturing_output(self, channels, config_channel_url=None):
+        import contextlib
+        import io
+        resolve = _make_resolver(channels, config_channel_url)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            url = resolve()
+        return url, buf.getvalue()
+
+    def test_http_channel_warns_but_is_returned_unchanged(self):
+        http_url = "http://lan-mirror.example.com/ComfyUI-Manager/main"
+        url, output = self._resolve_capturing_output(ChannelListStub({"default": http_url}))
+        self.assertEqual(url, http_url)
+        self.assertIn("unencrypted HTTP", output)
+        self.assertIn(http_url, output)
+
+    def test_https_channel_does_not_warn(self):
+        url, output = self._resolve_capturing_output(ChannelListStub({"default": MIRROR}))
+        self.assertEqual(url, MIRROR)
+        self.assertNotIn("unencrypted HTTP", output)
+
+
 class RiskyLevelWiringTest(unittest.TestCase):
     """Static guard: the risk check consumes the resolver, not a literal."""
 

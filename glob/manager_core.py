@@ -1748,8 +1748,17 @@ def get_default_channel_url():
     if not channel_url:
         channel_url = get_config().get('channel_url') or DEFAULT_CHANNEL
 
-    # `get_data_by_mode` appends '/<filename>' itself.
-    return channel_url.rstrip('/')
+    channel_url = channel_url.rstrip('/')
+
+    if channel_url.startswith('http://'):
+        # Plain HTTP is only reachable when the user configured it that way
+        # (e.g. a LAN mirror, or http_channel_enabled = true). The manager
+        # already trusts user-configured channels everywhere else; just make
+        # the transport risk visible instead of silently downgrading it.
+        print(f"[ComfyUI-Manager] Warning: the default channel '{channel_url}' uses unencrypted HTTP; "
+              "risk-check data fetched from it can be tampered with in transit.")
+
+    return channel_url
 
 
 class ManagerFuncs:
