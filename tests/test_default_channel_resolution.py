@@ -162,6 +162,19 @@ class PlainHttpWarningTest(unittest.TestCase):
         self.assertIn("unencrypted HTTP", output)
         self.assertIn(http_url, output)
 
+    def test_mixed_case_http_scheme_is_gated_too(self):
+        """`HtTp://` must hit the same guard as `http://`, otherwise it
+        slips past http_channel_enabled and derails into local fallback."""
+        weird_url = "HtTp://lan-mirror.example.com/ComfyUI-Manager/main"
+        url, output = self._resolve_capturing_output(ChannelListStub({"default": weird_url}))
+        self.assertEqual(url, UPSTREAM)
+        self.assertIn("Ignoring plain-HTTP default channel", output)
+
+        url, output = self._resolve_capturing_output(
+            ChannelListStub({"default": weird_url}), http_channel_enabled=True)
+        self.assertEqual(url, weird_url)
+        self.assertIn("unencrypted HTTP", output)
+
     def test_https_channel_does_not_warn(self):
         url, output = self._resolve_capturing_output(ChannelListStub({"default": MIRROR}))
         self.assertEqual(url, MIRROR)

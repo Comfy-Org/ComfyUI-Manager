@@ -1750,7 +1750,7 @@ def get_default_channel_url():
 
     channel_url = channel_url.rstrip('/')
 
-    if channel_url.startswith('http://'):
+    if channel_url.lower().startswith('http://'):
         # Mirror the existing HTTP policy: `normalize_channel` only accepts
         # http:// channels when `http_channel_enabled` is true. A plain-HTTP
         # default channel is the user's own choice, but it must be an
