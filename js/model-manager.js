@@ -31,8 +31,8 @@ const pageHtml = `
 	<div class="cmm-manager-selection"></div>
 	<div class="cmm-manager-message"></div>
 	<div class="cmm-manager-footer">
-		<button class="cmm-manager-refresh p-button p-component">Refresh</button>
-		<button class="cmm-manager-stop p-button p-component">Stop</button>
+		<button class="cmm-manager-refresh cm-ui-button">Refresh</button>
+		<button class="cmm-manager-stop cm-ui-button">Stop</button>
 		<div class="cmm-flex-auto"></div>
 	</div>
 </div>
@@ -61,7 +61,7 @@ export class ModelManager {
 			createSettingsCombo("Filter", $el("select.cmm-manager-filter")),
 			createSettingsCombo("Type", $el("select.cmm-manager-type")),
 			createSettingsCombo("Base", $el("select.cmm-manager-base")),
-			$el("input.cmm-manager-keywords.p-inputtext.p-component", { type: "search", placeholder: "Search" }),
+			$el("input.cmm-manager-keywords.cm-ui-input", { type: "search", placeholder: "Search" }),
 			$el("div.cmm-manager-status"),
 			$el("div.cmm-flex-auto")
 		]);
@@ -347,7 +347,7 @@ export class ModelManager {
 				if (installed === "True") {
 					return `<div class="cmm-icon-passed">${icons.passed}</div>`;
 				}
-				return `<button class="cmm-btn-install p-button p-component" mode="install">Install</button>`;
+				return `<button class="cmm-btn-install cm-ui-button" mode="install">Install</button>`;
 			}
 		}, {
 			id: 'url',
@@ -425,7 +425,7 @@ export class ModelManager {
 		}
 
 		this.selectedModels = selectedList;
-		this.showSelection(`<span>Selected <b>${selectedList.length}</b> models <button class="cmm-btn-install p-button p-component" mode="install">Install</button>`);
+		this.showSelection(`<span>Selected <b>${selectedList.length}</b> models <button class="cmm-btn-install cm-ui-button" mode="install">Install</button>`);
 	}
 
 	focusInstall(item) {
