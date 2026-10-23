@@ -62390,6 +62390,36 @@
             ],
             "install_type": "unzip",
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
+        },
+        {
+            "author": "Davonez",
+            "title": "ComfyUI-MuteBypassSwitch",
+            "reference": "https://github.com/Davonez/ComfyUI-MuteBypassSwitch",
+            "files": [
+                "https://github.com/Davonez/ComfyUI-MuteBypassSwitch"
+            ],
+            "install_type": "git-clone",
+            "description": "Five switch nodes that keep the graph running when an upstream node is muted (Ctrl+M): mute-bypass, A/B, multi-any merge, multi-channel merge and output fanout. Pure reference hand-off - no copying, conversion or device moves."
+        },
+        {
+            "author": "Davonez",
+            "title": "ComfyUI-AnimaFlowSwitch",
+            "reference": "https://github.com/Davonez/ComfyUI-AnimaFlowSwitch",
+            "files": [
+                "https://github.com/Davonez/ComfyUI-AnimaFlowSwitch"
+            ],
+            "install_type": "git-clone",
+            "description": "Two lazy-evaluation switches: an Anima flow switch that flips model, positive and negative with a single dropdown, and a ControlNet switch. When skipped, the whole upstream branch is never executed at all."
+        },
+        {
+            "author": "Davonez",
+            "title": "ComfyUI-Anima-MultiSave",
+            "reference": "https://github.com/Davonez/ComfyUI-Anima-MultiSave",
+            "files": [
+                "https://github.com/Davonez/ComfyUI-Anima-MultiSave"
+            ],
+            "install_type": "git-clone",
+            "description": "Multi-port image save node: wire up to 12 IMAGE inputs (40 with the dynamic-port version) and it saves whichever port is still alive, falling back a level whenever an upstream stage is muted or bypassed. Also strips prompt, workflow and EXIF metadata. Standard library plus the torch/Pillow that ship with ComfyUI."
         }
     ]
 }
