@@ -62571,6 +62571,16 @@
             ],
             "install_type": "git-clone",
             "description": "Two lazy-evaluation switches: an Anima flow switch that flips model, positive and negative with a single dropdown, and a ControlNet switch. When skipped, the whole upstream branch is never executed at all."
+        },
+        {
+            "author": "Davonez",
+            "title": "ComfyUI-Anima-MultiSave",
+            "reference": "https://github.com/Davonez/ComfyUI-Anima-MultiSave",
+            "files": [
+                "https://github.com/Davonez/ComfyUI-Anima-MultiSave"
+            ],
+            "install_type": "git-clone",
+            "description": "Multi-port image save node: wire up to 12 IMAGE inputs (40 with the dynamic-port version) and it saves whichever port is still alive, falling back a level whenever an upstream stage is muted or bypassed. Also strips prompt, workflow and EXIF metadata. Standard library plus the torch/Pillow that ship with ComfyUI."
         }
     ]
 }
