@@ -1,6 +1,217 @@
 {
     "custom_nodes": [
         {
+            "author": "XelaNull",
+            "title": "ComfyUI-MobileFriendly [REMOVED]",
+            "reference": "https://github.com/XelaNull/ComfyUI-MobileFriendly",
+            "files": [
+                "https://github.com/XelaNull/ComfyUI-MobileFriendly"
+            ],
+            "install_type": "git-clone",
+            "description": "Comprehensive mobile UI enhancement for ComfyUI that transforms the desktop-focused interface into a touch-friendly experience optimized for iPhone, iPad, and Android devices."
+        },
+        {
+            "author": "turinastudio",
+            "title": "ComfyUI-SeedVR2-TilingWrapper [REMOVED]",
+            "reference": "https://github.com/turinastudio/ComfyUI-SeedVR2-TilingWrapper",
+            "files": [
+                "https://github.com/turinastudio/ComfyUI-SeedVR2-TilingWrapper"
+            ],
+            "install_type": "git-clone",
+            "description": "A complementary tiling implementation for SeedVR2 that provides advanced VRAM-aware image tiling, seamless stitching, perceptually accurate color matching, and artifact-free sharpening for ComfyUI workflows."
+        },
+        {
+            "author": "SKFRMSEHF",
+            "title": "SK-ComfyUI-FolderingLoader [REMOVED]",
+            "id": "skloader",
+            "reference": "https://github.com/SKFRMSEHF/comfyui_SK_Loader",
+            "files": [
+                "https://github.com/SKFRMSEHF/comfyui_SK_Loader"
+            ],
+            "install_type": "git-clone",
+            "description": "Unified loader nodes with folder organization support for checkpoints, LoRA, VAE, and diffusion models"
+        },
+        {
+            "author": "Rathius-Saranoth",
+            "title": "Rathius_ComfyNodes [REMOVED]",
+            "reference": "https://github.com/Rathius-Saranoth/Rathius_ComfyNodes",
+            "files": [
+                "https://github.com/Rathius-Saranoth/Rathius_ComfyNodes"
+            ],
+            "install_type": "git-clone",
+            "description": "Collection of quality-of-life ComfyUI nodes including a text file loader for parsing descriptions and managing prompts without manual copy-paste. (Description by CC)"
+        },
+        {
+            "author": "nikythebikky",
+            "title": "Temporal Face Detailer [REMOVED]",
+            "reference": "https://github.com/nikythebikky/ComfyUI-Temporal-Face-Detailer",
+            "files": [
+                "https://github.com/nikythebikky/ComfyUI-Temporal-Face-Detailer"
+            ],
+            "install_type": "git-clone",
+            "description": "Video FaceDetailer for SDXL in ComfyUI: face tracking, per-track fixed-seed detailing and flow-guided temporal blending to fix faces in videos without flicker."
+        },
+        {
+            "author": "lunaaispace-eng",
+            "title": "ComfyUI-StylePromptLibrary [REMOVED]",
+            "reference": "https://github.com/lunaaispace-eng/ComfyUI-StylePromptLibrary",
+            "files": [
+                "https://github.com/lunaaispace-eng/ComfyUI-StylePromptLibrary"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI-StylePromptLibrary is a custom node pack for selecting reusable image style descriptions from a 306-entry JSON library with cascading pickers, live search, and style strength controls."
+        },
+        {
+            "author": "finegrain",
+            "title": "comfyui-finegrain [REMOVED]",
+            "reference": "https://github.com/finegrain-ai/comfyui-finegrain",
+            "files": [
+                "https://github.com/finegrain-ai/comfyui-finegrain"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI custom nodes to interact with the Finegrain API."
+        },
+        {
+            "author": "CoreyCorza",
+            "title": "Corza LoRA Loader (Clean) [REMOVED]",
+            "reference": "https://github.com/CoreyCorza/comfyui-lora-loader",
+            "files": [
+                "https://github.com/CoreyCorza/comfyui-lora-loader"
+            ],
+            "install_type": "git-clone",
+            "description": "A drop-in ComfyUI LoRA loader with optional spectral cleanup (energy trimming + hot-layer taming) to reduce artifacts from stacked LoRAs and turbo/distilled models."
+        },
+        {
+            "author": "capitan01R",
+            "title": "Qwen-llm-loader [REMOVED]",
+            "reference": "https://github.com/capitan01R/Qwen-llm-loader",
+            "files": [
+                "https://github.com/capitan01R/Qwen-llm-loader"
+            ],
+            "install_type": "git-clone",
+            "description": "Local Qwen loader and prompt refiner for ComfyUI"
+        },
+        {
+            "author": "capitan01R",
+            "title": "Comfyui-ZiT-Lora-loader [REMOVED]",
+            "reference": "https://github.com/capitan01R/Comfyui-ZiT-Lora-loader",
+            "files": [
+                "https://github.com/capitan01R/Comfyui-ZiT-Lora-loader"
+            ],
+            "install_type": "git-clone",
+            "description": "Architecture-aware LoRA loader for Z-Image Turbo (Lumina2) in ComfyUI. Fixes silent key mismatches by auto-fusing separate Q/K/V into Z-Image's fused QKV format and remapping output projections."
+        },
+        {
+            "author": "capitan01R",
+            "title": "ComfyUI-ZImageTurbo-FlowSampler [REMOVED]",
+            "reference": "https://github.com/capitan01R/ComfyUI-ZImageTurbo-FlowSampler",
+            "files": [
+                "https://github.com/capitan01R/ComfyUI-ZImageTurbo-FlowSampler"
+            ],
+            "install_type": "git-clone",
+            "description": "Rectified-flow samplers for Z-Image-Turbo. Clean interpolation formula without sigma division, linear schedulers, higher-order variants. Fixes built-in euler/euler_ancestral instability issues"
+        },
+        {
+            "author": "capitan01r",
+            "title": "ComfyUI-SigmaSync-LoRA [REMOVED]",
+            "reference": "https://github.com/capitan01R/ComfyUI-SigmaSync-LoRA",
+            "files": [
+                "https://github.com/capitan01R/ComfyUI-SigmaSync-LoRA"
+            ],
+            "install_type": "git-clone",
+            "description": "Sigma-aware model LoRA strength scheduling for ComfyUI"
+        },
+        {
+            "author": "capitan01r",
+            "title": "ComfyUI-MiniMax-H3-FastPath [REMOVED]",
+            "reference": "https://github.com/capitan01R/ComfyUI-MiniMax-H3-FastPath",
+            "files": [
+                "https://github.com/capitan01R/ComfyUI-MiniMax-H3-FastPath"
+            ],
+            "install_type": "git-clone",
+            "description": "Euler-only middle-block caching for native MiniMax H3 models in ComfyUI."
+        },
+        {
+            "author": "capitan01r",
+            "title": "ComfyUI-Krea2T-Enhancer [REMOVED]",
+            "reference": "https://github.com/capitan01R/ComfyUI-Krea2T-Enhancer",
+            "files": [
+                "https://github.com/capitan01R/ComfyUI-Krea2T-Enhancer"
+            ],
+            "install_type": "git-clone",
+            "description": "Krea2 Turbo Enhancement Nodes"
+        },
+        {
+            "author": "capitan01R",
+            "title": "Comfyui-flux2klein-Lora-loader [REMOVED]",
+            "reference": "https://github.com/capitan01R/Comfyui-flux2klein-Lora-loader",
+            "files": [
+                "https://github.com/capitan01R/Comfyui-flux2klein-Lora-loader"
+            ],
+            "install_type": "git-clone",
+            "description": "Architecture-aware LoRA loader for FLUX.2 Klein in ComfyUI with automatic per-layer strength calibration."
+        },
+        {
+            "author": "capitan01R",
+            "title": "ComfyUI-Flux2Klein-Enhancer [REMOVED]",
+            "reference": "https://github.com/capitan01R/ComfyUI-Flux2Klein-Enhancer",
+            "files": [
+                "https://github.com/capitan01R/ComfyUI-Flux2Klein-Enhancer"
+            ],
+            "install_type": "git-clone",
+            "description": "Conditioning enhancement node for FLUX.2 Klein 9B in ComfyUI. Controls prompt adherence and image edit behavior by modifying the active text embedding region."
+        },
+        {
+            "author": "capitan01R",
+            "title": "ComfyUI-CapitanZiT-Scheduler [REMOVED]",
+            "reference": "https://github.com/capitan01R/ComfyUI-CapitanZiT-Scheduler",
+            "files": [
+                "https://github.com/capitan01R/ComfyUI-CapitanZiT-Scheduler"
+            ],
+            "install_type": "git-clone",
+            "description": "A lightweight ComfyUI custom scheduler & sigma generator for Z-Image-Turbo. Delivers a stable linear sigma schedule (1.0 → 0.0) for rectified-flow/flow-matching, boosting few-step generation (8-9 steps) with superior consistency, reduced noise, and full compatibility with the model's distilled pipeline."
+        },
+        {
+            "author": "capitan01R",
+            "title": "ComfyUI-CapitanFlowMatch [REMOVED]",
+            "reference": "https://github.com/capitan01R/ComfyUI-CapitanFlowMatch",
+            "files": [
+                "https://github.com/capitan01R/ComfyUI-CapitanFlowMatch"
+            ],
+            "install_type": "git-clone",
+            "description": "Optimal samplers and schedulers for rectified flow models."
+        },
+        {
+            "author": "capitan01R",
+            "title": "Capitan-ConditioningEnhancer [REMOVED]",
+            "reference": "https://github.com/capitan01R/Capitan-ConditioningEnhancer",
+            "files": [
+                "https://github.com/capitan01R/Capitan-ConditioningEnhancer"
+            ],
+            "install_type": "git-clone",
+            "description": "Lightweight post-processing node for Qwen3-4B conditioning in Z-Image Turbo workflows that refines conditioning with per-token normalization, optional self-attention, and MLP refinement. (Description by CC)"
+        },
+        {
+            "author": "badxprogramm",
+            "title": "GradientBlurNode for ComfyUI [REMOVED]",
+            "reference": "https://github.com/badxprogramm/ComfyUI-GradientBlur",
+            "files": [
+                "https://github.com/badxprogramm/ComfyUI-GradientBlur"
+            ],
+            "install_type": "git-clone",
+            "description": "GradientBlurNode is a custom node for ComfyUI that allows for gradient-based image blurring. This tool provides precise control over the direction, intensity, and distribution of the blur, making it ideal for creating smooth transitions, focusing attention on specific parts of an image, or adding artistic effects."
+        },
+        {
+            "author": "Scottcjn",
+            "title": "ComfyUI-TurboQuant [REMOVED]",
+            "reference": "https://github.com/Scottcjn/ComfyUI-TurboQuant",
+            "files": [
+                "https://github.com/Scottcjn/ComfyUI-TurboQuant"
+            ],
+            "install_type": "git-clone",
+            "description": "TQ3 KV cache compression for ComfyUI reducing attention KV cache VRAM by ~4.5x using 3-bit Lloyd-Max quantization with Fast Walsh-Hadamard Transform decorrelation."
+        },
+        {
             "author": "Jokimbe",
             "title": "ComfyUI-DrawThings-gRPC [DEPRECATED]",
             "reference": "https://github.com/Jokimbe/ComfyUI-DrawThings-gRPC",
