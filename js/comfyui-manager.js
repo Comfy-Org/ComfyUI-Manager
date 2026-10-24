@@ -1536,9 +1536,6 @@ app.registerExtension({
 		});
 	},
 	async setup() {
-		// Patch the prototype rather than the app.graph instance: newer frontends
-		// create a separate graph per workflow tab, so an instance patch would only
-		// ever see the graph that existed at startup.
 		const graphProto = Object.getPrototypeOf(app.graph);
 		const orig_clear = graphProto.clear;
 		graphProto.clear = function () {
