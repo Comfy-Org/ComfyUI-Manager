@@ -102,7 +102,7 @@ function node_info_copy(src, dest, connect_both, copy_shape) {
 		if(input.link) {
 			let link = app.graph.links[input.link];
 			let src_node = app.graph.getNodeById(link.origin_id);
-			src_node.connect(link.origin_slot, dest.id, input.name);
+			src_node.connect(link.origin_slot, dest, input.name);
 		}
 	}
 
