@@ -300,7 +300,13 @@ try:
                 raise ValueError("The object does not have a fileno method")
 
         def isatty(self):
-            return False
+            stream = original_stdout if self.is_stdout else original_stderr
+            return stream.isatty()
+
+        @property
+        def closed(self):
+            stream = original_stdout if self.is_stdout else original_stderr
+            return stream.closed
 
         def write(self, message):
             global is_start_mode
