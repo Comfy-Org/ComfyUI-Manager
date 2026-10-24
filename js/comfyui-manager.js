@@ -1536,10 +1536,11 @@ app.registerExtension({
 		});
 	},
 	async setup() {
-		let orig_clear = app.graph.clear;
-		app.graph.clear = function () {
-			orig_clear.call(app.graph);
-			load_components();
+		const graphProto = Object.getPrototypeOf(app.graph);
+		const orig_clear = graphProto.clear;
+		graphProto.clear = function () {
+			orig_clear.apply(this, arguments);
+			if (this === app.graph) load_components();
 		};
 
 		load_components();
