@@ -1869,55 +1869,59 @@ async def get_notice(request):
     url = "github.com"
     path = "/ltdrdata/ltdrdata.github.io/wiki/News"
 
-    async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
-        async with session.get(f"https://{url}{path}") as response:
-            if response.status == 200:
-                # html_content = response.read().decode('utf-8')
-                html_content = await response.text()
+    try:
+        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=not manager_util.bypass_ssl)) as session:
+            async with session.get(f"https://{url}{path}") as response:
+                if response.status == 200:
+                    # html_content = response.read().decode('utf-8')
+                    html_content = await response.text()
 
-                pattern = re.compile(r'<div class="markdown-body">([\s\S]*?)</div>')
-                match = pattern.search(html_content)
+                    pattern = re.compile(r'<div class="markdown-body">([\s\S]*?)</div>')
+                    match = pattern.search(html_content)
 
-                if match:
-                    # Sanitize remote HTML before appending Manager's version text.
-                    markdown_content = manager_util.sanitize_html_fragment(match.group(1))
-                    version_tag = os.environ.get('__COMFYUI_DESKTOP_VERSION__')
-                    if version_tag is not None:
-                        markdown_content += f"<HR>ComfyUI: {version_tag} [Desktop]"
+                    if match:
+                        # Sanitize remote HTML before appending Manager's version text.
+                        markdown_content = manager_util.sanitize_html_fragment(match.group(1))
+                        version_tag = os.environ.get('__COMFYUI_DESKTOP_VERSION__')
+                        if version_tag is not None:
+                            markdown_content += f"<HR>ComfyUI: {version_tag} [Desktop]"
+                        else:
+                            version_tag = core.get_comfyui_tag()
+                            if version_tag is None:
+                                markdown_content += f"<HR>ComfyUI: {core.comfy_ui_revision}[{comfy_ui_hash[:6]}]({core.comfy_ui_commit_datetime.date()})"
+                            else:
+                                markdown_content += (f"<HR>ComfyUI: {version_tag}<BR>"
+                                                     f"&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;({core.comfy_ui_commit_datetime.date()})")
+                        # markdown_content += f"<BR>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;()"
+                        markdown_content += f"<BR>Manager: {core.version_str}"
+
+                        try:
+                            if '__COMFYUI_DESKTOP_VERSION__' not in os.environ:
+                                if core.comfy_ui_commit_datetime == datetime(1900, 1, 1, 0, 0, 0):
+                                    markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI isn\'t git repo.</P>' + markdown_content
+                                elif core.comfy_ui_required_commit_datetime.date() > core.comfy_ui_commit_datetime.date():
+                                    markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI is too OUTDATED!!!</P>' + markdown_content
+                        except:
+                            pass
+
+                        # Prepend startup notices from manager_migration
+                        for message, level in reversed(manager_migration.startup_notices):
+                            if level == 'error':
+                                style = 'color:red; background-color:white; font-weight:bold'
+                            elif level == 'warning':
+                                style = 'color:orange; background-color:white; font-weight:bold'
+                            else:
+                                style = 'color:blue; background-color:white'
+                            markdown_content = f'<P style="{style}">{message}</P>' + markdown_content
+
+                        return web.Response(text=markdown_content, status=200)
                     else:
-                        version_tag = core.get_comfyui_tag()
-                        if version_tag is None:
-                            markdown_content += f"<HR>ComfyUI: {core.comfy_ui_revision}[{comfy_ui_hash[:6]}]({core.comfy_ui_commit_datetime.date()})"
-                        else:
-                            markdown_content += (f"<HR>ComfyUI: {version_tag}<BR>"
-                                                 f"&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;({core.comfy_ui_commit_datetime.date()})")
-                    # markdown_content += f"<BR>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;()"
-                    markdown_content += f"<BR>Manager: {core.version_str}"
-
-                    try:
-                        if '__COMFYUI_DESKTOP_VERSION__' not in os.environ:
-                            if core.comfy_ui_commit_datetime == datetime(1900, 1, 1, 0, 0, 0):
-                                markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI isn\'t git repo.</P>' + markdown_content
-                            elif core.comfy_ui_required_commit_datetime.date() > core.comfy_ui_commit_datetime.date():
-                                markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI is too OUTDATED!!!</P>' + markdown_content
-                    except:
-                        pass
-
-                    # Prepend startup notices from manager_migration
-                    for message, level in reversed(manager_migration.startup_notices):
-                        if level == 'error':
-                            style = 'color:red; background-color:white; font-weight:bold'
-                        elif level == 'warning':
-                            style = 'color:orange; background-color:white; font-weight:bold'
-                        else:
-                            style = 'color:blue; background-color:white'
-                        markdown_content = f'<P style="{style}">{message}</P>' + markdown_content
-
-                    return web.Response(text=markdown_content, status=200)
+                        return web.Response(text="Unable to retrieve Notice", status=200)
                 else:
                     return web.Response(text="Unable to retrieve Notice", status=200)
-            else:
-                return web.Response(text="Unable to retrieve Notice", status=200)
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        logging.warning(f"[ComfyUI-Manager] Unable to retrieve Notice: {type(e).__name__}: {e}")
+        return web.Response(text="Unable to retrieve Notice", status=200)
 
 
 @routes.get("/manager/startup_alerts")
