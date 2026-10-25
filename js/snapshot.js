@@ -17,14 +17,15 @@ async function restore_snapshot(target) {
 			}
 
 			if(response.status == 400) {
-				show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+				show_message(`Restore snapshot failed: ${sanitizeHTML(target)} / ${sanitizeHTML(await response.text())}`);
+				return false;
 			}
 
 			app.ui.dialog.close();
 			return true;
 		}
 		catch(exception) {
-			show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+			show_message(`Restore snapshot failed: ${sanitizeHTML(target)} / ${sanitizeHTML(String(exception))}`);
 			return false;
 		}
 		finally {
@@ -45,14 +46,15 @@ async function remove_snapshot(target) {
 			}
 
 			if(response.status == 400) {
-				show_message(`Remove snapshot failed: ${target.title} / ${exception}`);
+				show_message(`Remove snapshot failed: ${sanitizeHTML(target)} / ${sanitizeHTML(await response.text())}`);
+				return false;
 			}
 
 			app.ui.dialog.close();
 			return true;
 		}
 		catch(exception) {
-			show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+			show_message(`Remove snapshot failed: ${sanitizeHTML(target)} / ${sanitizeHTML(String(exception))}`);
 			return false;
 		}
 		finally {
