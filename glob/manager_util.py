@@ -161,9 +161,18 @@ class StrictVersion:
         if not parts:
             raise ValueError("Version string must not be empty")
 
-        self.major = int(parts[0])
-        self.minor = int(parts[1]) if len(parts) > 1 else 0
-        self.patch = int(parts[2]) if len(parts) > 2 else 0
+        def numeric(component):
+            # pip pins in the wild carry local/pre-release suffixes on the
+            # numeric component ("2.4.0+cu124", "1.0.0rc1"); compare on the
+            # numeric prefix instead of crashing the whole install flow.
+            m = re.match(r"\d+", component)
+            if not m:
+                raise ValueError(f"Invalid version component: {component!r}")
+            return int(m.group(0))
+
+        self.major = numeric(parts[0])
+        self.minor = numeric(parts[1]) if len(parts) > 1 else 0
+        self.patch = numeric(parts[2]) if len(parts) > 2 else 0
 
         # Handling pre-release versions if present
         if len(parts) > 3:
