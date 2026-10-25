@@ -1869,7 +1869,7 @@ async def get_notice(request):
     url = "github.com"
     path = "/ltdrdata/ltdrdata.github.io/wiki/News"
 
-    async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+    async with aiohttp.ClientSession(trust_env=True) as session:
         async with session.get(f"https://{url}{path}") as response:
             if response.status == 200:
                 # html_content = response.read().decode('utf-8')
