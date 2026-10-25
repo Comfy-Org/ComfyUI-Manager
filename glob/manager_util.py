@@ -693,6 +693,32 @@ def robust_readlines(fullpath):
         return []
 
 
+def build_restart_cmds(sys_argv: list[str]) -> list[str]:
+    """Rebuild the ComfyUI launch command for a restart (issue #3339).
+
+    On Windows ``os.execv`` joins the list with plain spaces and no quoting,
+    so an argument containing spaces (``--extra-model-path-config
+    "C:\\my configs\\extra.yaml"``) reaches the child split in two. Each
+    element is pre-quoted the way ``subprocess.list2cmdline`` would; execv's
+    join then reconstructs the original argv. POSIX execv passes the list
+    through, so it is left untouched.
+    """
+    argv = sys_argv.copy()
+    if '--windows-standalone-build' in argv:
+        argv.remove('--windows-standalone-build')
+
+    if argv[0].endswith("__main__.py"):  # this is a python module
+        module_name = os.path.basename(os.path.dirname(argv[0]))
+        cmds = [sys.executable, '-m', module_name] + argv[1:]
+    else:
+        cmds = [sys.executable] + argv
+
+    if sys.platform.startswith('win32'):
+        cmds = [subprocess.list2cmdline([c]) for c in cmds]
+
+    return cmds
+
+
 def restore_pip_snapshot(pips, options):
     non_url = []
     local_url = []
