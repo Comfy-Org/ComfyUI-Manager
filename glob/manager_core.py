@@ -3363,7 +3363,7 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
                         todo_disable.append(k)
                     else:
                         cnr_ver = cnr_info[k]
-                        if v[1] != cnr_ver:
+                        if v[0] != cnr_ver:
                             todo_checkout.append((k, cnr_ver))
                         else:
                             skip_node_packs.append(k)
