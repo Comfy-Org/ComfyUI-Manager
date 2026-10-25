@@ -1967,17 +1967,7 @@ def restart(self):
 
     print("\nRestarting... [Legacy Mode]\n\n")  # This printing should not be logging - that will be ugly
 
-    sys_argv = sys.argv.copy()
-    if '--windows-standalone-build' in sys_argv:
-        sys_argv.remove('--windows-standalone-build')
-
-    if sys_argv[0].endswith("__main__.py"):  # this is a python module
-        module_name = os.path.basename(os.path.dirname(sys_argv[0]))
-        cmds = [sys.executable, '-m', module_name] + sys_argv[1:]
-    elif sys.platform.startswith('win32'):
-        cmds = ['"' + sys.executable + '"', '"' + sys_argv[0] + '"'] + sys_argv[1:]
-    else:
-        cmds = [sys.executable] + sys_argv
+    cmds = manager_util.build_restart_cmds(sys.argv)
 
     print(f"Command: {cmds}", flush=True)
 
