@@ -543,7 +543,9 @@ export class ModelManager {
 	async onQueueCompleted(info) {
 		let result = info.model_result;
 
-		if(result.length == 0) {
+		// model_result is a dict (node name -> outcome); custom-nodes-manager
+		// uses the same Object.keys guard for its dicts
+		if(!result || Object.keys(result).length === 0) {
 			return;
 		}
 
@@ -577,7 +579,7 @@ export class ModelManager {
 			self.showError(errorMsg);
 			show_message("Installation Error:\n"+errorMsg);
 		} else {
-			self.showStatus(`Install ${result.length} models successfully`);
+			self.showStatus(`Install ${Object.keys(result).length} models successfully`);
 		}
 
 		self.showRefresh();
