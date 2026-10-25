@@ -255,6 +255,12 @@ async def share_art(request):
     else:
         asset_filepath = os.path.join(output_dir, asset_filename)
 
+    # filename/subfolder arrive from the request body; contain the resolved
+    # path inside the output (or temp) directory before anything reads it.
+    asset_filepath = os.path.normpath(asset_filepath)
+    if os.path.commonpath([os.path.abspath(output_dir), os.path.abspath(asset_filepath)]) != os.path.abspath(output_dir):
+        return web.Response(status=400, text="asset path escapes the output directory")
+
     # get the mime type of the asset
     assetFileType = mimetypes.guess_type(asset_filepath)[0]
 
@@ -282,9 +288,10 @@ async def share_art(request):
                 workflowJsonFileKey = presigned_urls_json["workflowJsonFileKey"]
 
         # upload asset
-        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
-            async with session.put(assetFilePresignedUrl, data=open(asset_filepath, "rb")) as resp:
-                assert resp.status == 200
+        async with aiohttp.ClientSession(trust_env=True) as session:
+            with open(asset_filepath, "rb") as asset_file:
+                async with session.put(assetFilePresignedUrl, data=asset_file) as resp:
+                    assert resp.status == 200
 
         # upload workflow json
         async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
