@@ -1736,13 +1736,13 @@ async def check_whitelist_for_model(item):
     json_obj = await core.get_data_by_mode('cache', 'model-list.json')
 
     for x in json_obj.get('models', []):
-        if x['save_path'] == item['save_path'] and x['base'] == item['base'] and x['filename'] == item['filename']:
+        if x['save_path'] == item['save_path'] and x['base'] == item['base'] and x['filename'] == item['filename'] and x.get('url') == item.get('url'):
             return True
 
     json_obj = await core.get_data_by_mode('local', 'model-list.json')
 
     for x in json_obj.get('models', []):
-        if x['save_path'] == item['save_path'] and x['base'] == item['base'] and x['filename'] == item['filename']:
+        if x['save_path'] == item['save_path'] and x['base'] == item['base'] and x['filename'] == item['filename'] and x.get('url') == item.get('url'):
             return True
         
     return False
