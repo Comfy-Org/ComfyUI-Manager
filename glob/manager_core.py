@@ -1329,12 +1329,23 @@ class UnifiedManager:
 
         manager_downloader.download_url(node_info.download_url, get_default_custom_nodes_path(), archive_name)
         os.makedirs(install_path, exist_ok=True)
-        extracted = manager_util.extract_package_as_zip(download_path, install_path)
+        try:
+            extracted = manager_util.extract_package_as_zip(download_path, install_path)
+        except Exception as e:
+            # A failed extraction used to leave the fresh directory (and the
+            # archive) behind, and the next install of this node refused with
+            # 'Install path already exists' until the user cleaned up by hand.
+            shutil.rmtree(install_path, ignore_errors=True)
+            if os.path.exists(download_path):
+                os.remove(download_path)
+            return result.fail(f'Failed to extract archive: {node_id}@{version_spec}: {e}')
         os.remove(download_path)
         result.to_path = install_path
 
         if extracted is None:
-            shutil.rmtree(install_path)
+            shutil.rmtree(install_path, ignore_errors=True)
+            if os.path.exists(download_path):
+                os.remove(download_path)
             return result.fail(f'Empty archive file: {node_id}@{version_spec}')
 
         # create .tracking file
