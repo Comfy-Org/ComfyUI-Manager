@@ -300,7 +300,13 @@ try:
                 raise ValueError("The object does not have a fileno method")
 
         def isatty(self):
-            return False
+            # Report the real stream: colorama/tqdm/rich and anything else
+            # that probes TTY-ness must keep working under the log capture
+            # (issue #3259).
+            try:
+                return original_stdout.isatty() if self.is_stdout else original_stderr.isatty()
+            except (AttributeError, ValueError):
+                return False
 
         def write(self, message):
             global is_start_mode
