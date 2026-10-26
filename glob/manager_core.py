@@ -1339,13 +1339,20 @@ class UnifiedManager:
             if os.path.exists(download_path):
                 os.remove(download_path)
             return result.fail(f'Failed to extract archive: {node_id}@{version_spec}: {e}')
-        os.remove(download_path)
+        if os.path.exists(download_path):
+            try:
+                os.remove(download_path)
+            except OSError:
+                pass
         result.to_path = install_path
 
         if extracted is None:
             shutil.rmtree(install_path, ignore_errors=True)
             if os.path.exists(download_path):
-                os.remove(download_path)
+                try:
+                    os.remove(download_path)
+                except OSError:
+                    pass
             return result.fail(f'Empty archive file: {node_id}@{version_spec}')
 
         # create .tracking file
