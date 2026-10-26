@@ -8,6 +8,7 @@ loadCss("./snapshot.css");
 
 async function restore_snapshot(target) {
 	if(SnapshotManager.instance) {
+		let success = false;
 		try {
 			const response = await api.fetchApi('/snapshot/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: target }), cache: "no-store" });
 
@@ -22,6 +23,7 @@ async function restore_snapshot(target) {
 			}
 
 			app.ui.dialog.close();
+			success = true;
 			return true;
 		}
 		catch(exception) {
@@ -30,7 +32,9 @@ async function restore_snapshot(target) {
 		}
 		finally {
 			await SnapshotManager.instance.invalidateControl();
-			SnapshotManager.instance.updateMessage("<BR>To apply the snapshot, please <button id='cm-reboot-button2' class='cm-ui-button'>RESTART</button> ComfyUI. And refresh browser.", 'cm-reboot-button2');
+			if(success) {
+				SnapshotManager.instance.updateMessage("<BR>To apply the snapshot, please <button id='cm-reboot-button2' class='cm-ui-button'>RESTART</button> ComfyUI. And refresh browser.", 'cm-reboot-button2');
+			}
 		}
 	}
 }
