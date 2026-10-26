@@ -257,8 +257,11 @@ async def share_art(request):
 
     # filename/subfolder arrive from the request body; contain the resolved
     # path inside the output (or temp) directory before anything reads it.
-    asset_filepath = os.path.normpath(asset_filepath)
-    if os.path.commonpath([os.path.abspath(output_dir), os.path.abspath(asset_filepath)]) != os.path.abspath(output_dir):
+    # realpath on both sides: a pre-existing symlink inside the output
+    # directory would pass the lexical check while pointing elsewhere.
+    asset_filepath = os.path.realpath(asset_filepath)
+    output_dir_real = os.path.realpath(output_dir)
+    if os.path.commonpath([output_dir_real, asset_filepath]) != output_dir_real:
         return web.Response(status=400, text="asset path escapes the output directory")
 
     # get the mime type of the asset
