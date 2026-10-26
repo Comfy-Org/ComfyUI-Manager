@@ -308,6 +308,17 @@ try:
             except (AttributeError, ValueError):
                 return False
 
+        @property
+        def closed(self):
+            # colorama's AnsiToWin32 reads stream.closed unguarded while
+            # wrapping; without this attribute the wrap raises instead of
+            # detecting the stream state (issue #3259 review).
+            stream = original_stdout if self.is_stdout else original_stderr
+            try:
+                return stream.closed
+            except AttributeError:
+                return False
+
         def write(self, message):
             global is_start_mode
 
