@@ -56,8 +56,8 @@ def test_posix_stays_a_plain_list(monkeypatch):
 
 def test_module_invocation_uses_m_form(monkeypatch):
     monkeypatch.setattr(sys, "platform", "linux")
-    argv = ["/opt/ComfyUI/main.py/__main__.py", "--port", "8188"]
+    argv = ["/opt/ComfyUI/site-packages/ComfyUI/__main__.py", "--port", "8188"]
     cmds = MANAGER_UTIL.build_restart_cmds(argv)
     assert cmds[0] == sys.executable
     # module_name is the parent dir's basename, exactly as the original code
-    assert cmds[1:3] == ["-m", "main.py"]
+    assert cmds[1:3] == ["-m", "ComfyUI"]
