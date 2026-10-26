@@ -164,19 +164,31 @@ class StrictVersion:
         def numeric(component):
             # pip pins in the wild carry local/pre-release suffixes on the
             # numeric component ("2.4.0+cu124", "1.0.0rc1"); compare on the
-            # numeric prefix instead of crashing the whole install flow.
-            m = re.match(r"\d+", component)
+            # numeric prefix instead of crashing the whole install flow. The
+            # suffix of the patch component is preserved as the pre-release so
+            # "1.0.0rc1" still sorts before "1.0.0".
+            m = re.match(r"(\d+)(.*)", component)
             if not m:
                 raise ValueError(f"Invalid version component: {component!r}")
-            return int(m.group(0))
+            return int(m.group(1)), m.group(2) or None
 
-        self.major = numeric(parts[0])
-        self.minor = numeric(parts[1]) if len(parts) > 1 else 0
-        self.patch = numeric(parts[2]) if len(parts) > 2 else 0
+        self.major, major_suffix = numeric(parts[0])
+        self.minor, minor_suffix = numeric(parts[1]) if len(parts) > 1 else (0, None)
+        self.patch, patch_suffix = numeric(parts[2]) if len(parts) > 2 else (0, None)
 
-        # Handling pre-release versions if present
+        # Handling pre-release versions: an explicit 4th component wins, then
+        # a suffix carried by the patch component ("1.0.0rc1"), then by minor.
+        self.pre_release = None
         if len(parts) > 3:
             self.pre_release = parts[3]
+        else:
+            # an inline pre-release ("rc1", "b2") sorts before the release; a
+            # local build tag ("+cu124") is equivalent to the plain release
+            # for pin comparison, so it does not become a pre-release
+            for suffix in (patch_suffix, minor_suffix, major_suffix):
+                if suffix and not suffix.startswith("+"):
+                    self.pre_release = suffix
+                    break
 
     def __str__(self):
         version = f"{self.major}.{self.minor}.{self.patch}"
