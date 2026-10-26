@@ -43,3 +43,11 @@ def test_local_build_tag_is_equivalent_to_the_release():
     comparison it must be equal to the plain release (CodeRabbit review)."""
     assert StrictVersion("2.4.0+cu124") == StrictVersion("2.4.0")
     assert StrictVersion("2.4.0+cu124") >= StrictVersion("2.4.0")
+
+
+def test_post_release_sorts_after_the_release():
+    """An installed 1.0.0post1 must NOT satisfy pkg<1.0.0 (CodeRabbit round 3):
+    post-releases are newer than the final release, unlike pre-releases."""
+    assert StrictVersion("1.0.0post1") > StrictVersion("1.0.0")
+    assert StrictVersion("1.0.0post2") > StrictVersion("1.0.0post1")
+    assert StrictVersion("1.0.0post1") > StrictVersion("1.0.0rc1")
