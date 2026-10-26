@@ -3,11 +3,14 @@ import { app } from "../../scripts/app.js";
 import { sleep, customConfirm, customAlert, handle403Response, sanitizeHTML, show_message } from "./common.js";
 
 async function tryInstallCustomNode(event) {
-	// dialog.show renders HTML, and target comes from channel data the server
-	// passes through unescaped
-	const targetTitle = sanitizeHTML(String(event.detail.target.title ?? ""));
+	// Two representations of the dependency title: dialogs that render HTML
+	// (app.ui.dialog.show) get the escaped form, while customConfirm's
+	// textContent fallback must keep the plain form or entities show up
+	// literally (CodeRabbit review on this PR).
+	const targetTitlePlain = String(event.detail.target.title ?? "");
+	const targetTitle = sanitizeHTML(targetTitlePlain);
 	let msg = '-= [ComfyUI Manager] extension installation request =-\n\n';
-	msg += `The '${event.detail.sender}' extension requires the installation of the '${targetTitle}' extension. `;
+	msg += `The '${event.detail.sender}' extension requires the installation of the '${targetTitlePlain}' extension. `;
 
 	if(event.detail.target.installed == 'Disabled') {
 		msg += 'However, the extension is currently disabled. Would you like to enable it and reboot?'
