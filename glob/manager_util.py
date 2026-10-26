@@ -176,34 +176,49 @@ class StrictVersion:
         self.minor, minor_suffix = numeric(parts[1]) if len(parts) > 1 else (0, None)
         self.patch, patch_suffix = numeric(parts[2]) if len(parts) > 2 else (0, None)
 
-        # Handling pre-release versions: an explicit 4th component wins, then
-        # a suffix carried by the patch component ("1.0.0rc1"), then by minor.
+        # Handling suffixes: an explicit 4th component wins, then one carried
+        # by the patch/minor/major component. "rc1"/"b2"/"a1" are pre-releases
+        # (sort before the release), "postN" is a post-release (sorts after
+        # the release: an installed 1.0.0post1 does NOT satisfy pkg<1.0.0),
+        # and local build tags ("+cu124") are equivalent to the plain release
+        # for pin comparison.
         self.pre_release = None
+        self.post_release = None
+        suffix = None
         if len(parts) > 3:
-            self.pre_release = parts[3]
+            suffix = parts[3]
         else:
-            # an inline pre-release ("rc1", "b2") sorts before the release; a
-            # local build tag ("+cu124") is equivalent to the plain release
-            # for pin comparison, so it does not become a pre-release
-            for suffix in (patch_suffix, minor_suffix, major_suffix):
-                if suffix and not suffix.startswith("+"):
-                    self.pre_release = suffix
+            for candidate in (patch_suffix, minor_suffix, major_suffix):
+                if candidate:
+                    suffix = candidate
                     break
+        if suffix is None:
+            pass
+        elif suffix.startswith("+"):
+            pass  # local build tag: equivalent to the plain release
+        elif re.match(r"post\d*$", suffix):
+            self.post_release = int(suffix[4:] or 0)
+        else:
+            self.pre_release = suffix
 
     def __str__(self):
         version = f"{self.major}.{self.minor}.{self.patch}"
         if self.pre_release:
             version += f"-{self.pre_release}"
+        if self.post_release is not None:
+            version += f".post{self.post_release}"
         return version
 
+    def _order_key(self):
+        # within the same numeric triple: pre-release < release < post-release
+        rank = 0 if self.pre_release else (2 if self.post_release is not None else 1)
+        return (self.major, self.minor, self.patch, rank, self.pre_release, self.post_release)
+
     def __eq__(self, other):
-        return (self.major, self.minor, self.patch, self.pre_release) == \
-            (other.major, other.minor, other.patch, other.pre_release)
+        return self._order_key() == other._order_key()
 
     def __lt__(self, other):
-        if (self.major, self.minor, self.patch) == (other.major, other.minor, other.patch):
-            return self.pre_release_compare(self.pre_release, other.pre_release) < 0
-        return (self.major, self.minor, self.patch) < (other.major, other.minor, other.patch)
+        return self._order_key() < other._order_key()
 
     @staticmethod
     def pre_release_compare(pre1, pre2):
