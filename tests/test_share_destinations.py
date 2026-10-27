@@ -8,7 +8,7 @@ import subprocess
 @unittest.skipIf(NODE is None, "node required")
 class ShareDestinationsTest(unittest.TestCase):
     def test_retired_preference_falls_back_and_supported_destinations_are_preserved(self):
-        source = (Path(__file__).resolve().parents[1] / "js/comfyui-manager.js").read_text()
+        source = (Path(__file__).resolve().parents[1] / "js/comfyui-manager.js").read_text(encoding="utf-8")
         start = source.index("const share_options = [")
         options = source[start:source.index("];", start)+2]
         function = slice_braced(source, "function normalizeShareOption(value)")
