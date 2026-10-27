@@ -1,6 +1,166 @@
 {
     "custom_nodes": [
         {
+            "author": "NidAll",
+            "title": "Anima Prompt Architect",
+            "reference": "https://github.com/NidAll/ComfyUI-Anima-Prompt-Architect",
+            "files": [
+                "https://github.com/NidAll/ComfyUI-Anima-Prompt-Architect"
+            ],
+            "install_type": "git-clone",
+            "description": "Local BF16 PixAI and native INT8 MiniCPM image-to-Anima prompt architecture"
+        },
+        {
+            "author": "acidburn",
+            "title": "OLED Auto Black",
+            "reference": "https://github.com/danielphingston/ComfyUI-OLED-Auto-Black",
+            "files": [
+                "https://github.com/danielphingston/ComfyUI-OLED-Auto-Black"
+            ],
+            "install_type": "git-clone",
+            "description": "Auto-detects the background haze in dark images and crushes it to true #000000 for OLED wallpapers, while protecting faint detail like smoke, hair and anti-aliased edges."
+        },
+        {
+            "author": "artfat-creator",
+            "title": "Artfat MOSS BBox",
+            "reference": "https://github.com/artfat-creator/ComfyUI-Artfat-MOSS-BBox",
+            "files": [
+                "https://github.com/artfat-creator/ComfyUI-Artfat-MOSS-BBox"
+            ],
+            "install_type": "git-clone",
+            "description": "Box layouts for MOSS-Image: draw boxes on a canvas to generate a frame where every box holds what you wrote, or to edit only the boxes of an existing picture (outside the boxes stays pixel-identical). Canvas + Sampler, built to sit around an LLM prompter."
+        },
+        {
+            "author": "aaaxulei",
+            "title": "H3 Prompt Expander",
+            "reference": "https://github.com/aaaxulei/ComfyUI-H3-PromptExpander",
+            "files": [
+                "https://github.com/aaaxulei/ComfyUI-H3-PromptExpander"
+            ],
+            "install_type": "git-clone",
+            "description": "Expand short prompts into MiniMax-H3 structured prompts with a local GGUF Qwen VLM and the official h3-prompt-writing rules."
+        },
+        {
+            "author": "theop",
+            "title": "MiniMax H3 Audio Transplant",
+            "reference": "https://github.com/Molinist/ComfyUI-MiniMaxH3-Audio-Transplant",
+            "files": [
+                "https://github.com/Molinist/ComfyUI-MiniMaxH3-Audio-Transplant"
+            ],
+            "install_type": "git-clone",
+            "description": "Exact cross-resolution MiniMax H3 audio-latent transplantation for ComfyUI"
+        },
+        {
+            "author": "cicalooo",
+            "title": "H3 Category Prompt",
+            "reference": "https://github.com/cicalooo/ComfyUI-H3-CategoryPrompt",
+            "files": [
+                "https://github.com/cicalooo/ComfyUI-H3-CategoryPrompt"
+            ],
+            "install_type": "git-clone",
+            "description": "Resizable DOM category text fields that assemble an H3 brief for Amp NInfer."
+        },
+        {
+            "author": "satodive-comfy",
+            "title": "MOSS-Image Studio Lite - SatoDive",
+            "reference": "https://github.com/SatoDive/ComfyUI-MOSS-Image-Studio-Lite-SatoDive",
+            "files": [
+                "https://github.com/SatoDive/ComfyUI-MOSS-Image-Studio-Lite-SatoDive"
+            ],
+            "install_type": "git-clone",
+            "description": "MOSS-Image Studio Lite (no reference pictures): one Generate node (text-to-image, Layout boxes drawn on the node with a strict strength per box, img2img / inpaint, turbo defaults) next to the native loaders, and a Prompt Enhancer using the model's own Qwen3.5-9B with the official prompt guide (each layout box rewritten on its own)."
+        },
+        {
+            "author": "tsukino4a",
+            "title": "4A Bounding Boxes",
+            "reference": "https://github.com/tsukino4a/ComfyUI-4A-BoundingBoxes",
+            "files": [
+                "https://github.com/tsukino4a/ComfyUI-4A-BoundingBoxes"
+            ],
+            "install_type": "git-clone",
+            "description": "Create Bounding Boxes editor (same behaviour as ComfyUI's built-in node) that works in the classic LiteGraph renderer."
+        },
+        {
+            "author": "fixed-42",
+            "title": "SameFace",
+            "reference": "https://github.com/fixed-42/comfyui-sameface",
+            "files": [
+                "https://github.com/fixed-42/comfyui-sameface"
+            ],
+            "install_type": "git-clone",
+            "description": "Measure and repair face drift after an image edit: RAFT optical flow inside a Grounded SAM 2 face mask, and a smooth warp that moves the features back."
+        },
+        {
+            "author": "zetaneko",
+            "title": "VintageAnima",
+            "reference": "https://github.com/zetaneko/vintageanime-comfyui",
+            "files": [
+                "https://github.com/zetaneko/vintageanime-comfyui"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI node that builds a VintageAnima caption from series, cast, designer, scan, and quality."
+        },
+        {
+            "author": "rebeltortuga",
+            "title": "Clean Slate",
+            "reference": "https://github.com/RebelTortuga/comfyui-clean-slate",
+            "files": [
+                "https://github.com/RebelTortuga/comfyui-clean-slate"
+            ],
+            "install_type": "git-clone",
+            "description": "Clear current image selections, conventional previews and prompts without deleting history."
+        },
+        {
+            "author": "thezveroboy",
+            "title": "Text Encode (MOSS Image)",
+            "reference": "https://github.com/thezveroboy/ComfyUI-MossTextEncoder",
+            "files": [
+                "https://github.com/thezveroboy/ComfyUI-MossTextEncoder"
+            ],
+            "install_type": "git-clone",
+            "description": "Vision-aware text conditioning for MOSS-Image (Qwen3.5-9B text encoder)"
+        },
+        {
+            "author": "kongbai-0421",
+            "title": "ComfyUI MOSS Prompt Weights",
+            "reference": "https://github.com/kongbai-0421/ComfyUI-MOSS-Prompt-Weights",
+            "files": [
+                "https://github.com/kongbai-0421/ComfyUI-MOSS-Prompt-Weights"
+            ],
+            "install_type": "git-clone",
+            "description": "MOSS-Image Prompt Weighting via DiT Attention V-Scaling for ComfyUI"
+        },
+        {
+            "author": "friedrice",
+            "title": "ComfyUI-PadToSquare",
+            "reference": "https://github.com/fraudrice/ComfyUI-PadToSquare",
+            "files": [
+                "https://github.com/fraudrice/ComfyUI-PadToSquare"
+            ],
+            "install_type": "git-clone",
+            "description": "Pads an image to a square by extending its shorter side, with an optional longest-side resize, and crops the original image back out with the mask it outputs."
+        },
+        {
+            "author": "edvlos",
+            "title": "Fibo Camera Angles",
+            "reference": "https://github.com/edvlos/ComfyUI-FiboCameraAngles",
+            "files": [
+                "https://github.com/edvlos/ComfyUI-FiboCameraAngles"
+            ],
+            "install_type": "git-clone",
+            "description": "Interactive 3D camera-angle control for Fibo 2.0 Edit in ComfyUI: drag the camera around the subject and get a ready-to-use camera instruction."
+        },
+        {
+            "author": "pristinaai",
+            "title": "Auto Aligner",
+            "reference": "https://github.com/pristinaai/ComfyUI-Auto-Aligner",
+            "files": [
+                "https://github.com/pristinaai/ComfyUI-Auto-Aligner"
+            ],
+            "install_type": "git-clone",
+            "description": "Align a source image onto a destination image. Outputs the aligned image and a mask at the destination resolution."
+        },
+        {
             "author": "NotUsingGithub",
             "title": "Wan27",
             "reference": "https://github.com/NotUsingGithub/ComfyUI-Wan27",

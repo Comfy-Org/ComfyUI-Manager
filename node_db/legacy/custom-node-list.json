@@ -1,6 +1,192 @@
 {
     "custom_nodes": [
         {
+            "author": "sschleis",
+            "title": "sschl-comfyui-notes [REMOVED]",
+            "reference": "https://github.com/sschleis/sschl-comfyui-notes",
+            "files": [
+                "https://github.com/sschleis/sschl-comfyui-notes"
+            ],
+            "install_type": "git-clone",
+            "description": "NODES: Add Numbers, Float to String, Input Text, Show Text, Combine Strings, Text Appender, SSchl Text Encoder, Character, Connector"
+        },
+        {
+            "author": "StrawberryFist",
+            "title": "StrawberryFist VRAM Optimizer [REMOVED]",
+            "reference": "https://github.com/strawberryPunch/vram_optimizer",
+            "files": [
+                "https://github.com/strawberryPunch/vram_optimizer"
+            ],
+            "install_type": "git-clone",
+            "description": "A comprehensive VRAM management tool for ComfyUI. Includes automatic cleanup and GPU monitoring.",
+            "nodename_pattern": "StFist",
+            "pip": [
+                "GPUtil>=1.4.0"
+            ],
+            "tags": [
+                "vram",
+                "gpu",
+                "optimizer",
+                "monitoring"
+            ]
+        },
+        {
+            "author": "speedyrulz",
+            "title": "Resize to Multiple [REMOVED]",
+            "reference": "https://github.com/speedyrulz/ComfyUI-resize-to-multiple",
+            "files": [
+                "https://github.com/speedyrulz/ComfyUI-resize-to-multiple"
+            ],
+            "install_type": "git-clone",
+            "description": "Resize an image to the closest standard aspect ratio at a target megapixel count, snapped to a selectable pixel multiple, with image, VAE latent, empty latent (SDXL / Flux.2 Klein) and width/height outputs."
+        },
+        {
+            "author": "speedyrulz",
+            "title": "comfyui-resolution-selector [REMOVED]",
+            "reference": "https://github.com/speedyrulz/comfyui-resolution-selector",
+            "files": [
+                "https://github.com/speedyrulz/comfyui-resolution-selector"
+            ],
+            "install_type": "git-clone",
+            "description": "Pick a megapixel budget and aspect ratio; get the closest usable resolution."
+        },
+        {
+            "author": "smthemex",
+            "title": "ComfyUI_Streamv2v_Plus [REMOVED]",
+            "id": "streamv2v",
+            "reference": "https://github.com/smthemex/ComfyUI_Streamv2v_Plus",
+            "files": [
+                "https://github.com/smthemex/ComfyUI_Streamv2v_Plus"
+            ],
+            "install_type": "git-clone",
+            "description": "using [a/StreamV2V](https://github.com/Jeff-LiangF/streamv2v) in ComfyUI"
+        },
+        {
+            "author": "smthemex",
+            "title": "ComfyUI_StableAudio_Open [REMOVED]",
+            "id": "stable-audio-open-1.0",
+            "reference": "https://github.com/smthemex/ComfyUI_StableAudio_Open",
+            "files": [
+                "https://github.com/smthemex/ComfyUI_StableAudio_Open"
+            ],
+            "install_type": "git-clone",
+            "description": "You can use stable-audio-open-1.0 in comfyUI"
+        },
+        {
+            "author": "smthemex",
+            "title": "ComfyUI_Pipeline_Tool [REMOVED]",
+            "id": "pipeline-tool",
+            "reference": "https://github.com/smthemex/ComfyUI_Pipeline_Tool",
+            "files": [
+                "https://github.com/smthemex/ComfyUI_Pipeline_Tool"
+            ],
+            "install_type": "git-clone",
+            "description": "A tool for novice users in Chinese Mainland to call the huggingface hub and download the huggingface models."
+        },
+        {
+            "author": "smthemex",
+            "title": "ComfyUI_Llama3_8B [REMOVED]",
+            "id": "llama3-8b",
+            "reference": "https://github.com/smthemex/ComfyUI_Llama3_8B",
+            "files": [
+                "https://github.com/smthemex/ComfyUI_Llama3_8B"
+            ],
+            "install_type": "git-clone",
+            "description": "Llama3_8B for comfyUI， using pipeline workflow."
+        },
+        {
+            "author": "smthemex",
+            "title": "ComfyUI_ChronoEdit_SM [REMOVED]",
+            "reference": "https://github.com/smthemex/ComfyUI_ChronoEdit_SM",
+            "files": [
+                "https://github.com/smthemex/ComfyUI_ChronoEdit_SM"
+            ],
+            "install_type": "git-clone",
+            "description": "Towards Temporal Reasoning for Image Editing and World Simulation,you can use this node in comfyUI,and Vram >12G"
+        },
+        {
+            "author": "smthemex",
+            "title": "ComfyUI_ChatGLM_API [REMOVED]",
+            "id": "chatglm-api",
+            "reference": "https://github.com/smthemex/ComfyUI_ChatGLM_API",
+            "files": [
+                "https://github.com/smthemex/ComfyUI_ChatGLM_API"
+            ],
+            "install_type": "git-clone",
+            "description": "You can call Chatglm's API in comfyUI to translate and describe pictures, and the API similar to OpenAI."
+        },
+        {
+            "author": "smartvain",
+            "title": "ComfyUI-PromptComment [REMOVED]",
+            "reference": "https://github.com/smartvain/ComfyUI-PromptComment",
+            "files": [
+                "https://github.com/smartvain/ComfyUI-PromptComment"
+            ],
+            "install_type": "git-clone",
+            "description": "Custom ComfyUI node providing comment stripping functionality for prompts with multiple marker styles. (Description by CC)"
+        },
+        {
+            "author": "smartvain",
+            "title": "ComfyUI-PoseKeypointsToImage [REMOVED]",
+            "reference": "https://github.com/smartvain/ComfyUI-PoseKeypointsToImage",
+            "files": [
+                "https://github.com/smartvain/ComfyUI-PoseKeypointsToImage"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI custom node that generates pose images from DWPose/OpenPose keypoint data, allowing creation of pose visualizations with selectively filtered body parts. (Description by CC)"
+        },
+        {
+            "author": "smartvain",
+            "title": "ComfyUI-FaceKeypointsFilter [REMOVED]",
+            "reference": "https://github.com/smartvain/ComfyUI-FaceKeypointsFilter",
+            "files": [
+                "https://github.com/smartvain/ComfyUI-FaceKeypointsFilter"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI custom node that selectively filters facial keypoints from DWPose/OpenPose output, allowing selective disabling of face parts (chin, eyebrows, eyes, nose, mouth outer/inner contours) for ControlNet workflows. (Description by CC)"
+        },
+        {
+            "author": "r3dsd",
+            "title": "Comfyui-Template-Loader [REMOVED]",
+            "reference": "https://github.com/r3dsd/comfyui-template-loader",
+            "files": [
+                "https://github.com/r3dsd/comfyui-template-loader"
+            ],
+            "install_type": "git-clone",
+            "description": "Easily Load Your Frequently Used Prompts in ComfyUI\nWith ComfyUI Template Loader, managing and reusing your favorite prompts has never been simpler. Save time and streamline your workflow by loading your go-to templates with just a few clicks!"
+        },
+        {
+            "author": "IrisRainbowNeko",
+            "title": "ascii-art-comfyui [REMOVED]",
+            "reference": "https://github.com/Deep-Neko/ComfyUI_ascii_art",
+            "files": [
+                "https://github.com/Deep-Neko/ComfyUI_ascii_art"
+            ],
+            "install_type": "git-clone",
+            "description": "ascii art preprocessors in ComfyUI"
+        },
+        {
+            "author": "imb101",
+            "title": "FaceSwap [REMOVED]",
+            "id": "faceswap",
+            "reference": "https://github.com/imb101/ComfyUI-FaceSwap",
+            "files": [
+                "https://github.com/imb101/ComfyUI-FaceSwap"
+            ],
+            "install_type": "git-clone",
+            "description": "Nodes:FaceSwapNode. Very basic custom node to enable face swapping in ComfyUI. (roop)"
+        },
+        {
+            "author": "Hu-XiaoYan",
+            "title": "HighPreviewKSampler [REMOVED]",
+            "reference": "https://github.com/Hu-XiaoYan/HighPreviewKSampler",
+            "files": [
+                "https://github.com/Hu-XiaoYan/HighPreviewKSampler"
+            ],
+            "install_type": "git-clone",
+            "description": "A custom node for ComfyUI providing high-quality preview sampling capabilities for image generation workflows. (Description by CC)"
+        },
+        {
             "author": "XelaNull",
             "title": "ComfyUI-MobileFriendly [REMOVED]",
             "reference": "https://github.com/XelaNull/ComfyUI-MobileFriendly",
