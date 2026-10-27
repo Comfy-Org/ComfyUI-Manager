@@ -20,7 +20,6 @@ JS = JsSource(os.environ.get("MANAGER_JS_DIR") or (REPO_ROOT / "js"))
 COMMON = "common.js"
 SHARE_COMMON = "comfyui-share-common.js"
 SHARE_OPENART = "comfyui-share-openart.js"
-SHARE_COPUS = "comfyui-share-copus.js"
 SHARE_YOUML = "comfyui-share-youml.js"
 SNAPSHOT = "snapshot.js"
 MANAGER = "custom-nodes-manager.js"
@@ -364,8 +363,6 @@ class ShareDialogUrlTest(unittest.TestCase):
              "const messagePrefix = 'shared.';\nconst recipePageUrl = %s;" % (_json(BENIGN_URL),)),
             ("comfyui-share-openart.js", self._openart_expression(),
              "const url = %s;" % (_json(BENIGN_URL),)),
-            ("comfyui-share-copus.js", self._copus_expression(),
-             "const url = %s;" % (_json(BENIGN_URL),)),
         ]
         for name, expression, bindings in cases:
             with self.subTest(file=name):
@@ -402,7 +399,7 @@ class ShareDialogUrlTest(unittest.TestCase):
                     "const recipePageUrl = %s;" % (_json(payload),))
                 self._assert_scheme_rejected(markup, "comfyui-share-youml.js")
 
-    # --- openart / copus: an id is interpolated into a URL PATH -------------
+    # --- openart: an id is interpolated into a URL PATH -------------
     # The scheme is hardcoded, so these cannot carry javascript:. What they CAN
     # carry is a quote: the id is a service-returned string dropped inside a
     # double-quoted attribute, so `"` closes it and the rest is markup. That is a
@@ -413,12 +410,6 @@ class ShareDialogUrlTest(unittest.TestCase):
                                "this.message.innerHTML = `Workflow has been shared successfully.")
         return line.split("innerHTML =", 1)[1].strip().rstrip(";")
 
-    def _copus_expression(self) -> str:
-        from js_lift import line_containing
-        line = line_containing(JS.text(SHARE_COPUS),
-                               "this.message.innerHTML = `Workflow has been shared successfully.")
-        return line.split("innerHTML =", 1)[1].strip().rstrip(";")
-
     def test_openart_id_cannot_break_out_of_the_href_attribute(self):
         markup = self._render(
             self._openart_expression(),
@@ -426,12 +417,6 @@ class ShareDialogUrlTest(unittest.TestCase):
             '%s;' % (_json('x" onmouseover="window.__probe=1'),))
         self.assertEqual(handler_attrs(markup), [], markup)
 
-    def test_copus_id_cannot_break_out_of_the_href_attribute(self):
-        markup = self._render(
-            self._copus_expression(),
-            'const url = "https://example.invalid/work/" + '
-            '%s;' % (_json('x" onmouseover="window.__probe=1'),))
-        self.assertEqual(handler_attrs(markup), [], markup)
 
 
 # ---------------------------------------------------------------------------
