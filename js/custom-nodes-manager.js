@@ -1341,11 +1341,14 @@ export class CustomNodesManager {
 
 		this.showLoading();
 		let res;
+		// multi-file git packs carry a full URL as their id; a bare interpolation
+		// breaks routing (and any ? or # in the id would truncate the path)
+		const encoded_node_id = encodeURIComponent(node_id);
 		if(is_enable) {
-			res = await api.fetchApi(`/customnode/disabled_versions/${node_id}`, { cache: "no-store" });
+			res = await api.fetchApi(`/customnode/disabled_versions/${encoded_node_id}`, { cache: "no-store" });
 		}
 		else {
-			res = await api.fetchApi(`/customnode/versions/${node_id}`, { cache: "no-store" });
+			res = await api.fetchApi(`/customnode/versions/${encoded_node_id}`, { cache: "no-store" });
 		}
 		this.hideLoading();
 
