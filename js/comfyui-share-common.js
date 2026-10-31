@@ -1,7 +1,6 @@
 import { api } from "../../scripts/api.js";
 import { app } from "../../scripts/app.js";
 import { $el, ComfyDialog } from "../../scripts/ui.js";
-import { CopusShareDialog } from "./comfyui-share-copus.js";
 import { OpenArtShareDialog } from "./comfyui-share-openart.js";
 import { YouMLShareDialog } from "./comfyui-share-youml.js";
 import { customAlert, safeHref, sanitizeHTML } from "./common.js";
@@ -189,21 +188,6 @@ export const shareToEsheep= () => {
 	})
 }
 
-export const showCopusShareDialog = () => {
-  if (!CopusShareDialog.instance) {
-    CopusShareDialog.instance = new CopusShareDialog();
-  }
-
-  return app.graphToPrompt()
-    .then(prompt => {
-      return app.graph._nodes;
-    })
-    .then(nodes => {
-        const { potential_outputs, potential_output_nodes } = getPotentialOutputsAndOutputNodes(nodes);
-        CopusShareDialog.instance.show({ potential_outputs, potential_output_nodes});
-    })
-}
-
 export const showOpenArtShareDialog = () => {
   if (!OpenArtShareDialog.instance) {
     OpenArtShareDialog.instance = new OpenArtShareDialog();
@@ -333,16 +317,6 @@ export class ShareDialogChooser extends ComfyDialog {
 				  	this.close();
 				}
 			},
-			{
-				key: "Copus",
-				textContent: "Copus",
-				website: "https://www.copus.io",
-				description: "🔴 Earn simple. Get paid from your ComfyUI workflows—no revenue sharing. Ever.",
-				onclick: () => {
-					showCopusShareDialog();
-				  this.close();
-				}
-			},
 		];
 
 		function createShareButtonsWithDescriptions() {
@@ -396,28 +370,6 @@ export class ShareDialogChooser extends ComfyDialog {
 					},
 				});
 
-				const copus_ui =$el("div", { style: { 
-					'position': 'absolute',
-					'height': '100%',
-					'left': '-25px',
-					'top': '-26px',
-					'width': '100%',
-					'z-index':'-1',
-					'background':'url("https://static.copus.io/images/client/202412/test/f28ac6ef8f4c6f3d5d50856a272ed02c.png")',
-					'background-repeat': 'no-repeat',
-				} });
-				const copus_ui_bottom =$el("div", { style: { 
-					'position': 'absolute',
-					'height': '100%',
-					'left': '25px',
-					'bottom': '-26px',
-					'width': '100%',
-					'transform':'scale(-1, -1)',
-					'z-index':'-1',
-					'background':'url("https://static.copus.io/images/client/202412/test/f28ac6ef8f4c6f3d5d50856a272ed02c.png")',
-					'background-repeat': 'no-repeat',
-				} });
-
 				const websiteLink = $el("a", {
 					textContent: "🌐 Website",
 					href: b.website,
@@ -457,15 +409,7 @@ export class ShareDialogChooser extends ComfyDialog {
 						'box-shadow': '0 2px 4px rgba(0, 0, 0, 0.1)',
 						'position':'relative'
 					}
-				}, [buttonLinkContainer, description
-					, 
-					b.key ==='Copus' ?
-					copus_ui
-					:'',
-					b.key ==='Copus' ?
-					copus_ui_bottom
-					:'',
-				]);
+				}, [buttonLinkContainer, description]);
 
 				container.appendChild(column);
 			});
