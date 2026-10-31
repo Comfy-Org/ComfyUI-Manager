@@ -8,6 +8,7 @@ import socket
 
 import aiohttp
 import json
+import tempfile
 import threading
 import os
 from datetime import datetime
@@ -216,12 +217,16 @@ def simple_hash(input_string):
 
 
 def is_file_created_within_one_day(file_path):
+    # mtime, not ctime: on Windows ctime is the CREATION time, and rewriting
+    # a cache file in place does not change it — after the first day every
+    # rewritten cache was 'expired' forever, so each start and each
+    # fetch_updates refetched the whole registry.
     if not os.path.exists(file_path):
         return False
 
-    file_creation_time = os.path.getctime(file_path)
+    file_modified_time = os.path.getmtime(file_path)
     current_time = datetime.now().timestamp()
-    time_difference = current_time - file_creation_time
+    time_difference = current_time - file_modified_time
 
     return time_difference <= 86400
 
@@ -273,14 +278,30 @@ def get_cache_state(uri):
     return "expired"
 
 
+def _atomic_write_json(cache_uri, json_obj):
+    # A kill mid-dump used to leave a truncated cache that parsed as valid
+    # (fresh mtime) but returned {} — or blew up the CNR consumer. Temp file
+    # + os.replace: readers see the old cache or the new one, never a corpse.
+    fd, tmp_uri = tempfile.mkstemp(dir=os.path.dirname(cache_uri), prefix=".cache-", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as file:
+            json.dump(json_obj, file, indent=4, sort_keys=True)
+        os.replace(tmp_uri, cache_uri)
+    except BaseException:
+        try:
+            os.unlink(tmp_uri)
+        except OSError:
+            pass
+        raise
+
+
 def save_to_cache(uri, json_obj, silent=False):
     cache_uri = get_cache_path(uri)
 
     with cache_lock:
-        with open(cache_uri, "w", encoding='utf-8') as file:
-            json.dump(json_obj, file, indent=4, sort_keys=True)
-            if not silent:
-                logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+        _atomic_write_json(cache_uri, json_obj)
+        if not silent:
+            logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
 
 
 async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=False, dont_cache=False):
@@ -304,10 +325,9 @@ async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=Fals
         json_obj = await get_data(uri, silent=silent)
         if not dont_cache:
             with cache_lock:
-                with open(cache_uri, "w", encoding='utf-8') as file:
-                    json.dump(json_obj, file, indent=4, sort_keys=True)
-                    if not silent:
-                        logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+                _atomic_write_json(cache_uri, json_obj)
+                if not silent:
+                    logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
 
     return json_obj
 
