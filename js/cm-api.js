@@ -1,10 +1,16 @@
 import { api } from "../../scripts/api.js";
 import { app } from "../../scripts/app.js";
-import { sleep, customConfirm, customAlert, handle403Response, show_message } from "./common.js";
+import { sleep, customConfirm, customAlert, handle403Response, sanitizeHTML, show_message } from "./common.js";
 
 async function tryInstallCustomNode(event) {
+	// Two representations of the dependency title: dialogs that render HTML
+	// (app.ui.dialog.show) get the escaped form, while customConfirm's
+	// textContent fallback must keep the plain form or entities show up
+	// literally (CodeRabbit review on this PR).
+	const targetTitlePlain = String(event.detail.target.title ?? "");
+	const targetTitle = sanitizeHTML(targetTitlePlain);
 	let msg = '-= [ComfyUI Manager] extension installation request =-\n\n';
-	msg += `The '${event.detail.sender}' extension requires the installation of the '${event.detail.target.title}' extension. `;
+	msg += `The '${event.detail.sender}' extension requires the installation of the '${targetTitlePlain}' extension. `;
 
 	if(event.detail.target.installed == 'Disabled') {
 		msg += 'However, the extension is currently disabled. Would you like to enable it and reboot?'
@@ -33,7 +39,7 @@ async function tryInstallCustomNode(event) {
 		}
 		else {
 			await sleep(300);
-			app.ui.dialog.show(`Installing... '${event.detail.target.title}'`);
+			app.ui.dialog.show(`Installing... '${targetTitle}'`);
 
 			const response = await api.fetchApi(`/customnode/install`, {
 										method: 'POST',
@@ -46,8 +52,8 @@ async function tryInstallCustomNode(event) {
 				return false;
 			}
 			else if(response.status == 400) {
-				let msg = await res.text();
-				show_message(msg);
+				let msg = await response.text();
+				show_message(sanitizeHTML(msg));
 				return false;
 			}
 		}
