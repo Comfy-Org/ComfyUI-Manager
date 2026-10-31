@@ -8,6 +8,7 @@ loadCss("./snapshot.css");
 
 async function restore_snapshot(target) {
 	if(SnapshotManager.instance) {
+		let success = false;
 		try {
 			const response = await api.fetchApi('/snapshot/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: target }), cache: "no-store" });
 
@@ -17,19 +18,23 @@ async function restore_snapshot(target) {
 			}
 
 			if(response.status == 400) {
-				show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+				show_message(`Restore snapshot failed: ${sanitizeHTML(target)} / ${sanitizeHTML(await response.text())}`);
+				return false;
 			}
 
 			app.ui.dialog.close();
+			success = true;
 			return true;
 		}
 		catch(exception) {
-			show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+			show_message(`Restore snapshot failed: ${sanitizeHTML(target)} / ${sanitizeHTML(String(exception))}`);
 			return false;
 		}
 		finally {
 			await SnapshotManager.instance.invalidateControl();
-			SnapshotManager.instance.updateMessage("<BR>To apply the snapshot, please <button id='cm-reboot-button2' class='cm-ui-button'>RESTART</button> ComfyUI. And refresh browser.", 'cm-reboot-button2');
+			if(success) {
+				SnapshotManager.instance.updateMessage("<BR>To apply the snapshot, please <button id='cm-reboot-button2' class='cm-ui-button'>RESTART</button> ComfyUI. And refresh browser.", 'cm-reboot-button2');
+			}
 		}
 	}
 }
@@ -45,14 +50,15 @@ async function remove_snapshot(target) {
 			}
 
 			if(response.status == 400) {
-				show_message(`Remove snapshot failed: ${target.title} / ${exception}`);
+				show_message(`Remove snapshot failed: ${sanitizeHTML(target)} / ${sanitizeHTML(await response.text())}`);
+				return false;
 			}
 
 			app.ui.dialog.close();
 			return true;
 		}
 		catch(exception) {
-			show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+			show_message(`Remove snapshot failed: ${sanitizeHTML(target)} / ${sanitizeHTML(String(exception))}`);
 			return false;
 		}
 		finally {
