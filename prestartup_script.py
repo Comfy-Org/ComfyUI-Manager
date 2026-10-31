@@ -300,7 +300,24 @@ try:
                 raise ValueError("The object does not have a fileno method")
 
         def isatty(self):
-            return False
+            # Report the real stream: colorama/tqdm/rich and anything else
+            # that probes TTY-ness must keep working under the log capture
+            # (issue #3259).
+            try:
+                return original_stdout.isatty() if self.is_stdout else original_stderr.isatty()
+            except (AttributeError, ValueError):
+                return False
+
+        @property
+        def closed(self):
+            # colorama's AnsiToWin32 reads stream.closed unguarded while
+            # wrapping; without this attribute the wrap raises instead of
+            # detecting the stream state (issue #3259 review).
+            stream = original_stdout if self.is_stdout else original_stderr
+            try:
+                return stream.closed
+            except AttributeError:
+                return False
 
         def write(self, message):
             global is_start_mode
