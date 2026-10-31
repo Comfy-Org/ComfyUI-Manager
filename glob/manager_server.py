@@ -930,6 +930,9 @@ async def get_node_types_in_workflows(request):
 
 @routes.post("/manager/queue/update_all")
 async def update_all(request):
+    resp = _reject_simple_form_content_type(request)
+    if resp is not None:
+        return resp
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
         return security_403_response()
