@@ -196,15 +196,17 @@ class StrictVersion:
             pass
         elif suffix.startswith("+"):
             pass  # local build tag: equivalent to the plain release
-        elif re.match(r"post\d*$", suffix):
-            self.post_release = int(suffix[4:] or 0)
+        elif re.match(r"post\d*$", suffix.lstrip("-")):
+            self.post_release = int(suffix.lstrip("-")[4:] or 0)
         else:
-            self.pre_release = suffix
+            self.pre_release = suffix.lstrip("-")
 
     def __str__(self):
+        # the emitted form must be re-parseable: pre-releases go out as a
+        # dotted 4th component, the only shape parse_version_string accepts
         version = f"{self.major}.{self.minor}.{self.patch}"
         if self.pre_release:
-            version += f"-{self.pre_release}"
+            version += f".{self.pre_release}"
         if self.post_release is not None:
             version += f".post{self.post_release}"
         return version
