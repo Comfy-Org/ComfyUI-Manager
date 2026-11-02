@@ -51,3 +51,20 @@ def test_post_release_sorts_after_the_release():
     assert StrictVersion("1.0.0post1") > StrictVersion("1.0.0")
     assert StrictVersion("1.0.0post2") > StrictVersion("1.0.0post1")
     assert StrictVersion("1.0.0post1") > StrictVersion("1.0.0rc1")
+
+
+def test_str_round_trips_through_the_parser():
+    """citizenadam's crash: cnr_utils normalizes with str(StrictVersion(...))
+    and feeds the result back. The parser must accept every string it
+    emits, across local tags, pre-releases and post-releases."""
+    for v in ("0.1.3.post1", "1.0.0.post2", "2.4.0+cu124", "1.0.0rc1", "0.1.3"):
+        emitted = str(StrictVersion(v))
+        reparsed = StrictVersion(emitted)
+        assert reparsed == StrictVersion(v), f"{v!r} -> {emitted!r} did not round-trip"
+
+
+def test_dash_emitted_form_also_round_trips():
+    """'1.0.0-rc1' arrives from sources that normalize with the old dash
+    format; the parser strips the dash and pre_release round-trips."""
+    assert StrictVersion("1.0.0-rc1") == StrictVersion("1.0.0rc1")
+    assert StrictVersion(str(StrictVersion("1.0.0-rc1"))) == StrictVersion("1.0.0rc1")
