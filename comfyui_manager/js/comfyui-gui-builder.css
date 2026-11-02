@@ -1,0 +1,82 @@
+.cm-ui-overlay {
+	z-index: 1000;
+	background: rgb(0 0 0 / 50%);
+}
+
+.cm-ui-dialog {
+	max-width: calc(100vw - 2rem);
+	max-height: calc(100vh - 2rem);
+	border: 1px solid var(--border, var(--border-color));
+	border-radius: 12px;
+	background: var(--background, var(--comfy-menu-bg));
+	color: var(--foreground, var(--fg-color));
+	box-shadow: var(--shadow-lg, 0 8px 24px rgb(0 0 0 / 30%));
+}
+
+.cm-ui-header {
+	flex-shrink: 0;
+	padding: 1rem;
+}
+
+.cm-ui-content {
+	padding: 0 1rem 1rem;
+	overflow: auto;
+}
+
+.cm-ui-muted {
+	color: var(--muted-foreground, var(--fg-color));
+}
+
+:where(.cm-ui-button) {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.5rem;
+	padding: 0.5rem 0.75rem;
+	border: 1px solid var(--border, var(--border-color));
+	border-radius: 6px;
+	background: var(--secondary, var(--comfy-input-bg));
+	color: var(--foreground, var(--input-text));
+	font: inherit;
+	line-height: 1.25;
+	cursor: pointer;
+}
+
+:where(.cm-ui-input) {
+	padding: 0.5rem;
+	border: 1px solid var(--border, var(--border-color));
+	border-radius: 6px;
+	background: var(--secondary, var(--comfy-input-bg));
+	color: var(--foreground, var(--input-text));
+	font: inherit;
+}
+
+.cm-ui-button:not(:disabled):hover {
+	filter: brightness(115%);
+}
+
+.cm-ui-button:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.cm-ui-button:focus-visible,
+.cm-ui-input:focus-visible {
+	outline: 2px solid var(--ring, var(--input-text));
+	outline-offset: 2px;
+}
+
+.cm-ui-close {
+	width: 2rem;
+	height: 2rem;
+	flex-shrink: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: transparent;
+	color: inherit;
+}
+
+.cm-ui-close:not(:disabled):hover {
+	background: var(--accent, var(--comfy-input-bg));
+}
