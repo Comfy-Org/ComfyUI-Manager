@@ -1717,6 +1717,57 @@ def get_channel_list():
     return channel_list
 
 
+def get_default_channel_url():
+    """
+    Resolve the URL that the `default` channel points to.
+
+    `manager_server.get_risky_level` needs the `default` channel's
+    `custom-node-list.json`. It used to hardcode the upstream
+    `raw.githubusercontent.com` URL, which bypassed any `channels.list`
+    (or `config.ini`) rewrite - e.g. when the manager runs behind a mirror
+    or a proxy - and silently fell back to the bundled database.
+
+    Resolution order:
+      1. the `default` entry of `channels.list`
+      2. `config.ini`'s `channel_url` (the channel used when a request does
+         not name one; keeps custom-fork setups working when `default` was
+         removed from `channels.list`)
+      3. `DEFAULT_CHANNEL` (upstream), i.e. the legacy hardcoded behavior
+
+    Reading `channels.list` may fail (permissions, malformed file); the
+    risk check must not break because of that, so failures step down to
+    the next fallback.
+    """
+    channel_url = None
+
+    try:
+        channel_url = get_channel_dict().get('default')
+    except Exception as e:
+        print(f"[ComfyUI-Manager] Failed to read channels.list: {e}")
+
+    if not channel_url:
+        channel_url = get_config().get('channel_url') or DEFAULT_CHANNEL
+
+    channel_url = channel_url.rstrip('/')
+
+    if channel_url.lower().startswith('http://'):
+        # Mirror the existing HTTP policy: `normalize_channel` only accepts
+        # http:// channels when `http_channel_enabled` is true. A plain-HTTP
+        # default channel is the user's own choice, but it must be an
+        # explicit one, and the transport risk stays visible either way.
+        if not get_config().get('http_channel_enabled'):
+            print(f"[ComfyUI-Manager] Ignoring plain-HTTP default channel '{channel_url}' "
+                  "because http_channel_enabled is false; using the upstream default channel.")
+            return DEFAULT_CHANNEL.rstrip('/')
+        print(f"[ComfyUI-Manager] Warning: the default channel '{channel_url}' uses unencrypted HTTP; "
+              "risk-check data fetched from it can be tampered with in transit.")
+        # Normalize the scheme: `manager_util.get_data` recognizes URLs via a
+        # lowercase `startswith('http')`, so `HtTp://...` must not survive as-is.
+        return 'http://' + channel_url[len('http://'):]
+
+    return channel_url
+
+
 class ManagerFuncs:
     def __init__(self):
         pass

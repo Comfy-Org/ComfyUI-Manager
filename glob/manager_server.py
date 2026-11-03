@@ -140,7 +140,7 @@ def is_allowed_security_level(level):
 
 async def get_risky_level(files, pip_packages):
     json_data1 = await core.get_data_by_mode('local', 'custom-node-list.json')
-    json_data2 = await core.get_data_by_mode('cache', 'custom-node-list.json', channel_url='https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main')
+    json_data2 = await core.get_data_by_mode('cache', 'custom-node-list.json', channel_url=core.get_default_channel_url())
 
     all_urls = set()
     for x in json_data1['custom_nodes'] + json_data2['custom_nodes']:
