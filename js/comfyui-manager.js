@@ -238,6 +238,17 @@ var update_all_button = null;
 var restart_stop_button = null;
 var update_policy_combo = null;
 
+const share_options = [
+	['none', 'None'],
+	['openart', 'OpenArt AI'],
+	['youml', 'YouML'],
+	['matrix', 'Matrix Server'],
+	['comfyworkflows', 'ComfyWorkflows'],
+	['all', 'All'],
+];
+function normalizeShareOption(value) {
+	return share_options.some(([key]) => key === value) ? value : 'all';
+}
 let share_option = 'all';
 var is_updating = false;
 
@@ -413,7 +424,7 @@ async function init_share_option() {
 	api.fetchApi('/manager/share_option')
 		.then(response => response.text())
 		.then(data => {
-			share_option = data || 'all';
+			share_option = normalizeShareOption(data);
 		});
 }
 
@@ -1116,15 +1127,7 @@ class ManagerMenuDialog extends ComfyDialog {
 		let share_combo = document.createElement("select");
 		share_combo.setAttribute("title", "Hide the share button in the main menu or set the default action upon clicking it. Additionally, configure the default share site when sharing via the context menu's share button.");
 		share_combo.className = "cm-menu-combo cm-ui-input";
-		const share_options = [
-			['none', 'None'],
-			['openart', 'OpenArt AI'],
-			['youml', 'YouML'],
-			['matrix', 'Matrix Server'],
-			['comfyworkflows', 'ComfyWorkflows'],
-			['copus', 'Copus'],
-			['all', 'All'],
-		];
+
 		for (const option of share_options) {
 			share_combo.appendChild($el('option', { value: option[0], text: `${option[1]}` }, []));
 		}
@@ -1132,8 +1135,10 @@ class ManagerMenuDialog extends ComfyDialog {
 		api.fetchApi('/manager/share_option')
 			.then(response => response.text())
 			.then(data => {
-				share_combo.value = data || 'all';
-				share_option = data || 'all';
+				// Retired or unknown destinations fall back to the platform chooser.
+				const value = normalizeShareOption(data);
+				share_combo.value = value;
+				share_option = value;
 			});
 
 		share_combo.addEventListener('change', function (event) {
@@ -1445,15 +1450,6 @@ class ManagerMenuDialog extends ComfyDialog {
 					title: "Open 'esheep'",
 					callback: () => {
 						const url = "https://www.esheep.com";
-						localStorage.setItem("wg_last_visited", url);
-						window.open(url, url);
-						modifyButtonStyle(url);
-					},
-				},
-				{
-					title: "Open 'Copus.io'",
-					callback: () => {
-						const url = "https://www.copus.io";
 						localStorage.setItem("wg_last_visited", url);
 						window.open(url, url);
 						modifyButtonStyle(url);
