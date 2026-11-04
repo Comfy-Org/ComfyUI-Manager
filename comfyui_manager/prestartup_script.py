@@ -34,6 +34,11 @@ message_collapses = [skip_pip_spam]
 import_failed_extensions = set()
 cm_global.variables['cm.on_revision_detected_handler'] = []
 enable_file_logging = True
+# When file logging is on, strip ANSI color/escape codes from the bytes written to
+# the disk log so the file stays plain and readable. The console ALWAYS keeps its
+# original (colored) output -- this only ever touches the file branch of sync_write.
+# Default on; set `strip_ansi_file_logging = False` in config.ini to keep ANSI in the file.
+strip_ansi_file_logging = True
 
 
 def register_message_collapse(f):
@@ -98,12 +103,18 @@ def check_file_logging():
     if 'file_logging' in default_conf and default_conf['file_logging'].lower() == 'false':
         enable_file_logging = False
 
+def check_strip_ansi_file_logging():
+    global strip_ansi_file_logging
+    if 'strip_ansi_file_logging' in default_conf and default_conf['strip_ansi_file_logging'].lower() == 'false':
+        strip_ansi_file_logging = False
+
 
 read_config()
 read_uv_mode()
 read_unified_resolver_mode()
 security_check.security_check()
 check_file_logging()
+check_strip_ansi_file_logging()
 
 # Module-level flag set by startup batch resolver when it succeeds.
 # Used by execute_lazy_install_script() to skip per-node pip installs.
@@ -259,6 +270,10 @@ try:
 
     pat_tqdm = r'\d+%.*\[(.*?)\]'
     pat_import_fail = r'seconds \(IMPORT FAILED\):(.*)$'
+    # CSI (ECMA-48) escape sequences: ESC [ <params: digits/;/> <?> <final letter>.
+    # Covers SGR color codes (m), cursor moves, clears, and the tqdm/progress-bar
+    # control codes that also land in the startup log.
+    pat_ansi = r'\x1b\[[0-9;?]*[a-zA-Z]'
 
     is_start_mode = True
 
@@ -319,13 +334,23 @@ try:
             else:
                 self.sync_write(message)
 
+        def _file_message(self, message):
+            # The disk log is the ONLY place file content and console content are
+            # allowed to diverge: here we drop ANSI so the file stays plain text.
+            # The console path below always uses the
+            # original, unmodified message, so its coloring is never affected.
+            if strip_ansi_file_logging:
+                return re.sub(pat_ansi, '', message)
+            return message
+
         def sync_write(self, message, file_only=False):
             with log_lock:
+                file_message = self._file_message(message)
                 timestamp = current_timestamp()
                 if self.last_char != '\n':
-                    log_file.write(message)
+                    log_file.write(file_message)
                 else:
-                    log_file.write(f"[{timestamp}] {message}")
+                    log_file.write(f"[{timestamp}] {file_message}")
 
                 try:
                     log_file.flush()
