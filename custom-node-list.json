@@ -1,17 +1,6 @@
 {
     "custom_nodes": [
         {
-            "author": "paxalabs",
-            "title": "Paxa TTS for Thai, English and Mandarin",
-            "id": "comfyui-paxa",
-            "reference": "https://github.com/paxalabs/comfyui-paxa",
-            "files": [
-                "https://github.com/paxalabs/comfyui-paxa"
-            ],
-            "install_type": "git-clone",
-            "description": "Text to speech in Thai, English and Mandarin Chinese from Paxa Labs: 50 voices that each speak all three, with direction tags. Speech to text with SRT or WebVTT subtitles as a research preview. Cloud API: needs your own Paxa API key and spends Paxa credits; no local model or GPU."
-        },
-        {
             "author": "Carasibana",
             "title": "ComfyUI-SimpleFloatSlider",
             "reference": "https://github.com/Carasibana/ComfyUI-SimplayboyleFloatSlider",
@@ -59977,6 +59966,16 @@
             "description": "Crop an image/mask to its bounding box and resize, with an added `multiple` option to force output dimensions to a chosen step size."
         },
         {
+            "author": "mo-akkakk",
+            "title": "Minimax H3 Temporal Window & Spatial Tiles",
+            "reference": "https://github.com/mo-akkakk/ComfyUI-MiniMaxH3-TemporalWindow-SpatialTiles",
+            "files": [
+                "https://github.com/mo-akkakk/ComfyUI-MiniMaxH3-TemporalWindow-SpatialTiles"
+            ],
+            "install_type": "git-clone",
+            "description": "Long and high-resolution video-to-video for the open-weights MiniMax H3: overlapping temporal windows sampled one after another, and spatial tiles that each follow their exact crop of the plate, with an optional full-resolution plate input. Works in stage 1 and stage 2 with native ComfyUI H3 nodes."
+        },
+        {
             "author": "MaxKruse",
             "title": "ComfyUI_Image_Dimension_Scaler",
             "reference": "https://github.com/MaxKruse/ComfyUI_Image_Dimension_Scaler",
@@ -60536,6 +60535,16 @@
             ],
             "install_type": "git-clone",
             "description": "A full prompt-writing studio in a single node: AI prompt enhance, variations, aesthetic inverter, and natural-language instruct editing driven by your local Ollama models. Includes style targeting with sliders, image to prompt and video to prompt captioning, a built-in browser for Civitai and Genur.art prompts and workflows, favorites and snippets, and wireless prompt injection into any text widget with no wires."
+        },
+        {
+            "author": "pixelpainter",
+            "title": "Subgraph Navigator",
+            "reference": "https://github.com/pixelpainter/comfyui-SubgraphNavigator",
+            "files": [
+                "https://github.com/pixelpainter/comfyui-SubgraphNavigator"
+            ],
+            "install_type": "git-clone",
+            "description": "A floating panel to jump anywhere in a workflow of nested Subgraphs, opened from the sidebar. A tree of every Subgraph (every copy listed, click to go there), a live map of the current graph to pan, zoom and jump to any node, pinned nodes saved in the workflow, search across all Subgraphs, and back/forward through your jumps. Adds no nodes; works with the classic canvas and Nodes 2.0."
         },
         {
             "author": "ukr8b3g-cmyk",
@@ -62207,16 +62216,6 @@
             "description": "Use text, image and video models through third-party OpenAI-compatible API relays such as new-api and one-api, with several relays at once. A Relay Manager window adds and tests relays, lists their models and places configured nodes on the canvas. You need your own relay account, and the relay bills your calls. No extra dependencies."
         },
         {
-            "author": "mo-akkakk",
-            "title": "Minimax H3 Temporal Window & Spatial Tiles",
-            "reference": "https://github.com/mo-akkakk/ComfyUI-MiniMaxH3-TemporalWindow-SpatialTiles",
-            "files": [
-                "https://github.com/mo-akkakk/ComfyUI-MiniMaxH3-TemporalWindow-SpatialTiles"
-            ],
-            "install_type": "git-clone",
-            "description": "Long and high-resolution video-to-video for the open-weights MiniMax H3: overlapping temporal windows sampled one after another, and spatial tiles that each follow their exact crop of the plate, with an optional full-resolution plate input. Works in stage 1 and stage 2 with native ComfyUI H3 nodes."
-        },
-        {
             "author": "Yuvrajxms09",
             "title": "ComfyUI-H3-LipSync-Lab",
             "reference": "https://github.com/Yuvrajxms09/ComfyUI-H3-LipSync-Lab",
@@ -62307,14 +62306,15 @@
             "description": "A ComfyUI node that fills in tokens like the date and finds and replaces text, with find and replace pairs that grow as you use them, and a passthrough so the date can be taken right before saving."
         },
         {
-            "author": "pixelpainter",
-            "title": "Subgraph Navigator",
-            "reference": "https://github.com/pixelpainter/comfyui-SubgraphNavigator",
+            "author": "paxalabs",
+            "title": "Paxa TTS for Thai, English and Mandarin",
+            "id": "comfyui-paxa",
+            "reference": "https://github.com/paxalabs/comfyui-paxa",
             "files": [
-                "https://github.com/pixelpainter/comfyui-SubgraphNavigator"
+                "https://github.com/paxalabs/comfyui-paxa"
             ],
             "install_type": "git-clone",
-            "description": "A floating panel to jump anywhere in a workflow of nested Subgraphs, opened from the sidebar. A tree of every Subgraph (every copy listed, click to go there), a live map of the current graph to pan, zoom and jump to any node, pinned nodes saved in the workflow, search across all Subgraphs, and back/forward through your jumps. Adds no nodes; works with the classic canvas and Nodes 2.0."
+            "description": "Text to speech in Thai, English and Mandarin Chinese from Paxa Labs: 50 voices that each speak all three, with direction tags. Speech to text with SRT or WebVTT subtitles as a research preview. Cloud API: needs your own Paxa API key and spends Paxa credits; no local model or GPU."
         },
         {
             "author": "ntdviet",
