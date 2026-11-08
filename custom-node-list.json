@@ -8,7 +8,7 @@
                 "https://github.com/AinJuZen/ComfyUI-ModelMirror"
             ],
             "install_type": "git-clone",
-            "description": "缺模型时一键从镜像补齐：自动识别缺失模型、按文件名反查官方仓库、断点续传下载到正确目录。不修改 ComfyUI 官方文件，升级不碎。"
+            "description": "Fills in missing models through a configurable mirror (hf-mirror by default): detects missing model files in the current workflow, resolves each to its official HuggingFace repo by filename, and downloads them into the correct models/ folder with resume support. Writes only inside models/ (validated allowlist, no path traversal). Does not patch any official ComfyUI file."
         },
         {
             "author": "Carasibana",
