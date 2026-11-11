@@ -602,33 +602,24 @@ class PIPFixer:
             logging.error("[ComfyUI-Manager] Failed to restore PyTorch")
             logging.error(e)
 
-        # fix opencv
+        # fix opencv - the OpenCV packages all install the `cv2` module; keep them at one version
         try:
-            ocp = new_pip_versions.get('opencv-contrib-python')
-            ocph = new_pip_versions.get('opencv-contrib-python-headless')
-            op = new_pip_versions.get('opencv-python')
-            oph = new_pip_versions.get('opencv-python-headless')
+            installed = {}
+            for x in ['opencv-contrib-python', 'opencv-contrib-python-headless', 'opencv-python', 'opencv-python-headless']:
+                version = new_pip_versions.get(normalize_pip_name(x))
+                if version is not None:
+                    installed[x] = version
 
-            versions = [ocp, ocph, op, oph]
-            versions = [StrictVersion(x) for x in versions if x is not None]
-            versions.sort(reverse=True)
-
-            if len(versions) > 0:
+            if len(installed) > 0:
                 # upgrade to maximum version
-                targets = []
-                cur = versions[0]
-                if ocp is not None and StrictVersion(ocp) != cur:
-                    targets.append('opencv-contrib-python')
-                if ocph is not None and StrictVersion(ocph) != cur:
-                    targets.append('opencv-contrib-python-headless')
-                if op is not None and StrictVersion(op) != cur:
-                    targets.append('opencv-python')
-                if oph is not None and StrictVersion(oph) != cur:
-                    targets.append('opencv-python-headless')
+                newest = max(installed.values(), key=Version)
+                targets = [x for x, version in installed.items() if Version(version) != Version(newest)]
 
                 if len(targets) > 0:
                     for x in targets:
-                        cmd = make_pip_cmd(['install', f"{x}=={versions[0].version_string}"])
+                        # --no-deps: the newest version is already installed for another package;
+                        # its dependencies, such as numpy, must stay as they are
+                        cmd = make_pip_cmd(['install', '--no-deps', f"{x}=={newest}"])
                         subprocess.check_output(cmd, universal_newlines=True)
 
                     logging.info(f"[ComfyUI-Manager] 'opencv' dependencies were fixed: {targets}")
