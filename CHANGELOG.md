@@ -53,6 +53,10 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   installed last. OpenCV packages listed in `pip_auto_fix.list` are left to
   that list. The repair found no installed OpenCV package and did nothing; it
   now also compares four-part versions such as `4.11.0.100` numerically.
+- In the legacy core, except on Windows, give the backup branch the next free
+  name when an update cannot fast-forward and a backup branch of the same second
+  already exists. The existing name was reused, so creating the branch failed
+  and the update was not applied.
 
 ## [4.3] - 2026-09-19
 
