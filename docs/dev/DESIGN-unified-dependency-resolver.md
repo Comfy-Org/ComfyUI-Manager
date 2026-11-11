@@ -199,6 +199,12 @@ def collect_requirements(self) -> CollectedDeps:
     sources = defaultdict(list)
     extra_index_urls = []
 
+    # Snapshot installed packages once; skipped when downgrade_blacklist is empty
+    installed_snapshot = (
+        manager_util.get_installed_packages()
+        if self.downgrade_blacklist else {}
+    )
+
     for path in self.node_pack_paths:
         # Exclude disabled node packs (directory-based mechanism)
         # Disabled node packs are actually moved to custom_nodes/.disabled/,
@@ -252,7 +258,7 @@ def collect_requirements(self) -> CollectedDeps:
                 continue
 
             # 4. Downgrade blacklist check (includes version comparison)
-            if self._is_downgrade_blacklisted(pkg_name, pkg_spec):
+            if self._is_downgrade_blacklisted(pkg_name, pkg_spec, installed_snapshot):
                 skipped.append((pkg_spec, "downgrade blacklisted"))
                 continue
 
@@ -288,41 +294,28 @@ def _split_index_url(self, line: str) -> tuple[str, str | None]:
             return pkg_spec, url
     return line, None
 
-def _is_downgrade_blacklisted(self, pkg_name: str, pkg_spec: str) -> bool:
-    """Reproduce the downgrade version comparison from existing is_blacklisted() logic.
+def _is_downgrade_blacklisted(self, pkg_name: str, pkg_spec: str, installed: dict) -> bool:
+    """Apply the downgrade rule shared with is_blacklisted().
 
-    Same logic as manager_core.py's is_blacklisted():
-    - No version spec and already installed → block (prevent reinstall)
-    - Operator is one of ['<=', '==', '<', '~='] and
-      installed version >= requested version → block (prevent downgrade)
-    - Version comparison uses manager_util.StrictVersion (NOT packaging.version)
+    Parsing and the decision come from manager_util.parse_pip_spec() and
+    manager_util.downgrade_protection(), so both paths give the same result:
+    - Any clause with operator ['<', '<=', '==', '===', '~='] that would make pip
+      install an older version → block (prevent downgrade)
+    - No version spec, or a clause that allows exactly the installed version,
+      and no extras → block (pip would change nothing)
+    - The same two cases with extras → allow (the extras' dependencies are added)
+    - A clause that cannot be compared → block, and log why and how to proceed
+    - Requirements and versions are parsed with `packaging` (PEP 508 / PEP 440)
     """
-    if pkg_name not in self.downgrade_blacklist:
+    if pkg_name not in self.downgrade_blacklist or pkg_name not in installed:
         return False
 
-    installed_packages = manager_util.get_installed_packages()
-
-    # Version spec parsing (same pattern as existing is_blacklisted())
-    pattern = r'([^<>!~=]+)([<>!~=]=?)([^ ]*)'
-    match = re.search(pattern, pkg_spec)
-
-    if match is None:
-        # No version spec: prevent reinstall if already installed
-        if pkg_name in installed_packages:
-            return True
-    elif match.group(2) in ['<=', '==', '<', '~=']:
-        # Downgrade operator: block if installed version >= requested version
-        if pkg_name in installed_packages:
-            try:
-                installed_ver = manager_util.StrictVersion(installed_packages[pkg_name])
-                requested_ver = manager_util.StrictVersion(match.group(3))
-                if installed_ver >= requested_ver:
-                    return True
-            except (ValueError, TypeError):
-                logging.warning(f"[UnifiedDepResolver] version parse failed: {pkg_spec}")
-                return False
-
-    return False
+    _, extras, clauses = manager_util.parse_pip_spec(pkg_spec)
+    blocked, error = manager_util.downgrade_protection(
+        pkg_spec, clauses, extras, installed[pkg_name])
+    if error is not None:
+        logger.error("[UnifiedDepResolver] %s", error)
+    return blocked
 
 def _remap_package(self, pkg: str) -> str:
     """Package name remapping based on cm_global.pip_overrides.
@@ -621,7 +614,7 @@ comfyui_manager/prestartup_script.py       # Config reading + startup batch reso
 |-----------|---------|-------|
 | `uv` | Dependency resolution and installation | Already included in project dependencies |
 | `cm_global` | pip_overrides, pip_blacklist, pip_downgrade_blacklist | Reuse existing global state (runtime dynamic assignment) |
-| `manager_util` | StrictVersion, get_installed_packages, use_unified_resolver flag | Reuse existing utilities |
+| `manager_util` | parse_pip_spec, downgrade_protection, normalize_pip_name, get_installed_packages, use_unified_resolver flag | Reuse existing utilities |
 | `tempfile` | Temporary requirements files, mkdtemp | Standard library |
 | `subprocess` | uv process execution | Standard library |
 | `dataclasses` | Result data structures | Standard library |
@@ -696,8 +689,8 @@ sequenceDiagram
 | Credential redaction | `user:pass@host` URL masked in log output |
 | `_redact_url` | `://user:pass@host` → `://****@host` conversion, no-credential URL passthrough |
 | `cleanup_stale_tmp` | Delete stale dirs >1 hour, preserve recent dirs, ignore permission errors |
-| Downgrade operators | `<=`, `==`, `<`, `~=` blocked; `>=`, `>`, `!=` pass; no spec + installed → blocked |
-| `StrictVersion` comparison | Verify `manager_util.StrictVersion` is used (not `packaging.version`) |
+| Downgrade operators | `<`, `<=`, `==`, `===`, `~=` that require an older version blocked; `>=`, `>`, `!=` pass; no spec or the installed version + installed → blocked, unless the requirement has extras |
+| Shared downgrade decision | Verify `manager_util.parse_pip_spec` and `manager_util.downgrade_protection` are used, as in `is_blacklisted()` |
 
 ### 9.2 Integration Tests
 
@@ -783,20 +776,24 @@ pip_fixer.fix_broken()
 The unified resolver does not call PIPFixer directly.
 The caller (execute_install_script) calls PIPFixer as part of the existing flow.
 
-### is_blacklisted() Logic (Must Be Reproduced in Unified Resolver)
+### is_blacklisted() Logic (Shared with the Unified Resolver)
 
 ```python
-# manager_core.py — def is_blacklisted(name)
-# 1. Simple pip_blacklist membership check
+# manager_core.py — def is_blacklisted(name) → manager_util.pip_block_reason()
+# 1. pip_blacklist membership check, names compared in normalized form
+#    (manager_util.normalize_pip_name: lowercase; '-', '_' and '.' are one separator)
 # 2. pip_downgrade_blacklist version comparison:
-#    - Parse spec with regex r'([^<>!~=]+)([<>!~=]=?)([^ ]*)'
-#    - match is None (no version spec) + installed → block
-#    - Operator in ['<=', '==', '<', '~='] + installed version >= requested version → block
-#    - Version comparison uses manager_util.StrictVersion (NOT packaging.version)
+#    - Parse the requirement with manager_util.parse_pip_spec() (packaging, PEP 508)
+#    - Any clause in ['<', '<=', '==', '===', '~='] that requires an older version → block
+#    - No version spec, or a clause that allows exactly the installed version → block,
+#      unless the requirement has extras
+#    - A clause that cannot be compared → block, with an error that explains how to proceed
+#    - Versions are compared with packaging.version (PEP 440)
 ```
 
-The unified resolver's `_is_downgrade_blacklisted()` method faithfully reproduces this logic.
-It uses `manager_util.StrictVersion` instead of `packaging.version.parse()` to ensure consistency with existing behavior.
+The unified resolver's `_is_downgrade_blacklisted()` method calls the same
+`manager_util.parse_pip_spec()` and `manager_util.downgrade_protection()`, so the two
+paths cannot diverge.
 
 ### Existing Code --index-url Handling (Asymmetric)
 

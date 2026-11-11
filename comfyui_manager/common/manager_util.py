@@ -17,6 +17,10 @@ import shlex
 import time
 from functools import lru_cache
 
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.specifiers import InvalidSpecifier, Specifier
+from packaging.version import InvalidVersion, Version
+
 
 cache_lock = threading.Lock()
 session_lock = threading.Lock()
@@ -286,6 +290,168 @@ def extract_package_as_zip(file_path, extract_path):
         return None
 
 
+def normalize_pip_name(name):
+    """Return the key used to compare pip package names.
+
+    Case is ignored and runs of '-', '_' and '.' are one separator (PEP 503), written
+    as '_'. `get_installed_packages()` returns its keys in this form.
+    """
+    return re.sub(r'[-_.]+', '_', name.strip()).lower()
+
+
+_PIP_LINE_TAIL_PATTERN = re.compile(r'\s[#-]')    # a comment or a pip option after the requirement
+_PIP_MALFORMED_PATTERN = re.compile(r'([A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[[^\]]*\]\s*)?[<>=!~(]')
+
+
+def parse_pip_spec(spec):
+    """Read a requirement line into (normalized name, has extras, version clauses).
+
+    Clauses are (operator, version) pairs, one per clause of the requirement. A direct
+    reference ('name @ url') has the single clause ('@', url), and a version that cannot
+    be parsed has ('?', text); neither can be compared with an installed version. A
+    trailing comment, an environment marker and pip options are ignored.
+
+    Returns (None, False, []) when the line does not name a package: URLs, paths and options.
+    """
+    text = spec.strip()
+    tail = _PIP_LINE_TAIL_PATTERN.search(text)
+    if tail is not None:
+        text = text[:tail.start()]
+
+    try:
+        requirement = Requirement(text)
+    except InvalidRequirement:
+        match = _PIP_MALFORMED_PATTERN.match(text)
+        if match is None:
+            return None, False, []
+        return normalize_pip_name(match.group(1)), match.group(2) is not None, [('?', text[match.end(1):].strip())]
+
+    name = normalize_pip_name(requirement.name)
+    extras = bool(requirement.extras)
+    if requirement.url:
+        return name, extras, [('@', requirement.url)]
+    return name, extras, [(specifier.operator, specifier.version) for specifier in requirement.specifier]
+
+
+def _upper_bound_state(operator, version, installed):
+    """Where an installed version sits against one upper-bound clause.
+
+    'above': pip would have to install an older version. 'at': the clause allows the
+    installed version and nothing newer in its range needs installing. 'below': the
+    clause does not constrain the installed version from above.
+    """
+    satisfied = Specifier(operator + version).contains(installed, prereleases=True)
+    if operator == '<':
+        return 'below' if satisfied else 'above'
+    if satisfied:
+        if operator == '<=' and not Specifier('==' + version).contains(installed, prereleases=True):
+            return 'below'
+        return 'at'
+    bound = Version(version[:-2] if version.endswith('.*') else version)
+    return 'above' if installed > bound else 'below'
+
+
+def downgrade_protection(spec, clauses, extras, installed):
+    """Decide whether a requirement may replace a downgrade-protected installed package.
+
+    `clauses` and `extras` come from `parse_pip_spec()`; `installed` is the installed
+    version. Returns (blocked, error).
+
+    The requirement is blocked when any clause would make pip install an older version.
+    Without extras it is also blocked when it has no version or allows exactly the
+    installed version, where pip would change nothing. With extras pip would still add
+    the extras' dependencies, so those two cases are allowed.
+
+    It is blocked as well when a clause cannot be compared with the installed version;
+    `error` then says what was skipped, why, and how to proceed.
+    """
+    if not clauses:
+        return not extras, None
+
+    try:
+        current = Version(installed)
+        states = set()
+        for operator, version in clauses:
+            if operator in ('>=', '>', '!='):
+                continue
+            if operator not in ('<', '<=', '==', '===', '~='):
+                raise InvalidSpecifier(operator)
+            states.add(_upper_bound_state(operator, version, current))
+    except (InvalidSpecifier, InvalidVersion):
+        return True, (
+            f"Skipped '{spec.strip()}': this package is protected by downgrade_blacklist, and its installed "
+            f"version ({installed}) cannot be compared with the requested version. Install it manually if it is "
+            "needed, or remove the package from downgrade_blacklist in config.ini if it was added there.")
+
+    return 'above' in states or ('at' in states and not extras), None
+
+
+def requires_newer_version(clauses, installed):
+    """Whether any clause sets a minimum that the installed version does not reach.
+
+    Clauses that cannot be compared count as requiring it, so that pip decides.
+    """
+    try:
+        current = Version(installed)
+        for operator, version in clauses:
+            if operator in ('>', '>=', '==', '===', '~='):
+                bound = Version(version[:-2] if version.endswith('.*') else version)
+                if current < bound or (operator == '>' and current == bound):
+                    return True
+            elif operator in ('@', '?'):
+                return True
+    except InvalidVersion:
+        return True
+    return False
+
+
+def pip_block_reason(spec, blacklist, downgrade_blacklist):
+    """Return why a requirement must not be installed, or None if it may be.
+
+    'blacklisted': the package is in `blacklist`.
+    'downgrade blacklisted': the package is in `downgrade_blacklist`, is installed, and
+    `downgrade_protection()` blocks the requirement.
+
+    Names are compared in normalized form, so 'opencv-python', 'opencv_python' and
+    'OpenCV-Python' are the same package in both lists and in the requirement.
+    """
+    name, extras, clauses = parse_pip_spec(spec)
+    if name is None:
+        # The line does not name a package: only an identical blacklist entry applies.
+        return 'blacklisted' if spec.strip() in blacklist else None
+
+    if name in {normalize_pip_name(x) for x in blacklist}:
+        return 'blacklisted'
+
+    if name not in {normalize_pip_name(x) for x in downgrade_blacklist}:
+        return None
+
+    installed = get_installed_packages().get(name)
+    if installed is None:
+        return None
+
+    blocked, error = downgrade_protection(spec, clauses, extras, installed)
+    if error is not None:
+        logging.error("[ComfyUI-Manager] %s", error)
+    return 'downgrade blacklisted' if blocked else None
+
+
+def pip_install_requirement(cmd):
+    """Return the requirement of a `pip install` command built by `make_pip_cmd()`, or None.
+
+    The base command varies (python -m pip, python -s -m pip, python -m uv pip, uv pip),
+    and options such as --index-url may follow the requirement.
+
+    The command must install one requirement, placed right after `install`. Only
+    `pip_install()` builds a command with an option first and several packages; it is
+    marked #FORCE and is not checked against the lists.
+    """
+    for i in range(len(cmd) - 2):
+        if cmd[i] == 'pip' and cmd[i + 1] == 'install':
+            return cmd[i + 2]
+    return None
+
+
 pip_map = None
 
 
@@ -304,8 +470,7 @@ def get_installed_packages(renew=False):
                     if y[0] == 'Package' or y[0].startswith('-'):
                         continue
 
-                    normalized_name = y[0].lower().replace('-', '_')
-                    pip_map[normalized_name] = y[1]
+                    pip_map[normalize_pip_name(y[0])] = y[1]
         except subprocess.CalledProcessError:
             logging.error("[ComfyUI-Manager] Failed to retrieve the information of installed pip packages.")
             return {}
@@ -506,7 +671,7 @@ class PIPFixer:
                         parsed = parse_requirement_line(x)
                         need_to_reinstall = True
 
-                        normalized_name = parsed['package'].lower().replace('-', '_')
+                        normalized_name = normalize_pip_name(parsed['package'])
                         if normalized_name in new_pip_versions:
                             if 'version' in parsed and 'operator' in parsed:
                                 cur = StrictVersion(new_pip_versions[normalized_name])
