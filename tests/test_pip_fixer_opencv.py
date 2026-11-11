@@ -1,8 +1,10 @@
 """PIPFixer brings the installed OpenCV packages to one version.
 
-The four OpenCV packages all install the `cv2` module. When they are installed at
-different versions, PIPFixer reinstalls the older ones at the newest installed version,
-without their dependencies.
+The four OpenCV packages all install the `cv2` module, and the one installed last
+provides it. When they are installed at different versions, PIPFixer reinstalls the
+older ones at the newest installed version, without their dependencies, and leaves
+`cv2` to the most complete package that is installed. OpenCV packages listed in
+pip_auto_fix.list are left to that list.
 """
 
 import subprocess
@@ -24,45 +26,66 @@ OTHER_PACKAGES = {
 
 @pytest.fixture
 def fix_broken(monkeypatch, tmp_path):
-    """Run PIPFixer.fix_broken() against a given `pip list` and return the pip commands it ran."""
+    """Run PIPFixer.fix_broken() against a given `pip list` and return the pip commands it ran, in order."""
     import_context()
     from comfyui_manager.common import manager_util
 
-    def run(installed):
-        packages = {**OTHER_PACKAGES, **installed}
+    def run(installed, pip_auto_fix=None):
         pip_list = 'Package Version\n------- -------\n' + ''.join(
-            f'{name} {version}\n' for name, version in packages.items())
+            f'{name} {version}\n' for name, version in {**OTHER_PACKAGES, **installed}.items())
         commands = []
 
         def check_output(cmd, **_):
             if cmd[-1] == 'list':
                 return pip_list
-            commands.append(cmd)
+            commands.append(' '.join(cmd[3:]))
             return ''
 
         monkeypatch.setattr(manager_util, 'make_pip_cmd', lambda cmd: ['python', '-m', 'pip', *cmd])
         monkeypatch.setattr(manager_util, 'subprocess', SimpleNamespace(
             check_output=check_output, CalledProcessError=subprocess.CalledProcessError))
         monkeypatch.setattr(manager_util, 'pip_map', None)
+        if pip_auto_fix is not None:
+            (tmp_path / 'pip_auto_fix.list').write_text(pip_auto_fix, encoding='utf-8')
 
         previous = manager_util.get_installed_packages(True)
         manager_util.PIPFixer(previous, str(tmp_path), str(tmp_path)).fix_broken()
-        return sorted(' '.join(cmd[3:]) for cmd in commands)
+        return commands
 
     return run
 
 
 def test_older_packages_are_raised_to_the_newest_installed_version(fix_broken):
+    """The most complete package, opencv-contrib-python, is installed last."""
     assert fix_broken({
         'opencv-python': '4.11.0.86',
         'opencv-python-headless': '4.10.0.84',
         'opencv-contrib-python': '4.10.0.84',
         'opencv-contrib-python-headless': '4.9.0.80',
     }) == [
+        'install --no-deps opencv-python-headless==4.11.0.86',
         'install --no-deps opencv-contrib-python-headless==4.11.0.86',
         'install --no-deps opencv-contrib-python==4.11.0.86',
-        'install --no-deps opencv-python-headless==4.11.0.86',
     ]
+
+
+def test_most_complete_package_is_reinstalled_when_it_was_already_the_newest(fix_broken):
+    """Raising opencv-python replaces the `cv2` of opencv-contrib-python, which must be put back."""
+    assert fix_broken({
+        'opencv-python': '4.10.0.84',
+        'opencv-contrib-python': '4.11.0.86',
+    }) == [
+        'install --no-deps opencv-python==4.11.0.86',
+        'install --no-deps --force-reinstall opencv-contrib-python==4.11.0.86',
+    ]
+
+
+def test_contrib_modules_rank_above_the_gui(fix_broken):
+    """opencv-contrib-python-headless is raised last, so it provides `cv2`; opencv-python is not reinstalled."""
+    assert fix_broken({
+        'opencv-python': '4.11.0.86',
+        'opencv-contrib-python-headless': '4.10.0.84',
+    }) == ['install --no-deps opencv-contrib-python-headless==4.11.0.86']
 
 
 def test_fourth_version_component_is_compared_as_a_number(fix_broken):
@@ -70,7 +93,28 @@ def test_fourth_version_component_is_compared_as_a_number(fix_broken):
     assert fix_broken({
         'opencv-python': '4.11.0.100',
         'opencv-python-headless': '4.11.0.86',
-    }) == ['install --no-deps opencv-python-headless==4.11.0.100']
+    }) == [
+        'install --no-deps opencv-python-headless==4.11.0.100',
+        'install --no-deps --force-reinstall opencv-python==4.11.0.100',
+    ]
+
+
+def test_opencv_packages_listed_in_pip_auto_fix_are_left_to_that_list(fix_broken):
+    """Raising a package pinned there would be undone by the pip_auto_fix.list step, at every startup."""
+    assert fix_broken({
+        'opencv-python': '4.10.0.84',
+        'opencv-contrib-python': '4.11.0.86',
+    }, pip_auto_fix='opencv-python==4.10.0.84\n') == []
+
+
+def test_other_packages_in_pip_auto_fix_do_not_stop_the_repair(fix_broken):
+    assert fix_broken({
+        'opencv-python-headless': '4.10.0.84',
+        'opencv-python': '4.11.0.86',
+    }, pip_auto_fix='torch>=2.5.0\n') == [
+        'install --no-deps opencv-python-headless==4.11.0.86',
+        'install --no-deps --force-reinstall opencv-python==4.11.0.86',
+    ]
 
 
 @pytest.mark.parametrize('installed', [
