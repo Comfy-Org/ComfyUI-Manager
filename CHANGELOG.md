@@ -20,6 +20,20 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   restart. Server startup creates a commented template with no default exceptions;
   other installation security checks still apply.
 
+### Fixed
+
+- Apply `downgrade_blacklist` to packages whose names contain a hyphen, such as
+  `opencv-python`; they were never protected. Names in `downgrade_blacklist`,
+  `pip_blacklist.list`, and requirements are now compared without regard to case
+  or to `-` versus `_`, and a requirement written with spaces, extras, further
+  version clauses, or an environment marker is read correctly (#3458).
+- Skip a `downgrade_blacklist` package whose installed or requested version cannot
+  be compared, such as `0.0.30+cu126` or `4.*`, and log the reason with how to
+  install it. The list check previously raised an error or let the install proceed.
+- Apply `downgrade_blacklist` and `pip_blacklist.list` to requirements that carry
+  pip options such as `--index-url`, and to installs run through uv in embedded
+  Python or as a standalone tool. These installs were not checked.
+
 ## [4.3] - 2026-09-19
 
 ### Security

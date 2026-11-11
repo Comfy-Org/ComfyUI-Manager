@@ -286,6 +286,113 @@ def extract_package_as_zip(file_path, extract_path):
         return None
 
 
+def normalize_pip_name(name):
+    """Return the key used to compare pip package names: lowercase with '-' as '_'.
+
+    `get_installed_packages()` returns its keys in this form.
+    """
+    return name.strip().lower().replace('-', '_')
+
+
+_PIP_NAME_PATTERN = re.compile(r'([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[[^\]]*\])?\s*')   # name and extras
+_PIP_VERSION_PATTERN = re.compile(r'([<>=!~]+)\s*([^\s,;]*)')                          # first version clause
+
+
+def parse_pip_spec(spec):
+    """Split a requirement into (normalized name, operator, version).
+
+    Only the first version clause is read; further clauses, an environment marker,
+    a comment and trailing pip options are ignored. Operator and version are None
+    when the requirement has no version clause. A malformed clause such as '==' or
+    '=>1.0' is returned as written.
+
+    Returns (None, None, None) for anything other than a named requirement, such
+    as URLs, paths, options and direct references ('name @ url').
+    """
+    spec = spec.strip()
+    match = _PIP_NAME_PATTERN.match(spec)
+    if match is None:
+        return None, None, None
+
+    name = normalize_pip_name(match.group(1))
+    rest = spec[match.end():]
+    version_match = _PIP_VERSION_PATTERN.match(rest)
+    if version_match is not None:
+        return name, version_match.group(1), version_match.group(2)
+
+    # Without a version clause, only a marker, a comment or a pip option may follow.
+    if not rest or rest[0] in ';#' or (rest[0] == '-' and spec[match.end() - 1].isspace()):
+        return name, None, None
+    return None, None, None
+
+
+def downgrade_protection(spec, operator, version, installed):
+    """Decide whether a requirement may replace a downgrade-protected installed package.
+
+    `operator` and `version` come from `parse_pip_spec()`; `installed` is the installed
+    version. Returns (blocked, error). The requirement is blocked when it has no version,
+    or pins or caps the version at or below the installed one. It is also blocked when
+    that cannot be decided; `error` then says what was skipped, why, and how to proceed.
+    """
+    if operator is None:
+        return True, None
+    if operator in ('>=', '>', '!='):
+        return False, None
+
+    try:
+        if operator not in ('<=', '==', '===', '<', '~='):
+            raise ValueError(f'unknown operator: {operator}')
+        return StrictVersion(installed) >= StrictVersion(version), None
+    except ValueError:
+        return True, (
+            f"Skipped '{spec.strip()}': this package is protected by downgrade_blacklist, and its installed "
+            f"version ({installed}) cannot be compared with the requested version. Install it manually if it is "
+            "needed, or remove the package from downgrade_blacklist in config.ini if it was added there.")
+
+
+def pip_block_reason(spec, blacklist, downgrade_blacklist):
+    """Return why a requirement must not be installed, or None if it may be.
+
+    'blacklisted': the package is in `blacklist`.
+    'downgrade blacklisted': the package is in `downgrade_blacklist`, is installed, and
+    `downgrade_protection()` blocks the requirement.
+
+    Names are compared in normalized form, so 'opencv-python', 'opencv_python' and
+    'OpenCV-Python' are the same package in both lists and in the requirement.
+    """
+    name, operator, version = parse_pip_spec(spec)
+    if name is None:
+        # Not a named requirement: only an identical blacklist entry applies.
+        return 'blacklisted' if spec.strip() in blacklist else None
+
+    if name in {normalize_pip_name(x) for x in blacklist}:
+        return 'blacklisted'
+
+    if name not in {normalize_pip_name(x) for x in downgrade_blacklist}:
+        return None
+
+    installed = get_installed_packages().get(name)
+    if installed is None:
+        return None
+
+    blocked, error = downgrade_protection(spec, operator, version, installed)
+    if error is not None:
+        logging.error("[ComfyUI-Manager] %s", error)
+    return 'downgrade blacklisted' if blocked else None
+
+
+def pip_install_requirement(cmd):
+    """Return the first argument of a `pip install` command built by `make_pip_cmd()`, or None.
+
+    The base command varies (python -m pip, python -s -m pip, python -m uv pip, uv pip),
+    and options such as --index-url may follow the requirement.
+    """
+    for i in range(len(cmd) - 2):
+        if cmd[i] == 'pip' and cmd[i + 1] == 'install':
+            return cmd[i + 2]
+    return None
+
+
 pip_map = None
 
 
@@ -304,8 +411,7 @@ def get_installed_packages(renew=False):
                     if y[0] == 'Package' or y[0].startswith('-'):
                         continue
 
-                    normalized_name = y[0].lower().replace('-', '_')
-                    pip_map[normalized_name] = y[1]
+                    pip_map[normalize_pip_name(y[0])] = y[1]
         except subprocess.CalledProcessError:
             logging.error("[ComfyUI-Manager] Failed to retrieve the information of installed pip packages.")
             return {}
@@ -506,7 +612,7 @@ class PIPFixer:
                         parsed = parse_requirement_line(x)
                         need_to_reinstall = True
 
-                        normalized_name = parsed['package'].lower().replace('-', '_')
+                        normalized_name = normalize_pip_name(parsed['package'])
                         if normalized_name in new_pip_versions:
                             if 'version' in parsed and 'operator' in parsed:
                                 cur = StrictVersion(new_pip_versions[normalized_name])
