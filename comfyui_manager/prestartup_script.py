@@ -16,6 +16,7 @@ from .common import security_check
 from .common import manager_util
 from .common import cm_global
 from .common import manager_downloader
+from .common import manager_security
 from .common.timestamp_utils import current_timestamp
 import folder_paths
 
@@ -67,6 +68,7 @@ comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
 
 custom_nodes_base_path = folder_paths.get_folder_paths('custom_nodes')[0]
 manager_files_path = folder_paths.get_system_user_directory("manager")
+manager_security.ensure_nodepack_whitelist(manager_files_path)
 manager_pip_overrides_path = os.path.join(manager_files_path, "pip_overrides.json")
 manager_pip_blacklist_path = os.path.join(manager_files_path, "pip_blacklist.list")
 restore_snapshot_path = os.path.join(manager_files_path, "startup-scripts", "restore-snapshot.json")
@@ -571,12 +573,12 @@ if os.path.exists(restore_snapshot_path):
             new_env['COMFYUI_PATH'] = os.path.dirname(folder_paths.__file__)
 
         from comfy.cli_args import args
-        from .common import manager_security
 
         allow_flagged = default_conf.get('allow_flagged_nodepack_install', '').lower() == 'true'
         new_env['_COMFYUI_MANAGER_CNR_ALLOW_FLAGGED'] = str(
             allow_flagged or manager_security.is_loopback_listener(args.listen)
         ).lower()
+        new_env['_COMFYUI_MANAGER_CNR_WHITELIST_DIR'] = manager_files_path
         cmd_str = [sys.executable, '-m', 'cm_cli', 'restore-snapshot', restore_snapshot_path]
         exit_code = process_wrap(cmd_str, custom_nodes_base_path, handler=msg_capture, env=new_env)
 
@@ -630,14 +632,15 @@ def execute_lazy_cnr_switch(target, zip_url, from_path, to_path, no_deps, custom
     import uuid
     import shutil
     from comfy.cli_args import args
-    from .common.manager_security import FLAGGED_NODEPACK_INSTALL_GUIDANCE, is_cnr_install_allowed
 
     allow_flagged = default_conf.get('allow_flagged_nodepack_install', '').lower() == 'true'
-    if not is_cnr_install_allowed(status or 'NodeVersionStatusFlagged', allow_flagged, args.listen):
+    if not manager_security.is_cnr_install_allowed(
+            status or 'NodeVersionStatusFlagged', allow_flagged, args.listen,
+            node_id=target, manager_files_path=manager_files_path):
         if not status:
             logging.error("Cannot execute reserved CNR switch for '%s': stored Registry status is missing. Request the installation again so its current status can be checked.", target)
         else:
-            logging.error(FLAGGED_NODEPACK_INSTALL_GUIDANCE)
+            logging.error(manager_security.FLAGGED_NODEPACK_INSTALL_GUIDANCE)
         return False
 
     # 1. download

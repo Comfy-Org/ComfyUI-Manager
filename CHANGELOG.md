@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Security
+
+- Allow administrators to exempt selected Registry IDs from the flagged CNR
+  install restriction using `nodepack-whitelist.list` beside Manager's `config.ini`.
+  Entries are case-insensitive, apply to all versions, and take effect without a
+  restart. Server startup creates a commented template with no default exceptions;
+  other installation security checks still apply.
+
 ## [4.3] - 2026-09-19
 
 ### Security
