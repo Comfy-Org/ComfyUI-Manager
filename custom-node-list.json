@@ -1,17 +1,6 @@
 {
     "custom_nodes": [
         {
-            "author": "bi-toru-to",
-            "title": "SweepKit",
-            "id": "comfyui-sweepkit",
-            "reference": "https://github.com/bi-toru-to/ComfyUI-SweepKit",
-            "files": [
-                "https://github.com/bi-toru-to/ComfyUI-SweepKit"
-            ],
-            "install_type": "git-clone",
-            "description": "Parameter sweeps for ComfyUI: try every combination of seeds, cfg, prompts, LoRA strengths, samplers or models in one run, with images named by their values, labelled grids and a CSV run list."
-        },
-        {
             "author": "Carasibana",
             "title": "ComfyUI-SimpleFloatSlider",
             "reference": "https://github.com/Carasibana/ComfyUI-SimplayboyleFloatSlider",
@@ -60645,6 +60634,17 @@
             "description": "Generate and edit images through the Veida AI API. Works without an API key on the free tier; add a key to use your account's models (GPT Image 2.5, GPT Image 2, Nano Banana 2, Seedream 5.0)."
         },
         {
+            "author": "hanshs474",
+            "title": "ComfyUI-FreeImageToVideo",
+            "id": "comfyui-freeimagetovideo",
+            "reference": "https://github.com/hanshs474/ComfyUI-FreeImageToVideo",
+            "files": [
+                "https://github.com/hanshs474/ComfyUI-FreeImageToVideo"
+            ],
+            "install_type": "git-clone",
+            "description": "Text to video and image to video with sound (MiniMax H3) through the Free Image to Video API: connect any IMAGE as the first frame or leave it empty for text to video; the MP4 is saved to the output folder. No local GPU; needs a Free Image to Video API key."
+        },
+        {
             "author": "lostmywind",
             "title": "Workflow Doctor",
             "id": "workflow-doctor",
@@ -62357,15 +62357,24 @@
             "description": "Finishing nodes that make generated images read more like photographs: lens vignette and colour fringes, film halation, and grain that behaves like film."
         },
         {
-            "author": "hanshs474",
-            "title": "ComfyUI-FreeImageToVideo",
-            "id": "comfyui-freeimagetovideo",
-            "reference": "https://github.com/hanshs474/ComfyUI-FreeImageToVideo",
+            "author": "Statite",
+            "title": "ComfyUI-SpecAR",
+            "id": "comfyui-specar",
+            "reference": "https://github.com/statite-ai/ComfyUI-SpecAR",
+            "files": ["https://github.com/statite-ai/ComfyUI-SpecAR"],
+            "install_type": "git-clone",
+            "description": "SpecAR: Training-free 2.04x-2.81x speedup on Krea Realtime 14B + Self-Forcing 1.3B (up to 23.1 FPS real-time on B200, 2.67x on H100) with lazy target KV caching and low-VRAM offload."
+        },
+        {
+            "author": "bi-toru-to",
+            "title": "SweepKit",
+            "id": "comfyui-sweepkit",
+            "reference": "https://github.com/bi-toru-to/ComfyUI-SweepKit",
             "files": [
-                "https://github.com/hanshs474/ComfyUI-FreeImageToVideo"
+                "https://github.com/bi-toru-to/ComfyUI-SweepKit"
             ],
             "install_type": "git-clone",
-            "description": "Text to video and image to video with sound (MiniMax H3) through the Free Image to Video API: connect any IMAGE as the first frame or leave it empty for text to video; the MP4 is saved to the output folder. No local GPU; needs a Free Image to Video API key."
+            "description": "Parameter sweeps for ComfyUI: try every combination of seeds, cfg, prompts, LoRA strengths, samplers or models in one run, with images named by their values, labelled grids and a CSV run list."
         },
         {
             "author": "ntdviet",
@@ -62585,15 +62594,6 @@
             ],
             "install_type": "unzip",
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
-        },
-        {
-            "author": "Statite",
-            "title": "ComfyUI-SpecAR",
-            "id": "comfyui-specar",
-            "reference": "https://github.com/statite-ai/ComfyUI-SpecAR",
-            "files": ["https://github.com/statite-ai/ComfyUI-SpecAR"],
-            "install_type": "git-clone",
-            "description": "SpecAR: Training-free 2.04x-2.81x speedup on Krea Realtime 14B + Self-Forcing 1.3B (up to 23.1 FPS real-time on B200, 2.67x on H100) with lazy target KV caching and low-VRAM offload."
         }
     ]
 }
