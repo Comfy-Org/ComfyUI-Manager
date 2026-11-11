@@ -2,13 +2,13 @@
 # setup_e2e_env.sh — Automated E2E environment setup for ComfyUI + Manager
 #
 # Creates an isolated ComfyUI installation with ComfyUI-Manager for E2E testing.
-# Idempotent: skips setup if marker file and key artifacts already exist.
+# Idempotent: skips setup if marker, key artifacts, and a supported venv already exist.
 #
 # Input env vars:
 #   E2E_ROOT       — target directory (default: auto-generated via mktemp)
 #   MANAGER_ROOT   — manager repo root (default: auto-detected from script location)
 #   COMFYUI_BRANCH — ComfyUI branch to clone (default: master)
-#   PYTHON         — Python executable (default: python3)
+#   UV_PYTHON      — optional uv Python request for a new venv
 #
 # Output (last line of stdout):
 #   E2E_ROOT=/path/to/environment
@@ -44,29 +44,25 @@ detect_manager_root() {
     return 1
 }
 
+check_python_version() {
+    "$1" -c 'import sys
+if sys.version_info < (3, 10):
+    sys.exit(f"Python 3.10+ required, found {sys.version_info.major}.{sys.version_info.minor}")' \
+        || die "Cannot use venv Python: $1. Recreate the E2E environment with Python 3.10+."
+}
+
 # --- Validate prerequisites ---
 validate_prerequisites() {
-    local py="${PYTHON:-python3}"
     local missing=()
 
     command -v git   >/dev/null 2>&1 || missing+=("git")
     command -v uv    >/dev/null 2>&1 || missing+=("uv")
-    command -v "$py" >/dev/null 2>&1 || missing+=("$py")
 
     if [[ ${#missing[@]} -gt 0 ]]; then
         die "Missing prerequisites: ${missing[*]}"
     fi
 
-    # Verify Python version >= 3.9
-    local py_version
-    py_version=$("$py" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-    local major minor
-    major="${py_version%%.*}"
-    minor="${py_version##*.}"
-    if [[ "$major" -lt 3 ]] || { [[ "$major" -eq 3 ]] && [[ "$minor" -lt 9 ]]; }; then
-        die "Python 3.9+ required, found $py_version"
-    fi
-    log "Prerequisites OK (python=$py_version, git=$(git --version | awk '{print $3}'), uv=$(uv --version 2>&1 | awk '{print $2}'))"
+    log "Prerequisites OK (git=$(git --version | awk '{print $3}'), uv=$(uv --version 2>&1 | awk '{print $2}'))"
 }
 
 # --- Check idempotency: skip if already set up ---
@@ -151,7 +147,6 @@ log "MANAGER_ROOT=$MANAGER_ROOT"
 # Validate prerequisites
 validate_prerequisites
 
-PYTHON="${PYTHON:-python3}"
 COMFYUI_BRANCH="${COMFYUI_BRANCH:-master}"
 
 # Create or use E2E_ROOT
@@ -166,6 +161,9 @@ else
 fi
 
 # Idempotency check
+if [[ -d "$E2E_ROOT/venv" ]]; then
+    check_python_version "$E2E_ROOT/venv/bin/python"
+fi
 check_already_setup "$E2E_ROOT"
 
 # Cleanup trap: remove E2E_ROOT on failure only if we created it
@@ -191,7 +189,8 @@ log "Step 2/8: Creating virtual environment..."
 if [[ -d "$E2E_ROOT/venv" ]]; then
     log "  venv already exists, skipping"
 else
-    uv venv "$E2E_ROOT/venv"
+    uv venv --project "$MANAGER_ROOT" "$E2E_ROOT/venv"
+    check_python_version "$E2E_ROOT/venv/bin/python"
 fi
 VENV_PY="$E2E_ROOT/venv/bin/python"
 

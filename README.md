@@ -14,6 +14,8 @@
 
 ## Installation
 
+Requires Python 3.10 or newer, matching ComfyUI's minimum Python version.
+
 * When installing the latest ComfyUI, it will be automatically installed as a dependency, so manual installation is no longer necessary.
 
 * Manual installation of the nightly version:

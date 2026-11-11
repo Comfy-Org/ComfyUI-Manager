@@ -37,7 +37,7 @@ jobs:
 
   code-quality:
     name: Code Quality Checks
-    # Python 3.9 builds are unavailable for Ubuntu 26.04.
+    # Use a fixed image for syntax checks; E2E separately tests the latest runners.
     runs-on: ubuntu-24.04
     steps:
     - uses: actions/checkout@v4
@@ -53,11 +53,13 @@ jobs:
         files_ignore: |
           comfyui_manager/legacy/**
           
-    - name: Setup Python
-      if: steps.changed-py-files.outputs.any_changed == 'true'
+    - name: Setup minimum supported Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.9'
+        python-version: '3.10'
+
+    - name: Check syntax on minimum supported Python
+      run: python -m compileall -q comfyui_manager cm_cli
     
     - name: Install dependencies
       if: steps.changed-py-files.outputs.any_changed == 'true'
