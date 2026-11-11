@@ -899,7 +899,8 @@ class UnifiedManager:
 
     def _get_cnr_install_info(self, node_id, version_spec):
         node_info = cnr_utils.install_node(node_id, version_spec)
-        if node_info is not None and node_info.status == 'NodeVersionStatusFlagged' and not manager_funcs.is_flagged_install_allowed():
+        if (node_info is not None and node_info.status == 'NodeVersionStatusFlagged'
+                and not manager_funcs.is_flagged_install_allowed(node_id)):
             logging.error(manager_security.FLAGGED_NODEPACK_INSTALL_GUIDANCE)
             raise PermissionError(manager_security.FLAGGED_NODEPACK_INSTALL_ERROR)
         return node_info
@@ -1712,9 +1713,13 @@ class ManagerFuncs:
     def __init__(self):
         pass
 
-    def is_flagged_install_allowed(self):
-        # Server-scheduled restore children inherit only the resolved permission.
-        return os.environ.get('_COMFYUI_MANAGER_CNR_ALLOW_FLAGGED', 'true') == 'true'
+    def is_flagged_install_allowed(self, node_id):
+        # Restore children use the parent's permission and whitelist directory,
+        # even if the CLI resolves a different user directory.
+        return manager_security.is_cnr_install_allowed(
+            'NodeVersionStatusFlagged', os.environ.get('_COMFYUI_MANAGER_CNR_ALLOW_FLAGGED', 'true') == 'true',
+            listen_address=None, node_id=node_id,
+            manager_files_path=os.environ.get('_COMFYUI_MANAGER_CNR_WHITELIST_DIR'))
 
     def run_script(self, cmd, cwd='.'):
         if len(cmd) > 0 and cmd[0].startswith("#"):

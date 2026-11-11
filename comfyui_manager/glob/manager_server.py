@@ -133,8 +133,10 @@ def error_response(
 
 
 class ManagerFuncsInComfyUI(core.ManagerFuncs):
-    def is_flagged_install_allowed(self):
-        return core.get_config()['allow_flagged_nodepack_install'] or manager_security.is_loopback_listener(args.listen)
+    def is_flagged_install_allowed(self, node_id):
+        return manager_security.is_cnr_install_allowed(
+            'NodeVersionStatusFlagged', core.get_config()['allow_flagged_nodepack_install'], args.listen,
+            node_id=node_id, manager_files_path=context.manager_files_path)
 
     def run_script(self, cmd, cwd="."):
         if len(cmd) > 0 and cmd[0].startswith("#"):
