@@ -185,82 +185,7 @@ def remap_pip_package(pkg):
 
 
 def is_blacklisted(name):
-    name = name.strip()
-
-    pattern = r'([^<>!~=]+)([<>!~=]=?)([^ ]*)'
-    match = re.search(pattern, name)
-
-    if match:
-        name = match.group(1)
-
-    name = manager_util.normalize_pip_name(name)
-    if any(name == manager_util.normalize_pip_name(item) for item in cm_global.pip_blacklist):
-        return True
-
-    if any(name == manager_util.normalize_pip_name(item) for item in cm_global.pip_downgrade_blacklist):
-        pips = manager_util.get_installed_packages()
-
-        if match is None:
-            if name in pips:
-                return True
-        elif match.group(2) in ['<=', '==', '<', '~=']:
-            if name in pips:
-                if manager_util.StrictVersion(pips[name]) >= manager_util.StrictVersion(match.group(3)):
-                    return True
-
-    return False
-
-
-def is_installed(name):
-    name = name.strip()
-
-    if name.startswith('#'):
-        return True
-
-    pattern = r'([^<>!~=]+)([<>!~=]=?)([0-9.a-zA-Z]*)'
-    match = re.search(pattern, name)
-
-    if match:
-        name = match.group(1)
-
-    name = manager_util.normalize_pip_name(name)
-    if any(name == manager_util.normalize_pip_name(item) for item in cm_global.pip_blacklist):
-        return True
-
-    if any(name == manager_util.normalize_pip_name(item) for item in cm_global.pip_downgrade_blacklist):
-        pips = manager_util.get_installed_packages()
-
-        if match is None:
-            if name in pips:
-                return True
-        elif match.group(2) in ['<=', '==', '<', '~=']:
-            if name in pips:
-                if manager_util.StrictVersion(pips[name]) >= manager_util.StrictVersion(match.group(3)):
-                    print(f"[ComfyUI-Manager] skip black listed pip installation: '{name}'")
-                    return True
-
-    pkg = manager_util.get_installed_packages().get(name.lower())
-    if pkg is None:
-        return False  # update if not installed
-
-    if match is None:
-        return True   # don't update if version is not specified
-
-    if match.group(2) in ['>', '>=']:
-        if manager_util.StrictVersion(pkg) < manager_util.StrictVersion(match.group(3)):
-            return False
-        elif manager_util.StrictVersion(pkg) > manager_util.StrictVersion(match.group(3)):
-            print(f"[SKIP] Downgrading pip package isn't allowed: {name.lower()} (cur={pkg})")
-
-    if match.group(2) == '==':
-        if manager_util.StrictVersion(pkg) < manager_util.StrictVersion(match.group(3)):
-            return False
-
-    if match.group(2) == '~=':
-        if manager_util.StrictVersion(pkg) == manager_util.StrictVersion(match.group(3)):
-            return False
-
-    return name.lower() in manager_util.get_installed_packages()
+    return manager_util.pip_block_reason(name, cm_global.pip_blacklist, cm_global.pip_downgrade_blacklist) is not None
 
 
 def normalize_channel(channel):
@@ -1940,14 +1865,10 @@ def try_install_script(url, repo_path, install_cmd, instant_execution=False):
         reserve_script(repo_path, install_cmd)
         return True
     else:
-        if len(install_cmd) == 5 and install_cmd[2:4] == ['pip', 'install']:
-            if is_blacklisted(install_cmd[4]):
-                print(f"[ComfyUI-Manager] skip black listed pip installation: '{install_cmd[4]}'")
-                return True
-        elif len(install_cmd) == 6 and install_cmd[3:5] == ['pip', 'install']:  # uv mode
-            if is_blacklisted(install_cmd[5]):
-                print(f"[ComfyUI-Manager] skip black listed pip installation: '{install_cmd[5]}'")
-                return True
+        requirement = manager_util.pip_install_requirement(install_cmd)
+        if requirement is not None and is_blacklisted(requirement):
+            print(f"[ComfyUI-Manager] skip black listed pip installation: '{requirement}'")
+            return True
 
         print(f"\n## ComfyUI-Manager: EXECUTE => {install_cmd}")
         code = manager_funcs.run_script(install_cmd, cwd=repo_path)

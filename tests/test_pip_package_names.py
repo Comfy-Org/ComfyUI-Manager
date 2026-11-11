@@ -11,9 +11,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1] / "comfyui_manager"
 GUARDS = [
     ("glob/manager_core.py", "is_blacklisted"),
-    ("glob/manager_core.py", "is_installed"),
     ("legacy/manager_core.py", "is_blacklisted"),
-    ("legacy/manager_core.py", "is_installed"),
     ("prestartup_script.py", "is_installed"),
 ]
 

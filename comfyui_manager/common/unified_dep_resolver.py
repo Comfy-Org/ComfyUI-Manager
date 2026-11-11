@@ -122,10 +122,6 @@ _INLINE_DANGEROUS_OPTIONS = re.compile(
 # Credential redaction in index URLs.
 _CREDENTIAL_PATTERN = re.compile(r'://([^@]+)@')
 
-# Version-spec parsing (same regex as existing ``is_blacklisted()``).
-_VERSION_SPEC_PATTERN = re.compile(r'([^<>!~=]+)([<>!~=]=?)([^ ]*)')
-
-
 
 def collect_node_pack_paths(custom_nodes_dirs: list[str]) -> list[str]:
     """Collect all installed node-pack directory paths.
@@ -209,11 +205,12 @@ class UnifiedDepResolver:
     ) -> None:
         self.node_pack_paths = node_pack_paths
         self.base_requirements = base_requirements or []
-        self.blacklist: set[str] = blacklist if blacklist is not None else set()
+        # Requirement names are compared in normalised form, so the lists are too.
+        self.blacklist: set[str] = {manager_util.normalize_pip_name(x) for x in blacklist or ()}
         self.overrides: dict[str, str] = overrides if overrides is not None else {}
-        self.downgrade_blacklist: list[str] = (
-            downgrade_blacklist if downgrade_blacklist is not None else []
-        )
+        self.downgrade_blacklist: list[str] = [
+            manager_util.normalize_pip_name(x) for x in downgrade_blacklist or ()
+        ]
 
     # ------------------------------------------------------------------
     # Public API
@@ -610,43 +607,34 @@ class UnifiedDepResolver:
 
     @staticmethod
     def _extract_package_name(spec: str) -> str:
-        """Extract normalised package name from a requirement spec."""
-        name = re.split(r'[><=!~;\[@ ]', spec)[0].strip()
-        return name.lower().replace('-', '_')
+        """Extract normalised package name from a requirement spec.
+
+        The name is read by ``manager_util.parse_pip_spec()``, as in ``is_blacklisted()``.
+        A line that names no package is compared as a whole.
+        """
+        name = manager_util.parse_pip_spec(spec)[0]
+        return name if name is not None else manager_util.normalize_pip_name(spec)
 
     def _is_downgrade_blacklisted(self, pkg_name: str, pkg_spec: str,
                                       installed: dict) -> bool:
-        """Reproduce the downgrade logic from ``is_blacklisted()``.
+        """Apply the downgrade rule shared with ``is_blacklisted()``.
 
-        Uses ``manager_util.StrictVersion`` — **not** ``packaging.version``.
+        Parsing and the decision come from ``manager_util.parse_pip_spec()`` and
+        ``manager_util.downgrade_protection()``, so both paths give the same result.
 
         Args:
             installed: Pre-fetched snapshot from
                 ``manager_util.get_installed_packages()``.
         """
-        if pkg_name not in self.downgrade_blacklist:
+        if pkg_name not in self.downgrade_blacklist or pkg_name not in installed:
             return False
 
-        match = _VERSION_SPEC_PATTERN.search(pkg_spec)
-
-        if match is None:
-            # No version spec: prevent reinstall if already installed
-            if pkg_name in installed:
-                return True
-        elif match.group(2) in ('<=', '==', '<', '~='):
-            if pkg_name in installed:
-                try:
-                    installed_ver = manager_util.StrictVersion(installed[pkg_name])
-                    requested_ver = manager_util.StrictVersion(match.group(3))
-                    if installed_ver >= requested_ver:
-                        return True
-                except (ValueError, TypeError):
-                    logger.warning(
-                        "[UnifiedDepResolver] version parse failed: %s", pkg_spec,
-                    )
-                    return False
-
-        return False
+        _, extras, clauses = manager_util.parse_pip_spec(pkg_spec)
+        blocked, error = manager_util.downgrade_protection(
+            pkg_spec, clauses, extras, installed[pkg_name])
+        if error is not None:
+            logger.error("[UnifiedDepResolver] %s", error)
+        return blocked
 
     # ------------------------------------------------------------------
     # Helpers — parsing & output
