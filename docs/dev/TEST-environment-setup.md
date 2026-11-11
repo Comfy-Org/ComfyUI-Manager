@@ -25,11 +25,13 @@ rm -rf /tmp/e2e_test
 
 | Script | Purpose | Input | Output |
 |--------|---------|-------|--------|
-| `setup_e2e_env.sh` | Full environment setup (8 steps) | `E2E_ROOT`, `MANAGER_ROOT`, `COMFYUI_BRANCH` (default: master), `PYTHON` (default: python3) | `E2E_ROOT=<path>` on last line |
+| `setup_e2e_env.sh` | Full environment setup (8 steps) | `E2E_ROOT`, `MANAGER_ROOT`, `COMFYUI_BRANCH` (default: master), `UV_PYTHON` (optional uv request) | `E2E_ROOT=<path>` on last line |
 | `start_comfyui.sh` | Foreground-blocking launcher | `E2E_ROOT`, `PORT` (default: 8199), `TIMEOUT` (default: 120s) | `COMFYUI_PID=<pid> PORT=<port>` |
 | `stop_comfyui.sh` | Graceful shutdown | `E2E_ROOT`, `PORT` (default: 8199) | — |
 
-**Idempotent**: `setup_e2e_env.sh` checks for a `.e2e_setup_complete` marker file and skips setup if the environment already exists.
+**Interpreter selection**: both setup scripts use `uv venv --project "$MANAGER_ROOT"`, so uv reads Manager's `pyproject.toml` and honors its `.python-version` file and `UV_PYTHON`. To select a specific interpreter, set `UV_PYTHON` to a request such as `3.10` or an absolute executable path. The scripts do not read the old `PYTHON` variable. Explicit uv selections can override the project requirement, so the resulting venv is still checked for Python 3.10+. Selection applies only to new venvs.
+
+**Idempotent**: both setup scripts reuse a completed environment only after checking that its venv runs Python 3.10+. If an existing venv is too old or its interpreter cannot run, recreate it with a supported interpreter in a fresh `E2E_ROOT`.
 
 **Blocking mechanism**: `start_comfyui.sh` uses `tail -n +1 -f | grep -q -m1 'To see the GUI'` to block until ComfyUI is ready. No polling loop needed.
 
@@ -37,7 +39,7 @@ rm -rf /tmp/e2e_test
 
 ## Prerequisites
 
-- Python 3.9+
+- Python 3.10+ in the E2E venv (selected automatically by uv during automated setup)
 - Git
 - `uv` (install via `pip install uv` or [standalone](https://docs.astral.sh/uv/getting-started/installation/))
 

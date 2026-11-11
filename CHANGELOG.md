@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Changed
+
+- Require Python 3.10 or newer to match ComfyUI's minimum supported version.
+  Python 3.9 is no longer supported.
+
 ### Security
 
 - Allow administrators to exempt selected Registry IDs from the flagged CNR
