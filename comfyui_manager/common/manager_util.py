@@ -289,6 +289,11 @@ def extract_package_as_zip(file_path, extract_path):
 pip_map = None
 
 
+def normalize_pip_name(name):
+    """Use the same package-name keys as the installed pip inventory."""
+    return name.strip().lower().replace('-', '_')
+
+
 def get_installed_packages(renew=False):
     global pip_map
 
@@ -304,7 +309,7 @@ def get_installed_packages(renew=False):
                     if y[0] == 'Package' or y[0].startswith('-'):
                         continue
 
-                    normalized_name = y[0].lower().replace('-', '_')
+                    normalized_name = normalize_pip_name(y[0])
                     pip_map[normalized_name] = y[1]
         except subprocess.CalledProcessError:
             logging.error("[ComfyUI-Manager] Failed to retrieve the information of installed pip packages.")
@@ -506,7 +511,7 @@ class PIPFixer:
                         parsed = parse_requirement_line(x)
                         need_to_reinstall = True
 
-                        normalized_name = parsed['package'].lower().replace('-', '_')
+                        normalized_name = normalize_pip_name(parsed['package'])
                         if normalized_name in new_pip_versions:
                             if 'version' in parsed and 'operator' in parsed:
                                 cur = StrictVersion(new_pip_versions[normalized_name])

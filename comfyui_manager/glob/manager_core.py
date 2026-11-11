@@ -192,10 +192,11 @@ def is_blacklisted(name):
     if match:
         name = match.group(1)
 
-    if name in cm_global.pip_blacklist:
+    name = manager_util.normalize_pip_name(name)
+    if any(name == manager_util.normalize_pip_name(item) for item in cm_global.pip_blacklist):
         return True
 
-    if name in cm_global.pip_downgrade_blacklist:
+    if any(name == manager_util.normalize_pip_name(item) for item in cm_global.pip_downgrade_blacklist):
         pips = manager_util.get_installed_packages()
 
         if match is None:
@@ -221,10 +222,11 @@ def is_installed(name):
     if match:
         name = match.group(1)
 
-    if name in cm_global.pip_blacklist:
+    name = manager_util.normalize_pip_name(name)
+    if any(name == manager_util.normalize_pip_name(item) for item in cm_global.pip_blacklist):
         return True
 
-    if name in cm_global.pip_downgrade_blacklist:
+    if any(name == manager_util.normalize_pip_name(item) for item in cm_global.pip_downgrade_blacklist):
         pips = manager_util.get_installed_packages()
 
         if match is None:
