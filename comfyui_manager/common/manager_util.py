@@ -576,6 +576,15 @@ class PIPFixer:
         self.comfyui_path = comfyui_path
         self.manager_files_path = manager_files_path
 
+    def pip_auto_fix_names(self):
+        """Return the normalized names of the packages listed in pip_auto_fix.list."""
+        pip_auto_fix_path = os.path.join(self.manager_files_path, "pip_auto_fix.list")
+        if not os.path.exists(pip_auto_fix_path):
+            return set()
+
+        with open(pip_auto_fix_path, 'r', encoding="UTF-8", errors="ignore") as f:
+            return {parse_pip_spec(x)[0] for x in f.readlines()}
+
     def fix_broken(self):
         new_pip_versions = get_installed_packages(True)
 
@@ -602,33 +611,34 @@ class PIPFixer:
             logging.error("[ComfyUI-Manager] Failed to restore PyTorch")
             logging.error(e)
 
-        # fix opencv
+        # fix opencv - the OpenCV packages all install the `cv2` module; keep them at one version
         try:
-            ocp = new_pip_versions.get('opencv-contrib-python')
-            ocph = new_pip_versions.get('opencv-contrib-python-headless')
-            op = new_pip_versions.get('opencv-python')
-            oph = new_pip_versions.get('opencv-python-headless')
+            # From least to most complete: the package installed last provides `cv2`,
+            # so that must be the most complete one that is installed.
+            installed = {}
+            for x in ['opencv-python-headless', 'opencv-python', 'opencv-contrib-python-headless', 'opencv-contrib-python']:
+                version = new_pip_versions.get(normalize_pip_name(x))
+                if version is not None:
+                    installed[x] = version
 
-            versions = [ocp, ocph, op, oph]
-            versions = [StrictVersion(x) for x in versions if x is not None]
-            versions.sort(reverse=True)
-
-            if len(versions) > 0:
+            # pip_auto_fix.list decides the version of a package it lists; leave OpenCV to it then
+            listed = self.pip_auto_fix_names()
+            if len(installed) > 0 and not any(normalize_pip_name(x) in listed for x in installed):
                 # upgrade to maximum version
-                targets = []
-                cur = versions[0]
-                if ocp is not None and StrictVersion(ocp) != cur:
-                    targets.append('opencv-contrib-python')
-                if ocph is not None and StrictVersion(ocph) != cur:
-                    targets.append('opencv-contrib-python-headless')
-                if op is not None and StrictVersion(op) != cur:
-                    targets.append('opencv-python')
-                if oph is not None and StrictVersion(oph) != cur:
-                    targets.append('opencv-python-headless')
+                newest = max(installed.values(), key=Version)
+                targets = [x for x, version in installed.items() if Version(version) != Version(newest)]
 
                 if len(targets) > 0:
+                    # --no-deps: the newest version is already installed for another package;
+                    # its dependencies, such as numpy, must stay as they are
                     for x in targets:
-                        cmd = make_pip_cmd(['install', f"{x}=={versions[0].version_string}"])
+                        cmd = make_pip_cmd(['install', '--no-deps', f"{x}=={newest}"])
+                        subprocess.check_output(cmd, universal_newlines=True)
+
+                    most_complete = list(installed)[-1]
+                    if most_complete not in targets:
+                        # it was already at the newest version, and the installs above replaced its `cv2`
+                        cmd = make_pip_cmd(['install', '--no-deps', '--force-reinstall', f"{most_complete}=={newest}"])
                         subprocess.check_output(cmd, universal_newlines=True)
 
                     logging.info(f"[ComfyUI-Manager] 'opencv' dependencies were fixed: {targets}")

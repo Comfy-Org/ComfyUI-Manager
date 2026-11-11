@@ -43,6 +43,15 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 - At startup, recognize an installed package however its requirement spells the
   name. Pending installs no longer downgrade or reinstall packages whose names
   contain `-` or `.`, and a requirement older than its `~=` version is upgraded.
+- Restore the OpenCV repair that runs at startup and after installs. When
+  `opencv-python`, `opencv-python-headless`, `opencv-contrib-python`, and
+  `opencv-contrib-python-headless` are installed at different versions, the older
+  ones are reinstalled at the newest installed version, without their
+  dependencies, so numpy is left as it is. The most complete installed package
+  is installed last, so the contrib modules stay available, and OpenCV packages
+  listed in `pip_auto_fix.list` are left to that list. The repair found no
+  installed OpenCV package and did nothing; it now also compares four-part
+  versions such as `4.11.0.100` numerically.
 
 ## [4.3] - 2026-09-19
 
