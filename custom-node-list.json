@@ -1,16 +1,6 @@
 {
     "custom_nodes": [
         {
-            "author": "wiroai",
-            "title": "Wiro AI",
-            "reference": "https://github.com/wiroai/Wiro-ComfyUI",
-            "files": [
-                "https://github.com/wiroai/Wiro-ComfyUI"
-            ],
-            "install_type": "git-clone",
-            "description": "Run Wiro AI models from ComfyUI: one node for any of the 1,000+ image, video, audio and LLM models in the Wiro AI catalog, plus nodes for Nano Banana Pro, GPT Image 2, Seedream 4.5, Veo 3.1, Kling 3, Seedance and ElevenLabs speech, music and transcription. Results come back as IMAGE, VIDEO, AUDIO and text. Cloud API: needs your own Wiro AI API key and runs are billed to your Wiro AI account; no local model or GPU. No extra dependencies."
-        },
-        {
             "author": "Carasibana",
             "title": "ComfyUI-SimpleFloatSlider",
             "reference": "https://github.com/Carasibana/ComfyUI-SimplayboyleFloatSlider",
@@ -62387,6 +62377,26 @@
             "description": "Parameter sweeps for ComfyUI: try every combination of seeds, cfg, prompts, LoRA strengths, samplers or models in one run, with images named by their values, labelled grids and a CSV run list."
         },
         {
+            "author": "dxyliwei520",
+            "title": "ComfyUI DM Tail Frames",
+            "reference": "https://github.com/dxyliwei520/comfyui-dm-tail-frames",
+            "files": [
+                "https://github.com/dxyliwei520/comfyui-dm-tail-frames"
+            ],
+            "install_type": "git-clone",
+            "description": "Take the last N frames of an IMAGE batch regardless of total frames (handy for multi-modal video segment stitching) plus a compat shim that re-registers the lost MySplitImageBatch node."
+        },
+        {
+            "author": "wiroai",
+            "title": "Wiro AI",
+            "reference": "https://github.com/wiroai/Wiro-ComfyUI",
+            "files": [
+                "https://github.com/wiroai/Wiro-ComfyUI"
+            ],
+            "install_type": "git-clone",
+            "description": "Run Wiro AI models from ComfyUI: one node for any of the 1,000+ image, video, audio and LLM models in the Wiro AI catalog, plus nodes for Nano Banana Pro, GPT Image 2, Seedream 4.5, Veo 3.1, Kling 3, Seedance and ElevenLabs speech, music and transcription. Results come back as IMAGE, VIDEO, AUDIO and text. Cloud API: needs your own Wiro AI API key and runs are billed to your Wiro AI account; no local model or GPU. No extra dependencies."
+        },
+        {
             "author": "ntdviet",
             "title": "ntdviet/comfyui-ext",
             "reference": "https://github.com/ntdviet/comfyui-ext",
@@ -62604,16 +62614,6 @@
             ],
             "install_type": "unzip",
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
-        },
-        {
-            "author": "dxyliwei520",
-            "title": "ComfyUI DM Tail Frames",
-            "reference": "https://github.com/dxyliwei520/comfyui-dm-tail-frames",
-            "files": [
-                "https://github.com/dxyliwei520/comfyui-dm-tail-frames"
-            ],
-            "install_type": "git-clone",
-            "description": "Take the last N frames of an IMAGE batch regardless of total frames (handy for multi-modal video segment stitching) plus a compat shim that re-registers the lost MySplitImageBatch node."
         }
     ]
 }
