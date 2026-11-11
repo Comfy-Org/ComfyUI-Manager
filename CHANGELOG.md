@@ -47,11 +47,12 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   `opencv-python`, `opencv-python-headless`, `opencv-contrib-python`, and
   `opencv-contrib-python-headless` are installed at different versions, the older
   ones are reinstalled at the newest installed version, without their
-  dependencies, so numpy is left as it is. The most complete installed package
-  is installed last, so the contrib modules stay available, and OpenCV packages
-  listed in `pip_auto_fix.list` are left to that list. The repair found no
-  installed OpenCV package and did nothing; it now also compares four-part
-  versions such as `4.11.0.100` numerically.
+  dependencies, so numpy is left as it is. A headless package is installed
+  after one with the GUI, so `cv2` stays importable on a Linux without the
+  graphics libraries; within each kind, the package with the contrib modules is
+  installed last. OpenCV packages listed in `pip_auto_fix.list` are left to
+  that list. The repair found no installed OpenCV package and did nothing; it
+  now also compares four-part versions such as `4.11.0.100` numerically.
 
 ## [4.3] - 2026-09-19
 

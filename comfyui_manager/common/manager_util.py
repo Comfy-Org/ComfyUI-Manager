@@ -613,10 +613,11 @@ class PIPFixer:
 
         # fix opencv - the OpenCV packages all install the `cv2` module; keep them at one version
         try:
-            # From least to most complete: the package installed last provides `cv2`,
-            # so that must be the most complete one that is installed.
+            # From least to most preferred: the package installed last provides `cv2`.
+            # A headless package comes after one with the GUI, which needs system libraries that
+            # Linux may lack; within each kind, the one with the contrib modules comes last.
             installed = {}
-            for x in ['opencv-python-headless', 'opencv-python', 'opencv-contrib-python-headless', 'opencv-contrib-python']:
+            for x in ['opencv-python', 'opencv-contrib-python', 'opencv-python-headless', 'opencv-contrib-python-headless']:
                 version = new_pip_versions.get(normalize_pip_name(x))
                 if version is not None:
                     installed[x] = version
@@ -635,10 +636,10 @@ class PIPFixer:
                         cmd = make_pip_cmd(['install', '--no-deps', f"{x}=={newest}"])
                         subprocess.check_output(cmd, universal_newlines=True)
 
-                    most_complete = list(installed)[-1]
-                    if most_complete not in targets:
+                    preferred = list(installed)[-1]
+                    if preferred not in targets:
                         # it was already at the newest version, and the installs above replaced its `cv2`
-                        cmd = make_pip_cmd(['install', '--no-deps', '--force-reinstall', f"{most_complete}=={newest}"])
+                        cmd = make_pip_cmd(['install', '--no-deps', '--force-reinstall', f"{preferred}=={newest}"])
                         subprocess.check_output(cmd, universal_newlines=True)
 
                     logging.info(f"[ComfyUI-Manager] 'opencv' dependencies were fixed: {targets}")

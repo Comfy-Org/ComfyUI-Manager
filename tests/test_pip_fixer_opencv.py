@@ -3,8 +3,9 @@
 The four OpenCV packages all install the `cv2` module, and the one installed last
 provides it. When they are installed at different versions, PIPFixer reinstalls the
 older ones at the newest installed version, without their dependencies, and leaves
-`cv2` to the most complete package that is installed. OpenCV packages listed in
-pip_auto_fix.list are left to that list.
+`cv2` to the preferred one: a headless package rather than one with the GUI, and within
+each kind the one with the contrib modules. Which package was the older one makes no
+difference. OpenCV packages listed in pip_auto_fix.list are left to that list.
 """
 
 import subprocess
@@ -56,47 +57,55 @@ def fix_broken(monkeypatch, tmp_path):
 
 
 def test_older_packages_are_raised_to_the_newest_installed_version(fix_broken):
-    """The most complete package, opencv-contrib-python, is installed last."""
+    """The preferred package, opencv-contrib-python-headless, is installed last."""
     assert fix_broken({
         'opencv-python': '4.11.0.86',
         'opencv-python-headless': '4.10.0.84',
         'opencv-contrib-python': '4.10.0.84',
         'opencv-contrib-python-headless': '4.9.0.80',
     }) == [
+        'install --no-deps opencv-contrib-python==4.11.0.86',
         'install --no-deps opencv-python-headless==4.11.0.86',
         'install --no-deps opencv-contrib-python-headless==4.11.0.86',
-        'install --no-deps opencv-contrib-python==4.11.0.86',
     ]
 
 
-def test_most_complete_package_is_reinstalled_when_it_was_already_the_newest(fix_broken):
-    """Raising opencv-python replaces the `cv2` of opencv-contrib-python, which must be put back."""
-    assert fix_broken({
-        'opencv-python': '4.10.0.84',
-        'opencv-contrib-python': '4.11.0.86',
-    }) == [
-        'install --no-deps opencv-python==4.11.0.86',
-        'install --no-deps --force-reinstall opencv-contrib-python==4.11.0.86',
+@pytest.mark.parametrize('gui, headless', [
+    ('opencv-python', 'opencv-python-headless'),
+    ('opencv-contrib-python', 'opencv-python-headless'),
+    ('opencv-contrib-python', 'opencv-contrib-python-headless'),
+])
+def test_headless_package_provides_cv2_beside_a_gui_package(fix_broken, gui, headless):
+    """A package with the GUI needs system libraries that Linux may lack, so it must not replace a headless `cv2`.
+
+    The result is the same whichever of the two was the older one.
+    """
+    assert fix_broken({gui: '4.13.0.92', headless: '4.10.0.84'}) == [f'install --no-deps {headless}==4.13.0.92']
+    assert fix_broken({gui: '4.10.0.84', headless: '4.13.0.92'}) == [
+        f'install --no-deps {gui}==4.13.0.92',
+        f'install --no-deps --force-reinstall {headless}==4.13.0.92',
     ]
 
 
-def test_contrib_modules_rank_above_the_gui(fix_broken):
-    """opencv-contrib-python-headless is raised last, so it provides `cv2`; opencv-python is not reinstalled."""
-    assert fix_broken({
-        'opencv-python': '4.11.0.86',
-        'opencv-contrib-python-headless': '4.10.0.84',
-    }) == ['install --no-deps opencv-contrib-python-headless==4.11.0.86']
+@pytest.mark.parametrize('plain, contrib', [
+    ('opencv-python', 'opencv-contrib-python'),
+    ('opencv-python-headless', 'opencv-contrib-python-headless'),
+])
+def test_contrib_package_provides_cv2_beside_the_plain_one_of_its_kind(fix_broken, plain, contrib):
+    """Raising the plain package replaces the `cv2` of the contrib one, which must be put back."""
+    assert fix_broken({plain: '4.11.0.86', contrib: '4.10.0.84'}) == [f'install --no-deps {contrib}==4.11.0.86']
+    assert fix_broken({plain: '4.10.0.84', contrib: '4.11.0.86'}) == [
+        f'install --no-deps {plain}==4.11.0.86',
+        f'install --no-deps --force-reinstall {contrib}==4.11.0.86',
+    ]
 
 
 def test_fourth_version_component_is_compared_as_a_number(fix_broken):
     """4.11.0.100 is newer than 4.11.0.86; compared as text it would be older."""
     assert fix_broken({
         'opencv-python': '4.11.0.100',
-        'opencv-python-headless': '4.11.0.86',
-    }) == [
-        'install --no-deps opencv-python-headless==4.11.0.100',
-        'install --no-deps --force-reinstall opencv-python==4.11.0.100',
-    ]
+        'opencv-contrib-python': '4.11.0.86',
+    }) == ['install --no-deps opencv-contrib-python==4.11.0.100']
 
 
 def test_opencv_packages_listed_in_pip_auto_fix_are_left_to_that_list(fix_broken):
@@ -109,18 +118,18 @@ def test_opencv_packages_listed_in_pip_auto_fix_are_left_to_that_list(fix_broken
 
 def test_other_packages_in_pip_auto_fix_do_not_stop_the_repair(fix_broken):
     assert fix_broken({
-        'opencv-python-headless': '4.10.0.84',
-        'opencv-python': '4.11.0.86',
+        'opencv-python': '4.10.0.84',
+        'opencv-python-headless': '4.11.0.86',
     }, pip_auto_fix='torch>=2.5.0\n') == [
-        'install --no-deps opencv-python-headless==4.11.0.86',
-        'install --no-deps --force-reinstall opencv-python==4.11.0.86',
+        'install --no-deps opencv-python==4.11.0.86',
+        'install --no-deps --force-reinstall opencv-python-headless==4.11.0.86',
     ]
 
 
 @pytest.mark.parametrize('installed', [
-    {'opencv-python': '4.11.0.86'},
     {'opencv-python': '4.11.0.86', 'opencv-python-headless': '4.11.0.86'},
     {'opencv-python-rolling': '5.0.0.20221015', 'opencv-python': '4.11.0.86', 'opencv-python-headless': '4.11.0.86'},
-], ids=['one installed', 'same version', 'package with a longer name'])
+], ids=['same version', 'package with a longer name'])
 def test_nothing_is_installed_when_the_versions_already_agree(fix_broken, installed):
+    """The order of preference is applied only when a package has to be raised."""
     assert fix_broken(installed) == []
