@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Notice retrieval verifies the TLS certificate
+
+The notice in the Manager menu is fetched from GitHub with certificate
+verification on; it was off for every user. A response whose certificate is not
+trusted is discarded and the notice area shows `Unable to retrieve Notice`. It
+shows the same when the connection fails, where it used to show a server error.
+Behind a proxy that re-signs TLS traffic, point the `SSL_CERT_FILE` environment
+variable at a CA bundle that includes the proxy's CA, or set `bypass_ssl = True`
+in `config.ini`, which turns verification off for this fetch too (#3302).
+
 ### Security policy: dedicated install flags (`allow_git_url_install` / `allow_pip_install`)
 
 Two new boolean keys in `config.ini` (`[default]` section), both defaulting to
