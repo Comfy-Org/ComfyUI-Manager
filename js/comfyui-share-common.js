@@ -1,10 +1,8 @@
 import { api } from "../../scripts/api.js";
 import { app } from "../../scripts/app.js";
 import { $el, ComfyDialog } from "../../scripts/ui.js";
-import { CopusShareDialog } from "./comfyui-share-copus.js";
-import { OpenArtShareDialog } from "./comfyui-share-openart.js";
 import { YouMLShareDialog } from "./comfyui-share-youml.js";
-import { customAlert, safeHref, sanitizeHTML } from "./common.js";
+import { customAlert } from "./common.js";
 
 export const SUPPORTED_OUTPUT_NODE_TYPES = [
 	"PreviewImage",
@@ -166,61 +164,6 @@ export function parseURLPath(urlPath) {
 }
 
 
-export const shareToEsheep= () => {
-	app.graphToPrompt()
-	.then(prompt => {
-		const nodes = app.graph._nodes
-		const { potential_outputs, potential_output_nodes } = getPotentialOutputsAndOutputNodes(nodes);
-		const workflow = prompt['workflow']
-		api.fetchApi(`/manager/set_esheep_workflow_and_images`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				workflow: workflow,
-				images: potential_outputs
-			})
-		}).then(response => {
-			var domain = window.location.hostname;
-			var port = window.location.port;
-			port = port || (window.location.protocol === 'http:' ? '80' : window.location.protocol === 'https:' ? '443' : '');
-			var full_domin = domain + ':' + port
-			window.open('https://www.esheep.com/app/workflow_upload?from_local='+ full_domin, '_blank');
-		});
-	})
-}
-
-export const showCopusShareDialog = () => {
-  if (!CopusShareDialog.instance) {
-    CopusShareDialog.instance = new CopusShareDialog();
-  }
-
-  return app.graphToPrompt()
-    .then(prompt => {
-      return app.graph._nodes;
-    })
-    .then(nodes => {
-        const { potential_outputs, potential_output_nodes } = getPotentialOutputsAndOutputNodes(nodes);
-        CopusShareDialog.instance.show({ potential_outputs, potential_output_nodes});
-    })
-}
-
-export const showOpenArtShareDialog = () => {
-  if (!OpenArtShareDialog.instance) {
-    OpenArtShareDialog.instance = new OpenArtShareDialog();
-  }
-
-  return app.graphToPrompt()
-    .then(prompt => {
-      // console.log({ prompt })
-      return app.graph._nodes;
-    })
-    .then(nodes => {
-        const { potential_outputs, potential_output_nodes } = getPotentialOutputsAndOutputNodes(nodes);
-        OpenArtShareDialog.instance.show({ potential_outputs, potential_output_nodes});
-    })
-}
-
-
 export const showYouMLShareDialog = () => {
   if (!YouMLShareDialog.instance) {
     YouMLShareDialog.instance = new YouMLShareDialog();
@@ -237,9 +180,9 @@ export const showYouMLShareDialog = () => {
 }
 
 
-export const showShareDialog = async (share_option) => {
+export const showShareDialog = async () => {
   if (!ShareDialog.instance) {
-    ShareDialog.instance = new ShareDialog(share_option);
+    ShareDialog.instance = new ShareDialog();
   }
   return app.graphToPrompt()
     .then(prompt => {
@@ -259,7 +202,7 @@ export const showShareDialog = async (share_option) => {
         }
         return false;
       }
-      ShareDialog.instance.show({ potential_outputs, potential_output_nodes, share_option });
+      ShareDialog.instance.show({ potential_outputs, potential_output_nodes });
       return true;
     });
 }
@@ -282,17 +225,6 @@ export class ShareDialogChooser extends ComfyDialog {
 	createButtons() {
 		const buttons = [
 			{
-				key: "openart",
-				textContent: "OpenArt AI",
-				website: "https://openart.ai/workflows/",
-				description: "Share ComfyUI workflows and art on OpenArt.ai",
-				onclick: () => {
-				  showOpenArtShareDialog();
-				  this.close();
-				}
-			},
-			{
-				key: "youml",
 				textContent: "YouML",
 				website: "https://youml.com",
 				description: "Share your workflow or transform it into an interactive app on YouML.com",
@@ -302,45 +234,13 @@ export class ShareDialogChooser extends ComfyDialog {
 				}
 			},
 			{
-				key: "matrix",
 				textContent: "Matrix Server",
 				website: "https://app.element.io/#/room/%23comfyui_space%3Amatrix.org",
 				description: "Share your art on the official ComfyUI matrix server",
 				onclick: async () => {
-				  showShareDialog('matrix').then((suc) => {
+				  showShareDialog().then((suc) => {
 				    suc && this.close();
 				  })
-				}
-			},
-			{
-				key: "comfyworkflows",
-				textContent: "ComfyWorkflows",
-				website: "https://comfyworkflows.com",
-				description: "Share & browse thousands of ComfyUI workflows and art 🎨<br/><br/><a style='color:var(--input-text);' href='https://comfyworkflows.com' target='_blank'>ComfyWorkflows.com</a>",
-				onclick: () => {
-				  showShareDialog('comfyworkflows').then((suc) => {
-				    suc && this.close();
-				  })
-				}
-			},
-			{
-				key: "esheep",
-				textContent: "eSheep",
-				website: "https://www.esheep.com",
-				description: "Share & download thousands of ComfyUI workflows on <a style='color:var(--input-text);' href='https://www.esheep.com' target='_blank'>esheep.com</a>",
-				onclick: () => {
-					shareToEsheep();
-				  	this.close();
-				}
-			},
-			{
-				key: "Copus",
-				textContent: "Copus",
-				website: "https://www.copus.io",
-				description: "🔴 Earn simple. Get paid from your ComfyUI workflows—no revenue sharing. Ever.",
-				onclick: () => {
-					showCopusShareDialog();
-				  this.close();
 				}
 			},
 		];
@@ -357,8 +257,7 @@ export class ShareDialogChooser extends ComfyDialog {
 			});
 
 			buttons.forEach(b => {
-				const button = $el("button", 
-					{
+				const button = $el("button", {
 					type: "button",
 					textContent: b.textContent,
 					onclick: b.onclick,
@@ -371,14 +270,8 @@ export class ShareDialogChooser extends ComfyDialog {
 						'padding': '5px 5px',
 						'margin-bottom': '5px',
 						'transition': 'background-color 0.3s',
-						'position':'relative'
 					}
-				},
-				[
-					$el("span", { style: { 
-					 } }),
-				]
-			);
+				});
 				button.addEventListener('mouseover', () => {
 					button.style.backgroundColor = '#007BFF'; // Change color on hover
 				});
@@ -387,7 +280,7 @@ export class ShareDialogChooser extends ComfyDialog {
 				});
 
 				const description = $el("p", {
-					innerHTML: b.description,
+					textContent: b.description,
 					style: {
 						'text-align': 'left',
 						color: 'var(--input-text)',
@@ -395,28 +288,6 @@ export class ShareDialogChooser extends ComfyDialog {
 						'margin-bottom': '0',
 					},
 				});
-
-				const copus_ui =$el("div", { style: { 
-					'position': 'absolute',
-					'height': '100%',
-					'left': '-25px',
-					'top': '-26px',
-					'width': '100%',
-					'z-index':'-1',
-					'background':'url("https://static.copus.io/images/client/202412/test/f28ac6ef8f4c6f3d5d50856a272ed02c.png")',
-					'background-repeat': 'no-repeat',
-				} });
-				const copus_ui_bottom =$el("div", { style: { 
-					'position': 'absolute',
-					'height': '100%',
-					'left': '25px',
-					'bottom': '-26px',
-					'width': '100%',
-					'transform':'scale(-1, -1)',
-					'z-index':'-1',
-					'background':'url("https://static.copus.io/images/client/202412/test/f28ac6ef8f4c6f3d5d50856a272ed02c.png")',
-					'background-repeat': 'no-repeat',
-				} });
 
 				const websiteLink = $el("a", {
 					textContent: "🌐 Website",
@@ -455,17 +326,8 @@ export class ShareDialogChooser extends ComfyDialog {
 						'border': '1px solid #ddd',
 						'border-radius': '5px',
 						'box-shadow': '0 2px 4px rgba(0, 0, 0, 0.1)',
-						'position':'relative'
 					}
-				}, [buttonLinkContainer, description
-					, 
-					b.key ==='Copus' ?
-					copus_ui
-					:'',
-					b.key ==='Copus' ?
-					copus_ui_bottom
-					:'',
-				]);
+				}, [buttonLinkContainer, description]);
 
 				container.appendChild(column);
 			});
@@ -519,11 +381,9 @@ export class ShareDialogChooser extends ComfyDialog {
 export class ShareDialog extends ComfyDialog {
 	static instance = null;
 	static matrix_auth = { homeserver: "matrix.org", username: "", password: "" };
-	static cw_sharekey = "";
 
-	constructor(share_option) {
+	constructor() {
 		super();
-		this.share_option = share_option;
 		this.element = $el("div.comfy-modal", {
 			parent: document.body, style: {
 				'overflow-y': "auto",
@@ -541,28 +401,13 @@ export class ShareDialog extends ComfyDialog {
 			id: "selectOutputImages",
 		}, []);
 
-		this.is_nsfw_checkbox = $el("input", { type: 'checkbox', id: "is_nsfw" }, [])
-		const is_nsfw_checkbox_text = $el("label", {
-		}, [" Is this NSFW?"])
-		this.is_nsfw_checkbox.style.color = "var(--fg-color)";
-		this.is_nsfw_checkbox.checked = false;
-
 		this.matrix_destination_checkbox = $el("input", { type: 'checkbox', id: "matrix_destination" }, [])
 		const matrix_destination_checkbox_text = $el("label", {}, [" ComfyUI Matrix server"])
 		this.matrix_destination_checkbox.style.color = "var(--fg-color)";
-		this.matrix_destination_checkbox.checked = this.share_option === 'matrix'; //true;
-
-		this.comfyworkflows_destination_checkbox = $el("input", { type: 'checkbox', id: "comfyworkflows_destination" }, [])
-		const comfyworkflows_destination_checkbox_text = $el("label", {}, [" ComfyWorkflows.com"])
-		this.comfyworkflows_destination_checkbox.style.color = "var(--fg-color)";
-		this.comfyworkflows_destination_checkbox.checked = this.share_option !== 'matrix';
 
 		this.matrix_homeserver_input = $el("input", { type: 'text', id: "matrix_homeserver", placeholder: "matrix.org", value: ShareDialog.matrix_auth.homeserver || 'matrix.org' }, []);
 		this.matrix_username_input = $el("input", { type: 'text', placeholder: "Username", value: ShareDialog.matrix_auth.username || '' }, []);
 		this.matrix_password_input = $el("input", { type: 'password', placeholder: "Password", value: ShareDialog.matrix_auth.password || '' }, []);
-
-		this.cw_sharekey_input = $el("input", { type: 'text', placeholder: "Share key (found on your profile page)", value: ShareDialog.cw_sharekey || '' }, []);
-		this.cw_sharekey_input.style.width = "100%";
 
 		this.credits_input = $el("input", {
 			type: "text",
@@ -612,8 +457,6 @@ export class ShareDialog extends ComfyDialog {
 					textContent: "Close",
 					onclick: () => {
 						// Reset state
-						this.matrix_destination_checkbox.checked = this.share_option === 'matrix';
-						this.comfyworkflows_destination_checkbox.checked = this.share_option !== 'matrix';
 						this.share_button.textContent = "Share";
 						this.share_button.style.display = "inline-block";
 						this.final_message.innerHTML = "";
@@ -621,7 +464,6 @@ export class ShareDialog extends ComfyDialog {
 						this.credits_input.value = "";
 						this.title_input.value = "";
 						this.description_input.value = "";
-						this.is_nsfw_checkbox.checked = false;
 						this.selectedOutputIndex = 0;
 
 						// hide the final message
@@ -699,28 +541,6 @@ export class ShareDialog extends ComfyDialog {
 					]),
 
 				]),
-				$el("details", {
-					style: {
-						border: "1px solid #999",
-						marginTop: "10px",
-						padding: "5px",
-						borderRadius: "5px",
-						backgroundColor: "#222"
-					},
-				}, [
-					$el("summary", {
-						style: {
-							color: "white",
-							cursor: "pointer",
-						}
-					}, [`Comfyworkflows.com account`]),
-					$el("h4", {
-						textContent: "Share key (found on your profile page)",
-					}, []),
-					$el("p", { size: 3, color: "white" }, ["If provided, your art will be saved to your account. Otherwise, it will be shared anonymously."]),
-					this.cw_sharekey_input,
-				]),
-
 				$el("div", {}, [
 					$el("p", {
 						size: 3, color: "white", style: {
@@ -729,9 +549,6 @@ export class ShareDialog extends ComfyDialog {
 					}, [`Select where to share your art:`]),
 					this.matrix_destination_checkbox,
 					matrix_destination_checkbox_text,
-					$el("br", {}, []),
-					this.comfyworkflows_destination_checkbox,
-					comfyworkflows_destination_checkbox_text,
 				]),
 
 				$el("h4", {
@@ -765,9 +582,6 @@ export class ShareDialog extends ComfyDialog {
 					}
 				}, []),
 				this.description_input,
-				$el("br", {}, []),
-
-				$el("div", {}, [this.is_nsfw_checkbox, is_nsfw_checkbox_text]),
 				// $el("br", {}, []),
 
 				// this.final_message,
@@ -784,8 +598,6 @@ export class ShareDialog extends ComfyDialog {
 					textContent: "Close",
 					onclick: () => {
 						// Reset state
-						this.matrix_destination_checkbox.checked = this.share_option === 'matrix';
-						this.comfyworkflows_destination_checkbox.checked = this.share_option !== 'matrix';
 						this.share_button.textContent = "Share";
 						this.share_button.style.display = "inline-block";
 						this.final_message.innerHTML = "";
@@ -793,7 +605,6 @@ export class ShareDialog extends ComfyDialog {
 						this.credits_input.value = "";
 						this.title_input.value = "";
 						this.description_input.value = "";
-						this.is_nsfw_checkbox.checked = false;
 						this.selectedOutputIndex = 0;
 
 						// hide the final message
@@ -809,7 +620,7 @@ export class ShareDialog extends ComfyDialog {
 			]),
 		]);
 
-		// get the user's existing matrix auth and share key
+		// get the user's existing matrix auth
 		ShareDialog.matrix_auth = { homeserver: "matrix.org", username: "", password: "" };
 		try {
 			api.fetchApi(`/manager/get_matrix_auth`)
@@ -819,23 +630,6 @@ export class ShareDialog extends ComfyDialog {
 					this.matrix_homeserver_input.value = ShareDialog.matrix_auth.homeserver;
 					this.matrix_username_input.value = ShareDialog.matrix_auth.username;
 					this.matrix_password_input.value = ShareDialog.matrix_auth.password;
-				})
-				.catch(error => {
-					// console.log(error);
-				});
-		} catch (error) {
-			// console.log(error);
-		}
-
-		// get the user's existing comfyworkflows share key
-		ShareDialog.cw_sharekey = "";
-		try {
-			// console.log("Fetching comfyworkflows share key")
-			api.fetchApi(`/manager/get_comfyworkflows_auth`)
-				.then(response => response.json())
-				.then(data => {
-					ShareDialog.cw_sharekey = data.comfyworkflows_sharekey;
-					this.cw_sharekey_input.value = ShareDialog.cw_sharekey;
 				})
 				.catch(error => {
 					// console.log(error);
@@ -854,9 +648,6 @@ export class ShareDialog extends ComfyDialog {
 			if (this.matrix_destination_checkbox.checked) {
 				destinations.push("matrix");
 			}
-			if (this.comfyworkflows_destination_checkbox.checked) {
-				destinations.push("comfyworkflows");
-			}
 
 			// if destinations includes matrix, make an api call to /manager/check_matrix to ensure that the user has configured their matrix settings
 			if (destinations.includes("matrix")) {
@@ -865,10 +656,6 @@ export class ShareDialog extends ComfyDialog {
 					customAlert("Please set your Matrix account details.");
 					return;
 				}
-			}
-
-			if (destinations.includes("comfyworkflows") && !this.cw_sharekey_input.value && false) { //!confirm("You have NOT set your ComfyWorkflows.com share key. Your art will NOT be connected to your account (it will be shared anonymously). Continue?")) {
-				return;
 			}
 
 			const { potential_outputs, potential_output_nodes } = getPotentialOutputsAndOutputNodes(nodes);
@@ -900,14 +687,10 @@ export class ShareDialog extends ComfyDialog {
 						username: this.matrix_username_input.value,
 						password: this.matrix_password_input.value,
 					},
-					cw_auth: {
-						cw_sharekey: this.cw_sharekey_input.value,
-					},
 					share_destinations: destinations,
 					credits: this.credits_input.value,
 					title: this.title_input.value,
 					description: this.description_input.value,
-					is_nsfw: this.is_nsfw_checkbox.checked,
 					prompt,
 					potential_outputs,
 					selected_output_index: this.selectedOutputIndex,
@@ -936,15 +719,8 @@ export class ShareDialog extends ComfyDialog {
 
 			const response_json = await response.json();
 
-			if (response_json.comfyworkflows.url) {
-				this.final_message.innerHTML = "Your art has been shared: <a href='" + safeHref(response_json.comfyworkflows.url) + "' target='_blank' rel='noopener noreferrer'>" + sanitizeHTML(response_json.comfyworkflows.url) + "</a>";
-				if (response_json.matrix.success) {
-					this.final_message.innerHTML += "<br>Your art has been shared in the ComfyUI Matrix server's #share channel!";
-				}
-			} else {
-				if (response_json.matrix.success) {
-					this.final_message.innerHTML = "Your art has been shared in the ComfyUI Matrix server's #share channel!";
-				}
+			if (response_json.matrix.success) {
+				this.final_message.innerHTML = "Your art has been shared in the ComfyUI Matrix server's #share channel!";
 			}
 
 			this.final_message.style.color = "green";
@@ -977,7 +753,7 @@ export class ShareDialog extends ComfyDialog {
 		return res;
 	}
 
-	show({potential_outputs, potential_output_nodes, share_option}) {
+	show({potential_outputs, potential_output_nodes}) {
 		// Sort `potential_output_nodes` by node ID to make the order always
 		// consistent, but we should also keep `potential_outputs` in the same
 		// order as `potential_output_nodes`.
@@ -1089,14 +865,6 @@ export class ShareDialog extends ComfyDialog {
 		// this.radio_buttons.appendChild(subheader);
 		this.radio_buttons.appendChild(new_radio_buttons);
 		this.element.style.display = "block";
-
-		share_option = share_option || this.share_option;
-		if (share_option === 'comfyworkflows') {
-		    this.matrix_destination_checkbox.checked = false;
-            this.comfyworkflows_destination_checkbox.checked = true;
-        } else {
-            this.matrix_destination_checkbox.checked = true;
-            this.comfyworkflows_destination_checkbox.checked = false;
-        }
+		this.matrix_destination_checkbox.checked = true;
 	}
 }
