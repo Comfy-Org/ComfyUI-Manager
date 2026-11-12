@@ -693,6 +693,32 @@ def robust_readlines(fullpath):
         return []
 
 
+def build_restart_command(argv, drop_args=()):
+    """
+    Rebuild the command line used to re-exec the current ComfyUI process.
+
+    `argv` is `sys.argv` of the running process; entries listed in `drop_args` are left out.
+    The result is meant to be passed to `os.execv(sys.executable, ...)`.
+
+    On Windows, `os.execv` does not quote anything: it joins the list with spaces into one
+    command line and the new process splits it again. Every entry is therefore quoted with
+    the MSVC rules (`subprocess.list2cmdline`), otherwise an argument such as `Profile 1`
+    comes back as two arguments. Other platforms pass the list through untouched.
+    """
+    argv = [x for x in argv if x not in drop_args]
+
+    if argv[0].endswith("__main__.py"):  # this is a python module
+        module_name = os.path.basename(os.path.dirname(argv[0]))
+        cmds = [sys.executable, '-m', module_name] + argv[1:]
+    else:
+        cmds = [sys.executable] + argv
+
+    if sys.platform.startswith('win32'):
+        cmds = [subprocess.list2cmdline([x]) for x in cmds]
+
+    return cmds
+
+
 def restore_pip_snapshot(pips, options):
     non_url = []
     local_url = []
