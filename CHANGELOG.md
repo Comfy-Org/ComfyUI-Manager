@@ -55,3 +55,17 @@ deliberate trade-off: it requires explicit operator opt-in, remains bounded
 to loopback listeners, and the flag-deny path on outdated ComfyUI still
 surfaces the `comfyui_outdated` notice. If you operate an outdated ComfyUI
 deployment, leave both flags at their default `false` and update ComfyUI.
+
+### Removed share destinations
+
+Four share destinations no longer take workflows from Manager and are removed:
+ComfyWorkflows (its domain registration has expired), Copus (its API answers
+that publishing from ComfyUI is no longer supported), OpenArt (its workflow API
+and pages are gone), and eSheep (its site no longer resolves). Sharing to YouML
+and to the Matrix server is unchanged. A saved `Share` setting that names a
+removed site now acts as `All`, and the Workflow Gallery button no longer opens
+a removed site that was visited last. The files saved for the removed sites are
+no longer read; `comfyworkflows_sharekey`, `.openart_key`, and
+`esheep_share_message.json` in Manager's data directory
+(`<USER_DIRECTORY>/__manager/`, or `<USER_DIRECTORY>/default/ComfyUI-Manager/`
+on older ComfyUI) can be deleted.
