@@ -12,6 +12,19 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 - Require Python 3.10 or newer to match ComfyUI's minimum supported version.
   Python 3.9 is no longer supported.
 
+### Removed
+
+- Remove four share destinations of the legacy UI that no longer take workflows
+  from Manager: ComfyWorkflows (its domain registration has expired), Copus (its
+  API answers that publishing from ComfyUI is no longer supported), OpenArt (its
+  workflow API and pages are gone), and eSheep (its site no longer resolves).
+  Sharing to YouML and to the Matrix server is unchanged. A saved `Share`
+  setting that names a removed site now acts as `All`, and the Workflow Gallery
+  button no longer opens a removed site that was visited last. The files saved
+  for the removed sites are no longer read; `comfyworkflows_sharekey`,
+  `.openart_key`, and `esheep_share_message.json` under
+  `<USER_DIRECTORY>/__manager/` can be deleted.
+
 ### Security
 
 - Allow administrators to exempt selected Registry IDs from the flagged CNR
