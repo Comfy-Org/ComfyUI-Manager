@@ -5,7 +5,9 @@ dependency install) re-exec ComfyUI with os.execv. On Windows os.execv joins
 its arguments with spaces and quotes nothing, so `--browser-profile "Profile 1"`
 used to reach the new process as `--browser-profile Profile 1`.
 """
+import ast
 import json
+import os
 import subprocess
 import sys
 import time
@@ -61,6 +63,21 @@ def test_module_entry_point_uses_dash_m(monkeypatch):
     assert cmds == ["/usr/bin/python3", "-m", "comfy", "--port", "8188"]
 
 
+def test_module_entry_point_is_quoted_on_windows(monkeypatch):
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(sys, "executable", "C:" + BACKSLASH + "Program Files" + BACKSLASH + "python.exe")
+
+    # Forward slashes: the module name is then found by both the POSIX and the Windows os.path
+    cmds = MANAGER_UTIL.build_restart_command(
+        ["C:/site packages/comfy/__main__.py", "--browser-profile", "Profile 1"])
+
+    assert cmds == [
+        '"C:' + BACKSLASH + 'Program Files' + BACKSLASH + 'python.exe"',
+        "-m", "comfy",
+        "--browser-profile", '"Profile 1"',
+    ]
+
+
 def test_drop_args_removes_only_listed_arguments(monkeypatch):
     monkeypatch.setattr(sys, "platform", "linux")
     monkeypatch.setattr(sys, "executable", "/usr/bin/python3")
@@ -70,6 +87,31 @@ def test_drop_args_removes_only_listed_arguments(monkeypatch):
     assert MANAGER_UTIL.build_restart_command(argv, drop_args=("--windows-standalone-build",)) == \
         ["/usr/bin/python3", "main.py", "--cpu"]
     assert argv == ["main.py", "--windows-standalone-build", "--cpu"]  # caller's list is untouched
+
+
+def restart_call_drop_args(path):
+    """The `drop_args` that the one restart site in `path` passes for `sys.argv`."""
+    calls = [node for node in ast.walk(ast.parse(path.read_text(encoding="utf-8")))
+             if isinstance(node, ast.Call) and ast.unparse(node.func) == "manager_util.build_restart_command"]
+    assert len(calls) == 1, f"expected one restart site in {path.name}"
+    call = calls[0]
+    assert ast.unparse(call.args[0]) == "sys.argv"
+
+    drop_args = call.args[1:] + [keyword.value for keyword in call.keywords if keyword.arg == "drop_args"]
+    assert len(call.args) + len(call.keywords) == 1 + len(drop_args), "unexpected argument"
+    return tuple(ast.literal_eval(drop_args[0])) if drop_args else ()
+
+
+def test_only_the_reboot_endpoint_drops_the_standalone_build_flag():
+    # ComfyUI opens a browser when it starts with this flag. The reboot endpoint restarts a
+    # ComfyUI whose page is already open, so it drops the flag (#1160).
+    assert restart_call_drop_args(GLOB_DIR / "manager_server.py") == ("--windows-standalone-build",)
+
+    prestartup_script = GLOB_DIR.resolve().parent / "prestartup_script.py"
+    if os.environ.get("MANAGER_GLOB_DIR") and not prestartup_script.exists():
+        pytest.skip("MANAGER_GLOB_DIR points at a glob directory without prestartup_script.py beside it")
+    # The prestartup restart happens before ComfyUI has opened anything, so the flag must stay.
+    assert restart_call_drop_args(prestartup_script) == ()
 
 
 LAUNCHER = """
