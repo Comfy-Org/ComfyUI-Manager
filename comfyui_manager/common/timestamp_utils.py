@@ -72,8 +72,9 @@ def get_backup_branch_name(repo=None) -> str:
     Format: backup_YYYYMMDD_HHMMSS (or backup_YYYYMMDD_HHMMSS_N if exists)
 
     Args:
-        repo: Optional git.Repo object. If provided, checks for name collisions
-              and adds sequential suffix if needed.
+        repo: Optional repository: a git_compat repository (glob core) or
+              GitPython's git.Repo (legacy core). If provided, checks for name
+              collisions and adds sequential suffix if needed.
 
     Returns:
         Unique backup branch name.
@@ -85,7 +86,9 @@ def get_backup_branch_name(repo=None) -> str:
 
     # Check if branch exists
     try:
-        existing_branches = {b.name for b in repo.list_heads()}
+        # a git_compat repository lists its branches with list_heads(); git.Repo has heads
+        heads = repo.list_heads() if hasattr(repo, 'list_heads') else repo.heads
+        existing_branches = {b.name for b in heads}
     except Exception:
         return base_name
 
