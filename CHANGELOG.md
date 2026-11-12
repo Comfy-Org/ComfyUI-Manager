@@ -57,6 +57,12 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   name when an update cannot fast-forward and a backup branch of the same second
   already exists. The existing name was reused, so creating the branch failed
   and the update was not applied.
+- On Windows, keep command-line arguments intact when ComfyUI restarts, from the
+  Restart button or after an install that runs at startup. An argument with a
+  space, such as `--output-directory "D:\My Outputs"`, was split in two, so
+  ComfyUI failed to start with `unrecognized arguments`; quotation marks and
+  empty arguments were lost as well. A ComfyUI started as a module (`python -m`)
+  from a Python path with a space now restarts too (#3339).
 
 ## [4.3] - 2026-09-19
 
