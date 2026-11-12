@@ -1,5 +1,6 @@
 import mimetypes
 from ..common import context
+from ..common import manager_util
 from . import manager_core as core
 
 import os
@@ -284,7 +285,7 @@ async def share_art(request):
         share_endpoint = f"{share_website_host}/api"
 
         # get presigned urls
-        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=not manager_util.bypass_ssl)) as session:
             async with session.post(
                     f"{share_endpoint}/get_presigned_urls",
                     json={
@@ -302,12 +303,12 @@ async def share_art(request):
                 workflowJsonFileKey = presigned_urls_json["workflowJsonFileKey"]
 
         # upload asset
-        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=not manager_util.bypass_ssl)) as session:
             async with session.put(assetFilePresignedUrl, data=open(asset_filepath, "rb")) as resp:
                 assert resp.status == 200
 
         # upload workflow json
-        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=not manager_util.bypass_ssl)) as session:
             async with session.put(workflowJsonFilePresignedUrl, data=json.dumps(prompt['workflow']).encode('utf-8')) as resp:
                 assert resp.status == 200
 
@@ -323,7 +324,7 @@ async def share_art(request):
             }
 
         # make a POST request to /api/upload_workflow with form data key values
-        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
+        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=not manager_util.bypass_ssl)) as session:
             form = aiohttp.FormData()
             if comfyworkflows_sharekey:
                 form.add_field("shareKey", comfyworkflows_sharekey)
