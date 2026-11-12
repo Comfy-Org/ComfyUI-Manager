@@ -32,6 +32,14 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   Entries are case-insensitive, apply to all versions, and take effect without a
   restart. Server startup creates a commented template with no default exceptions;
   other installation security checks still apply.
+- Verify the TLS certificate when the legacy UI fetches its notice from GitHub;
+  verification was off for every user. A response whose certificate is not
+  trusted is discarded and the notice area shows `Unable to retrieve Notice`. It
+  shows the same when the connection fails, where it used to show a server
+  error. Behind a proxy that re-signs TLS traffic, point the `SSL_CERT_FILE`
+  environment variable at a CA bundle that includes the proxy's CA, or set
+  `bypass_ssl = True` in `config.ini`, which turns verification off for this
+  fetch too (#3302).
 
 ### Fixed
 
