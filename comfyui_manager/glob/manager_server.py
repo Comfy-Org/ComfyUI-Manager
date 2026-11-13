@@ -87,6 +87,7 @@ from ..common.security_messages import (
     SECURITY_MESSAGE_MIDDLE,
     SECURITY_MESSAGE_MIDDLE_P,
     SECURITY_MESSAGE_HIGH_P,
+    SECURITY_MESSAGE_NORMAL_MINUS_MODEL,
 )
 from .constants import (
     model_dir_name_map,
@@ -1059,6 +1060,18 @@ async def task_worker():
             return OperationResult.failed.value
 
         json_data = params.model_dump()
+
+        # Checked here, not in a route: queue/install_model and queue/task both end up here.
+        if not await model_utils.check_whitelist_for_model(json_data):
+            logging.error(f"[ComfyUI-Manager] Invalid model install request is detected: {json_data}")
+            return "Invalid model install request is detected"
+
+        if not json_data["filename"].endswith(".safetensors") and not security_utils.is_allowed_security_level("high+"):
+            models_json = await core.get_data_by_mode(ManagerDatabaseSource.cache.value, "model-list.json", "default")
+
+            if not any(x.get("url") == json_data["url"] for x in models_json.get("models", [])):
+                logging.error(SECURITY_MESSAGE_NORMAL_MINUS_MODEL)
+                return "A security error has occurred. Please check the terminal logs"
 
         model_path = model_utils.get_model_path(json_data)
         model_url = json_data.get("url")
