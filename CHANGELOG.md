@@ -45,7 +45,8 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   a request with a listed name and another URL was accepted. Without it, the
   list was not checked, and neither was the rule that a model in a format other
   than `.safetensors` must be in the default channel's list unless the security
-  level is `normal-` or lower (#3428).
+  level is `normal-` or lower on a loopback listener, or `weak` in
+  `personal_cloud` mode (#3428).
 
 ### Fixed
 
