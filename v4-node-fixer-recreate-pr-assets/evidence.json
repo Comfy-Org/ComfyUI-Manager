@@ -1,0 +1,115 @@
+{
+  "scenario": "Fix node (recreate) on a KSampler wired CheckpointLoaderSimple -> KSampler -> VAEDecode",
+  "steps": "see the header of capture_evidence.cjs",
+  "red": {
+    "frontend": "1.57.6",
+    "nodeIdType": "string",
+    "capturedAt": "2026-11-13T13:03:30.402Z",
+    "nodeFixer": {
+      "sha256": "92e88ee61108c4679acb903ecbcd279c2c56f68f61b760a5945f5136b4b8c1cf",
+      "connectLine": "src_node.connect(link.origin_slot, dest.id, input.name);"
+    },
+    "pageErrors": [
+      "t.findInputSlot is not a function"
+    ],
+    "contextMenuOpenAfterClick": true,
+    "kSamplersAtEnd": [
+      {
+        "id": "2",
+        "isOriginal": true,
+        "inputsFrom": {
+          "model": "CheckpointLoaderSimple"
+        },
+        "outputsTo": [
+          "VAEDecode"
+        ]
+      },
+      {
+        "id": "4",
+        "isOriginal": false,
+        "inputsFrom": {},
+        "outputsTo": []
+      }
+    ],
+    "nodeCountAtEnd": 4
+  },
+  "green": {
+    "frontend": "1.57.6",
+    "nodeIdType": "string",
+    "capturedAt": "2026-11-13T13:03:38.668Z",
+    "nodeFixer": {
+      "sha256": "d857b9ae4a6a7b171f52d309fbffcc9f60c68eb1a806b3e9bf2be7ebc6fdc305",
+      "connectLine": "src_node.connect(link.origin_slot, dest, input.name);"
+    },
+    "pageErrors": [],
+    "contextMenuOpenAfterClick": false,
+    "kSamplersAtEnd": [
+      {
+        "id": "4",
+        "isOriginal": false,
+        "inputsFrom": {
+          "model": "CheckpointLoaderSimple"
+        },
+        "outputsTo": [
+          "VAEDecode"
+        ]
+      }
+    ],
+    "nodeCountAtEnd": 3
+  },
+  "figures": [
+    {
+      "figure": "red-2-clicked",
+      "side": "red",
+      "step": "Right after clicking \"Fix node (recreate)\"",
+      "raw": {
+        "file": "screens/red-2-clicked.png",
+        "sha256": "eb73c9fa42d4b96e817de3e3ff46e48fb97a01729a722bc1451a39f118bb1b8a"
+      },
+      "annotated": {
+        "file": "annotated/red-2-clicked.png",
+        "sha256": "418639b288004017e7483822016d444ccd20e0537d5f5e5dffa3923683b6ca07"
+      }
+    },
+    {
+      "figure": "green-2-clicked",
+      "side": "green",
+      "step": "Right after clicking \"Fix node (recreate)\"",
+      "raw": {
+        "file": "screens/green-2-clicked.png",
+        "sha256": "da8466d7f2bb993a664c106f3f8c0522dae9699668594581ae5b222f257e8d88"
+      },
+      "annotated": {
+        "file": "annotated/green-2-clicked.png",
+        "sha256": "80bdbaf612dd7b943093da8bba5c46600aa17b4feba5d7112af26111f856ef6d"
+      }
+    },
+    {
+      "figure": "red-3-moved",
+      "side": "red",
+      "step": "After dragging the node at the KSampler title 290px down",
+      "raw": {
+        "file": "screens/red-3-moved.png",
+        "sha256": "09dc655c7519d9b3dbbcd53d151e83dfb0c3a0e8c6b0424256229900ba8a14fd"
+      },
+      "annotated": {
+        "file": "annotated/red-3-moved.png",
+        "sha256": "c60dcbb406fa0ca826474b4eed63c265c745f942e85c1fdfef505c2fd56145f0"
+      }
+    },
+    {
+      "figure": "green-3-moved",
+      "side": "green",
+      "step": "After dragging the node at the KSampler title 290px down",
+      "raw": {
+        "file": "screens/green-3-moved.png",
+        "sha256": "f4469655d55aa5ef68fe295ea48af9b9603690c76fa532c06fe7425f7afbc01f"
+      },
+      "annotated": {
+        "file": "annotated/green-3-moved.png",
+        "sha256": "b525d594b2075240182abf4fe3f511f0e659725b40e8a5076e620edf020d5eb5"
+      }
+    }
+  ],
+  "note": "annotated/*.png = screens/*.png with an HTML overlay rendered on top; screens/*.png are the unmodified captures."
+}
