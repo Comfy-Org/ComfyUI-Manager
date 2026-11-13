@@ -92,6 +92,9 @@ function connect_inputs(nearest_inputs, node) {
 }
 
 function node_info_copy(src, dest, connect_both, copy_shape) {
+	// The graph the node is in. A subgraph keeps its own links and nodes.
+	const graph = src.graph;
+
 	// copy input connections
 	for(let i in src.inputs) {
 		let input = src.inputs[i];
@@ -100,9 +103,17 @@ function node_info_copy(src, dest, connect_both, copy_shape) {
 			dest.convertWidgetToInput(destWidget);
 		}
 		if(input.link) {
-			let link = app.graph.links[input.link];
-			let src_node = app.graph.getNodeById(link.origin_id);
-			src_node.connect(link.origin_slot, dest, input.name);
+			let link = graph.links[input.link];
+			if(link.origin_id === graph.inputNode?.id) {
+				// The link starts at an input of the subgraph, which is not a node of the graph.
+				let dest_input = dest.inputs[dest.findInputSlot(input.name)];
+				if(dest_input)
+					graph.inputNode.slots[link.origin_slot].connect(dest_input, dest);
+			}
+			else {
+				let src_node = graph.getNodeById(link.origin_id);
+				src_node.connect(link.origin_slot, dest, input.name);
+			}
 		}
 	}
 
@@ -114,7 +125,7 @@ function node_info_copy(src, dest, connect_both, copy_shape) {
 			if(output.links) {
 				let links = [];
 				for(let j in output.links) {
-					links.push(app.graph.links[output.links[j]]);
+					links.push(graph.links[output.links[j]]);
 				}
 				output_links[output.name] = links;
 			}
@@ -125,8 +136,14 @@ function node_info_copy(src, dest, connect_both, copy_shape) {
 			if(links) {
 				for(let j in links) {
 					let link = links[j];
-					let target_node = app.graph.getNodeById(link.target_id);
-					dest.connect(parseInt(i), target_node, link.target_slot);
+					if(link.target_id === graph.outputNode?.id) {
+						// The link ends at an output of the subgraph.
+						graph.outputNode.slots[link.target_slot].connect(dest.outputs[i], dest);
+					}
+					else {
+						let target_node = graph.getNodeById(link.target_id);
+						dest.connect(parseInt(i), target_node, link.target_slot);
+					}
 				}
 			}
 		}
