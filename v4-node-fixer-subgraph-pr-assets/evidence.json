@@ -1,0 +1,119 @@
+{
+  "scenario": "Fix node (recreate) on a KSampler that was converted to a subgraph, so its links go through the subgraph's input and output nodes",
+  "steps": "see the header of capture_evidence.cjs",
+  "red": {
+    "frontend": "1.57.6",
+    "nodeIdType": "string",
+    "capturedAt": "2026-11-13T20:09:45.986Z",
+    "nodeFixer": {
+      "sha256": "d857b9ae4a6a7b171f52d309fbffcc9f60c68eb1a806b3e9bf2be7ebc6fdc305",
+      "linkLookupLine": "let link = app.graph.links[input.link];"
+    },
+    "pageErrors": [
+      "Cannot read properties of undefined (reading 'origin_id')"
+    ],
+    "insideSubgraph": true,
+    "contextMenuOpenAfterClick": true,
+    "kSamplersAtEnd": [
+      {
+        "id": "3",
+        "isOriginal": true,
+        "inputsFrom": {
+          "model": "subgraph input.model",
+          "positive": "subgraph input.positive",
+          "seed": "subgraph input.seed"
+        },
+        "outputsTo": [
+          "subgraph output.LATENT"
+        ]
+      },
+      {
+        "id": "6",
+        "isOriginal": false,
+        "inputsFrom": {},
+        "outputsTo": []
+      }
+    ]
+  },
+  "green": {
+    "frontend": "1.57.6",
+    "nodeIdType": "string",
+    "capturedAt": "2026-11-13T20:09:55.602Z",
+    "nodeFixer": {
+      "sha256": "343077773836bc84ee1f13815a4edd3d49189af00ff6614836a9178c132efdc8",
+      "linkLookupLine": "let link = graph.links[input.link];"
+    },
+    "pageErrors": [],
+    "insideSubgraph": true,
+    "contextMenuOpenAfterClick": false,
+    "kSamplersAtEnd": [
+      {
+        "id": "6",
+        "isOriginal": false,
+        "inputsFrom": {
+          "model": "subgraph input.model",
+          "positive": "subgraph input.positive",
+          "seed": "subgraph input.seed"
+        },
+        "outputsTo": [
+          "subgraph output.LATENT"
+        ]
+      }
+    ]
+  },
+  "figures": [
+    {
+      "figure": "red-2-clicked",
+      "side": "red",
+      "step": "Right after clicking \"Fix node (recreate)\"",
+      "raw": {
+        "file": "screens/red-2-clicked.png",
+        "sha256": "60ab5c5cbb2e46baa2c2a80629928f94f3cab28b7a8433c57109bfdc8660e05d"
+      },
+      "annotated": {
+        "file": "annotated/red-2-clicked.png",
+        "sha256": "6a2d34d37702415572dbc6679cb8710d927bc5a43ca13abf9c3810d6a1c3bf55"
+      }
+    },
+    {
+      "figure": "green-2-clicked",
+      "side": "green",
+      "step": "Right after clicking \"Fix node (recreate)\"",
+      "raw": {
+        "file": "screens/green-2-clicked.png",
+        "sha256": "f24aa696d2d27c133be99c6a0ba67d9ffcf7d13267afa19f5704d560a1fbb477"
+      },
+      "annotated": {
+        "file": "annotated/green-2-clicked.png",
+        "sha256": "30199c30952423f2a9d65e1bd31621accd7f99e414fdc4acd92e944d94a56f12"
+      }
+    },
+    {
+      "figure": "red-3-moved",
+      "side": "red",
+      "step": "After dragging the node at the KSampler title 290px down",
+      "raw": {
+        "file": "screens/red-3-moved.png",
+        "sha256": "b1a79c7376d76850c7ed8121e71ffa1e4922176ce5f3207ca7565342ea7c091a"
+      },
+      "annotated": {
+        "file": "annotated/red-3-moved.png",
+        "sha256": "13f6f3b52400034acaaed85fdeaba3c3a70900797a083c45b2feb3be0b805325"
+      }
+    },
+    {
+      "figure": "green-3-moved",
+      "side": "green",
+      "step": "After dragging the node at the KSampler title 290px down",
+      "raw": {
+        "file": "screens/green-3-moved.png",
+        "sha256": "cbe88bf7e6c2442fa8ccf444570bce07bf32daa7b724fda2c5c2152977bcb2c4"
+      },
+      "annotated": {
+        "file": "annotated/green-3-moved.png",
+        "sha256": "280fd339662d8a37bb551ebecc919f375ff7f92c81f303d43f014c3067127c01"
+      }
+    }
+  ],
+  "note": "annotated/*.png = screens/*.png with an HTML overlay rendered on top; screens/*.png are the unmodified captures."
+}
