@@ -145,6 +145,7 @@ async def check_whitelist_for_model(item):
             x["save_path"] == item["save_path"]
             and x["base"] == item["base"]
             and x["filename"] == item["filename"]
+            and x.get("url") == item.get("url")
         ):
             return True
 
@@ -155,6 +156,7 @@ async def check_whitelist_for_model(item):
             x["save_path"] == item["save_path"]
             and x["base"] == item["base"]
             and x["filename"] == item["filename"]
+            and x.get("url") == item.get("url")
         ):
             return True
 

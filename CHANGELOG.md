@@ -40,6 +40,12 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   environment variable at a CA bundle that includes the proxy's CA, or set
   `bypass_ssl = True` in `config.ini`, which turns verification off for this
   fetch too (#3302).
+- Check every model install against the model list, including the download URL:
+  the folder, base, file name, and URL must match an entry. With the legacy UI,
+  a request with a listed name and another URL was accepted. Without it, the
+  list was not checked, and neither was the rule that a model in a format other
+  than `.safetensors` must be in the default channel's list unless the security
+  level is `normal-` or lower (#3428).
 
 ### Fixed
 
