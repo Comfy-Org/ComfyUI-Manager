@@ -881,7 +881,9 @@ async def task_worker():
     async def do_enable(params: EnablePackParams) -> str:
         cnr_id = params.cnr_id
         logging.debug("[ComfyUI-Manager] Enabling node: cnr_id=%s", cnr_id)
-        core.unified_manager.unified_enable(cnr_id)
+        res = core.unified_manager.unified_enable(cnr_id)
+        if not res.result:
+            return res.msg or OperationResult.failed.value
         return OperationResult.success.value
 
     async def do_update(params: UpdatePackParams) -> dict[str, str]:
