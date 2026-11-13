@@ -91,6 +91,10 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   ComfyUI failed to start with `unrecognized arguments`; quotation marks and
   empty arguments were lost as well. A ComfyUI started as a module (`python -m`)
   from a Python path with a space now restarts too (#3339).
+- In the legacy UI, make `Fix node (recreate)` work on a node with a connected
+  input on frontends whose node ids are strings. It stopped with
+  `findInputSlot is not a function` and left two copies of the node on the
+  canvas: the original, still wired, and an unwired replacement (#3126).
 
 ## [4.3] - 2026-09-19
 
