@@ -16,7 +16,9 @@ the same error where a requirement is compared with the installed version. At
 the next start, the rest of that node pack's requirements and its `install.py`
 were then skipped; an immediate install stopped at a package protected from
 downgrade; an entry of `pip_auto_fix.list` was skipped with `Failed to restore`.
-In `pip_auto_fix.list`, `~=` is now a compatible-release clause: it was taken as
+Such an entry is now applied: `torch==2.5.1` is met by an installed
+`2.5.1+cu124`, and replaces an installed `2.6.0+cu124` with `pip install`. In
+`pip_auto_fix.list`, `~=` is now a compatible-release clause: it was taken as
 met by any other version, and as not met by the same version (#3431).
 
 ### Sharing to Matrix uploads only a file in the output or temp directory
