@@ -291,7 +291,7 @@ def is_blacklisted(name):
                 return True
         elif match.group(2) in ['<=', '==', '<', '~=']:
             if name in pips:
-                if manager_util.StrictVersion(pips[name]) >= manager_util.StrictVersion(match.group(3)):
+                if manager_util.pip_version(pips[name]) >= manager_util.pip_version(match.group(3)):
                     return True
 
     return False
@@ -320,7 +320,7 @@ def is_installed(name):
                 return True
         elif match.group(2) in ['<=', '==', '<', '~=']:
             if name in pips:
-                if manager_util.StrictVersion(pips[name]) >= manager_util.StrictVersion(match.group(3)):
+                if manager_util.pip_version(pips[name]) >= manager_util.pip_version(match.group(3)):
                     print(f"[ComfyUI-Manager] skip black listed pip installation: '{name}'")
                     return True
 
@@ -332,17 +332,17 @@ def is_installed(name):
         return True   # don't update if version is not specified
 
     if match.group(2) in ['>', '>=']:
-        if manager_util.StrictVersion(pkg) < manager_util.StrictVersion(match.group(3)):
+        if manager_util.pip_version(pkg) < manager_util.pip_version(match.group(3)):
             return False
-        elif manager_util.StrictVersion(pkg) > manager_util.StrictVersion(match.group(3)):
+        elif manager_util.pip_version(pkg) > manager_util.pip_version(match.group(3)):
             print(f"[SKIP] Downgrading pip package isn't allowed: {name.lower()} (cur={pkg})")
 
     if match.group(2) == '==':
-        if manager_util.StrictVersion(pkg) < manager_util.StrictVersion(match.group(3)):
+        if manager_util.pip_version(pkg) < manager_util.pip_version(match.group(3)):
             return False
 
     if match.group(2) == '~=':
-        if manager_util.StrictVersion(pkg) == manager_util.StrictVersion(match.group(3)):
+        if manager_util.pip_version(pkg) == manager_util.pip_version(match.group(3)):
             return False
 
     return name.lower() in manager_util.get_installed_packages()
