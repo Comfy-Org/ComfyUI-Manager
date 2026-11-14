@@ -95,6 +95,10 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   input on frontends whose node ids are strings. It stopped with
   `findInputSlot is not a function` and left two copies of the node on the
   canvas: the original, still wired, and an unwired replacement (#3126).
+- In the legacy UI, make `Fix node (recreate)` work on a node inside a
+  subgraph. It read the node's links from the root graph, so it stopped with an
+  error and left the same two copies of the node. Links to the inputs and
+  outputs of the subgraph are kept as well.
 
 ## [4.3] - 2026-09-19
 
