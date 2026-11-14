@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+### The clauses of a pip requirement are weighed together
+
+A requirement for a `downgrade_blacklist` package is judged by all of its
+clauses. One that allows the installed version is installed when another clause
+sets a minimum above it, as in `transformers==4.*,>=4.58.0` beside an installed
+`4.57.0`, or excludes it with `!=` while a newer version is allowed, as in
+`transformers~=4.57.0,!=4.57.0`; without extras both were skipped, so the
+upgrade did not happen. One that the installed version does not meet and that
+allows no newer version, as in `transformers[torch]<=4.57.0,!=4.57.0` or
+`transformers<4.58,!=4.57.*`, is skipped; it was installed, and pip replaced the
+package with an older version. A pre-release counts as a newer version only when
+`==`, `>=`, `<=`, `~=` or `===` names one: pip before 25.0 takes no other.
+
+At startup, `>` is read as pip reads it: a post-release of the version, such as
+`1.0.post1` for `>1.0`, does not meet it, and the requirement is installed. A
+wildcard such as `==0.21.*` is met by an installed pre-release `0.21.0rc1`, and
+the requirement is no longer passed to pip. A requirement that excludes the
+installed version with `!=` and allows a newer one, as in `numpy>=2.2.0,!=2.2.0`
+beside an installed `2.2.0`, is installed, as an immediate install does; it was
+taken as installed already. pip chooses the version, and that is an older one
+when no newer release exists.
+
+An installed local build, such as the CUDA build `2.5.1+cu124`, is not replaced
+on any of these grounds. For a `downgrade_blacklist` package it is also kept
+when a requirement excludes it with `!=`, as in `xformers!=0.0.30` beside
+`0.0.30+cu126`, unless the requirement sets a minimum above it; pip replaced the
+build with whatever it found. For such a build, these changes only add
+requirements that are skipped.
+
 ### pip blacklists apply however a requirement is written
 
 `downgrade_blacklist` protects packages whose names contain a hyphen, such as
