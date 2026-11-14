@@ -282,7 +282,27 @@ try:
                 raise ValueError("The object does not have a fileno method")
 
         def isatty(self):
-            return False
+            # Delegate to the real console we wrap, not a hardcoded False.
+            # Returning False here made colorama (and any ANSI-aware lib) believe
+            # the stream is a pipe and strip every ANSI code from the print() path
+            # in both the console and the file log. The console still receives the
+            # text unchanged -- this only tells colorama the truth about the target.
+            stream = original_stdout if self.is_stdout else original_stderr
+            try:
+                return stream.isatty()
+            except (AttributeError, ValueError, OSError):
+                return False
+
+        @property
+        def closed(self):
+            # Same reasoning as isatty(): without this attribute, colorama's
+            # StreamWrapper.closed falls back to True (AttributeError -> closed),
+            # which again forces strip=True. Report the real underlying state.
+            stream = original_stdout if self.is_stdout else original_stderr
+            try:
+                return stream.closed
+            except (AttributeError, ValueError):
+                return True
 
         def write(self, message):
             global is_start_mode
