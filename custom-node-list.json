@@ -1,16 +1,6 @@
 {
     "custom_nodes": [
         {
-            "author": "ukr8b3g-cmyk",
-            "title": "H3 Continuum EZ Studio",
-            "reference": "https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ",
-            "files": [
-                "https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ"
-            ],
-            "install_type": "git-clone",
-            "description": "Visual timeline for MiniMax H3 video generation with shot editing, reference images, audio, and project saving. Powered by the H3 Continuum generation engine."
-        },
-        {
             "author": "Carasibana",
             "title": "ComfyUI-SimpleFloatSlider",
             "reference": "https://github.com/Carasibana/ComfyUI-SimplayboyleFloatSlider",
@@ -60589,6 +60579,17 @@
             "description": "Nodes: Live Chat Stream. Chat with an LLM / VLM (Ollama) inside a node and turn the streaming reply into images - generation starts as soon as the prompt is written, while the rest of the reply is still streaming. Two prompt lanes (clean <prompt> block and the model's own thinking / reply / inner monologue), character presets, image input/output for I2I, optional decision-model image judge, VRAM auto-unload, and multi-language UI (en/ja/zh)."
         },
         {
+            "author": "ketle-man",
+            "title": "VRM Pose Studio",
+            "id": "comfyui-vrm-pose-studio",
+            "reference": "https://github.com/ketle-man/ComfyUI-VRM-Pose-Studio",
+            "files": [
+                "https://github.com/ketle-man/ComfyUI-VRM-Pose-Studio"
+            ],
+            "install_type": "git-clone",
+            "description": "Full-browser 3D scene / pose / video studio for VRM models running on ComfyUI (/vps). Multiple VRM models, props, lights, cameras and cuts on a keyframe timeline, image/video to pose with the native SAM 3D Body nodes, regional prompts (BV Node Pack), and a Generate tab that sends renders to your workflows via the Load Studio Render node. three.js / three-vrm are bundled locally (no CDN)."
+        },
+        {
             "author": "xeinherjer-dev",
             "title": "XENodes",
             "reference": "https://github.com/xeinherjer-dev/ComfyUI-XENodes",
@@ -60870,6 +60871,16 @@
             ],
             "install_type": "git-clone",
             "description": "Adapts Qwen Multiangle Camera prompts and camera coordinates for multi-angle MiniMax H3 image editing."
+        },
+        {
+            "author": "ukr8b3g-cmyk",
+            "title": "H3 Continuum EZ Studio",
+            "reference": "https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ",
+            "files": [
+                "https://github.com/ukr8b3g-cmyk/ComfyUI-H3-Continuum-EZ"
+            ],
+            "install_type": "git-clone",
+            "description": "Visual timeline for MiniMax H3 video generation with shot editing, reference images, audio, and project saving. Powered by the H3 Continuum generation engine."
         },
         {
             "author": "D33MO",
@@ -62490,6 +62501,28 @@
             "description": "Run hosted image, video, audio and 3D models from ComfyUI with a ModelRunner API key. One typed node per model. (No GPU Required)"
         },
         {
+            "author": "an80sPWNstar",
+            "title": "MiniMax H3 Image Batch",
+            "id": "comfyui-h3-image-batch",
+            "reference": "https://github.com/an80sPWNstar/comfyui-h3-image-batch",
+            "files": [
+                "https://github.com/an80sPWNstar/comfyui-h3-image-batch"
+            ],
+            "install_type": "git-clone",
+            "description": "Batch size above 1 for MiniMax H3 Image, P-H3-Image and MiniMax H3 video: runs the model once per batch item, and saves batched video as separate clips with their own audio."
+        },
+        {
+            "author": "an80sPWNstar",
+            "title": "ComfyUI Watcher",
+            "id": "comfyui-watcher",
+            "reference": "https://github.com/an80sPWNstar/ComfyUI-Watcher",
+            "files": [
+                "https://github.com/an80sPWNstar/ComfyUI-Watcher"
+            ],
+            "install_type": "git-clone",
+            "description": "Progress nodes for your ComfyUI canvas: step, speed, time running, time left and VRAM, in a node you place anywhere on your graph."
+        },
+        {
             "author": "ntdviet",
             "title": "ntdviet/comfyui-ext",
             "reference": "https://github.com/ntdviet/comfyui-ext",
@@ -62707,17 +62740,6 @@
             ],
             "install_type": "unzip",
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
-        },
-        {
-            "author": "ketle-man",
-            "title": "VRM Pose Studio",
-            "id": "comfyui-vrm-pose-studio",
-            "reference": "https://github.com/ketle-man/ComfyUI-VRM-Pose-Studio",
-            "files": [
-                "https://github.com/ketle-man/ComfyUI-VRM-Pose-Studio"
-            ],
-            "install_type": "git-clone",
-            "description": "Full-browser 3D scene / pose / video studio for VRM models running on ComfyUI (/vps). Multiple VRM models, props, lights, cameras and cuts on a keyframe timeline, image/video to pose with the native SAM 3D Body nodes, regional prompts (BV Node Pack), and a Generate tab that sends renders to your workflows via the Load Studio Render node. three.js / three-vrm are bundled locally (no CDN)."
         }
     ]
 }
