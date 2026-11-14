@@ -1341,11 +1341,13 @@ export class CustomNodesManager {
 
 		this.showLoading();
 		let res;
+		// defensive: only CNR ids reach here ('unknown' version packs never open this dialog)
+		const encoded_node_id = encodeURIComponent(node_id);
 		if(is_enable) {
-			res = await api.fetchApi(`/customnode/disabled_versions/${node_id}`, { cache: "no-store" });
+			res = await api.fetchApi(`/customnode/disabled_versions/${encoded_node_id}`, { cache: "no-store" });
 		}
 		else {
-			res = await api.fetchApi(`/customnode/versions/${node_id}`, { cache: "no-store" });
+			res = await api.fetchApi(`/customnode/versions/${encoded_node_id}`, { cache: "no-store" });
 		}
 		this.hideLoading();
 
