@@ -3162,7 +3162,7 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
                         todo_disable.append(k)
                     else:
                         cnr_ver = cnr_info[k]
-                        if v[1] != cnr_ver:
+                        if v[0] != cnr_ver:
                             todo_checkout.append((k, cnr_ver))
                         else:
                             skip_node_packs.append(k)
@@ -3209,6 +3209,10 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
             # robust filter out comfyui-manager while restoring snapshot
             if 'comfyui-manager' in k.lower():
                 continue
+
+            # Snapshots saved at a detached HEAD used to keep the newline that follows the hash.
+            if isinstance(v.get('hash'), str):
+                v['hash'] = v['hash'].strip()
 
             norm_k = git_utils.normalize_url(k)
             git_info[norm_k] = v

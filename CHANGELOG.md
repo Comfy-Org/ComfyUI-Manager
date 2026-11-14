@@ -169,6 +169,14 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   fails for it. Every package was listed under `Installation failed for pip
   packages`, and pip was run a second time for each package named by version
   (#3425).
+- When restoring a snapshot, check a git node pack out at the commit the
+  snapshot names when the snapshot was saved while that pack's HEAD was
+  detached. The hash was saved with the newline that follows it in `.git/HEAD`,
+  so the checkout failed and the pack was reported as skipped at the commit it
+  had. New snapshots hold the bare hash, and the newline in an existing
+  snapshot is ignored. A registry node pack already at the snapshot's version
+  is left alone without asking the registry; when the registry could not be
+  reached, that lookup stopped the restore (#3426).
 
 ## [4.3] - 2026-09-19
 
