@@ -1329,12 +1329,32 @@ class UnifiedManager:
 
         manager_downloader.download_url(node_info.download_url, get_default_custom_nodes_path(), archive_name)
         os.makedirs(install_path, exist_ok=True)
-        extracted = manager_util.extract_package_as_zip(download_path, install_path)
-        os.remove(download_path)
+        try:
+            extracted = manager_util.extract_package_as_zip(download_path, install_path)
+        except Exception as e:
+            # A failed extraction used to leave the fresh directory (and the
+            # archive) behind, and the next install of this node refused with
+            # 'Install path already exists' until the user cleaned up by hand.
+            # try_rmtree: an entry it cannot delete gets scheduled for deletion
+            # at shutdown instead of silently staying and re-blocking the retry.
+            try_rmtree(f"Cleanup after failed {node_id} extraction", install_path)
+            if os.path.exists(download_path):
+                try:
+                    os.remove(download_path)
+                except OSError:
+                    pass
+            return result.fail(f'Failed to extract archive: {node_id}@{version_spec}: {e}')
+        if os.path.exists(download_path):
+            try:
+                os.remove(download_path)
+            except OSError:
+                pass
         result.to_path = install_path
 
         if extracted is None:
-            shutil.rmtree(install_path)
+            # corrupt ZIP: retain the archive for inspection (only the fresh
+            # directory is removed), same cleanup semantics as the error path
+            try_rmtree(f"Cleanup after corrupt {node_id} archive", install_path)
             return result.fail(f'Empty archive file: {node_id}@{version_spec}')
 
         # create .tracking file
