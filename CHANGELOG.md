@@ -152,6 +152,18 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   `0.0.30+cu126`, unless the requirement sets a minimum above it; pip replaced
   the build with whatever it found. For such a build, these changes only add
   requirements that are skipped.
+- In the legacy UI, enable a disabled node pack that another extension
+  requires before restarting. After the user agreed to enable it and restart,
+  ComfyUI restarted with the pack still disabled, because the request went to
+  a route that no longer exists. The pack is now enabled through the queue, as
+  the Custom Nodes Manager does, and ComfyUI restarts only when that
+  succeeded; otherwise the reason is shown. While other tasks are queued
+  behind the pack, ComfyUI is not restarted, and the user is asked to restart
+  after them. `Rebooting...` is shown as well: the restart request is never
+  answered, which ended the handler before it.
+- In the legacy UI, say so when that restart is refused at the current
+  security level. Nothing was shown; the browser console had
+  `show_message is not defined`.
 
 ## [4.3] - 2026-09-19
 
