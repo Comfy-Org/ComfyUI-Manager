@@ -105,6 +105,18 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   subgraph. It read the node's links from the root graph, so it stopped with an
   error and left the same two copies of the node. Links to the inputs and
   outputs of the subgraph are kept as well.
+- Read the version of a node pack installed from the registry when it has a
+  pre-release, such as `1.8.0-beta.1` or `0.7.2-b2`; such a pack was not
+  recognized as a registry pack. A version with a fourth part, such as
+  `0.1.3.post1`, stopped the scan of installed node packs with
+  `invalid literal for int()`, in the server and in `cm-cli` (#3431).
+- Compare the versions in `pip_auto_fix.list` as pip does. An entry for a
+  package installed with a local label or as a pre-release, such as
+  `torch==2.5.1` beside an installed `2.5.1+cu124`, was skipped with
+  `Failed to restore`. Such an entry is now applied: that installed version
+  meets it, and one that does not, such as `2.6.0+cu124`, is replaced with
+  `pip install`. `~=` is a compatible-release clause: it was taken as met by
+  any other version, and as not met by the same version.
 
 ## [4.3] - 2026-09-19
 
