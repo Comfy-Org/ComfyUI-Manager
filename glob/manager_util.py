@@ -157,70 +157,31 @@ class StrictVersion:
         self.parse_version_string()
 
     def parse_version_string(self):
-        parts = self.version_string.split('.')
-        if not parts:
-            raise ValueError("Version string must not be empty")
+        # A pre-release follows the third number after '.' or '-': '0.1.3.post1', '1.8.0-beta.1'.
+        # __str__ writes it with '-', so a version that was already normalized is read as well.
+        m = re.fullmatch(r'(\d+)(?:\.(\d+)(?:\.(\d+)(?:[.-](.+))?)?)?', self.version_string)
+        if m is None:
+            raise ValueError(f"Invalid version: {self.version_string!r}")
 
-        def numeric(component):
-            # pip pins in the wild carry local/pre-release suffixes on the
-            # numeric component ("2.4.0+cu124", "1.0.0rc1"); compare on the
-            # numeric prefix instead of crashing the whole install flow. The
-            # suffix of the patch component is preserved as the pre-release so
-            # "1.0.0rc1" still sorts before "1.0.0".
-            m = re.match(r"(\d+)(.*)", component)
-            if not m:
-                raise ValueError(f"Invalid version component: {component!r}")
-            return int(m.group(1)), m.group(2) or None
-
-        self.major, major_suffix = numeric(parts[0])
-        self.minor, minor_suffix = numeric(parts[1]) if len(parts) > 1 else (0, None)
-        self.patch, patch_suffix = numeric(parts[2]) if len(parts) > 2 else (0, None)
-
-        # Handling suffixes: an explicit 4th component wins, then one carried
-        # by the patch/minor/major component. "rc1"/"b2"/"a1" are pre-releases
-        # (sort before the release), "postN" is a post-release (sorts after
-        # the release: an installed 1.0.0post1 does NOT satisfy pkg<1.0.0),
-        # and local build tags ("+cu124") are equivalent to the plain release
-        # for pin comparison.
-        self.pre_release = None
-        self.post_release = None
-        suffix = None
-        if len(parts) > 3:
-            suffix = parts[3]
-        else:
-            for candidate in (patch_suffix, minor_suffix, major_suffix):
-                if candidate:
-                    suffix = candidate
-                    break
-        if suffix is None:
-            pass
-        elif suffix.startswith("+"):
-            pass  # local build tag: equivalent to the plain release
-        elif re.match(r"post\d*$", suffix.lstrip("-")):
-            self.post_release = int(suffix.lstrip("-")[4:] or 0)
-        else:
-            self.pre_release = suffix.lstrip("-")
+        self.major = int(m.group(1))
+        self.minor = int(m.group(2) or 0)
+        self.patch = int(m.group(3) or 0)
+        self.pre_release = m.group(4)
 
     def __str__(self):
-        # the emitted form must be re-parseable: pre-releases go out as a
-        # dotted 4th component, the only shape parse_version_string accepts
         version = f"{self.major}.{self.minor}.{self.patch}"
         if self.pre_release:
-            version += f".{self.pre_release}"
-        if self.post_release is not None:
-            version += f".post{self.post_release}"
+            version += f"-{self.pre_release}"
         return version
 
-    def _order_key(self):
-        # within the same numeric triple: pre-release < release < post-release
-        rank = 0 if self.pre_release else (2 if self.post_release is not None else 1)
-        return (self.major, self.minor, self.patch, rank, self.pre_release, self.post_release)
-
     def __eq__(self, other):
-        return self._order_key() == other._order_key()
+        return (self.major, self.minor, self.patch, self.pre_release) == \
+            (other.major, other.minor, other.patch, other.pre_release)
 
     def __lt__(self, other):
-        return self._order_key() < other._order_key()
+        if (self.major, self.minor, self.patch) == (other.major, other.minor, other.patch):
+            return self.pre_release_compare(self.pre_release, other.pre_release) < 0
+        return (self.major, self.minor, self.patch) < (other.major, other.minor, other.patch)
 
     @staticmethod
     def pre_release_compare(pre1, pre2):
@@ -477,6 +438,13 @@ def clear_pip_cache():
     pip_map = None
 
 
+def pip_version(version):
+    """Read a version as pip does: '4.41.0rc1', '0.0.28.post1', '2.5.1+cu124'."""
+    # Imported here: prestartup_script imports this module before it installs missing dependencies.
+    from packaging.version import Version
+    return Version(version)
+
+
 def parse_requirement_line(line):
     tokens = shlex.split(line)
     if not tokens:
@@ -509,7 +477,7 @@ def parse_requirement_line(line):
         res['operator'] = operator
 
     if version is not None:
-        res['version'] = StrictVersion(version)
+        res['version'] = version
 
     if index_url is not None:
         res['index_url'] = index_url
@@ -657,6 +625,8 @@ class PIPFixer:
         # restore based on custom list
         pip_auto_fix_path = os.path.join(self.manager_files_path, "pip_auto_fix.list")
         if os.path.exists(pip_auto_fix_path):
+            from packaging.specifiers import Specifier  # imported here for the same reason as in pip_version()
+
             with open(pip_auto_fix_path, 'r', encoding="UTF-8", errors="ignore") as f:
                 fixed_list = []
 
@@ -668,23 +638,14 @@ class PIPFixer:
                         normalized_name = parsed['package'].lower().replace('-', '_')
                         if normalized_name in new_pip_versions:
                             if 'version' in parsed and 'operator' in parsed:
-                                cur = StrictVersion(new_pip_versions[normalized_name])
-                                dest = parsed['version']
-                                op = parsed['operator']
-                                if cur == dest:
-                                    if op in ['==', '>=', '<=']:
-                                        need_to_reinstall = False
-                                elif cur < dest:
-                                    if op in ['<=', '<', '~=', '!=']:
-                                        need_to_reinstall = False
-                                elif cur > dest:
-                                    if op in ['>=', '>', '~=', '!=']:
-                                        need_to_reinstall = False
+                                specifier = Specifier(parsed['operator'] + parsed['version'])
+                                if specifier.contains(new_pip_versions[normalized_name], prereleases=True):
+                                    need_to_reinstall = False
 
                         if need_to_reinstall:
                             cmd_args = ['install']
                             if 'version' in parsed and 'operator' in parsed:
-                                cmd_args.append(parsed['package']+parsed['operator']+parsed['version'].version_string)
+                                cmd_args.append(parsed['package']+parsed['operator']+parsed['version'])
 
                             if 'index_url' in parsed:
                                 cmd_args.append('--index-url')

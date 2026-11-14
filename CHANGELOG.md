@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+### Versions with a suffix are read for node packs and pip packages
+
+A node pack installed from the registry is recognized when its version has a
+pre-release, such as `1.8.0-beta.1` or `0.7.2-b2`; such a pack was not taken as
+a registry pack. A version with a fourth part, such as `0.1.3.post1`, stopped
+the scan of installed node packs with `invalid literal for int()`, in the server
+and in `cm-cli`.
+
+Installed pip versions are ordered as pip orders them. A package installed with
+a local label or as a pre-release, such as `2.5.1+cu124` or `4.41.0rc1`, raised
+the same error where a requirement is compared with the installed version. At
+the next start, the rest of that node pack's requirements and its `install.py`
+were then skipped; an immediate install stopped at a package protected from
+downgrade; an entry of `pip_auto_fix.list` was skipped with `Failed to restore`.
+In `pip_auto_fix.list`, `~=` is now a compatible-release clause: it was taken as
+met by any other version, and as not met by the same version (#3431).
+
 ### Sharing to Matrix uploads only a file in the output or temp directory
 
 Sharing to the Matrix server uploads only a file inside ComfyUI's output or temp
