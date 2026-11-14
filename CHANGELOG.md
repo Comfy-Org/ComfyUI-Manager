@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### A disabled node pack that another extension asks for is enabled before the restart
+
+When an extension asks through `cm.try-install-custom-node` for a node pack that
+is disabled, the Manager asks whether to enable it and restart. On confirmation
+it restarted ComfyUI without enabling the pack, which came back still disabled.
+The pack is now enabled as the Enable button of the Custom Nodes Manager does,
+and ComfyUI restarts only when the queue reports success; otherwise the reason
+is shown.
+
 ### The clauses of a pip requirement are weighed together
 
 A requirement for a `downgrade_blacklist` package is judged by all of its
@@ -60,6 +69,7 @@ the `~=` version itself is no longer reinstalled.
 
 `cm-cli` reads `downgrade_blacklist` from `config.ini`. It looked for the file
 under a name that does not exist, so it protected only the built-in packages.
+
 ### Lists load after a channel response that is not JSON
 
 When the channel answered with something other than JSON, such as a block page

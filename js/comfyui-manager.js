@@ -665,6 +665,11 @@ async function switchComfyUI() {
 }
 
 async function onQueueStatus(event) {
+	// The buttons exist once the Manager menu has been created; the queue can run before that.
+	if(update_all_button == null) {
+		return;
+	}
+
 	const isElectron = 'electronAPI' in window;
 
 	if(event.detail.status == 'in_progress') {
