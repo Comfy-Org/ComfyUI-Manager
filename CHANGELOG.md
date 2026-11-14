@@ -107,9 +107,10 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 - Compare the versions in `pip_auto_fix.list` as pip does. An entry for a
   package installed with a local label or as a pre-release, such as
   `torch==2.5.1` beside an installed `2.5.1+cu124`, was skipped with
-  `Failed to restore`; that installed version now meets the entry. `~=` is a
-  compatible-release clause: it was taken as met by any other version, and as
-  not met by the same version.
+  `Failed to restore`. Such an entry is now applied: that installed version
+  meets it, and one that does not, such as `2.6.0+cu124`, is replaced with
+  `pip install`. `~=` is a compatible-release clause: it was taken as met by
+  any other version, and as not met by the same version.
 
 ## [4.3] - 2026-09-19
 
