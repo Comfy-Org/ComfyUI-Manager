@@ -155,6 +155,24 @@ def test_a_symlink_that_the_user_placed_in_the_directory_is_followed(package, di
     assert uploads[0][1] == b"image on another disk"
 
 
+def test_the_path_that_was_checked_is_the_path_that_is_read(package, dirs, tmp_path):
+    """`link/..` is the output directory once normalized, and the parent of the link's target on disk."""
+    output_dir, _ = dirs
+    elsewhere = tmp_path / "another-disk"
+    elsewhere.mkdir()
+    (tmp_path / "a.png").write_bytes(SECRET)
+    try:
+        (output_dir / "link").symlink_to(elsewhere, target_is_directory=True)
+    except OSError:
+        pytest.skip("cannot create a symlink here")
+    share_art, uploads = load_share_art(package, *dirs)
+
+    response = share(share_art, image("a.png", "link/.."))
+
+    assert response.status == 200
+    assert uploads[0][1] == b"output image"
+
+
 def test_a_path_on_another_windows_drive_is_refused(package):
     """`os.path.commonpath` raises ValueError for paths on different drives."""
     windows = SimpleNamespace(path=ntpath)
