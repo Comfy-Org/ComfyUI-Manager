@@ -72,7 +72,10 @@ async function enableNodePack(target) {
 		started = true;
 		await api.fetchApi('/manager/queue/start', { method: 'POST' });
 
-		const message = await result;
+		// A report that does not reach the page would leave the listener in place, and a later report
+		// for the same row, such as its Disable, would then restart ComfyUI unasked.
+		const message = await Promise.race([result, sleep(60000).then(() =>
+			'The queue did not report the result. Please check the node pack in the Custom Nodes Manager.')]);
 		if(message != 'success') {
 			return String(message);
 		}
@@ -110,7 +113,7 @@ async function tryInstallCustomNode(event) {
 		await sleep(300);
 		app.ui.dialog.show(`Enabling... '${title}'`);
 
-		const failure = await enableNodePack(target);
+		const failure = await enableNodePack(target).catch((exception) => String(exception));
 		if(failure != undefined) {
 			show_message(`Failed to enable '${title}'.<BR><BR>${sanitizeHTML(failure)}`);
 			return false;
