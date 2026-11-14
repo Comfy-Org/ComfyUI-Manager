@@ -2183,27 +2183,26 @@ def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=Fa
         if os.path.exists(requirements_path) and not no_deps:
             print("Install: pip packages")
             pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path)
-            with open(requirements_path, "r") as requirements_file:
-                for line in requirements_file:
-                    #handle comments
-                    if '#' in line:
-                        if line.strip()[0] == '#':
-                            print("Line is comment...skipping")
-                            continue
-                        else:
-                            line = line.split('#')[0].strip()
+            for line in manager_util.robust_readlines(requirements_path):
+                #handle comments
+                if '#' in line:
+                    if line.strip()[0] == '#':
+                        print("Line is comment...skipping")
+                        continue
+                    else:
+                        line = line.split('#')[0].strip()
 
-                    package_name = remap_pip_package(line.strip())
+                package_name = remap_pip_package(line.strip())
 
-                    if package_name and not package_name.startswith('#'):
-                        if '--index-url' in package_name:
-                            s = package_name.split('--index-url')
-                            install_cmd = manager_util.make_pip_cmd(["install", s[0].strip(), '--index-url', s[1].strip()])
-                        else:
-                            install_cmd = manager_util.make_pip_cmd(["install", package_name])
+                if package_name and not package_name.startswith('#'):
+                    if '--index-url' in package_name:
+                        s = package_name.split('--index-url')
+                        install_cmd = manager_util.make_pip_cmd(["install", s[0].strip(), '--index-url', s[1].strip()])
+                    else:
+                        install_cmd = manager_util.make_pip_cmd(["install", package_name])
 
-                        if package_name.strip() != "" and not package_name.startswith('#'):
-                            try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
+                    if package_name.strip() != "" and not package_name.startswith('#'):
+                        try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
             pip_fixer.fix_broken()
 
         if os.path.exists(install_script_path):
