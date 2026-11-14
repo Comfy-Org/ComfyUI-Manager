@@ -6,8 +6,17 @@ import { buildGuiFrame } from "./comfyui-gui-builder.js";
 
 loadCss("./snapshot.css");
 
+// The server gives its reason as plain text, and most refusals carry none.
+// For those, and for the error page of a proxy, show the status line.
+async function failureReason(response) {
+	const plain = (response.headers.get('Content-Type') || '').startsWith('text/plain');
+	const text = plain ? await response.text() : '';
+	return sanitizeHTML(text || `HTTP ${response.status} ${response.statusText}`.trim());
+}
+
 async function restore_snapshot(target) {
 	if(SnapshotManager.instance) {
+		let scheduled = false;
 		try {
 			const response = await api.fetchApi(`/v2/snapshot/restore?target=${target}`, { method: 'POST', cache: "no-store" });
 
@@ -16,20 +25,24 @@ async function restore_snapshot(target) {
 				return false;
 			}
 
-			if(response.status == 400) {
-				show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+			if(!response.ok) {
+				show_message(`Restore snapshot failed: ${sanitizeHTML(String(target))} / ${await failureReason(response)}`);
+				return false;
 			}
 
 			app.ui.dialog.close();
+			scheduled = true;
 			return true;
 		}
 		catch(exception) {
-			show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+			show_message(`Restore snapshot failed: ${sanitizeHTML(String(target))} / ${sanitizeHTML(String(exception))}`);
 			return false;
 		}
 		finally {
 			await SnapshotManager.instance.invalidateControl();
-			SnapshotManager.instance.updateMessage("<BR>To apply the snapshot, please <button id='cm-reboot-button2' class='p-button p-component'>RESTART</button> ComfyUI. And refresh browser.", 'cm-reboot-button2');
+			if(scheduled) {
+				SnapshotManager.instance.updateMessage("<BR>To apply the snapshot, please <button id='cm-reboot-button2' class='p-button p-component'>RESTART</button> ComfyUI. And refresh browser.", 'cm-reboot-button2');
+			}
 		}
 	}
 }
@@ -44,15 +57,16 @@ async function remove_snapshot(target) {
 				return false;
 			}
 
-			if(response.status == 400) {
-				show_message(`Remove snapshot failed: ${target.title} / ${exception}`);
+			if(!response.ok) {
+				show_message(`Remove snapshot failed: ${sanitizeHTML(String(target))} / ${await failureReason(response)}`);
+				return false;
 			}
 
 			app.ui.dialog.close();
 			return true;
 		}
 		catch(exception) {
-			show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+			show_message(`Remove snapshot failed: ${sanitizeHTML(String(target))} / ${sanitizeHTML(String(exception))}`);
 			return false;
 		}
 		finally {
