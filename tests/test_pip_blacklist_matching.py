@@ -374,3 +374,26 @@ def test_reserved_pip_command_requirement(pip):
     assert MANAGER_UTIL.pip_install_requirement([*pip, 'install', 'torch==2.0.0']) == 'torch==2.0.0'
     assert MANAGER_UTIL.pip_install_requirement(['python', 'install.py']) is None
     assert MANAGER_UTIL.pip_install_requirement([*pip, 'install']) is None
+
+
+def test_cm_cli_reads_downgrade_blacklist_from_config_ini():
+    """cm-cli adds the packages that config.ini lists to the built-in ones."""
+    cm_cli = GLOB_DIR.resolve().parent / 'cm-cli.py'
+    if not cm_cli.exists():
+        pytest.skip('MANAGER_GLOB_DIR points at a glob directory without cm-cli.py beside it')
+
+    result = _run_child(f"""
+import ast, pathlib
+import cm_global
+
+write_ini('[default]\\ndowngrade_blacklist = opencv-python, Triton_Windows\\n')
+cm_global.pip_downgrade_blacklist = ['torch', 'transformers']
+functions = [node for node in ast.parse(pathlib.Path({str(cm_cli)!r}).read_text(encoding='utf-8')).body
+             if isinstance(node, ast.FunctionDef) and node.name == 'read_downgrade_blacklist']
+scope = {{'core': manager_core, 'cm_global': cm_global}}
+exec(compile(ast.Module(body=functions, type_ignores=[]), 'cm-cli.py', 'exec'), scope)
+scope['read_downgrade_blacklist']()
+print(json.dumps(sorted(cm_global.pip_downgrade_blacklist)))
+""")
+
+    assert result == ['Triton_Windows', 'opencv-python', 'torch', 'transformers']

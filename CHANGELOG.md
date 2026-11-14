@@ -29,6 +29,8 @@ or `.`. A requirement is installed when the installed version is older than its
 `~=` version or is the version that `>` excludes; an installed version that is
 the `~=` version itself is no longer reinstalled.
 
+`cm-cli` reads `downgrade_blacklist` from `config.ini`. It looked for the file
+under a name that does not exist, so it protected only the built-in packages.
 ### Lists load after a channel response that is not JSON
 
 When the channel answered with something other than JSON, such as a block page
