@@ -99,6 +99,10 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   subgraph. It read the node's links from the root graph, so it stopped with an
   error and left the same two copies of the node. Links to the inputs and
   outputs of the subgraph are kept as well.
+- In the legacy UI, say so when the restart that another extension asked for
+  is refused at the current security level. After the user agreed to enable a
+  disabled node pack that the extension requires, nothing was shown; the
+  browser console had `show_message is not defined`.
 
 ## [4.3] - 2026-09-19
 
