@@ -1587,7 +1587,7 @@ app.registerExtension({
 					},
 					tooltip: "Free model and node cache"
 				}).element,
-				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
+				...(share_option !== 'none' ? [new(await import("../../scripts/ui/components/button.js")).ComfyButton({
 					icon: "share",
 					action: () => {
 						if (share_option === 'matrix') {
@@ -1604,7 +1604,7 @@ app.registerExtension({
 						ShareDialogChooser.instance.show();
 					},
 					tooltip: "Share"
-				}).element
+				}).element] : [])
 			);
 
 			app.menu?.settingsGroup.element.before(cmGroup.element);
