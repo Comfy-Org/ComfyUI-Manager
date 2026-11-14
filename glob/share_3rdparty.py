@@ -130,6 +130,17 @@ async def share_art(request):
     else:
         asset_filepath = os.path.join(output_dir, asset_filename)
 
+    # The filename and the subfolder come from the request: share only a file in that directory.
+    # Like ComfyUI's /view, this follows a symlink that the user placed in the directory.
+    output_dir = os.path.abspath(output_dir)
+    asset_filepath = os.path.abspath(asset_filepath)
+    try:
+        is_inside = os.path.commonpath((output_dir, asset_filepath)) == output_dir
+    except ValueError:  # on Windows, a path on another drive
+        is_inside = False
+    if not is_inside:
+        return web.json_response({"error": "The selected output is not in the output directory."}, content_type='application/json', status=400)
+
     # get the mime type of the asset
     assetFileType = mimetypes.guess_type(asset_filepath)[0]
 
