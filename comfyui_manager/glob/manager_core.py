@@ -595,11 +595,12 @@ class UnifiedManager:
         elif node_id in self.unknown_inactive_nodes:
             return True
 
-        target = self.cnr_inactive_nodes.get(node_id, None)
-        if target is not None and target == version_spec:
-            return True
+        res = self.cnr_inactive_nodes.get(node_id, None)
+        if res is None:
+            return False
 
-        return False
+        res = [x for x in res.keys() if x != 'nightly']
+        return len(res) > 0
 
     def is_registered_in_cnr(self, node_id):
         return node_id in self.cnr_map
@@ -964,7 +965,7 @@ class UnifiedManager:
 
         if version_spec is None:
             version_spec = self.resolve_unspecified_version(node_id, guess_mode='inactive')
-            if version is None:
+            if version_spec is None:
                 return result.fail(f'Specified inactive node not exists: {node_id}')
 
         if self.is_enabled(node_id, version_spec):

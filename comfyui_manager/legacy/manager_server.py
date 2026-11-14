@@ -508,7 +508,9 @@ async def task_worker():
 
     async def do_enable(item) -> str:
         ui_id, cnr_id = item
-        core.unified_manager.unified_enable(cnr_id)
+        res = core.unified_manager.unified_enable(cnr_id)
+        if not res.result:
+            return res.msg or 'failed'
         return 'success'
 
     async def do_update(item):
