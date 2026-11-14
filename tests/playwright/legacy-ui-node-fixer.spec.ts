@@ -12,9 +12,9 @@
  * keeps its own, and its inputs and outputs are not nodes of it, so inside a
  * subgraph the entry threw and left the same two nodes.
  *
- * The entry exists for nodes whose definition changed, so one row gives the
- * original an input the new node does not have: that link is dropped, the
- * rest is kept.
+ * The entry exists for nodes whose definition changed, so two rows give the
+ * original an input the new node cannot take over, one it does not have and
+ * one it has with another type: that link is dropped, the rest is kept.
  *
  * Honesty boundary: where the frontend issues numeric ids (1.45.15, which the
  * E2E environment pins), the "string node ids" row rewrites the ids to strings
@@ -32,8 +32,9 @@ import { waitForComfyUI } from './helpers';
 // VAEDecode in the root graph and recreates the KSampler. `subgraph` lists the
 // nodes that are moved into a subgraph first; the test then works inside that
 // subgraph. `links` is what the KSampler must be wired to before the click, at
-// the least. `staleInput` adds an input of that name to the KSampler, fed by
-// the subgraph's `model` input; a new KSampler has no such input.
+// the least. `dropped` names an input of the KSampler that is typed MODEL and
+// fed by the subgraph's `model` input before the click; a new KSampler either
+// has no input of that name or has it with another type.
 const toNodes = {
   inputs: { model: 'CheckpointLoaderSimple.MODEL', positive: 'CLIPTextEncode.CONDITIONING' },
   outputs: ['VAEDecode.samples'],
@@ -54,12 +55,18 @@ const cases = [
   {
     name: 'an input the new node lacks, linked to an input of a subgraph',
     subgraph: ['KSampler'],
-    staleInput: 'legacy_model',
+    dropped: 'legacy_model',
     links: { ...toSubgraph, inputs: { ...toSubgraph.inputs, legacy_model: 'subgraph input.model' } },
+  },
+  {
+    name: 'an input whose type changed, linked to an input of a subgraph',
+    subgraph: ['KSampler'],
+    dropped: 'negative',
+    links: { ...toSubgraph, inputs: { ...toSubgraph.inputs, negative: 'subgraph input.model' } },
   },
 ];
 
-for (const { name, stringIds = false, subgraph = [], staleInput = '', links } of cases) {
+for (const { name, stringIds = false, subgraph = [], dropped = '', links } of cases) {
   test(`Fix node (recreate) leaves one wired node — ${name}`, async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -67,7 +74,7 @@ for (const { name, stringIds = false, subgraph = [], staleInput = '', links } of
     await waitForComfyUI(page);
     await page.waitForFunction(() => !!(window as any).LiteGraph?.registered_node_types?.KSampler);
 
-    await page.evaluate(({ stringIds, subgraph, staleInput }) => {
+    await page.evaluate(({ stringIds, subgraph, dropped }) => {
       const { app, LiteGraph } = window as any;
       const graph = app.canvas.graph;
       graph.clear();
@@ -109,26 +116,39 @@ for (const { name, stringIds = false, subgraph = [], staleInput = '', links } of
         const moved = new Set(graph.nodes.filter((node: any) => subgraph.includes(node.type)));
         const converted = graph.convertToSubgraph(moved);
         app.canvas.openSubgraph(converted.subgraph, converted.node);
-        if (staleInput) {
+        if (dropped) {
           const inner = converted.subgraph.nodes.find((node: any) => node.type === 'KSampler');
-          inner.addInput(staleInput, 'MODEL');
+          const input = inner.inputs.find((slot: any) => slot.name === dropped) ?? inner.addInput(dropped, 'MODEL');
+          input.type = 'MODEL';
           const model = converted.subgraph.inputNode.slots.find((slot: any) => slot.name === 'model');
-          model.connect(inner.inputs.at(-1), inner);
+          model.connect(input, inner);
         }
       }
-    }, { stringIds, subgraph, staleInput });
+    }, { stringIds, subgraph, dropped });
     // Opening a subgraph re-fits the view a moment later.
     if (subgraph.length) await page.waitForTimeout(1_500);
 
-    // Every KSampler of the graph on screen, with the slots it is wired to.
+    // Every KSampler of the graph on screen, with the slots it is wired to. A
+    // link to an input or output of the subgraph must be recorded on that slot
+    // too: that record is what running and saving the workflow read.
     const readSamplers = () => page.evaluate(() => {
       const graph = (window as any).app.canvas.graph;
-      const origin = ({ origin_id, origin_slot }: any) => origin_id === graph.inputNode?.id
-        ? `subgraph input.${graph.inputNode.slots[origin_slot].name}`
-        : `${graph.getNodeById(origin_id).type}.${graph.getNodeById(origin_id).outputs[origin_slot].name}`;
-      const target = ({ target_id, target_slot }: any) => target_id === graph.outputNode?.id
-        ? `subgraph output.${graph.outputNode.slots[target_slot].name}`
-        : `${graph.getNodeById(target_id).type}.${graph.getNodeById(target_id).inputs[target_slot].name}`;
+      const onSlot = (slot: any, link: any) =>
+        `${slot.name}${slot.linkIds.includes(link.id) ? '' : ' (link not recorded on the slot)'}`;
+      const origin = (link: any) => {
+        if (link.origin_id === graph.inputNode?.id) {
+          return `subgraph input.${onSlot(graph.inputNode.slots[link.origin_slot], link)}`;
+        }
+        const node = graph.getNodeById(link.origin_id);
+        return `${node.type}.${node.outputs[link.origin_slot].name}`;
+      };
+      const target = (link: any) => {
+        if (link.target_id === graph.outputNode?.id) {
+          return `subgraph output.${onSlot(graph.outputNode.slots[link.target_slot], link)}`;
+        }
+        const node = graph.getNodeById(link.target_id);
+        return `${node.type}.${node.inputs[link.target_slot].name}`;
+      };
       return graph.nodes.filter((node: any) => node.type === 'KSampler').map((node: any) => ({
         id: node.id,
         inputs: Object.fromEntries(node.inputs.filter((input: any) => input.link != null)
@@ -154,7 +174,7 @@ for (const { name, stringIds = false, subgraph = [], staleInput = '', links } of
 
     const samplers = await readSamplers();
     const expected = { ...original, id: expect.anything(), inputs: { ...original.inputs } };
-    delete expected.inputs[staleInput];
+    delete expected.inputs[dropped];
     // One comparison, so a failure shows the thrown error and the leftover node together.
     expect({ errors, samplers }).toEqual({ errors: [], samplers: [expected] });
     expect(samplers[0].id).not.toBe(original.id);
