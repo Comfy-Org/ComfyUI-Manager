@@ -25,9 +25,12 @@ def _fresh_cache(tmp_path, body):
 
 def test_rewritten_cache_stays_fresh(tmp_path):
     cache = _fresh_cache(tmp_path, {"a": 1})
-    with patch.object(MANAGER_UTIL, "get_cache_path", return_value=str(cache)):
+    stale_creation = time.time() - 86401
+    with patch.object(MANAGER_UTIL, "get_cache_path", return_value=str(cache)), \
+         patch.object(os.path, "getctime", return_value=stale_creation):
         MANAGER_UTIL.save_to_cache("https://example/list.json", {"b": 2}, silent=True)
-        # the rewrite moved mtime forward; freshness must hold
+        # the rewrite moved mtime forward; freshness must hold even with a
+        # creation time older than a day (the Windows getctime regression)
         assert MANAGER_UTIL.is_file_created_within_one_day(str(cache)) is True
         # age the file explicitly: only then is it expired
         old = time.time() - 86401

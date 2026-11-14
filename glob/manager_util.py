@@ -304,6 +304,14 @@ def save_to_cache(uri, json_obj, silent=False):
             logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
 
 
+def write_cache_file(cache_uri, json_obj):
+    # for callers that compute their own cache path (get_data_by_mode's
+    # hash_filename scheme differs from get_cache_path) — same atomic
+    # guarantee: readers see the old cache or the new one, never a corpse.
+    with cache_lock:
+        _atomic_write_json(cache_uri, json_obj)
+
+
 async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=False, dont_cache=False):
     cache_uri = get_cache_path(uri)
 
