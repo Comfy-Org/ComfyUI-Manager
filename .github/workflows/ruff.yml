@@ -19,5 +19,8 @@ jobs:
     - name: Install Ruff
       run: pip install ruff
 
+    - name: Test startup dependency policy without a ComfyUI runtime
+      run: python -m unittest discover -s tests/common -p test_dependency_management_flag.py -v
+
     - name: Run Ruff
       run: ruff check .
