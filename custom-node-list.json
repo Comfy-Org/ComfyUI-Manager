@@ -61493,6 +61493,50 @@
             "description": "Fast and regularized Flow Matching and Diffusion samplers (Flow-WLS Savitzky-Golay multistep, CAB-2..6, and high-order DPM++ solvers) achieving stable few-step generation in 10 steps with zero artifacts."
         },
         {
+            "author": "Iakov Savelev",
+            "title": "Adaptive-step samplers (SA-Solver stochastic strength, predictor-corrector error estimate)",
+            "id": "adaptive-step-samplers",
+            "reference": "https://github.com/YakovSava/adaptive-step-samplers",
+            "files": [
+                "https://github.com/YakovSava/adaptive-step-samplers"
+            ],
+            "install_type": "git-clone",
+            "description": "Nodes: Adaptive SA Sampler (exposes the stochastic strength and noise window that ComfyUI hardcodes in sa_solver), Adaptive PC Sampler (Adams predictor-corrector with a free local error estimate) and Trajectory Probe (per-step diagnostics). Research code with measurements."
+        },
+        {
+            "author": "Iakov Savelev",
+            "title": "Flow-SDE Sampler (curvature- and error-adaptive stochasticity)",
+            "id": "flow-sde-research",
+            "reference": "https://github.com/YakovSava/flow-sde-research",
+            "files": [
+                "https://github.com/YakovSava/flow-sde-research"
+            ],
+            "install_type": "git-clone",
+            "description": "Flow-SDE Sampler node: controls how much noise an SDE sampler injects at each step for flow-matching models at low step counts. Research code; measured on Anima, Flux and MOSS-Image, with mostly negative results documented in the README."
+        },
+        {
+            "author": "Iakov Savelev",
+            "title": "Flow-WLS Sampler (regularized multistep, quantization study)",
+            "id": "flow-wls-research",
+            "reference": "https://github.com/YakovSava/flow-wls-research",
+            "files": [
+                "https://github.com/YakovSava/flow-wls-research"
+            ],
+            "install_type": "git-clone",
+            "description": "Nodes: Flow-WLS Sampler and Flow Easy Sampler, regularized multistep integration for flow-matching models, plus the research code of a study of how such samplers behave under FP8/INT4 quantization errors."
+        },
+        {
+            "author": "Iakov Savelev",
+            "title": "Momentum samplers for flow models (EMA momentum, damped extrapolation, any-sampler filter)",
+            "id": "momentum-cfg-samplers-research",
+            "reference": "https://github.com/YakovSava/momentum-cfg-samplers-research",
+            "files": [
+                "https://github.com/YakovSava/momentum-cfg-samplers-research"
+            ],
+            "install_type": "git-clone",
+            "description": "Momentum on the data prediction for DPM-Solver++-style samplers on flow-matching models: a negative coefficient lowers the error at equal step count, a positive one only adds lag. Nodes: Sampler Momentum, Sampler Momentum Filter (wraps any one-evaluation sampler, unevaluated), Sigmas grid; KSampler entries ddim_momentum, dpmpp_2m_sde_damped and <base>_momentumized. Includes a diagnosis of why the 2023 dpmpp_dualsde_momentumized fails on flow models."
+        },
+        {
             "author": "zaum",
             "title": "ComfyUI Sidebar Hider",
             "reference": "https://github.com/zaum/comfyui-sidebar-hider",
