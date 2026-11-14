@@ -1,0 +1,382 @@
+openapi: 3.0.3
+info:
+  title: ComfyUI-Manager API
+  description: API for managing ComfyUI extensions, custom nodes, and models
+  version: 1.0.0
+  contact:
+    name: ComfyUI Community
+    url: https://github.com/comfyanonymous/ComfyUI
+
+servers:
+  - url: http://localhost:8188
+    description: Local ComfyUI server
+
+paths:
+  /customnode/getlist:
+    get:
+      summary: Get the list of custom nodes
+      description: Returns the list of custom nodes from all configured channels
+      parameters:
+        - name: mode
+          in: query
+          description: "The mode to retrieve (local=installed nodes, remote=available nodes)"
+          schema:
+            type: string
+            enum: [local, remote]
+            default: remote
+      responses:
+        '200':
+          description: List of custom nodes
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  nodes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CustomNode'
+        '500':
+          description: Server error
+
+  /customnode/get_node_mappings:
+    get:
+      summary: Get mappings between node class names and their custom nodes
+      description: Returns mappings that help identify which custom node package provides specific node classes
+      parameters:
+        - name: mode
+          in: query
+          description: "The mode for mappings (local=installed nodes, nickname=node nicknames)"
+          schema:
+            type: string
+            enum: [local, nickname]
+            default: local
+          required: true
+      responses:
+        '200':
+          description: Node mappings
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: string
+        '500':
+          description: Server error
+
+  /customnode/get_node_alternatives:
+    get:
+      summary: Get alternative nodes for specific node classes
+      description: Returns alternative implementations of node classes from different custom node packages
+      parameters:
+        - name: mode
+          in: query
+          description: "The mode to retrieve alternatives (local=installed nodes, remote=all available nodes)"
+          schema:
+            type: string
+            enum: [local, remote]
+            default: remote
+      responses:
+        '200':
+          description: Node alternatives
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    type: string
+        '500':
+          description: Server error
+
+  /externalmodel/getlist:
+    get:
+      summary: Get the list of external models
+      description: Returns the list of models from all configured channels
+      parameters:
+        - name: mode
+          in: query
+          description: "The mode to retrieve (local=installed models, remote=available models)"
+          schema:
+            type: string
+            enum: [local, remote]
+            default: remote
+      responses:
+        '200':
+          description: List of external models
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  models:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ExternalModel'
+        '500':
+          description: Server error
+
+  /manager/get_config:
+    get:
+      summary: Get manager configuration
+      description: Returns the current configuration of ComfyUI-Manager
+      parameters:
+        - name: key
+          in: query
+          description: "The configuration key to retrieve"
+          schema:
+            type: string
+          required: true
+      responses:
+        '200':
+          description: Configuration value
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  value:
+                    type: string
+        '400':
+          description: Invalid key or missing parameter
+        '500':
+          description: Server error
+
+  /manager/set_config:
+    post:
+      summary: Set manager configuration
+      description: Updates the configuration of ComfyUI-Manager
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - key
+                - value
+              properties:
+                key:
+                  type: string
+                  description: "The configuration key to update"
+                value:
+                  type: string
+                  description: "The new value for the configuration key"
+      responses:
+        '200':
+          description: Configuration updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '400':
+          description: Invalid key or value
+        '500':
+          description: Server error
+
+  /snapshot/getlist:
+    get:
+      summary: Get the list of snapshots
+      description: Returns the list of saved snapshots
+      responses:
+        '200':
+          description: List of snapshots
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  snapshots:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Snapshot'
+        '500':
+          description: Server error
+
+  /comfyui_manager/queue/status:
+    get:
+      summary: Get queue status
+      description: Returns the current status of the operation queue
+      responses:
+        '200':
+          description: Queue status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueueStatus'
+        '500':
+          description: Server error
+
+components:
+  schemas:
+    CustomNode:
+      type: object
+      required:
+        - name
+        - title
+        - reference
+      properties:
+        name:
+          type: string
+          description: "Internal name/ID of the custom node"
+        title:
+          type: string
+          description: "Display title of the custom node"
+        reference:
+          type: string
+          description: "Reference URL (usually GitHub repository URL)"
+        description:
+          type: string
+          description: "Description of what the custom node does"
+        install_type:
+          type: string
+          enum: [git, pip, copy]
+          description: "Installation method for the custom node"
+        files:
+          type: array
+          items:
+            type: string
+          description: "List of files provided by this custom node"
+        node_class_names:
+          type: array
+          items:
+            type: string
+          description: "List of node class names provided by this custom node"
+        installed:
+          type: boolean
+          description: "Whether the custom node is installed"
+        version:
+          type: string
+          description: "Version of the custom node"
+        tags:
+          type: array
+          items:
+            type: string
+          description: "Tags associated with the custom node"
+
+    ExternalModel:
+      type: object
+      required:
+        - name
+        - type
+        - url
+      properties:
+        name:
+          type: string
+          description: "Name of the model"
+        type:
+          type: string
+          description: "Type of the model (checkpoint, lora, embedding, etc.)"
+        url:
+          type: string
+          description: "Download URL for the model"
+        description:
+          type: string
+          description: "Description of the model"
+        size:
+          type: integer
+          description: "Size of the model in bytes"
+        installed:
+          type: boolean
+          description: "Whether the model is installed"
+        version:
+          type: string
+          description: "Version of the model"
+        tags:
+          type: array
+          items:
+            type: string
+          description: "Tags associated with the model"
+
+    Snapshot:
+      type: object
+      required:
+        - name
+        - date
+      properties:
+        name:
+          type: string
+          description: "Name of the snapshot"
+        date:
+          type: string
+          format: date-time
+          description: "Date when the snapshot was created"
+        description:
+          type: string
+          description: "Description of the snapshot"
+        nodes:
+          type: array
+          items:
+            type: string
+          description: "List of custom nodes in the snapshot"
+        models:
+          type: array
+          items:
+            type: string
+          description: "List of models in the snapshot"
+
+    QueueStatus:
+      type: object
+      properties:
+        pending:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueItem'
+          description: "List of pending operations in the queue"
+        completed:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueItem'
+          description: "List of completed operations in the queue"
+        failed:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueueItem'
+          description: "List of failed operations in the queue"
+        running:
+          type: boolean
+          description: "Whether the queue is currently running"
+
+    QueueItem:
+      type: object
+      required:
+        - id
+        - type
+        - target
+      properties:
+        id:
+          type: string
+          description: "Unique ID of the queue item"
+        type:
+          type: string
+          enum: [install, update, uninstall]
+          description: "Type of operation"
+        target:
+          type: string
+          description: "Target of the operation (e.g., custom node name, model name)"
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+          description: "Current status of the operation"
+        error:
+          type: string
+          description: "Error message if the operation failed"
+        created_at:
+          type: string
+          format: date-time
+          description: "Time when the operation was added to the queue"
+        completed_at:
+          type: string
+          format: date-time
+          description: "Time when the operation was completed"
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: "API key for authentication"
