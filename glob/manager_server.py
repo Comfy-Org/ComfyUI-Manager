@@ -878,7 +878,7 @@ async def get_node_types_in_workflows(request):
                 workflow_file_absolute_path = os.path.abspath(os.path.join(workflow_files_base_path, workflow_file_path))
                 logging.debug(f"starting work on {workflow_file_absolute_path}")
                 # load the JSON file
-                workflow_file_data = json.load(open(workflow_file_absolute_path, "r", encoding="utf-8"))
+                workflow_file_data = json.load(open(workflow_file_absolute_path, "r", encoding="utf-8-sig"))
 
                 # make sure there's a nodes key (otherwise this might not actually be a workflow file)
                 if "nodes" not in workflow_file_data:
