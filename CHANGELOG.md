@@ -182,6 +182,10 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   reads as an empty list. The age of a cached list is counted from its last
   write; it was read from the file's creation time, which Windows keeps when a
   file is rewritten (#3432).
+- When the archive of a registry node pack cannot be extracted, report the
+  failure and remove the directory created for the pack and the downloaded
+  archive. Both were left behind, and installing the pack again stopped with
+  `Install path already exists` until the directory was removed by hand (#3433).
 
 ## [4.3] - 2026-09-19
 
