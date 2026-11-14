@@ -62697,6 +62697,15 @@
             ],
             "install_type": "unzip",
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
+        },
+        {
+            "author": "nohave1688-k",
+            "title": "ComfyUI-MiniMaxH3-LK",
+            "reference": "https://github.com/nohave1688-k/comfyui-minmaxh3-lk",
+            "files": ["https://github.com/nohave1688-k/comfyui-minmaxh3-lk"],
+            "install_type": "git-clone",
+            "pip": ["safetensors", "sentencepiece", "transformers>=4.49", "accelerate", "imageio-ffmpeg>=0.6.0"],
+            "description": "Segmented multi-shot audio-video generation for the MiniMax H3 hybrid Ref2VA model: one-stop film composer with per-shot LoRA/RefMod panels, two-pass HD refine (segmented guider, packed AV-latent upscale, per-shot second-pass refine), packed audio-video latent with joint decode, and YuNet reference-photo identity sheets for character consistency. The reference-focus node requires opencv-python installed in the ComfyUI Python environment in every mode except passthrough (including the default face_sheet mode and the center-crop fallback, which itself resizes via OpenCV); opencv stays optional elsewhere."
         }
     ]
 }
