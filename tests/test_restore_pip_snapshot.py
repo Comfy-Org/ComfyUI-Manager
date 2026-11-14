@@ -34,7 +34,10 @@ def test_bulk_failure_falls_back_per_package():
     assert len(calls) == 3, "one bulk attempt plus one --no-deps call per package"
 
 
-def test_per_package_failure_is_reported():
+def test_per_package_failure_is_reported(capsys):
     with patch.object(MANAGER_UTIL.subprocess, "check_call", side_effect=subprocess.CalledProcessError(1, "pip")):
         # must not raise; the failure lands in the printed summary
         MANAGER_UTIL.restore_pip_snapshot({"alpha": "", "beta": ""}, ["--pip-non-url"])
+    summary = capsys.readouterr().out
+    # the report must name both failed packages, not just say something failed
+    assert "alpha" in summary and "beta" in summary
