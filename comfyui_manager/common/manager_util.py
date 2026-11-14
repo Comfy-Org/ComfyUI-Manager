@@ -18,7 +18,7 @@ import time
 from functools import lru_cache
 
 from packaging.requirements import InvalidRequirement, Requirement
-from packaging.specifiers import InvalidSpecifier, Specifier
+from packaging.specifiers import InvalidSpecifier, Specifier, SpecifierSet
 from packaging.version import InvalidVersion, Version
 
 
@@ -353,6 +353,72 @@ def _upper_bound_state(operator, version, installed):
     return 'above' if installed > bound else 'below'
 
 
+def _is_met(clauses, installed):
+    """Whether the installed version meets every clause."""
+    return all(Specifier(operator + version).contains(installed, prereleases=True) for operator, version in clauses)
+
+
+def _is_excluded(clauses, installed):
+    """Whether a '!=' clause rejects the installed version."""
+    return any(operator == '!=' and not Specifier('!=' + version).contains(installed, prereleases=True)
+               for operator, version in clauses)
+
+
+def _newer_version_allowed(clauses, installed):
+    """Whether some version newer than the installed one meets every clause.
+
+    Which versions exist is not known here. The clauses are asked about the versions
+    next to the installed one and next to the version of each clause, where a range
+    that a clause closes or excludes ends: the version itself, the one right after it,
+    and the next one at each level, which for '4.57.0' are '4.57.0.1', '4.57.1', '4.58'
+    and '5'; for a pre-release, a post-release or a development release, the next one
+    of its kind as well. Versions are written as long as the longest of them, so that
+    '1.0' beside '<1.0.1' is followed by '1.0.0.1'. The first post-release of a version
+    is asked about too.
+
+    A pre-release is asked about only when '==', '>=', '<=', '~=' or '===' names one:
+    every pip takes a pre-release then. Otherwise pip may install an older release
+    instead; pip before 25.0 does so even when '<' or '>' names a pre-release.
+
+    Another local build of the installed version is not asked about unless a clause
+    names it: a label says nothing about being newer, and pip would most often find
+    the build without a label.
+    """
+    requirement = SpecifierSet(','.join(operator + version for operator, version in clauses))
+    anchors = [installed]
+    pre_release_named = False
+    for operator, version in clauses:
+        try:
+            anchor = Version(version[:-2] if version.endswith('.*') else version)
+        except InvalidVersion:
+            continue    # '===' may name anything
+        anchors.append(anchor)
+        if operator in ('==', '>=', '<=', '~=', '===') and anchor.is_prerelease:
+            pre_release_named = True
+
+    width = max(len(anchor.release) for anchor in anchors)
+    candidates = []
+    for anchor in anchors:
+        epoch = f'{anchor.epoch}!' if anchor.epoch else ''
+        padded = anchor.release + (0,) * (width - len(anchor.release))
+        releases = [padded, padded + (1,)]
+        releases += [padded[:level] + (padded[level] + 1,) for level in range(width)]
+        candidates += [epoch + '.'.join(map(str, release)) for release in releases]
+        candidates.append(str(anchor))
+        if anchor.pre is not None:
+            candidates.append(f'{anchor.base_version}{anchor.pre[0]}{anchor.pre[1] + 1}')
+        candidates.append(f'{anchor.base_version}.post{0 if anchor.post is None else anchor.post + 1}')
+        if anchor.dev is not None:
+            candidates.append(f"{anchor.public.rsplit('.dev', 1)[0]}.dev{anchor.dev + 1}")
+
+    for candidate in map(Version, candidates):
+        if candidate.is_prerelease and not pre_release_named:
+            continue
+        if candidate > installed and requirement.contains(candidate, prereleases=True):
+            return True
+    return False
+
+
 def downgrade_protection(spec, clauses, extras, installed):
     """Decide whether a requirement may replace a downgrade-protected installed package.
 
@@ -363,6 +429,18 @@ def downgrade_protection(spec, clauses, extras, installed):
     Without extras it is also blocked when it has no version or allows exactly the
     installed version, where pip would change nothing. With extras pip would still add
     the extras' dependencies, so those two cases are allowed.
+
+    The clauses are weighed together. A clause that allows the installed version does
+    not block the requirement when another clause sets a minimum above that version or
+    excludes it with '!=': pip then installs another version, and which one is left to
+    pip. When the installed version does not meet the clauses and no newer version meets
+    them either, the requirement is blocked, with or without extras, because pip has
+    only older versions to install.
+
+    An installed local build, such as a CUDA build, is given up only for a minimum above
+    it. A requirement that allows it is blocked without extras, whatever its other
+    clauses, and one that excludes it with '!=' is blocked unless it sets such a minimum:
+    pip would replace the build with whatever it finds.
 
     It is blocked as well when a clause cannot be compared with the installed version;
     `error` then says what was skipped, why, and how to proceed.
@@ -379,32 +457,55 @@ def downgrade_protection(spec, clauses, extras, installed):
             if operator not in ('<', '<=', '==', '===', '~='):
                 raise InvalidSpecifier(operator)
             states.add(_upper_bound_state(operator, version, current))
+        only_older = not _is_met(clauses, current) and not _newer_version_allowed(clauses, current)
+        local_kept = (_is_excluded(clauses, current) and current.local is not None
+                      and not requires_newer_version(clauses, installed))
     except (InvalidSpecifier, InvalidVersion):
         return True, (
             f"Skipped '{spec.strip()}': this package is protected by downgrade_blacklist, and its installed "
             f"version ({installed}) cannot be compared with the requested version. Install it manually if it is "
             "needed, or remove the package from downgrade_blacklist in config.ini if it was added there.")
 
-    return 'above' in states or ('at' in states and not extras), None
+    if 'above' in states or only_older or local_kept:
+        return True, None
+    if 'at' in states and not extras:
+        # requires_newer_version() is also true when '!=' excludes the installed version
+        return current.local is not None or not requires_newer_version(clauses, installed), None
+    return False, None
 
 
 def requires_newer_version(clauses, installed):
-    """Whether any clause sets a minimum that the installed version does not reach.
+    """Whether the installed version fails the requirement where a newer version can meet it.
 
-    Clauses that cannot be compared count as requiring it, so that pip decides.
+    That is so when a clause sets a minimum above the installed version. It is also so
+    when '!=' or '>' leaves out the installed version itself and a newer version meets
+    every clause.
+
+    An installed local build, such as a CUDA build, is replaced only for a minimum above
+    it. '!=' is no ground for it, nor is '>' of its own version.
+
+    A clause is read as pip reads it. '>' also leaves out a post-release and a local
+    build of its version, and '==4.*' is met by a pre-release of 4.0. Clauses that
+    cannot be compared count as requiring a newer version, so that pip decides.
     """
     try:
         current = Version(installed)
+        left_out = False    # by '>', although the installed version is not below its version
         for operator, version in clauses:
             if operator in ('>', '>=', '==', '===', '~='):
+                if Specifier(operator + version).contains(current, prereleases=True):
+                    continue
                 bound = Version(version[:-2] if version.endswith('.*') else version)
-                if current < bound or (operator == '>' and current == bound):
+                if current < bound:
                     return True
+                left_out = left_out or operator == '>'
             elif operator in ('@', '?'):
                 return True
+        if current.local is not None:
+            return False
+        return (left_out or _is_excluded(clauses, current)) and _newer_version_allowed(clauses, current)
     except InvalidVersion:
         return True
-    return False
 
 
 def pip_block_reason(spec, blacklist, downgrade_blacklist):
