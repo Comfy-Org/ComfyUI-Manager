@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Lists load after a channel response that is not JSON
+
+When the channel answered with something other than JSON, such as a block page
+or `404: Not Found`, the Manager stored an empty result in its cache. The custom
+node list and the model list (`Failed to get external model list.`) then failed
+to load from that cache, for up to a day, even after the channel answered
+properly again. Such a response is now handled like a failed connection: nothing
+is cached and the list bundled with the Manager is used. An empty result that an
+earlier version already cached is replaced at the next start while the channel
+answers; for a channel other than the default one that covers only the node
+list, unless `default_cache_as_channel_url` is on. Otherwise it goes away when
+it is a day old or when the files in `user/__manager/cache` are deleted (#3480).
+
 ### Versions with a suffix are read for node packs and pip packages
 
 A node pack installed from the registry is recognized when its version has a

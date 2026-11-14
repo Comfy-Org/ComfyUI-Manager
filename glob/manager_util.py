@@ -248,6 +248,9 @@ async def get_data(uri, silent=False):
     except Exception as e:
         logging.error(f"[ComfyUI-Manager] An error occurred while fetching '{uri}': {e}")
 
+        if uri.startswith("http"):
+            raise
+
         return {}
 
     if not silent:
