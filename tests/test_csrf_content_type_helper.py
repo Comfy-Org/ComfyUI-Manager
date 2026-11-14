@@ -23,7 +23,7 @@ from aiohttp.test_utils import TestClient, TestServer
 
 # Parse the helper from manager_server.py without importing it, to avoid
 # pulling in the full ComfyUI/PromptServer stack. Note: we intentionally do
-# NOT add the `glob/` directory to sys.path — the dir name would shadow
+# NOT add the `glob/` directory to sys.path, the dir name would shadow
 # Python's stdlib `glob` module and break pytest collection.
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -115,6 +115,12 @@ class ContentTypeRejectionTest(unittest.TestCase):
     def test_application_json_allowed(self):
         r = self._post({"Content-Type": "application/json"})
         self.assertEqual(r.status, 200)
+
+    def test_none_request_allowed(self):
+        # Internal callers (e.g. legacy-UI batch flows) invoke route handlers
+        # directly with request=None; helper must not raise AttributeError.
+        # Regression test for issue #2843.
+        self.assertIsNone(_reject_simple_form_content_type(None))
 
 
 if __name__ == "__main__":
