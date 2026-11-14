@@ -4,9 +4,10 @@ A node pack installed from the registry has its version in pyproject.toml. The r
 versions such as `1.8.0-beta.1`, and a pack may write `0.1.3.post1`. pip reports versions such
 as `2.5.1+cu124`, `4.41.0rc1` and `0.0.28.post1`.
 
-The installed-pack scan and the pip checks of manager_core run in a child process that imports
-the real module (see test_install_flags_config). The pip check of prestartup_script is the
-function taken from its source, and pip_auto_fix.list goes through the real PIPFixer.
+The installed-pack scan and the downgrade check of manager_core run in a child process that
+imports the real module (see test_install_flags_config). The pip check of prestartup_script is
+the function taken from its source, and pip_auto_fix.list goes through the real PIPFixer.
+tests/test_pip_blacklist_matching.py covers the pip checks for versions without a suffix.
 """
 import ast
 import logging
@@ -84,7 +85,6 @@ import contextlib, io, pathlib, re
 import cm_global, manager_util
 
 READ = {[written for written, _ in READ_VERSIONS] + UNREADABLE_VERSIONS!r}
-INSTALLED = {[(installed, requirement) for installed, requirement, _ in INSTALLED_CASES]!r}
 DOWNGRADE = {[(installed, requirement) for installed, requirement, _ in DOWNGRADE_CASES]!r}
 
 cm_global.pip_blacklist = set()
@@ -115,7 +115,6 @@ def pip_check(function, installed, requirement):
 
 print(json.dumps({{
     'resolve': {{version: answer(resolve, version)[0] for version in READ}},
-    'is_installed': {{f'{{i}} | {{r}}': pip_check(manager_core.is_installed, i, r) for i, r in INSTALLED + DOWNGRADE}},
     'is_blacklisted': {{f'{{i}} | {{r}}': pip_check(manager_core.is_blacklisted, i, r) for i, r in DOWNGRADE}},
 }}))
 """)
@@ -184,8 +183,7 @@ def test_a_pack_without_a_readable_version_is_not_a_registry_pack(core, written)
 
 
 @pytest.mark.parametrize("installed, requirement, expected", INSTALLED_CASES)
-def test_an_installed_pip_version_is_compared_with_the_requirement(core, prestartup_is_installed, installed, requirement, expected):
-    assert core["is_installed"][key(installed, requirement)][0] is expected
+def test_an_installed_pip_version_is_compared_with_the_requirement(prestartup_is_installed, installed, requirement, expected):
     assert prestartup_is_installed(installed, requirement)[0] is expected
 
 
@@ -194,11 +192,10 @@ def test_a_requirement_that_would_downgrade_a_protected_package_is_refused(core,
     assert core["is_blacklisted"][key(installed, requirement)][0] is refused
 
     # is_installed reports a refused requirement as installed, and says that it skipped it
-    skipped = "skip black listed pip installation: 'transformers'"
-    for result, printed in (core["is_installed"][key(installed, requirement)], prestartup_is_installed(installed, requirement)):
-        if refused:
-            assert result is True
-        assert (skipped in printed) is (refused and requirement != "transformers")
+    result, printed = prestartup_is_installed(installed, requirement)
+    if refused:
+        assert result is True
+    assert (f"skip black listed pip installation: '{requirement}'" in printed) is refused
 
 
 @pytest.mark.parametrize("installed, listed", [

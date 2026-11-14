@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+### pip blacklists apply however a requirement is written
+
+`downgrade_blacklist` protects packages whose names contain a hyphen, such as
+`opencv-python`; they were never protected. Names in `downgrade_blacklist`,
+`pip_blacklist.list` and requirements are compared without regard to case or to
+`-`, `_` and `.` (#3458).
+
+Every version clause of a requirement is read, so `numpy>=1.24,<2` no longer
+passes because its lower bound comes first. Requirements written with spaces,
+parentheses, an environment marker, or as a direct reference (`name @ url`) are
+read as well. A requirement with extras for a `downgrade_blacklist` package is
+installed unless it would downgrade the package, so the extras' dependencies
+are still installed. A `downgrade_blacklist` package is skipped when the
+requirement cannot be compared with the installed version, such as a malformed
+version or a direct reference, and the log says why and how to install it; the
+check raised an error or let the install proceed.
+
+Both lists also apply to requirements that carry pip options such as
+`--index-url`, and to installs run through uv in embedded Python or as a
+standalone tool. These installs were not checked.
+
+At startup, an installed package is recognized however its requirement spells
+the name: pending installs no longer reinstall packages whose names contain `-`
+or `.`. A requirement is installed when the installed version is older than its
+`~=` version or is the version that `>` excludes; an installed version that is
+the `~=` version itself is no longer reinstalled.
+
+`cm-cli` reads `downgrade_blacklist` from `config.ini`. It looked for the file
+under a name that does not exist, so it protected only the built-in packages.
 ### Lists load after a channel response that is not JSON
 
 When the channel answered with something other than JSON, such as a block page

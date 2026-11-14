@@ -306,6 +306,7 @@ The following settings are applied based on the section marked as `is_default`.
     ```
       downgrade_blacklist = diffusers, kornia
     ```
+    * Names are matched without regard to case or to `-`, `_`, and `.`, so `opencv-python` and `opencv_python` are the same package.
 
 * Custom pip mapping
   * When you create the `pip_overrides.json` file, it changes the installation of specific pip packages to installations defined by the user.
