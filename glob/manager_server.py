@@ -357,20 +357,21 @@ _SIMPLE_FORM_CONTENT_TYPES = frozenset({
 def _reject_simple_form_content_type(request):
     """Reject Content-Types that enable preflight-less <form method=POST> CSRF.
 
-    Applied ONLY to POST handlers that do not consume a request body (e.g.,
-    /snapshot/save, /manager/queue/{reset,start,update_comfyui},
-    /manager/reboot). These are vulnerable to cross-origin <form method=POST>
-    attacks because the handler accepts the request without parsing any body —
+    Applied ONLY to POST handlers that act before consuming a request body:
+    the ones that take no body (e.g., /snapshot/save,
+    /manager/queue/{reset,start,update_comfyui}, /manager/reboot) and
+    /manager/queue/update_all, which writes the autosave snapshot before it
+    reads its body. These are vulnerable to cross-origin <form method=POST>
+    attacks because the handler acts without parsing any body —
     the attacker needs no ability to forge a valid payload, only to point a
     hidden form at the URL.
 
-    Handlers that already read a body via ``await request.json()`` are NOT
-    gated here: a cross-origin <form method=POST> cannot forge a valid JSON
-    body because the browser refuses to send ``application/json`` without a
-    CORS preflight, which this server does not answer.
+    Handlers that read a body via ``await request.json()`` before doing
+    anything else are NOT gated here: their cross-origin protection is
+    ComfyUI's origin middleware, not this gate.
 
-    DO NOT add this gate to body-reading handlers — redundant and UX-breaking.
-    DO NOT remove this gate from no-body handlers — this is the bypass vector.
+    DO NOT add this gate to handlers that read the body first — UX-breaking.
+    DO NOT remove this gate from the handlers above — this is the bypass vector.
 
     aiohttp's ``request.content_type`` normalizes the header (lower-cases,
     strips parameters), so ``multipart/form-data; boundary=----X`` is compared
@@ -930,6 +931,8 @@ async def get_node_types_in_workflows(request):
 
 @routes.post("/manager/queue/update_all")
 async def update_all(request):
+    # Keep this gate first: a form POST is refused before this handler does
+    # anything. The autosave snapshot below is written before the body is read.
     resp = _reject_simple_form_content_type(request)
     if resp is not None:
         return resp
