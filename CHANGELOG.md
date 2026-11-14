@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Sharing to Matrix uploads only a file in the output or temp directory
+
+Sharing to the Matrix server uploads only a file inside ComfyUI's output or temp
+directory. The file name and subfolder of the output to share come from the
+request and were not checked, so a request could have any file that ComfyUI can
+read uploaded to the Matrix homeserver named in the same request (#3427).
+
 ### Fix node (recreate) works inside a subgraph
 
 `Fix node (recreate)` on a node inside a subgraph stopped with an error and left
