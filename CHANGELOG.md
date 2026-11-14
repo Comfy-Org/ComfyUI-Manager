@@ -117,6 +117,16 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   meets it, and one that does not, such as `2.6.0+cu124`, is replaced with
   `pip install`. `~=` is a compatible-release clause: it was taken as met by
   any other version, and as not met by the same version.
+- Keep the custom node list and the model list loading when the channel answers
+  with something other than JSON, such as a block page or `404: Not Found`. The
+  startup cache update stored an empty result in the cache, in place of a list
+  cached earlier, and the lists then failed to load from it until a later start
+  got the lists from the channel; with the legacy UI the Model Manager showed
+  `Failed to get external model list.`. Such a response is now handled like a
+  failed connection: the cache is left as it is, and without a cached list the
+  one bundled with the Manager is used. An empty result that an earlier version
+  cached is replaced at the next start that reaches the channel, or goes away
+  when the files in `<USER_DIRECTORY>/__manager/cache` are deleted (#3480).
 
 ## [4.3] - 2026-09-19
 
