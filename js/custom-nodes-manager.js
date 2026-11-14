@@ -1341,8 +1341,7 @@ export class CustomNodesManager {
 
 		this.showLoading();
 		let res;
-		// multi-file git packs carry a full URL as their id; a bare interpolation
-		// breaks routing (and any ? or # in the id would truncate the path)
+		// defensive: only CNR ids reach here ('unknown' version packs never open this dialog)
 		const encoded_node_id = encodeURIComponent(node_id);
 		if(is_enable) {
 			res = await api.fetchApi(`/customnode/disabled_versions/${encoded_node_id}`, { cache: "no-store" });
