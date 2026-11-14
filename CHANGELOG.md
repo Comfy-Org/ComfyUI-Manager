@@ -186,6 +186,11 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   failure and remove the directory created for the pack and the downloaded
   archive. Both were left behind, and installing the pack again stopped with
   `Install path already exists` until the directory was removed by hand (#3433).
+- In the legacy UI, show a node's name, inputs, default values, outputs and
+  description as text in the preview that appears over a node name in a pack's
+  node list. They were inserted as HTML, so a default such as
+  `<lora:name:0.8>` was missing from the preview and markup in a node
+  definition was rendered (#3434).
 
 ## [4.3] - 2026-09-19
 
