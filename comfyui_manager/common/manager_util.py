@@ -118,17 +118,16 @@ class StrictVersion:
         self.parse_version_string()
 
     def parse_version_string(self):
-        parts = self.version_string.split('.')
-        if not parts:
-            raise ValueError("Version string must not be empty")
+        # A pre-release follows the third number after '.' or '-': '0.1.3.post1', '1.8.0-beta.1'.
+        # __str__ writes it with '-', so a version that was already normalized is read as well.
+        m = re.fullmatch(r'(\d+)(?:\.(\d+)(?:\.(\d+)(?:[.-](.+))?)?)?', self.version_string)
+        if m is None:
+            raise ValueError(f"Invalid version: {self.version_string!r}")
 
-        self.major = int(parts[0])
-        self.minor = int(parts[1]) if len(parts) > 1 else 0
-        self.patch = int(parts[2]) if len(parts) > 2 else 0
-
-        # Handling pre-release versions if present
-        if len(parts) > 3:
-            self.pre_release = parts[3]
+        self.major = int(m.group(1))
+        self.minor = int(m.group(2) or 0)
+        self.patch = int(m.group(3) or 0)
+        self.pre_release = m.group(4)
 
     def __str__(self):
         version = f"{self.major}.{self.minor}.{self.patch}"
@@ -515,7 +514,7 @@ def parse_requirement_line(line):
         res['operator'] = operator
 
     if version is not None:
-        res['version'] = StrictVersion(version)
+        res['version'] = version
 
     if index_url is not None:
         res['index_url'] = index_url
@@ -685,23 +684,14 @@ class PIPFixer:
                         normalized_name = normalize_pip_name(parsed['package'])
                         if normalized_name in new_pip_versions:
                             if 'version' in parsed and 'operator' in parsed:
-                                cur = StrictVersion(new_pip_versions[normalized_name])
-                                dest = parsed['version']
-                                op = parsed['operator']
-                                if cur == dest:
-                                    if op in ['==', '>=', '<=']:
-                                        need_to_reinstall = False
-                                elif cur < dest:
-                                    if op in ['<=', '<', '~=', '!=']:
-                                        need_to_reinstall = False
-                                elif cur > dest:
-                                    if op in ['>=', '>', '~=', '!=']:
-                                        need_to_reinstall = False
+                                specifier = Specifier(parsed['operator'] + parsed['version'])
+                                if specifier.contains(new_pip_versions[normalized_name], prereleases=True):
+                                    need_to_reinstall = False
 
                         if need_to_reinstall:
                             cmd_args = ['install']
                             if 'version' in parsed and 'operator' in parsed:
-                                cmd_args.append(parsed['package']+parsed['operator']+parsed['version'].version_string)
+                                cmd_args.append(parsed['package']+parsed['operator']+parsed['version'])
 
                             if 'index_url' in parsed:
                                 cmd_args.append('--index-url')
