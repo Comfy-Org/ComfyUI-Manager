@@ -1,6 +1,6 @@
 # Validation evidence: Make Fix node (recreate) work inside a subgraph
 
-Implementation: `44d7f7a16a05ab25965959402561e44d0fe2ee43` on `fix/v3-node-fixer-subgraph`, targeting `main`.
+Implementation: `cb82b1c86262a5691533606decb7c0bd2e04d738` on `fix/v3-node-fixer-subgraph`, targeting `main`.
 
 - `v3-node-fixer-subgraph-pr-assets/annotated/`: the captures with boxes and captions laid over them
 - `v3-node-fixer-subgraph-pr-assets/screens/`: the unmodified browser captures
