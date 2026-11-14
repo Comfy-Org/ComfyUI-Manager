@@ -177,6 +177,11 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   snapshot is ignored. A registry node pack already at the snapshot's version
   is left alone without asking the registry; when the registry could not be
   reached, that lookup stopped the restore (#3426).
+- Replace a cache file in one step when it is updated, so a write that stops
+  part-way leaves the previous list. It left a truncated file, which Manager
+  reads as an empty list. The age of a cached list is counted from its last
+  write; it was read from the file's creation time, which Windows keeps when a
+  file is rewritten (#3432).
 
 ## [4.3] - 2026-09-19
 

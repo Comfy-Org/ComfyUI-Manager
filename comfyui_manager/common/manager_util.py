@@ -179,9 +179,10 @@ def is_file_created_within_one_day(file_path):
     if not os.path.exists(file_path):
         return False
 
-    file_creation_time = os.path.getctime(file_path)
+    # The modification time: on Windows the creation time stays the same when a file is rewritten.
+    file_modified_time = os.path.getmtime(file_path)
     current_time = time.time()
-    time_difference = current_time - file_creation_time
+    time_difference = current_time - file_modified_time
 
     return time_difference <= 86400
 
@@ -236,14 +237,47 @@ def get_cache_state(uri):
     return "expired"
 
 
-def save_to_cache(uri, json_obj, silent=False):
-    cache_uri = get_cache_path(uri)
+def write_cache_file(cache_uri, json_obj):
+    """Write a cache file by replacing it, so that a write that stops part-way leaves the previous content.
+
+    Returns whether the cache was replaced. A cache that stays open elsewhere is left as it is,
+    with a warning: writing over it in place could be cut short, and the caller has its data anyway.
+    Takes `cache_lock`; do not call it while holding the lock."""
+    tmp_uri = f"{cache_uri}.{os.getpid()}.tmp"
 
     with cache_lock:
-        with open(cache_uri, "w", encoding='utf-8') as file:
-            json.dump(json_obj, file, indent=4, sort_keys=True)
-            if not silent:
-                logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+        try:
+            with open(tmp_uri, "w", encoding='utf-8') as file:
+                json.dump(json_obj, file, indent=4, sort_keys=True)
+            try:
+                if os.path.exists(cache_uri):
+                    os.chmod(tmp_uri, os.stat(cache_uri).st_mode & 0o777)
+            except OSError:
+                # A file system that refuses chmod sets the mode itself.
+                pass
+            for attempt in range(3):
+                try:
+                    os.replace(tmp_uri, cache_uri)
+                    return True
+                except OSError as e:
+                    # Windows does not replace a file that is open elsewhere. A reader has it open
+                    # for a moment only, so try again shortly.
+                    refusal = e
+                    if attempt < 2:
+                        time.sleep(0.1)
+            logging.warning(f"[ComfyUI-Manager] The cache could not be replaced and is left as it is: {cache_uri}\n=> {refusal}")
+            return False
+        finally:
+            # Gone after a replace; otherwise remove it if nothing holds it open.
+            try:
+                os.remove(tmp_uri)
+            except OSError:
+                pass
+
+
+def save_to_cache(uri, json_obj, silent=False):
+    if write_cache_file(get_cache_path(uri), json_obj) and not silent:
+        logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
 
 
 async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=False, dont_cache=False):
@@ -266,11 +300,8 @@ async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=Fals
     else:
         json_obj = await get_data(uri, silent=silent)
         if not dont_cache:
-            with cache_lock:
-                with open(cache_uri, "w", encoding='utf-8') as file:
-                    json.dump(json_obj, file, indent=4, sort_keys=True)
-                    if not silent:
-                        logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+            if write_cache_file(cache_uri, json_obj) and not silent:
+                logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
 
     return json_obj
 
