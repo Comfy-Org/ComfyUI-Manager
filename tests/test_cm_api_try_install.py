@@ -48,7 +48,8 @@ SCRIPTS = {
     # gets no answer, and for the install route `result`, which the queue reports for the pack:
     # `during` the install request, as for a pack from the registry, or after the queue is started.
     # As the server does, the queue reports once more when it is started with nothing in it. A
-    # report of an earlier run arrives before the pack is queued.
+    # report of an earlier run arrives before the pack is queued. With `silent`, no report of the
+    # started queue reaches the page.
     "api.js": """
         class Api extends EventTarget {
             report(detail) {
@@ -74,7 +75,7 @@ SCRIPTS = {
                     };
                     if(answer.during) report(); else this.reportWhenStarted = report;
                 }
-                if(route == '/manager/queue/start') {
+                if(route == '/manager/queue/start' && !window.answers['/manager/queue/install'].silent) {
                     setTimeout(this.reportWhenStarted ?? nothing, 50);
                 }
                 return {status: answer.status ?? 200, json: async () => answer.json, text: async () => ''};
@@ -212,6 +213,28 @@ def test_comfyui_does_not_restart_when_the_pack_was_not_enabled(page, install, r
     assert page.errors == []
 
 
+def test_the_wait_ends_when_no_report_reaches_the_page(page):
+    page.clock.install()
+    ask(page, answers(install={"silent": True}))
+    confirm(page)
+    shown(page, "Enabling... 'Other Pack'")
+
+    page.clock.fast_forward(59000)
+    assert "Failed to enable" not in page.locator("#comfy-dialog").inner_text()
+    page.clock.fast_forward(2000)
+    shown(page, "Failed to enable 'Other Pack'.")
+    shown(page, "The queue did not report the result.")
+
+    # a later report for the same row, as its Disable in the Custom Nodes Manager sends
+    page.evaluate("""async (ui_id) => {
+        const { api } = await import('/scripts/api.js');
+        api.report({status: 'done', nodepack_result: {[ui_id]: 'success'}, model_result: {}});
+    }""", UI_ID)
+    page.clock.fast_forward(1000)
+    assert requested(page) == ENABLE
+    assert page.errors == []
+
+
 def test_a_queue_that_is_running_is_left_alone(page):
     ask(page, answers(status={"json": {"is_processing": True}}))
     confirm(page)
@@ -245,6 +268,21 @@ def test_a_node_list_that_cannot_be_read_is_reported(page):
     shown(page, "Failed to get the custom node list (500).")
     page.wait_for_timeout(300)
     assert requested(page) == ENABLE[:1]
+
+
+@pytest.mark.parametrize("failing, requests", [
+    ({"getlist": {"fails": True}}, ENABLE[:1]),
+    ({"install": {"fails": True}}, ENABLE[:4]),
+], ids=["the node list", "the install request"])
+def test_a_request_that_gets_no_answer_is_reported(page, failing, requests):
+    ask(page, answers(**failing))
+    confirm(page)
+
+    shown(page, "Failed to enable 'Other Pack'.")
+    shown(page, "Failed to fetch")
+    page.wait_for_timeout(300)
+    assert requested(page) == requests
+    assert page.errors == []
 
 
 def test_text_from_the_node_list_and_the_queue_is_shown_as_text(page):
