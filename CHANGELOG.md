@@ -164,6 +164,11 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 - In the legacy UI, say so when that restart is refused at the current
   security level. Nothing was shown; the browser console had
   `show_message is not defined`.
+- With `cm-cli restore-snapshot` and its `--pip-non-url`, `--pip-non-local-url`
+  or `--pip-local-url` options, report a pip package as failed only when pip
+  fails for it. Every package was listed under `Installation failed for pip
+  packages`, and pip was run a second time for each package named by version
+  (#3425).
 
 ## [4.3] - 2026-09-19
 
