@@ -2084,7 +2084,13 @@ def try_rmtree(title, fullpath):
         shutil.rmtree(fullpath)
     except Exception as e:
         logging.warning(f"[ComfyUI-Manager] An error occurred while deleting '{fullpath}', so it has been scheduled for deletion upon restart.\nEXCEPTION: {e}")
-        reserve_script(title, ["#LAZY-DELETE-NODEPACK", fullpath])
+        try:
+            reserve_script(title, ["#LAZY-DELETE-NODEPACK", fullpath])
+        except Exception as schedule_error:
+            # a scheduling failure (disk full, permissions) must not mask the
+            # caller's real error — callers sit inside failure paths that
+            # still need to return their own result.fail(...)
+            logging.warning(f"[ComfyUI-Manager] Failed to schedule lazy deletion for '{fullpath}'.\nEXCEPTION: {schedule_error}")
 
 
 def try_install_script(url, repo_path, install_cmd, instant_execution=False):
