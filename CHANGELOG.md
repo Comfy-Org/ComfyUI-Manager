@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fix node (recreate) works inside a subgraph
+
+`Fix node (recreate)` on a node inside a subgraph stopped with an error and left
+two copies of the node: the original, still wired, and an unwired replacement.
+It read the node's links from the root graph; it now reads them from the graph
+the node is in, and keeps the links to the inputs and outputs of the subgraph as
+well.
+
 ### Notice retrieval verifies the TLS certificate
 
 The notice in the Manager menu is fetched from GitHub with certificate
