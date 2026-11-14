@@ -47,6 +47,12 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   than `.safetensors` must be in the default channel's list unless the security
   level is `normal-` or lower on a loopback listener, or `weak` in
   `personal_cloud` mode (#3428).
+- Share to the Matrix server only a file inside ComfyUI's output or temp
+  directory. The file name and subfolder of the output to share come from the
+  request and were not checked, so a request could have any file that ComfyUI
+  can read uploaded to the Matrix homeserver named in the same request. Only
+  installations with `matrix-nio`, which Manager does not install, were
+  affected (#3427).
 
 ### Fixed
 
