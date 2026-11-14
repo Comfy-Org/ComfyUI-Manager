@@ -106,9 +106,11 @@ function node_info_copy(src, dest, connect_both, copy_shape) {
 			let link = graph.links[input.link];
 			if(link.origin_id === graph.inputNode?.id) {
 				// The link starts at an input of the subgraph, which is not a node of the graph.
+				// Unlike a node's connect(), it takes any input, so the checks are made here.
+				let subgraph_input = graph.inputNode.slots[link.origin_slot];
 				let dest_input = dest.inputs[dest.findInputSlot(input.name)];
-				if(dest_input)
-					graph.inputNode.slots[link.origin_slot].connect(dest_input, dest);
+				if(dest_input && LiteGraph.isValidConnection(subgraph_input.type, dest_input.type))
+					subgraph_input.connect(dest_input, dest);
 			}
 			else {
 				let src_node = graph.getNodeById(link.origin_id);
@@ -137,7 +139,7 @@ function node_info_copy(src, dest, connect_both, copy_shape) {
 				for(let j in links) {
 					let link = links[j];
 					if(link.target_id === graph.outputNode?.id) {
-						// The link ends at an output of the subgraph.
+						// The link ends at an output of the subgraph, whose connect() checks the type itself.
 						graph.outputNode.slots[link.target_slot].connect(dest.outputs[i], dest);
 					}
 					else {
