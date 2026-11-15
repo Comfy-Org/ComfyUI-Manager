@@ -44,6 +44,18 @@ def loggers(stdout, stderr, log_closed=False):
     return scope["ComfyUIManagerLogger"](True), scope["ComfyUIManagerLogger"](False)
 
 
+@pytest.fixture
+def ansitowin32(monkeypatch):
+    """colorama's stream wrapper, with its probe of the Windows console answered.
+
+    On a console that takes the Win32 calls colorama converts the codes itself and strips
+    them from the text, whatever the stream answers, so the cases would depend on where
+    they are run."""
+    module = pytest.importorskip("colorama.ansitowin32")
+    monkeypatch.setattr(module, "winapi_test", lambda *_: False)
+    return module
+
+
 def detached_stream():
     stream = io.TextIOWrapper(io.BytesIO())
     stream.detach()
@@ -88,8 +100,7 @@ def test_logger_is_closed_once_its_log_file_is_closed():
     assert (out.closed, err.closed) == (True, True)
 
 
-def test_colorama_writes_no_reset_at_exit_after_the_log_file_is_closed():
-    ansitowin32 = pytest.importorskip("colorama.ansitowin32")
+def test_colorama_writes_no_reset_at_exit_after_the_log_file_is_closed(ansitowin32):
     out, _ = loggers(Stream(True), Stream(True), log_closed=True)
     written = []
     out.write = written.append
@@ -106,8 +117,7 @@ def test_colorama_writes_no_reset_at_exit_after_the_log_file_is_closed():
     (StreamWithoutClosed(), True),
     (StreamThatCannotBeAsked(), False),
 ])
-def test_colorama_keeps_ansi_codes_only_on_a_terminal(stream, kept):
-    ansitowin32 = pytest.importorskip("colorama.ansitowin32")
+def test_colorama_keeps_ansi_codes_only_on_a_terminal(ansitowin32, stream, kept):
     out, _ = loggers(stream, stream)
 
     assert ansitowin32.AnsiToWin32(out).strip is (not kept)
