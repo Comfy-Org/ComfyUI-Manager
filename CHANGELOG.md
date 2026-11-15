@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### A snapshot that cannot be restored or removed says why
+
+When the server refused to restore or remove a snapshot, the Snapshot Manager
+showed `Restore snapshot failed: undefined / ReferenceError: exception is not
+defined`, also for a removal, and after a refused restore it still asked for a
+restart of ComfyUI. An answer with another error status, such as a 502 from a
+proxy, was taken as success. The message now names the snapshot and the reason:
+the server's text when it gives one, and otherwise the status line, such as
+`HTTP 400 Bad Request`. A restart is asked for only after a restore that was
+accepted (#3436).
+
 ### The node preview shows a node's definition as text
 
 Hovering over a node name in a pack's node list of the Custom Nodes Manager
