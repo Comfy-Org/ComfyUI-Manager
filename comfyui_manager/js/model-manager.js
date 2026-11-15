@@ -46,6 +46,9 @@ export class ModelManager {
 		this.base = '';
 		this.keywords = '';
 
+		// Installs that are waiting for the end of their batch, by batch id
+		this.install_contexts = new Map();
+
 		this.init();
 
 		api.addEventListener("cm-queue-status", this.onQueueStatus);
@@ -481,10 +484,9 @@ export class ModelManager {
 			}
 		}
 
-		this.install_context = {btn: btn, targets: target_items};
-
-		this.batch_id = generateUUID();
-		batch['batch_id'] = this.batch_id;
+		const batch_id = generateUUID();
+		batch['batch_id'] = batch_id;
+		this.install_contexts.set(batch_id, {btn: btn, targets: target_items, queued: false});
 
 		let failed;
 		try {
@@ -499,13 +501,7 @@ export class ModelManager {
 			errorMsg = `Failed to submit installation request: ${sanitizeHTML(String(error))}`;
 			this.showError(errorMsg);
 			show_message("[Installation Errors]\n" + errorMsg);
-			btn.classList.remove("cmm-btn-loading");
-			this.element.querySelectorAll(".cmm-btn-loading").forEach(button => {
-				button.classList.remove("cmm-btn-loading");
-			});
-			this.hideLoading();
-			this.hideStop();
-			this.install_context = undefined;
+			this.endInstall(batch_id);
 			return;
 		}
 		for (const id of failed) {
@@ -521,25 +517,99 @@ export class ModelManager {
 
 		// No queued work means the server will not send batch-done.
 		if (target_items.every(item => failed.includes(item.originalData.id))) {
-			this.element.querySelectorAll(".cmm-btn-loading").forEach(button => {
-				button.classList.remove("cmm-btn-loading");
-			});
-			this.hideLoading();
-			this.hideStop();
-			this.install_context = undefined;
+			this.endInstall(batch_id);
 			return;
 		}
 
+		// The batch can end before its request is answered.
+		const context = this.install_contexts.get(batch_id);
+		if (!context) {
+			return;
+		}
+
+		context.queued = true;
 		this.showStop();
+
+		if (context.queue_ended) {
+			this.endDroppedInstalls();
+		}
+	}
+
+	// Forget a pending install and return its button and rows to idle.
+	// The Stop button goes with the last pending install.
+	endInstall(batch_id) {
+		const context = this.install_contexts.get(batch_id);
+		if (!context) {
+			return;
+		}
+		this.install_contexts.delete(batch_id);
+
+		context.btn.classList.remove("cmm-btn-loading");
+		for (const item of context.targets) {
+			this.grid.updateCell(item, "installed");
+		}
+
+		if (this.install_contexts.size == 0) {
+			this.hideLoading();
+			this.hideStop();
+		}
+
+		return context;
+	}
+
+	// The end of the queue was reported: a batch that was queued and has not ended was dropped
+	// by Stop. The report can also be that of a queue that ran before the batch was added, so
+	// the installs are ended only if the queue is not running now.
+	async endDroppedInstalls() {
+		const queued = [...this.install_contexts].filter(([, context]) => context.queued);
+		if (queued.length == 0) {
+			return;
+		}
+
+		// Without an answer the queue may still be running.
+		const { data } = await fetchData('/v2/manager/queue/status');
+		if (!data || data.is_processing) {
+			return;
+		}
+
+		let downloaded = false;
+		for (const [batch_id, context] of queued) {
+			if (this.endInstall(batch_id)) {
+				downloaded ||= context.targets.some(item => item.refresh);
+			}
+		}
+		if (downloaded) {
+			this.showRefresh();
+			this.showMessage(`To apply the installed model, please click the 'Refresh' button.`, "red")
+		}
 	}
 
 	async onQueueStatus(event) {
 		let self = ModelManager.instance;
+		const detail = event.detail;
 
-		if(event.detail.status == 'in_progress' && event.detail.ui_target == 'model_manager') {
-			const hash = event.detail.target;
+		if (!self) {
+			return;
+		}
+
+		if (detail.status == 'all-done') {
+			// An install whose request is not answered yet is looked at when it is.
+			for (const context of self.install_contexts.values()) {
+				context.queue_ended = !context.queued;
+			}
+			self.endDroppedInstalls();
+			return;
+		}
+
+		if (!self.install_contexts.has(detail.batch_id)) {
+			return;
+		}
+
+		if(detail.status == 'in_progress' && detail.ui_target == 'model_manager') {
+			const hash = detail.target;
 
 			const item = self.grid.getRowItemBy("hash", hash);
+			if (!item) return;
 
 			item.refresh = true;
 			self.grid.setRowSelected(item, false);
@@ -547,29 +617,20 @@ export class ModelManager {
 //			self.grid.updateCell(item, "tg-column-select");
 			self.grid.updateRow(item);
 		}
-		else if(event.detail.status == 'batch-done') {
-			self.hideStop();
-			self.onQueueCompleted(event.detail);
+		else if(detail.status == 'batch-done') {
+			self.onQueueCompleted(detail);
 		}
 	}
 
 	async onQueueCompleted(info) {
-		let result = info.model_result;
-
-		if(result.length == 0) {
-			return;
-		}
-
 		let self = ModelManager.instance;
 
-		if(!self.install_context) {
+		if(!self?.install_contexts.has(info.batch_id)) {
 			return;
 		}
+		self.endInstall(info.batch_id);
 
-		let btn = self.install_context.btn;
-
-		self.hideLoading();
-		btn.classList.remove("cmm-btn-loading");
+		const result = info.model_result ?? {};
 
 		let errorMsg = "";
 
@@ -580,23 +641,19 @@ export class ModelManager {
 				errorMsg += sanitizeHTML(String(v)) + '\n';
 		}
 
-		for(let k in self.install_context.targets) {
-			let item = self.install_context.targets[k];
-			self.grid.updateCell(item, "installed");
-		}
-
 		if (errorMsg) {
 			self.showError(errorMsg);
 			show_message("Installation Error:\n"+errorMsg);
 		} else {
-			self.showStatus(`Install ${result.length} models successfully`);
+			self.showStatus(`Install ${Object.keys(result).length} models successfully`);
 		}
 
 		self.showRefresh();
-		self.showMessage(`To apply the installed model, please click the 'Refresh' button.`, "red")
+		if (!errorMsg) {
+			self.showMessage(`To apply the installed model, please click the 'Refresh' button.`, "red")
+		}
 
 		infoToast('Tasks done', `[ComfyUI-Manager] All model downloading tasks in the queue have been completed.\n${info.done_count}/${info.total_count}`);
-		self.install_context = undefined;
 	}
 
 	getModelList(models) {

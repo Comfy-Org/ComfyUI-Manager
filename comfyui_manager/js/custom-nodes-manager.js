@@ -1616,11 +1616,8 @@ export class CustomNodesManager {
 	}
 
 	async onQueueCompleted(info) {
+		// nodepack_result is an object keyed by the id of each task, not an array
 		let result = info.nodepack_result;
-
-		if(result.length == 0) {
-			return;
-		}
 
 		let self = CustomNodesManager.instance;
 
@@ -1649,7 +1646,7 @@ export class CustomNodesManager {
 			self.showError(errorMsg);
 			show_message("Installation Error:\n"+errorMsg);
 		} else {
-			self.showStatus(`${label} ${result.length} custom node(s) successfully`);
+			self.showStatus(`${label} ${Object.keys(result).length} custom node(s) successfully`);
 		}
 
 		self.showRestart();

@@ -49,5 +49,5 @@ PORT=8199 npx playwright test --debug
 | `legacy-ui-navigation.spec.ts` | Dialog open/close, nested navigation, no duplicates |
 | `custom-nodes-xss.spec.ts` | Node metadata, node preview, Markdown, links, errors, search highlighting |
 | `model-manager-xss.spec.ts` | Model metadata, links, errors, search highlighting |
-| `legacy-message-errors.spec.ts` | Batch rejection IDs, name readability, DOM colors, lookup errors |
+| `legacy-message-errors.spec.ts` | Batch rejection IDs, batch completion, name readability, DOM colors, lookup errors |
 | `legacy-ui-node-fixer.spec.ts` | "Fix node (recreate)" context-menu entry: one node left, links rewired, numeric and string node ids, inside a subgraph |

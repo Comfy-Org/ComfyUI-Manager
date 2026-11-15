@@ -191,6 +191,13 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   node list. They were inserted as HTML, so a default such as
   `<lora:name:0.8>` was missing from the preview and markup in a node
   definition was rendered (#3434).
+- In the legacy UI, keep the Model Manager waiting for its downloads when
+  another batch finishes, such as a node pack install queued before them or a
+  model install started earlier. It showed the downloads as done while they
+  were still running, hid the Stop button, and ignored their real completion.
+  After Stop, the dialog returns to idle; it stayed waiting, with its Stop
+  button. A failed download is no longer followed by the request to click
+  Refresh (#3303, #3437).
 
 ## [4.3] - 2026-09-19
 
