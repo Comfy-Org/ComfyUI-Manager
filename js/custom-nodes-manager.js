@@ -924,7 +924,7 @@ export class CustomNodesManager {
 		// console.log(nodeItem);
 		const list = [`<div class="cn-preview-header">
 			<div class="cn-preview-dot"></div>
-			<div class="cn-preview-name">${nodeItem.name}</div>
+			<div class="cn-preview-name">${sanitizeHTML(String(nodeItem.name ?? ""))}</div>
 			<div class="cn-pack-badge">Preview</div>
 		</div>`];
 
@@ -1005,7 +1005,7 @@ export class CustomNodesManager {
 			const optional = it.optional ? " cn-preview-optional" : ""
 			return `<div class="cn-preview-input">
 				<div class="cn-preview-dot${optional}" style="background-color:${color}"></div>
-				${it.name}
+				${sanitizeHTML(String(it.name ?? ""))}
 			</div>`;
 		}).join("");
 
@@ -1013,7 +1013,7 @@ export class CustomNodesManager {
 			const color = colorMap[it.type] || "gray";
 			const grid = it.list ? " cn-preview-grid" : "";
 			return `<div class="cn-preview-output">
-				${it.name}
+				${sanitizeHTML(String(it.name ?? ""))}
 				<div class="cn-preview-dot${grid}" style="background-color:${color}"></div>
 			</div>`;
 		}).join("");
@@ -1045,22 +1045,23 @@ export class CustomNodesManager {
 					|| it.type === "MARKDOWN"
 				) {
 					if (value) {
-						value = value.replace(/\r?\n/g, "<br>")
+						// escape first, then allow the <br> this branch adds
+						value = sanitizeHTML(String(value)).replace(/\r?\n/g, "<br>")
 					}
-					list.push(`<div class="cn-preview-string">${value || it.name}</div>`);
+					list.push(`<div class="cn-preview-string">${value || sanitizeHTML(String(it.name ?? ""))}</div>`);
 					return;
 				}
 
 				list.push(`<div class="cn-preview-switch">
-					<div>${it.name}</div>
-					<div class="cn-preview-value">${value}</div>	
+					<div>${sanitizeHTML(String(it.name ?? ""))}</div>
+					<div class="cn-preview-value">${sanitizeHTML(String(value))}</div>
 				</div>`);
 			});
 			list.push(`</div>`);
 		}
 
 		if (nodeItem.description) {
-			list.push(`<div class="cn-preview-description">${nodeItem.description}</div>`)
+			list.push(`<div class="cn-preview-description">${sanitizeHTML(String(nodeItem.description))}</div>`)
 		}
 
 		return list.join("");
