@@ -379,6 +379,52 @@ test.describe('flyover sinks', () => {
 
     await expectInert(page, FLYOVER, XSS_PAYLOAD, 'img', 'flyover node name');
   });
+
+  test('node preview renders the node definition inert (LIVE, hover-gated)', async ({ page }) => {
+    // The preview is built from ComfyUI's node definitions (/object_info),
+    // which Manager's server never touches, so every field is RAW.
+    await routeNodeList(page, { h: makePack('h') });
+    await routeMappings(page, {
+      'https://github.com/example/h': [['NodeA'], { title_aux: 'h' }],
+    });
+    const fields = ['name', 'slot', 'text', 'blank', 'count', 'default', 'output', 'description'];
+    const hostile = Object.fromEntries(fields.map((field) => [field, `${field} ${XSS_PAYLOAD}`]));
+    // The frontend has loaded its own node definitions by now, so this answers
+    // only the request the manager makes when its dialog is created.
+    await page.route('**/object_info', (route) => route.fulfill({ json: {
+      NodeA: {
+        name: hostile.name,
+        description: hostile.description,
+        input: { required: {
+          [hostile.slot]: ['IMAGE'],
+          [hostile.text]: ['STRING', { default: `first line\n${hostile.default}` }],
+          [hostile.blank]: ['STRING', { multiline: true }],
+          [hostile.count]: ['INT', { default: hostile.default }],
+        } },
+        input_order: { required: [hostile.slot, hostile.text, hostile.blank, hostile.count] },
+        output: ['IMAGE'],
+        output_name: [hostile.output],
+        output_is_list: [false],
+      },
+    } }));
+    const definitions = page.waitForResponse('**/object_info');
+    await openManagerMenu(page);
+    await openCustomNodesManager(page);
+    await definitions;
+    await openFlyover(page);
+
+    await page.locator(`${FLYOVER} .cn-nodes-name`).first().hover();
+    await page.waitForSelector('.cn-preview', { state: 'visible', timeout: 10_000 });
+
+    await expectInert(page, '.cn-preview', XSS_PAYLOAD, 'img', 'node preview');
+    const preview = page.locator('.cn-preview');
+    // A text input shows its default value, and its name only when it has none.
+    for (const field of fields.filter((field) => field !== 'text')) {
+      await expect(preview, `node preview: ${field}`).toContainText(hostile[field]);
+    }
+    // The line break of a multi-line default is the one piece of markup kept.
+    await expect(preview.locator('.cn-preview-string br')).toHaveCount(1);
+  });
 });
 
 // ===========================================================================
