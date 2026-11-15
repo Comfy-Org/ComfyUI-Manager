@@ -1,0 +1,214 @@
+{
+ "base": "b76eb112",
+ "head": "2084eb09",
+ "red": "the JS of the base",
+ "green": "the JS of the head",
+ "captures": [
+  {
+   "capture": "screens/3436-restore-message.red.png",
+   "sha256": "e27cfaaa8b637e971430d9a226ef44b633feb44b6d5fa76f9945f6b4d31d6e4e",
+   "annotated": "annotated/3436-restore-message.red.png",
+   "side": "red",
+   "viewport": "1440x900",
+   "boxes": [
+    {
+     "x": 395,
+     "y": 380,
+     "w": 650,
+     "h": 141,
+     "kind": "red",
+     "tag": "no snapshot name, no reason"
+    }
+   ],
+   "observed": {
+    "serverAnswer": {
+     "status": 400,
+     "body": ""
+    },
+    "message": "Restore snapshot failed: undefined / ReferenceError: exception is not defined"
+   }
+  },
+  {
+   "capture": "screens/3436-restore-message.green.png",
+   "sha256": "3204cb4d6798a71eb0551501374f64a24e59edfbec270d2f171949cbce1040c9",
+   "annotated": "annotated/3436-restore-message.green.png",
+   "side": "green",
+   "viewport": "1440x900",
+   "boxes": [
+    {
+     "x": 399,
+     "y": 380,
+     "w": 642,
+     "h": 141,
+     "kind": "green",
+     "tag": "snapshot name and reason"
+    }
+   ],
+   "observed": {
+    "serverAnswer": {
+     "status": 400,
+     "body": ""
+    },
+    "message": "Restore snapshot failed: <snapshot name> / HTTP 400 Bad Request"
+   }
+  },
+  {
+   "capture": "screens/3436-restore-after.red.png",
+   "sha256": "9019fa3e1998cfa93bfc87bd6adb13b0cdc91ad47de2afa6fc5e5fa252362bc5",
+   "annotated": "annotated/3436-restore-after.red.png",
+   "side": "red",
+   "viewport": "1440x900",
+   "boxes": [
+    {
+     "x": 138,
+     "y": 786,
+     "w": 1164,
+     "h": 50,
+     "kind": "red",
+     "tag": "asks for a restart after a refusal"
+    }
+   ],
+   "observed": {
+    "restartButtons": 1,
+    "messageArea": "To apply the snapshot, please RESTART ComfyUI. And refresh browser."
+   }
+  },
+  {
+   "capture": "screens/3436-restore-after.green.png",
+   "sha256": "7f01a97151e180f817a18e87e278f35882158bfe8fad4131fa3c16c0f7278e2d",
+   "annotated": "annotated/3436-restore-after.green.png",
+   "side": "green",
+   "viewport": "1440x900",
+   "boxes": [
+    {
+     "x": 138,
+     "y": 786,
+     "w": 1164,
+     "h": 50,
+     "kind": "green",
+     "tag": "no restart notice"
+    }
+   ],
+   "observed": {
+    "restartButtons": 0,
+    "messageArea": ""
+   }
+  }
+ ],
+ "runs": [
+  {
+   "scenario": "3436-restore-after",
+   "run": "green-1",
+   "observed": {
+    "restartButtons": 0,
+    "messageArea": ""
+   }
+  },
+  {
+   "scenario": "3436-restore-after",
+   "run": "green-2",
+   "observed": {
+    "restartButtons": 0,
+    "messageArea": ""
+   }
+  },
+  {
+   "scenario": "3436-restore-after",
+   "run": "green-3",
+   "observed": {
+    "restartButtons": 0,
+    "messageArea": ""
+   }
+  },
+  {
+   "scenario": "3436-restore-after",
+   "run": "red-1",
+   "observed": {
+    "restartButtons": 1,
+    "messageArea": "To apply the snapshot, please RESTART ComfyUI. And refresh browser."
+   }
+  },
+  {
+   "scenario": "3436-restore-after",
+   "run": "red-2",
+   "observed": {
+    "restartButtons": 1,
+    "messageArea": "To apply the snapshot, please RESTART ComfyUI. And refresh browser."
+   }
+  },
+  {
+   "scenario": "3436-restore-after",
+   "run": "red-3",
+   "observed": {
+    "restartButtons": 1,
+    "messageArea": "To apply the snapshot, please RESTART ComfyUI. And refresh browser."
+   }
+  },
+  {
+   "scenario": "3436-restore-message",
+   "run": "green-1",
+   "observed": {
+    "serverAnswer": {
+     "status": 400,
+     "body": ""
+    },
+    "message": "Restore snapshot failed: <snapshot name> / HTTP 400 Bad Request"
+   }
+  },
+  {
+   "scenario": "3436-restore-message",
+   "run": "green-2",
+   "observed": {
+    "serverAnswer": {
+     "status": 400,
+     "body": ""
+    },
+    "message": "Restore snapshot failed: <snapshot name> / HTTP 400 Bad Request"
+   }
+  },
+  {
+   "scenario": "3436-restore-message",
+   "run": "green-3",
+   "observed": {
+    "serverAnswer": {
+     "status": 400,
+     "body": ""
+    },
+    "message": "Restore snapshot failed: <snapshot name> / HTTP 400 Bad Request"
+   }
+  },
+  {
+   "scenario": "3436-restore-message",
+   "run": "red-1",
+   "observed": {
+    "serverAnswer": {
+     "status": 400,
+     "body": ""
+    },
+    "message": "Restore snapshot failed: undefined / ReferenceError: exception is not defined"
+   }
+  },
+  {
+   "scenario": "3436-restore-message",
+   "run": "red-2",
+   "observed": {
+    "serverAnswer": {
+     "status": 400,
+     "body": ""
+    },
+    "message": "Restore snapshot failed: undefined / ReferenceError: exception is not defined"
+   }
+  },
+  {
+   "scenario": "3436-restore-message",
+   "run": "red-3",
+   "observed": {
+    "serverAnswer": {
+     "status": 400,
+     "body": ""
+    },
+    "message": "Restore snapshot failed: undefined / ReferenceError: exception is not defined"
+   }
+  }
+ ]
+}
