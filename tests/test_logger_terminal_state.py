@@ -7,6 +7,7 @@ import ast
 import io
 import textwrap
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -34,11 +35,11 @@ class StreamThatCannotBeAsked:
         raise OSError("The handle is invalid")
 
 
-def loggers(stdout, stderr):
+def loggers(stdout, stderr, log_closed=False):
     """Lift ComfyUIManagerLogger; importing prestartup_script would run the startup."""
     source = SOURCE.read_text(encoding="utf-8")
     node = next(n for n in ast.walk(ast.parse(source)) if isinstance(n, ast.ClassDef) and n.name == "ComfyUIManagerLogger")
-    scope = {"original_stdout": stdout, "original_stderr": stderr}
+    scope = {"original_stdout": stdout, "original_stderr": stderr, "log_file": SimpleNamespace(closed=log_closed)}
     exec(textwrap.dedent("\n".join(source.splitlines()[node.lineno - 1:node.end_lineno])), scope)
     return scope["ComfyUIManagerLogger"](True), scope["ComfyUIManagerLogger"](False)
 
@@ -79,6 +80,24 @@ def test_detached_stream_is_closed():
     out, _ = loggers(detached_stream(), detached_stream())
 
     assert out.closed is True
+
+
+def test_logger_is_closed_once_its_log_file_is_closed():
+    out, err = loggers(Stream(True), Stream(True), log_closed=True)
+
+    assert (out.closed, err.closed) == (True, True)
+
+
+def test_colorama_writes_no_reset_at_exit_after_the_log_file_is_closed():
+    ansitowin32 = pytest.importorskip("colorama.ansitowin32")
+    out, _ = loggers(Stream(True), Stream(True), log_closed=True)
+    written = []
+    out.write = written.append
+
+    # what colorama's exit handler does with the stream it was given at init()
+    ansitowin32.AnsiToWin32(out).reset_all()
+
+    assert written == []
 
 
 @pytest.mark.parametrize("stream, kept", [
