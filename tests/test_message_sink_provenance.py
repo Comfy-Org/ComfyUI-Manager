@@ -136,7 +136,8 @@ REGISTRY = {
          "item.name comes from /externalmodel/getlist, where populate_markdown -> "
          "sanitize_tag has already escaped it. WI-112 added a caller escape here "
          "and it rendered '&lt;Flux&gt;' to the user; removing it is the fix"),
-    ("model-manager.js", "showStatus", "`Install ${result.length} models successfully`);"):
+    ("model-manager.js", "showStatus",
+     "`Install ${Object.keys(result).length} models successfully`);"):
         (NO_DATA, "a count of queue results"),
     ("model-manager.js", "showStatus", "`Loading external model list ...`);"):
         (NO_DATA, "hardcoded"),

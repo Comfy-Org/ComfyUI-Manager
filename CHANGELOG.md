@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### The Model Manager no longer reports an install that did not happen
+
+After the server refused a model install request, the Model Manager kept
+waiting, and the end of the next queue, such as a node pack install, was taken
+for the end of that install: it asked to click Refresh and raised the notice
+that all model downloads were completed, although no model had been installed.
+The end of a queue that carries no model result now returns the dialog to idle
+without a message when no task is left, and leaves a pending install and its
+Stop button alone while tasks are left (#3437).
+
 ### A snapshot that cannot be restored or removed says why
 
 When the server refused to restore or remove a snapshot, the Snapshot Manager
