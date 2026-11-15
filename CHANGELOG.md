@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### The node preview shows a node's definition as text
+
+Hovering over a node name in a pack's node list of the Custom Nodes Manager
+shows a preview of the node: its name, inputs, default values, outputs and
+description. They were inserted as HTML, so text between angle brackets, such
+as a default of `<lora:detail:0.8>`, was missing from the preview, and markup
+in a node definition was rendered. They are now shown as they are written
+(#3434).
+
 ### A registry archive that cannot be extracted leaves nothing behind
 
 When the archive of a registry node pack could not be extracted, for instance
