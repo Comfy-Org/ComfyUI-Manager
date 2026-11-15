@@ -1337,7 +1337,12 @@ class UnifiedManager:
             # 'Install path already exists' until the user cleaned up by hand.
             # try_rmtree: an entry it cannot delete gets scheduled for deletion
             # at shutdown instead of silently staying and re-blocking the retry.
-            try_rmtree(f"Cleanup after failed {node_id} extraction", install_path)
+            # A cleanup that fails as well is logged: the extraction error is
+            # the one to report.
+            try:
+                try_rmtree(node_id, install_path)
+            except Exception as cleanup_error:
+                logging.warning(f"[ComfyUI-Manager] Failed to clean up '{install_path}': {cleanup_error}")
             if os.path.exists(download_path):
                 try:
                     os.remove(download_path)
@@ -1352,9 +1357,12 @@ class UnifiedManager:
         result.to_path = install_path
 
         if extracted is None:
-            # corrupt ZIP: retain the archive for inspection (only the fresh
-            # directory is removed), same cleanup semantics as the error path
-            try_rmtree(f"Cleanup after corrupt {node_id} archive", install_path)
+            # not a ZIP: the archive is already removed above; remove the
+            # fresh directory with the same cleanup as the error path
+            try:
+                try_rmtree(node_id, install_path)
+            except Exception as cleanup_error:
+                logging.warning(f"[ComfyUI-Manager] Failed to clean up '{install_path}': {cleanup_error}")
             return result.fail(f'Empty archive file: {node_id}@{version_spec}')
 
         # create .tracking file
@@ -2084,13 +2092,7 @@ def try_rmtree(title, fullpath):
         shutil.rmtree(fullpath)
     except Exception as e:
         logging.warning(f"[ComfyUI-Manager] An error occurred while deleting '{fullpath}', so it has been scheduled for deletion upon restart.\nEXCEPTION: {e}")
-        try:
-            reserve_script(title, ["#LAZY-DELETE-NODEPACK", fullpath])
-        except Exception as schedule_error:
-            # a scheduling failure (disk full, permissions) must not mask the
-            # caller's real error — callers sit inside failure paths that
-            # still need to return their own result.fail(...)
-            logging.warning(f"[ComfyUI-Manager] Failed to schedule lazy deletion for '{fullpath}'.\nEXCEPTION: {schedule_error}")
+        reserve_script(title, ["#LAZY-DELETE-NODEPACK", fullpath])
 
 
 def try_install_script(url, repo_path, install_cmd, instant_execution=False):
