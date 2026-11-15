@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### A registry archive that cannot be extracted leaves nothing behind
+
+When the archive of a registry node pack could not be extracted, for instance
+because an entry in it cannot be written, the install ended with an error and
+left the directory it had created for the pack, with the files extracted so
+far, and the downloaded archive in `custom_nodes`. Installing the pack again
+then stopped with `Install path already exists` until the directory was removed
+by hand. The install now reports `Failed to extract archive`, and removes the
+directory and the archive (#3433).
+
 ### Cache files are replaced whole, and their age is counted from the last write
 
 The cached channel lists and the registry's node list were written in place. A
