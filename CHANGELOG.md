@@ -203,6 +203,11 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   undefined / ReferenceError: exception is not defined`, also for a removal,
   and a refused restore still asked for a restart. An answer with another
   error status was taken as success (#3436).
+- With file logging on, tell libraries that ask whether the console is a
+  terminal the state of the real console. The logger that captures the output
+  always answered that it was not one, so after `colorama.init()` the colors of
+  every `print()` were removed, and tqdm and rich took a terminal for a pipe
+  (#3259, #3423).
 
 ## [4.3] - 2026-09-19
 
