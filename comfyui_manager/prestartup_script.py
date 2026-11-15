@@ -301,7 +301,11 @@ try:
             stream = original_stdout if self.is_stdout else original_stderr
             try:
                 return stream.closed
-            except (AttributeError, ValueError):
+            except AttributeError:
+                # the output still goes to a stream that cannot say whether it is closed
+                return False
+            except ValueError:
+                # a detached stream
                 return True
 
         def write(self, message):
