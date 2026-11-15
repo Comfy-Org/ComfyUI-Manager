@@ -357,20 +357,21 @@ _SIMPLE_FORM_CONTENT_TYPES = frozenset({
 def _reject_simple_form_content_type(request):
     """Reject Content-Types that enable preflight-less <form method=POST> CSRF.
 
-    Applied ONLY to POST handlers that do not consume a request body (e.g.,
-    /snapshot/save, /manager/queue/{reset,start,update_comfyui},
-    /manager/reboot). These are vulnerable to cross-origin <form method=POST>
-    attacks because the handler accepts the request without parsing any body —
+    Applied ONLY to POST handlers that act before consuming a request body:
+    the ones that take no body (e.g., /snapshot/save,
+    /manager/queue/{reset,start,update_comfyui}, /manager/reboot) and
+    /manager/queue/update_all, which writes the autosave snapshot before it
+    reads its body. These are vulnerable to cross-origin <form method=POST>
+    attacks because the handler acts without parsing any body —
     the attacker needs no ability to forge a valid payload, only to point a
     hidden form at the URL.
 
-    Handlers that already read a body via ``await request.json()`` are NOT
-    gated here: a cross-origin <form method=POST> cannot forge a valid JSON
-    body because the browser refuses to send ``application/json`` without a
-    CORS preflight, which this server does not answer.
+    Handlers that read a body via ``await request.json()`` before doing
+    anything else are NOT gated here: their cross-origin protection is
+    ComfyUI's origin middleware, not this gate.
 
-    DO NOT add this gate to body-reading handlers — redundant and UX-breaking.
-    DO NOT remove this gate from no-body handlers — this is the bypass vector.
+    DO NOT add this gate to handlers that read the body first — UX-breaking.
+    DO NOT remove this gate from the handlers above — this is the bypass vector.
 
     aiohttp's ``request.content_type`` normalizes the header (lower-cases,
     strips parameters), so ``multipart/form-data; boundary=----X`` is compared
@@ -878,7 +879,7 @@ async def get_node_types_in_workflows(request):
                 workflow_file_absolute_path = os.path.abspath(os.path.join(workflow_files_base_path, workflow_file_path))
                 logging.debug(f"starting work on {workflow_file_absolute_path}")
                 # load the JSON file
-                workflow_file_data = json.load(open(workflow_file_absolute_path, "r"))
+                workflow_file_data = json.load(open(workflow_file_absolute_path, "r", encoding="utf-8-sig"))
 
                 # make sure there's a nodes key (otherwise this might not actually be a workflow file)
                 if "nodes" not in workflow_file_data:
@@ -930,6 +931,11 @@ async def get_node_types_in_workflows(request):
 
 @routes.post("/manager/queue/update_all")
 async def update_all(request):
+    # Keep this gate first: a form POST is refused before this handler does
+    # anything. The autosave snapshot below is written before the body is read.
+    resp = _reject_simple_form_content_type(request)
+    if resp is not None:
+        return resp
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
         return security_403_response()
@@ -1736,13 +1742,13 @@ async def check_whitelist_for_model(item):
     json_obj = await core.get_data_by_mode('cache', 'model-list.json')
 
     for x in json_obj.get('models', []):
-        if x['save_path'] == item['save_path'] and x['base'] == item['base'] and x['filename'] == item['filename']:
+        if x['save_path'] == item['save_path'] and x['base'] == item['base'] and x['filename'] == item['filename'] and x.get('url') == item.get('url'):
             return True
 
     json_obj = await core.get_data_by_mode('local', 'model-list.json')
 
     for x in json_obj.get('models', []):
-        if x['save_path'] == item['save_path'] and x['base'] == item['base'] and x['filename'] == item['filename']:
+        if x['save_path'] == item['save_path'] and x['base'] == item['base'] and x['filename'] == item['filename'] and x.get('url') == item.get('url'):
             return True
         
     return False
@@ -1869,55 +1875,59 @@ async def get_notice(request):
     url = "github.com"
     path = "/ltdrdata/ltdrdata.github.io/wiki/News"
 
-    async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
-        async with session.get(f"https://{url}{path}") as response:
-            if response.status == 200:
-                # html_content = response.read().decode('utf-8')
-                html_content = await response.text()
+    try:
+        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=not manager_util.bypass_ssl)) as session:
+            async with session.get(f"https://{url}{path}") as response:
+                if response.status == 200:
+                    # html_content = response.read().decode('utf-8')
+                    html_content = await response.text()
 
-                pattern = re.compile(r'<div class="markdown-body">([\s\S]*?)</div>')
-                match = pattern.search(html_content)
+                    pattern = re.compile(r'<div class="markdown-body">([\s\S]*?)</div>')
+                    match = pattern.search(html_content)
 
-                if match:
-                    # Sanitize remote HTML before appending Manager's version text.
-                    markdown_content = manager_util.sanitize_html_fragment(match.group(1))
-                    version_tag = os.environ.get('__COMFYUI_DESKTOP_VERSION__')
-                    if version_tag is not None:
-                        markdown_content += f"<HR>ComfyUI: {version_tag} [Desktop]"
+                    if match:
+                        # Sanitize remote HTML before appending Manager's version text.
+                        markdown_content = manager_util.sanitize_html_fragment(match.group(1))
+                        version_tag = os.environ.get('__COMFYUI_DESKTOP_VERSION__')
+                        if version_tag is not None:
+                            markdown_content += f"<HR>ComfyUI: {version_tag} [Desktop]"
+                        else:
+                            version_tag = core.get_comfyui_tag()
+                            if version_tag is None:
+                                markdown_content += f"<HR>ComfyUI: {core.comfy_ui_revision}[{comfy_ui_hash[:6]}]({core.comfy_ui_commit_datetime.date()})"
+                            else:
+                                markdown_content += (f"<HR>ComfyUI: {version_tag}<BR>"
+                                                     f"&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;({core.comfy_ui_commit_datetime.date()})")
+                        # markdown_content += f"<BR>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;()"
+                        markdown_content += f"<BR>Manager: {core.version_str}"
+
+                        try:
+                            if '__COMFYUI_DESKTOP_VERSION__' not in os.environ:
+                                if core.comfy_ui_commit_datetime == datetime(1900, 1, 1, 0, 0, 0):
+                                    markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI isn\'t git repo.</P>' + markdown_content
+                                elif core.comfy_ui_required_commit_datetime.date() > core.comfy_ui_commit_datetime.date():
+                                    markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI is too OUTDATED!!!</P>' + markdown_content
+                        except:
+                            pass
+
+                        # Prepend startup notices from manager_migration
+                        for message, level in reversed(manager_migration.startup_notices):
+                            if level == 'error':
+                                style = 'color:red; background-color:white; font-weight:bold'
+                            elif level == 'warning':
+                                style = 'color:orange; background-color:white; font-weight:bold'
+                            else:
+                                style = 'color:blue; background-color:white'
+                            markdown_content = f'<P style="{style}">{message}</P>' + markdown_content
+
+                        return web.Response(text=markdown_content, status=200)
                     else:
-                        version_tag = core.get_comfyui_tag()
-                        if version_tag is None:
-                            markdown_content += f"<HR>ComfyUI: {core.comfy_ui_revision}[{comfy_ui_hash[:6]}]({core.comfy_ui_commit_datetime.date()})"
-                        else:
-                            markdown_content += (f"<HR>ComfyUI: {version_tag}<BR>"
-                                                 f"&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;({core.comfy_ui_commit_datetime.date()})")
-                    # markdown_content += f"<BR>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;()"
-                    markdown_content += f"<BR>Manager: {core.version_str}"
-
-                    try:
-                        if '__COMFYUI_DESKTOP_VERSION__' not in os.environ:
-                            if core.comfy_ui_commit_datetime == datetime(1900, 1, 1, 0, 0, 0):
-                                markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI isn\'t git repo.</P>' + markdown_content
-                            elif core.comfy_ui_required_commit_datetime.date() > core.comfy_ui_commit_datetime.date():
-                                markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI is too OUTDATED!!!</P>' + markdown_content
-                    except:
-                        pass
-
-                    # Prepend startup notices from manager_migration
-                    for message, level in reversed(manager_migration.startup_notices):
-                        if level == 'error':
-                            style = 'color:red; background-color:white; font-weight:bold'
-                        elif level == 'warning':
-                            style = 'color:orange; background-color:white; font-weight:bold'
-                        else:
-                            style = 'color:blue; background-color:white'
-                        markdown_content = f'<P style="{style}">{message}</P>' + markdown_content
-
-                    return web.Response(text=markdown_content, status=200)
+                        return web.Response(text="Unable to retrieve Notice", status=200)
                 else:
                     return web.Response(text="Unable to retrieve Notice", status=200)
-            else:
-                return web.Response(text="Unable to retrieve Notice", status=200)
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        logging.warning(f"[ComfyUI-Manager] Unable to retrieve Notice: {type(e).__name__}: {e}")
+        return web.Response(text="Unable to retrieve Notice", status=200)
 
 
 @routes.get("/manager/startup_alerts")
@@ -1967,17 +1977,7 @@ def restart(self):
 
     print("\nRestarting... [Legacy Mode]\n\n")  # This printing should not be logging - that will be ugly
 
-    sys_argv = sys.argv.copy()
-    if '--windows-standalone-build' in sys_argv:
-        sys_argv.remove('--windows-standalone-build')
-
-    if sys_argv[0].endswith("__main__.py"):  # this is a python module
-        module_name = os.path.basename(os.path.dirname(sys_argv[0]))
-        cmds = [sys.executable, '-m', module_name] + sys_argv[1:]
-    elif sys.platform.startswith('win32'):
-        cmds = ['"' + sys.executable + '"', '"' + sys_argv[0] + '"'] + sys_argv[1:]
-    else:
-        cmds = [sys.executable] + sys_argv
+    cmds = manager_util.build_restart_command(sys.argv, drop_args=('--windows-standalone-build',))
 
     print(f"Command: {cmds}", flush=True)
 
@@ -2080,10 +2080,8 @@ async def default_cache_update():
 
             json_obj = await manager_util.get_data(uri, True)
 
-            with manager_util.cache_lock:
-                with open(cache_uri, "w", encoding='utf-8') as file:
-                    json.dump(json_obj, file, indent=4, sort_keys=True)
-                    logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+            if manager_util.write_cache_file(cache_uri, json_obj):
+                logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
         except Exception as e:
             logging.error(f"[ComfyUI-Manager] Failed to perform initial fetching '{filename}': {e}")
             traceback.print_exc()
