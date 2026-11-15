@@ -352,16 +352,18 @@ try:
 
         def sync_write(self, message, file_only=False):
             with log_lock:
-                timestamp = current_timestamp()
-                if self.last_char != '\n':
-                    log_file.write(message)
-                else:
-                    log_file.write(f"[{timestamp}] {message}")
+                # after close_log() the output goes to the console only
+                if not log_file.closed:
+                    timestamp = current_timestamp()
+                    if self.last_char != '\n':
+                        log_file.write(message)
+                    else:
+                        log_file.write(f"[{timestamp}] {message}")
 
-                try:
-                    log_file.flush()
-                except Exception:
-                    pass
+                    try:
+                        log_file.flush()
+                    except Exception:
+                        pass
 
                 self.last_char = message if message == '' else message[-1]
 
@@ -399,12 +401,15 @@ try:
         def close_log(self):
             sys.stderr = original_stderr
             sys.stdout = original_stdout
-            log_file.close()
+            with log_lock:
+                log_file.close()
             
     def close_log():
         sys.stderr = original_stderr
         sys.stdout = original_stdout
-        log_file.close()
+        # a write that has found the file open finishes first
+        with log_lock:
+            log_file.close()
 
 
     if enable_file_logging:
