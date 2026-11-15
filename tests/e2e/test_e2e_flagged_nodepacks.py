@@ -99,7 +99,7 @@ REGISTRY_BOOTSTRAP = '''
 import json, os, urllib.request
 from comfyui_manager.common import cnr_utils, manager_util
 cnr_utils.base_url = os.environ['CM_E2E_REGISTRY']
-with urllib.request.urlopen(cnr_utils.base_url + '/nodes') as response:
+with urllib.request.urlopen(os.environ['CM_E2E_CATALOG_URL']) as response:
     manager_util.save_to_cache(cnr_utils.base_url + '/nodes', json.load(response))
 '''
 BOOTSTRAP = '''
@@ -135,7 +135,8 @@ def prepare_environment(root, override, security, registry):
                PYTHONPATH=os.pathsep.join([str(root), str(REPO_ROOT), str(E2E_ROOT / 'comfyui')]),
                COMFYUI_PATH=str(E2E_ROOT / 'comfyui'), COMFYUI_FOLDERS_BASE_PATH=str(root),
                CM_E2E_BASE=str(root),
-               CM_E2E_MAIN=str(E2E_ROOT / 'comfyui/main.py'), CM_E2E_REGISTRY=registry.url)
+               CM_E2E_MAIN=str(E2E_ROOT / 'comfyui/main.py'), CM_E2E_REGISTRY=registry.url,
+               CM_E2E_CATALOG_URL=getattr(registry, 'catalog_url', registry.url + '/nodes'))
     return env
 
 
@@ -197,11 +198,11 @@ def comfy_server(request, tmp_path_factory, registry):
         yield server
 
 
-def install(server, node, version, operation='install'):
+def install(server, node, version, operation='install', *, repository='https://example.invalid/fixture'):
     ui_id = uuid.uuid4().hex
     params = {'id': node, 'version': '1.0.0', 'selected_version': version,
               'mode': 'cache', 'channel': 'default', 'ui_id': ui_id,
-              'repository': 'https://example.invalid/fixture'}
+              'repository': repository}
     if server.tree == 'legacy':
         response = requests.post(server.base + '/v2/manager/queue/batch',
                                  json={'batch_id': ui_id, operation: [params]}, timeout=10)
@@ -229,9 +230,47 @@ def install(server, node, version, operation='install'):
     pytest.fail('Install did not complete:\n' + (server.root / 'server.log').read_text()[-6000:])
 
 
+@pytest.mark.parametrize('command', ['save-snapshot', 'restore-snapshot'])
+def test_cli_does_not_create_server_whitelist(tmp_path, command):
+    base = tmp_path / 'cli-base'
+    (base / 'custom_nodes').mkdir(parents=True)
+    server_manager = tmp_path / 'server-user/__manager'
+    server_manager.mkdir(parents=True)
+    whitelist = server_manager / 'nodepack-whitelist.list'
+    whitelist.write_text('comfyui-impact-pack\n')
+    requested_user = tmp_path / 'requested-user'
+    # Stop after CLI initialization, before any snapshot work or network access.
+    if command == 'save-snapshot':
+        arguments = [command, '--user-directory', str(requested_user),
+                     '--output', str(tmp_path / 'invalid-extension.txt')]
+        expected_error = 'output path should be either'
+    else:
+        arguments = [command, str(tmp_path / 'missing-snapshot.json')]
+        expected_error = 'is not exists.'
+    bootstrap = '''
+import runpy, sys
+from comfy.cli_args import args
+args.base_directory = sys.argv[1]
+sys.argv = ['cm-cli', *sys.argv[2:]]
+runpy.run_module('cm_cli', run_name='__main__')
+'''
+    env = dict(os.environ,
+               PYTHONPATH=os.pathsep.join([str(REPO_ROOT), str(E2E_ROOT / 'comfyui')]),
+               COMFYUI_PATH=str(E2E_ROOT / 'comfyui'), COMFYUI_FOLDERS_BASE_PATH=str(base),
+               _COMFYUI_MANAGER_CNR_ALLOW_FLAGGED='false',
+               _COMFYUI_MANAGER_CNR_WHITELIST_DIR=str(server_manager))
+    result = subprocess.run([str(E2E_ROOT / 'venv/bin/python'), '-c', bootstrap,
+                             str(base), *arguments], env=env, cwd=tmp_path,
+                            capture_output=True, text=True, timeout=30)
+    output = result.stdout + result.stderr
+    assert result.returncode == 1 and expected_error in output, output
+    assert whitelist.read_text() == 'comfyui-impact-pack\n'
+    assert sorted(tmp_path.rglob('nodepack-whitelist.list')) == [whitelist]
+
+
 def assert_terminal_guidance(log):
     for detail in ('--listen 127.0.0.1', '--listen ::1', '0.0.0.0', '[default]',
-                   'allow_flagged_nodepack_install = true', 'config.ini',
+                   'allow_flagged_nodepack_install = true', 'config.ini', 'nodepack-whitelist.list',
                    'trusted private network', 'Restart ComfyUI'):
         assert detail in log
 
@@ -272,6 +311,124 @@ def test_install_policy(comfy_server, node, version):
             assert result['history']['result'] == 'success', result
     elif flagged and not strong:
         assert_flagged_denial(result, (server.root / 'server.log').read_text()[log_before:])
+
+
+@pytest.mark.parametrize('tree', ['legacy', 'glob'])
+def test_whitelist_install_policy(tmp_path, registry, tree):
+    with running_server(tmp_path, tree, '0.0.0.0', False, 'normal', registry) as server:
+        log_path = tmp_path / 'server.log'
+        whitelist = tmp_path / 'user/__manager/nodepack-whitelist.list'
+        template = whitelist.read_text()
+        assert template.strip() and all(line.lstrip().startswith('#') for line in template.splitlines() if line.strip())
+        # Edited after startup: no restart is required to pick up this policy.
+        whitelist.write_text('Fixture-Flagged\nfixture-banned\nfixture-switch\n')
+        for node, version, expected_error in [
+            ('fixture-flagged', '2.0.0', None),
+            ('fixture-latest', 'latest', 'This action is not allowed by the current security configuration.'),
+            ('fixture-banned', '1.0.0', 'not available node: fixture-banned@1.0.0'),
+        ]:
+            log_before = len(log_path.read_text())
+            before = len(registry.calls)
+            result = install(server, node, version)
+            allowed = expected_error is None
+            marker = tmp_path / 'custom_nodes' / node / 'installed.txt'
+            assert marker.exists() is allowed, (result, log_path.read_text()[log_before:])
+            calls = registry.calls[before:]
+            assert any(call.startswith('/zip/') for call in calls) is allowed
+            assert sum('/install' in call for call in calls) == 1, calls
+            assert ('permitted by nodepack whitelist' in log_path.read_text()[log_before:]) is allowed
+            assert 'permitted by nodepack whitelist' not in json.dumps(result)
+            if allowed:
+                assert marker.read_text() == version
+                if tree == 'legacy':
+                    assert list(result['nodepack_result'].values()) == ['success'], result
+                else:
+                    assert result['history']['result'] == 'success', result
+            else:
+                assert expected_error in json.dumps(result), result
+                if node == 'fixture-latest':
+                    assert_flagged_denial(result, log_path.read_text()[log_before:])
+
+        # Removing the file revokes the exception for another listed pack.
+        whitelist.unlink()
+        log_before = len(log_path.read_text())
+        before = len(registry.calls)
+        result = install(server, 'fixture-switch', '2.0.0')
+        assert not (tmp_path / 'custom_nodes/fixture-switch').exists(), result
+        calls = registry.calls[before:]
+        assert sum('/install' in call for call in calls) == 1, calls
+        assert not any(call.startswith('/zip/') for call in calls), calls
+        assert_flagged_denial(result, log_path.read_text()[log_before:])
+
+
+@pytest.mark.parametrize('tree', ['legacy', 'glob'])
+def test_whitelist_does_not_override_strong_security(tmp_path, registry, tree):
+    with running_server(tmp_path, tree, '0.0.0.0', False, 'strong', registry) as server:
+        (tmp_path / 'user/__manager/nodepack-whitelist.list').write_text('Fixture-Flagged\n')
+        log_path = tmp_path / 'server.log'
+        log_before = len(log_path.read_text())
+        before = len(registry.calls)
+        result = install(server, 'fixture-flagged', '2.0.0')
+        if tree == 'legacy':
+            assert result['failed'] == ['fixture-flagged'], result
+        else:
+            assert result['history']['result'] == 'failed', result
+        assert 'normal or below' in log_path.read_text()[log_before:]
+        assert not (tmp_path / 'custom_nodes/fixture-flagged').exists()
+        assert not any('/install' in call or call.startswith('/zip/') for call in registry.calls[before:])
+
+
+@pytest.mark.parametrize('tree', ['legacy', 'glob'])
+@pytest.mark.parametrize('keep_listed', [False, True])
+def test_restart_rechecks_whitelist(tmp_path, registry, tree, keep_listed):
+    whitelist = tmp_path / 'user/__manager/nodepack-whitelist.list'
+    marker = tmp_path / 'custom_nodes/fixture-switch/installed.txt'
+    with running_server(tmp_path, tree, '0.0.0.0', False, 'normal', registry) as server:
+        whitelist.write_text('Fixture-Switch\n')
+        install(server, 'fixture-switch', '1.0.0')
+        install(server, 'fixture-switch', '2.0.0')
+        reserved = tmp_path / 'user/__manager/startup-scripts/install-scripts.txt'
+        assert 'NodeVersionStatusFlagged' in reserved.read_text()
+        assert marker.read_text() == '1.0.0'
+
+    if not keep_listed:
+        whitelist.write_text('fixture-other\n')
+    before = len(registry.calls)
+    with running_server(tmp_path, tree, '0.0.0.0', False, 'normal', registry):
+        assert whitelist.read_text() == ('Fixture-Switch\n' if keep_listed else 'fixture-other\n')
+        calls = registry.calls[before:]
+        assert not any('/install' in call for call in calls), calls
+        assert any(call.startswith('/zip/') for call in calls) is keep_listed, calls
+        assert marker.read_text() == ('2.0.0' if keep_listed else '1.0.0')
+
+
+@pytest.mark.parametrize('tree', ['legacy', 'glob'])
+def test_scheduled_snapshot_uses_whitelist(tmp_path, registry, tree):
+    config_dir = tmp_path / 'user/__manager'
+    startup_dir = config_dir / 'startup-scripts'
+    startup_dir.mkdir(parents=True)
+    (config_dir / 'nodepack-whitelist.list').write_text('Fixture-Flagged\n')
+    reservation = startup_dir / 'restore-snapshot.json'
+    reservation.write_text(json.dumps({
+        'cnr_custom_nodes': {'fixture-flagged': '2.0.0', 'fixture-latest': '2.0.0'},
+        'git_custom_nodes': {}, 'file_custom_nodes': [],
+    }))
+
+    before = len(registry.calls)
+    with running_server(tmp_path, tree, '0.0.0.0', False, 'normal', registry):
+        log = (tmp_path / 'server.log').read_text()
+        assert 'Restore snapshot done.' in log, log[-6000:]
+        assert 'Restore snapshot failed.' not in log, log[-6000:]
+        assert not reservation.exists()
+        installed = tmp_path / 'custom_nodes/fixture-flagged'
+        assert 'version = "2.0.0"' in (installed / 'pyproject.toml').read_text()
+        assert not (tmp_path / 'custom_nodes/fixture-latest').exists()
+        assert "CNR installation of 'fixture-flagged' permitted by nodepack whitelist" in log, log[-6000:]
+        assert "CNR installation of 'fixture-latest' permitted by nodepack whitelist" not in log
+        calls = registry.calls[before:]
+        assert sum('/install' in call for call in calls) == 2, calls
+        # torchvision may probe redirects before downloading the same archive.
+        assert {call for call in calls if call.startswith('/zip/')} == {'/zip/fixture-flagged/2.0.0'}
 
 
 @pytest.mark.parametrize('operation', ['install', 'update'])

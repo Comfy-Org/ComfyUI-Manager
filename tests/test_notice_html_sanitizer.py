@@ -123,6 +123,7 @@ def test_notice_endpoint_sanitizes_remote_content_and_retains_local_version_foot
         'routes': web.RouteTableDef(), 're': re, 'web': web,
         'html_utils': load_renderer()['html_utils'],
         'aiohttp': SimpleNamespace(ClientSession=lambda **kwargs: client, TCPConnector=lambda **kwargs: None),
+        'manager_util': SimpleNamespace(bypass_ssl=False),
         'os': SimpleNamespace(environ={'__COMFYUI_DESKTOP_VERSION__': '1.0'}),
         'core': SimpleNamespace(version_str='4.2.1'),
     })

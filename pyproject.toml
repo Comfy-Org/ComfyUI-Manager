@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "comfyui-manager"
 license = { text = "GPL-3.0-only" }
 version = "4.3"
-requires-python = ">= 3.9"
+requires-python = ">=3.10"
 description = "ComfyUI-Manager provides features to install and manage custom nodes for ComfyUI, as well as various functionalities to assist with ComfyUI."
 readme = "README.md"
 keywords = ["comfyui", "comfyui-manager"]
@@ -52,16 +52,3 @@ include = ["comfyui_manager*", "cm_cli*"]
 
 [project.scripts]
 cm-cli = "cm_cli:main"
-
-[tool.ruff]
-line-length = 120
-target-version = "py39"
-
-[tool.ruff.lint]
-select = [
-  "E4", # default
-  "E7", # default
-  "E9", # default
-  "F",  # default
-  "I",  # isort-like behavior (import statement sorting)
-]

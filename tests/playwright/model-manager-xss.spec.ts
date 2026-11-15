@@ -179,7 +179,9 @@ test.describe('model status and error sinks', () => {
     const onTheWire = serverSanitizeTag(XSS_PAYLOAD);
     expect(onTheWire).not.toBe(XSS_PAYLOAD);
     await routeModelList(page, [makeModel(onTheWire)]);
+    let batchId: string | undefined;
     await page.route('**/v2/manager/queue/batch', async (route) => {
+      batchId = route.request().postDataJSON().batch_id;
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"failed": []}' });
     });
     await openManagerMenu(page);
@@ -198,13 +200,16 @@ test.describe('model status and error sinks', () => {
     expect(status.imgs, `status write parsed into <img>: ${JSON.stringify(status.writes)}`).toBe(0);
     expect(status.carrying, 'status line does not carry the name as literal text').toBeGreaterThan(0);
 
-    // Batch completion: server-authored failure text reaches the message sink.
-    await page.evaluate((payload) => {
+    // Batch completion: server-authored failure text reaches the message sink. The Model Manager
+    // takes the end of a batch only for a batch it queued, so the report carries that batch's id.
+    await expect.poll(() => batchId, 'precondition: no batch was posted').toBeTruthy();
+    await expect(page.locator('.cmm-manager-stop')).toBeVisible();
+    await page.evaluate(({ payload, batch_id }) => {
       const api = (window as unknown as Record<string, any>).comfyAPI.api.api;
       api.dispatchEvent(new CustomEvent('cm-queue-status', {
-        detail: { status: 'batch-done', model_result: { x: payload }, done_count: 1, total_count: 1 },
+        detail: { status: 'batch-done', batch_id, model_result: { x: payload }, done_count: 1, total_count: 1 },
       }));
-    }, XSS_PAYLOAD);
+    }, { payload: XSS_PAYLOAD, batch_id: batchId });
 
     const message = await analyseWrites(page, '__cmmMessageWrites', XSS_PAYLOAD);
     expect(message.carrying, `precondition: no message write carried the payload: ${JSON.stringify(message.writes)}`).toBeGreaterThan(0);

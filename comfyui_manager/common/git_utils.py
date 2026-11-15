@@ -26,7 +26,8 @@ def get_commit_hash(fullpath):
                 else:
                     return "unknown"
             else:
-                return line
+                # Detached HEAD: the file holds the commit hash and a newline.
+                return line.strip()
 
     return "unknown"
 

@@ -7,6 +7,203 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Changed
+
+- Require Python 3.10 or newer to match ComfyUI's minimum supported version.
+  Python 3.9 is no longer supported.
+
+### Removed
+
+- Remove four share destinations of the legacy UI that no longer take workflows
+  from Manager: ComfyWorkflows (its domain registration has expired), Copus (its
+  API answers that publishing from ComfyUI is no longer supported), OpenArt (its
+  workflow API and pages are gone), and eSheep (its site no longer resolves).
+  Sharing to YouML and to the Matrix server is unchanged. A saved `Share`
+  setting that names a removed site now acts as `All`, and the Workflow Gallery
+  button no longer opens a removed site that was visited last. The files saved
+  for the removed sites are no longer read; `comfyworkflows_sharekey`,
+  `.openart_key`, and `esheep_share_message.json` under
+  `<USER_DIRECTORY>/__manager/` can be deleted.
+
+### Security
+
+- Allow administrators to exempt selected Registry IDs from the flagged CNR
+  install restriction using `nodepack-whitelist.list` beside Manager's `config.ini`.
+  Entries are case-insensitive, apply to all versions, and take effect without a
+  restart. Server startup creates a commented template with no default exceptions;
+  other installation security checks still apply.
+- Verify the TLS certificate when the legacy UI fetches its notice from GitHub;
+  verification was off for every user. A response whose certificate is not
+  trusted is discarded and the notice area shows `Unable to retrieve Notice`. It
+  shows the same when the connection fails, where it used to show a server
+  error. Behind a proxy that re-signs TLS traffic, point the `SSL_CERT_FILE`
+  environment variable at a CA bundle that includes the proxy's CA, or set
+  `bypass_ssl = True` in `config.ini`, which turns verification off for this
+  fetch too (#3302).
+- Check every model install against the model list, including the download URL:
+  the folder, base, file name, and URL must match an entry. With the legacy UI,
+  a request with a listed name and another URL was accepted. Without it, the
+  list was not checked, and neither was the rule that a model in a format other
+  than `.safetensors` must be in the default channel's list unless the security
+  level is `normal-` or lower on a loopback listener, or `weak` in
+  `personal_cloud` mode (#3428).
+- Share to the Matrix server only a file inside ComfyUI's output or temp
+  directory. The file name and subfolder of the output to share come from the
+  request and were not checked, so a request could have any file that ComfyUI
+  can read uploaded to the Matrix homeserver named in the same request. Only
+  installations with `matrix-nio`, which Manager does not install, were
+  affected (#3427).
+
+### Fixed
+
+- Apply `downgrade_blacklist` to packages whose names contain a hyphen, such as
+  `opencv-python`; they were never protected. Names in `downgrade_blacklist`,
+  `pip_blacklist.list`, and requirements are now compared without regard to case
+  or to `-`, `_`, and `.` (#3458).
+- Read every version clause of a requirement, so `numpy>=1.24,<2` no longer
+  passes because its lower bound comes first, and read requirements written with
+  spaces, parentheses, an environment marker, or as a direct reference
+  (`name @ url`). Versions with a local label such as `0.0.30+cu126` or a fourth
+  component such as `5.0.0.93` are compared correctly.
+- Install a requirement with extras for a `downgrade_blacklist` package unless it
+  would downgrade the package, so the extras' dependencies are still installed.
+- Skip a `downgrade_blacklist` package when the requirement cannot be compared
+  with the installed version, such as a malformed version or a direct reference,
+  and log the reason with how to install it. The list check previously raised an
+  error or let the install proceed.
+- Apply `downgrade_blacklist` and `pip_blacklist.list` to requirements that carry
+  pip options such as `--index-url`, and to installs run through uv in embedded
+  Python or as a standalone tool. These installs were not checked.
+- At startup, recognize an installed package however its requirement spells the
+  name. Pending installs no longer downgrade or reinstall packages whose names
+  contain `-` or `.`, and a requirement older than its `~=` version is upgraded.
+- Restore the OpenCV repair that runs at startup and after installs. When
+  `opencv-python`, `opencv-python-headless`, `opencv-contrib-python`, and
+  `opencv-contrib-python-headless` are installed at different versions, the older
+  ones are reinstalled at the newest installed version, without their
+  dependencies, so numpy is left as it is. A headless package is installed
+  after one with the GUI, so `cv2` stays importable on a Linux without the
+  graphics libraries; within each kind, the package with the contrib modules is
+  installed last. OpenCV packages listed in `pip_auto_fix.list` are left to
+  that list. The repair found no installed OpenCV package and did nothing; it
+  now also compares four-part versions such as `4.11.0.100` numerically.
+- In the legacy core, except on Windows, give the backup branch the next free
+  name when an update cannot fast-forward and a backup branch of the same second
+  already exists. The existing name was reused, so creating the branch failed
+  and the update was not applied.
+- On Windows, keep command-line arguments intact when ComfyUI restarts, from the
+  Restart button or after an install that runs at startup. An argument with a
+  space, such as `--output-directory "D:\My Outputs"`, was split in two, so
+  ComfyUI failed to start with `unrecognized arguments`; quotation marks and
+  empty arguments were lost as well. A ComfyUI started as a module (`python -m`)
+  from a Python path with a space now restarts too (#3339).
+- In the legacy UI, make `Fix node (recreate)` work on a node with a connected
+  input on frontends whose node ids are strings. It stopped with
+  `findInputSlot is not a function` and left two copies of the node on the
+  canvas: the original, still wired, and an unwired replacement (#3126).
+- In the legacy UI, make `Fix node (recreate)` work on a node inside a
+  subgraph. It read the node's links from the root graph, so it stopped with an
+  error and left the same two copies of the node. Links to the inputs and
+  outputs of the subgraph are kept as well.
+- Read the version of a node pack installed from the registry when it has a
+  pre-release, such as `1.8.0-beta.1` or `0.7.2-b2`; such a pack was not
+  recognized as a registry pack. A version with a fourth part, such as
+  `0.1.3.post1`, stopped the scan of installed node packs with
+  `invalid literal for int()`, in the server and in `cm-cli` (#3431).
+- Compare the versions in `pip_auto_fix.list` as pip does. An entry for a
+  package installed with a local label or as a pre-release, such as
+  `torch==2.5.1` beside an installed `2.5.1+cu124`, was skipped with
+  `Failed to restore`. Such an entry is now applied: that installed version
+  meets it, and one that does not, such as `2.6.0+cu124`, is replaced with
+  `pip install`. `~=` is a compatible-release clause: it was taken as met by
+  any other version, and as not met by the same version.
+- Keep the custom node list and the model list loading when the channel answers
+  with something other than JSON, such as a block page or `404: Not Found`. The
+  startup cache update stored an empty result in the cache, in place of a list
+  cached earlier, and the lists then failed to load from it until a later start
+  got the lists from the channel; with the legacy UI the Model Manager showed
+  `Failed to get external model list.`. Such a response is now handled like a
+  failed connection: the cache is left as it is, and without a cached list the
+  one bundled with the Manager is used. An empty result that an earlier version
+  cached is replaced at the next start that reaches the channel, or goes away
+  when the files in `<USER_DIRECTORY>/__manager/cache` are deleted (#3480).
+- Judge a requirement for a `downgrade_blacklist` package by all of its clauses.
+  One that allows the installed version is installed when another clause sets a
+  minimum above it, as in `transformers==4.*,>=4.58.0` beside an installed
+  `4.57.0`, or excludes it with `!=` while a newer version is allowed, as in
+  `transformers~=4.57.0,!=4.57.0`; without extras both were skipped, so the
+  upgrade did not happen. One that the installed version does not meet and
+  that allows no newer version, as in `transformers[torch]<=4.57.0,!=4.57.0` or
+  `transformers<4.58,!=4.57.*`, is skipped; it was installed, and pip replaced
+  the package with an older version. A pre-release counts as a newer version
+  only when `==`, `>=`, `<=`, `~=` or `===` names one: pip before 25.0 takes no
+  other.
+- At startup, read `>` as pip reads it: a post-release of the version, such as
+  `1.0.post1` for `>1.0`, does not meet it, and the requirement is installed. A
+  wildcard such as `==0.21.*` is met by an installed pre-release `0.21.0rc1`,
+  and the requirement is no longer passed to pip.
+- At startup, install a requirement that excludes the installed version with
+  `!=` and allows a newer one, as in `numpy>=2.2.0,!=2.2.0` beside an installed
+  `2.2.0`, as an immediate install does; it was taken as installed already. pip
+  chooses the version, and that is an older one when no newer release exists.
+- Leave an installed local build, such as the CUDA build `2.5.1+cu124`, alone
+  on all of these grounds. For a `downgrade_blacklist` package, keep it as well
+  when a requirement excludes it with `!=`, as in `xformers!=0.0.30` beside
+  `0.0.30+cu126`, unless the requirement sets a minimum above it; pip replaced
+  the build with whatever it found. For such a build, these changes only add
+  requirements that are skipped.
+- In the legacy UI, enable a disabled node pack that another extension
+  requires before restarting. After the user agreed to enable it and restart,
+  ComfyUI restarted with the pack still disabled, because the request went to
+  a route that no longer exists. The pack is now enabled through the queue, as
+  the Custom Nodes Manager does, and ComfyUI restarts only when that
+  succeeded; otherwise the reason is shown. While other tasks are queued
+  behind the pack, ComfyUI is not restarted, and the user is asked to restart
+  after them. `Rebooting...` is shown as well: the restart request is never
+  answered, which ended the handler before it.
+- In the legacy UI, say so when that restart is refused at the current
+  security level. Nothing was shown; the browser console had
+  `show_message is not defined`.
+- With `cm-cli restore-snapshot` and its `--pip-non-url`, `--pip-non-local-url`
+  or `--pip-local-url` options, report a pip package as failed only when pip
+  fails for it. Every package was listed under `Installation failed for pip
+  packages`, and pip was run a second time for each package named by version
+  (#3425).
+- When restoring a snapshot, check a git node pack out at the commit the
+  snapshot names when the snapshot was saved while that pack's HEAD was
+  detached. The hash was saved with the newline that follows it in `.git/HEAD`,
+  so the checkout failed and the pack was reported as skipped at the commit it
+  had. New snapshots hold the bare hash, and the newline in an existing
+  snapshot is ignored. A registry node pack already at the snapshot's version
+  is left alone without asking the registry; when the registry could not be
+  reached, that lookup stopped the restore (#3426).
+- Replace a cache file in one step when it is updated, so a write that stops
+  part-way leaves the previous list. It left a truncated file, which Manager
+  reads as an empty list. The age of a cached list is counted from its last
+  write; it was read from the file's creation time, which Windows keeps when a
+  file is rewritten (#3432).
+- When the archive of a registry node pack cannot be extracted, report the
+  failure and remove the directory created for the pack and the downloaded
+  archive. Both were left behind, and installing the pack again stopped with
+  `Install path already exists` until the directory was removed by hand (#3433).
+- In the legacy UI, show a node's name, inputs, default values, outputs and
+  description as text in the preview that appears over a node name in a pack's
+  node list. They were inserted as HTML, so a default such as
+  `<lora:name:0.8>` was missing from the preview and markup in a node
+  definition was rendered (#3434).
+- In the legacy UI, keep the Model Manager waiting for its downloads when
+  another batch finishes, such as a node pack install queued before them or a
+  model install started earlier. It showed the downloads as done while they
+  were still running, hid the Stop button, and ignored their real completion.
+  After Stop, the dialog returns to idle; it stayed waiting, with its Stop
+  button. A failed download is no longer followed by the request to click
+  Refresh (#3303, #3437).
+- In the legacy UI, say why restoring or removing a snapshot failed. For a
+  request the server refused, the message was `Restore snapshot failed:
+  undefined / ReferenceError: exception is not defined`, also for a removal,
+  and a refused restore still asked for a restart. An answer with another
+  error status was taken as success (#3436).
+
 ## [4.3] - 2026-09-19
 
 ### Security

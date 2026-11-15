@@ -17,6 +17,10 @@ import shlex
 import time
 from functools import lru_cache
 
+from packaging.requirements import InvalidRequirement, Requirement
+from packaging.specifiers import InvalidSpecifier, Specifier, SpecifierSet
+from packaging.version import InvalidVersion, Version
+
 
 cache_lock = threading.Lock()
 session_lock = threading.Lock()
@@ -114,17 +118,16 @@ class StrictVersion:
         self.parse_version_string()
 
     def parse_version_string(self):
-        parts = self.version_string.split('.')
-        if not parts:
-            raise ValueError("Version string must not be empty")
+        # A pre-release follows the third number after '.' or '-': '0.1.3.post1', '1.8.0-beta.1'.
+        # __str__ writes it with '-', so a version that was already normalized is read as well.
+        m = re.fullmatch(r'(\d+)(?:\.(\d+)(?:\.(\d+)(?:[.-](.+))?)?)?', self.version_string)
+        if m is None:
+            raise ValueError(f"Invalid version: {self.version_string!r}")
 
-        self.major = int(parts[0])
-        self.minor = int(parts[1]) if len(parts) > 1 else 0
-        self.patch = int(parts[2]) if len(parts) > 2 else 0
-
-        # Handling pre-release versions if present
-        if len(parts) > 3:
-            self.pre_release = parts[3]
+        self.major = int(m.group(1))
+        self.minor = int(m.group(2) or 0)
+        self.patch = int(m.group(3) or 0)
+        self.pre_release = m.group(4)
 
     def __str__(self):
         version = f"{self.major}.{self.minor}.{self.patch}"
@@ -176,9 +179,10 @@ def is_file_created_within_one_day(file_path):
     if not os.path.exists(file_path):
         return False
 
-    file_creation_time = os.path.getctime(file_path)
+    # The modification time: on Windows the creation time stays the same when a file is rewritten.
+    file_modified_time = os.path.getmtime(file_path)
     current_time = time.time()
-    time_difference = current_time - file_creation_time
+    time_difference = current_time - file_modified_time
 
     return time_difference <= 86400
 
@@ -206,6 +210,9 @@ async def get_data(uri, silent=False):
     except Exception as e:
         logging.error(f"[ComfyUI-Manager] An error occurred while fetching '{uri}': {e}")
 
+        if uri.startswith("http"):
+            raise
+
         return {}
 
     if not silent:
@@ -230,14 +237,47 @@ def get_cache_state(uri):
     return "expired"
 
 
-def save_to_cache(uri, json_obj, silent=False):
-    cache_uri = get_cache_path(uri)
+def write_cache_file(cache_uri, json_obj):
+    """Write a cache file by replacing it, so that a write that stops part-way leaves the previous content.
+
+    Returns whether the cache was replaced. A cache that stays open elsewhere is left as it is,
+    with a warning: writing over it in place could be cut short, and the caller has its data anyway.
+    Takes `cache_lock`; do not call it while holding the lock."""
+    tmp_uri = f"{cache_uri}.{os.getpid()}.tmp"
 
     with cache_lock:
-        with open(cache_uri, "w", encoding='utf-8') as file:
-            json.dump(json_obj, file, indent=4, sort_keys=True)
-            if not silent:
-                logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+        try:
+            with open(tmp_uri, "w", encoding='utf-8') as file:
+                json.dump(json_obj, file, indent=4, sort_keys=True)
+            try:
+                if os.path.exists(cache_uri):
+                    os.chmod(tmp_uri, os.stat(cache_uri).st_mode & 0o777)
+            except OSError:
+                # A file system that refuses chmod sets the mode itself.
+                pass
+            for attempt in range(3):
+                try:
+                    os.replace(tmp_uri, cache_uri)
+                    return True
+                except OSError as e:
+                    # Windows does not replace a file that is open elsewhere. A reader has it open
+                    # for a moment only, so try again shortly.
+                    refusal = e
+                    if attempt < 2:
+                        time.sleep(0.1)
+            logging.warning(f"[ComfyUI-Manager] The cache could not be replaced and is left as it is: {cache_uri}\n=> {refusal}")
+            return False
+        finally:
+            # Gone after a replace; otherwise remove it if nothing holds it open.
+            try:
+                os.remove(tmp_uri)
+            except OSError:
+                pass
+
+
+def save_to_cache(uri, json_obj, silent=False):
+    if write_cache_file(get_cache_path(uri), json_obj) and not silent:
+        logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
 
 
 async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=False, dont_cache=False):
@@ -260,11 +300,8 @@ async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=Fals
     else:
         json_obj = await get_data(uri, silent=silent)
         if not dont_cache:
-            with cache_lock:
-                with open(cache_uri, "w", encoding='utf-8') as file:
-                    json.dump(json_obj, file, indent=4, sort_keys=True)
-                    if not silent:
-                        logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+            if write_cache_file(cache_uri, json_obj) and not silent:
+                logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
 
     return json_obj
 
@@ -286,6 +323,269 @@ def extract_package_as_zip(file_path, extract_path):
         return None
 
 
+def normalize_pip_name(name):
+    """Return the key used to compare pip package names.
+
+    Case is ignored and runs of '-', '_' and '.' are one separator (PEP 503), written
+    as '_'. `get_installed_packages()` returns its keys in this form.
+    """
+    return re.sub(r'[-_.]+', '_', name.strip()).lower()
+
+
+_PIP_LINE_TAIL_PATTERN = re.compile(r'\s[#-]')    # a comment or a pip option after the requirement
+_PIP_MALFORMED_PATTERN = re.compile(r'([A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[[^\]]*\]\s*)?[<>=!~(]')
+
+
+def parse_pip_spec(spec):
+    """Read a requirement line into (normalized name, has extras, version clauses).
+
+    Clauses are (operator, version) pairs, one per clause of the requirement. A direct
+    reference ('name @ url') has the single clause ('@', url), and a version that cannot
+    be parsed has ('?', text); neither can be compared with an installed version. A
+    trailing comment, an environment marker and pip options are ignored.
+
+    Returns (None, False, []) when the line does not name a package: URLs, paths and options.
+    """
+    text = spec.strip()
+    tail = _PIP_LINE_TAIL_PATTERN.search(text)
+    if tail is not None:
+        text = text[:tail.start()]
+
+    try:
+        requirement = Requirement(text)
+    except InvalidRequirement:
+        match = _PIP_MALFORMED_PATTERN.match(text)
+        if match is None:
+            return None, False, []
+        return normalize_pip_name(match.group(1)), match.group(2) is not None, [('?', text[match.end(1):].strip())]
+
+    name = normalize_pip_name(requirement.name)
+    extras = bool(requirement.extras)
+    if requirement.url:
+        return name, extras, [('@', requirement.url)]
+    return name, extras, [(specifier.operator, specifier.version) for specifier in requirement.specifier]
+
+
+def _upper_bound_state(operator, version, installed):
+    """Where an installed version sits against one upper-bound clause.
+
+    'above': pip would have to install an older version. 'at': the clause allows the
+    installed version and nothing newer in its range needs installing. 'below': the
+    clause does not constrain the installed version from above.
+    """
+    satisfied = Specifier(operator + version).contains(installed, prereleases=True)
+    if operator == '<':
+        return 'below' if satisfied else 'above'
+    if satisfied:
+        if operator == '<=' and not Specifier('==' + version).contains(installed, prereleases=True):
+            return 'below'
+        return 'at'
+    bound = Version(version[:-2] if version.endswith('.*') else version)
+    return 'above' if installed > bound else 'below'
+
+
+def _is_met(clauses, installed):
+    """Whether the installed version meets every clause."""
+    return all(Specifier(operator + version).contains(installed, prereleases=True) for operator, version in clauses)
+
+
+def _is_excluded(clauses, installed):
+    """Whether a '!=' clause rejects the installed version."""
+    return any(operator == '!=' and not Specifier('!=' + version).contains(installed, prereleases=True)
+               for operator, version in clauses)
+
+
+def _newer_version_allowed(clauses, installed):
+    """Whether some version newer than the installed one meets every clause.
+
+    Which versions exist is not known here. The clauses are asked about the versions
+    next to the installed one and next to the version of each clause, where a range
+    that a clause closes or excludes ends: the version itself, the one right after it,
+    and the next one at each level, which for '4.57.0' are '4.57.0.1', '4.57.1', '4.58'
+    and '5'; for a pre-release, a post-release or a development release, the next one
+    of its kind as well. Versions are written as long as the longest of them, so that
+    '1.0' beside '<1.0.1' is followed by '1.0.0.1'. The first post-release of a version
+    is asked about too.
+
+    A pre-release is asked about only when '==', '>=', '<=', '~=' or '===' names one:
+    every pip takes a pre-release then. Otherwise pip may install an older release
+    instead; pip before 25.0 does so even when '<' or '>' names a pre-release.
+
+    Another local build of the installed version is not asked about unless a clause
+    names it: a label says nothing about being newer, and pip would most often find
+    the build without a label.
+    """
+    requirement = SpecifierSet(','.join(operator + version for operator, version in clauses))
+    anchors = [installed]
+    pre_release_named = False
+    for operator, version in clauses:
+        try:
+            anchor = Version(version[:-2] if version.endswith('.*') else version)
+        except InvalidVersion:
+            continue    # '===' may name anything
+        anchors.append(anchor)
+        if operator in ('==', '>=', '<=', '~=', '===') and anchor.is_prerelease:
+            pre_release_named = True
+
+    width = max(len(anchor.release) for anchor in anchors)
+    candidates = []
+    for anchor in anchors:
+        epoch = f'{anchor.epoch}!' if anchor.epoch else ''
+        padded = anchor.release + (0,) * (width - len(anchor.release))
+        releases = [padded, padded + (1,)]
+        releases += [padded[:level] + (padded[level] + 1,) for level in range(width)]
+        candidates += [epoch + '.'.join(map(str, release)) for release in releases]
+        candidates.append(str(anchor))
+        if anchor.pre is not None:
+            candidates.append(f'{anchor.base_version}{anchor.pre[0]}{anchor.pre[1] + 1}')
+        candidates.append(f'{anchor.base_version}.post{0 if anchor.post is None else anchor.post + 1}')
+        if anchor.dev is not None:
+            candidates.append(f"{anchor.public.rsplit('.dev', 1)[0]}.dev{anchor.dev + 1}")
+
+    for candidate in map(Version, candidates):
+        if candidate.is_prerelease and not pre_release_named:
+            continue
+        if candidate > installed and requirement.contains(candidate, prereleases=True):
+            return True
+    return False
+
+
+def downgrade_protection(spec, clauses, extras, installed):
+    """Decide whether a requirement may replace a downgrade-protected installed package.
+
+    `clauses` and `extras` come from `parse_pip_spec()`; `installed` is the installed
+    version. Returns (blocked, error).
+
+    The requirement is blocked when any clause would make pip install an older version.
+    Without extras it is also blocked when it has no version or allows exactly the
+    installed version, where pip would change nothing. With extras pip would still add
+    the extras' dependencies, so those two cases are allowed.
+
+    The clauses are weighed together. A clause that allows the installed version does
+    not block the requirement when another clause sets a minimum above that version or
+    excludes it with '!=': pip then installs another version, and which one is left to
+    pip. When the installed version does not meet the clauses and no newer version meets
+    them either, the requirement is blocked, with or without extras, because pip has
+    only older versions to install.
+
+    An installed local build, such as a CUDA build, is given up only for a minimum above
+    it. A requirement that allows it is blocked without extras, whatever its other
+    clauses, and one that excludes it with '!=' is blocked unless it sets such a minimum:
+    pip would replace the build with whatever it finds.
+
+    It is blocked as well when a clause cannot be compared with the installed version;
+    `error` then says what was skipped, why, and how to proceed.
+    """
+    if not clauses:
+        return not extras, None
+
+    try:
+        current = Version(installed)
+        states = set()
+        for operator, version in clauses:
+            if operator in ('>=', '>', '!='):
+                continue
+            if operator not in ('<', '<=', '==', '===', '~='):
+                raise InvalidSpecifier(operator)
+            states.add(_upper_bound_state(operator, version, current))
+        only_older = not _is_met(clauses, current) and not _newer_version_allowed(clauses, current)
+        local_kept = (_is_excluded(clauses, current) and current.local is not None
+                      and not requires_newer_version(clauses, installed))
+    except (InvalidSpecifier, InvalidVersion):
+        return True, (
+            f"Skipped '{spec.strip()}': this package is protected by downgrade_blacklist, and its installed "
+            f"version ({installed}) cannot be compared with the requested version. Install it manually if it is "
+            "needed, or remove the package from downgrade_blacklist in config.ini if it was added there.")
+
+    if 'above' in states or only_older or local_kept:
+        return True, None
+    if 'at' in states and not extras:
+        # requires_newer_version() is also true when '!=' excludes the installed version
+        return current.local is not None or not requires_newer_version(clauses, installed), None
+    return False, None
+
+
+def requires_newer_version(clauses, installed):
+    """Whether the installed version fails the requirement where a newer version can meet it.
+
+    That is so when a clause sets a minimum above the installed version. It is also so
+    when '!=' or '>' leaves out the installed version itself and a newer version meets
+    every clause.
+
+    An installed local build, such as a CUDA build, is replaced only for a minimum above
+    it. '!=' is no ground for it, nor is '>' of its own version.
+
+    A clause is read as pip reads it. '>' also leaves out a post-release and a local
+    build of its version, and '==4.*' is met by a pre-release of 4.0. Clauses that
+    cannot be compared count as requiring a newer version, so that pip decides.
+    """
+    try:
+        current = Version(installed)
+        left_out = False    # by '>', although the installed version is not below its version
+        for operator, version in clauses:
+            if operator in ('>', '>=', '==', '===', '~='):
+                if Specifier(operator + version).contains(current, prereleases=True):
+                    continue
+                bound = Version(version[:-2] if version.endswith('.*') else version)
+                if current < bound:
+                    return True
+                left_out = left_out or operator == '>'
+            elif operator in ('@', '?'):
+                return True
+        if current.local is not None:
+            return False
+        return (left_out or _is_excluded(clauses, current)) and _newer_version_allowed(clauses, current)
+    except InvalidVersion:
+        return True
+
+
+def pip_block_reason(spec, blacklist, downgrade_blacklist):
+    """Return why a requirement must not be installed, or None if it may be.
+
+    'blacklisted': the package is in `blacklist`.
+    'downgrade blacklisted': the package is in `downgrade_blacklist`, is installed, and
+    `downgrade_protection()` blocks the requirement.
+
+    Names are compared in normalized form, so 'opencv-python', 'opencv_python' and
+    'OpenCV-Python' are the same package in both lists and in the requirement.
+    """
+    name, extras, clauses = parse_pip_spec(spec)
+    if name is None:
+        # The line does not name a package: only an identical blacklist entry applies.
+        return 'blacklisted' if spec.strip() in blacklist else None
+
+    if name in {normalize_pip_name(x) for x in blacklist}:
+        return 'blacklisted'
+
+    if name not in {normalize_pip_name(x) for x in downgrade_blacklist}:
+        return None
+
+    installed = get_installed_packages().get(name)
+    if installed is None:
+        return None
+
+    blocked, error = downgrade_protection(spec, clauses, extras, installed)
+    if error is not None:
+        logging.error("[ComfyUI-Manager] %s", error)
+    return 'downgrade blacklisted' if blocked else None
+
+
+def pip_install_requirement(cmd):
+    """Return the requirement of a `pip install` command built by `make_pip_cmd()`, or None.
+
+    The base command varies (python -m pip, python -s -m pip, python -m uv pip, uv pip),
+    and options such as --index-url may follow the requirement.
+
+    The command must install one requirement, placed right after `install`. Only
+    `pip_install()` builds a command with an option first and several packages; it is
+    marked #FORCE and is not checked against the lists.
+    """
+    for i in range(len(cmd) - 2):
+        if cmd[i] == 'pip' and cmd[i + 1] == 'install':
+            return cmd[i + 2]
+    return None
+
+
 pip_map = None
 
 
@@ -304,8 +604,7 @@ def get_installed_packages(renew=False):
                     if y[0] == 'Package' or y[0].startswith('-'):
                         continue
 
-                    normalized_name = y[0].lower().replace('-', '_')
-                    pip_map[normalized_name] = y[1]
+                    pip_map[normalize_pip_name(y[0])] = y[1]
         except subprocess.CalledProcessError:
             logging.error("[ComfyUI-Manager] Failed to retrieve the information of installed pip packages.")
             return {}
@@ -350,7 +649,7 @@ def parse_requirement_line(line):
         res['operator'] = operator
 
     if version is not None:
-        res['version'] = StrictVersion(version)
+        res['version'] = version
 
     if index_url is not None:
         res['index_url'] = index_url
@@ -411,6 +710,15 @@ class PIPFixer:
         self.comfyui_path = comfyui_path
         self.manager_files_path = manager_files_path
 
+    def pip_auto_fix_names(self):
+        """Return the normalized names of the packages listed in pip_auto_fix.list."""
+        pip_auto_fix_path = os.path.join(self.manager_files_path, "pip_auto_fix.list")
+        if not os.path.exists(pip_auto_fix_path):
+            return set()
+
+        with open(pip_auto_fix_path, 'r', encoding="UTF-8", errors="ignore") as f:
+            return {parse_pip_spec(x)[0] for x in f.readlines()}
+
     def fix_broken(self):
         new_pip_versions = get_installed_packages(True)
 
@@ -437,33 +745,35 @@ class PIPFixer:
             logging.error("[ComfyUI-Manager] Failed to restore PyTorch")
             logging.error(e)
 
-        # fix opencv
+        # fix opencv - the OpenCV packages all install the `cv2` module; keep them at one version
         try:
-            ocp = new_pip_versions.get('opencv-contrib-python')
-            ocph = new_pip_versions.get('opencv-contrib-python-headless')
-            op = new_pip_versions.get('opencv-python')
-            oph = new_pip_versions.get('opencv-python-headless')
+            # From least to most preferred: the package installed last provides `cv2`.
+            # A headless package comes after one with the GUI, which needs system libraries that
+            # Linux may lack; within each kind, the one with the contrib modules comes last.
+            installed = {}
+            for x in ['opencv-python', 'opencv-contrib-python', 'opencv-python-headless', 'opencv-contrib-python-headless']:
+                version = new_pip_versions.get(normalize_pip_name(x))
+                if version is not None:
+                    installed[x] = version
 
-            versions = [ocp, ocph, op, oph]
-            versions = [StrictVersion(x) for x in versions if x is not None]
-            versions.sort(reverse=True)
-
-            if len(versions) > 0:
+            # pip_auto_fix.list decides the version of a package it lists; leave OpenCV to it then
+            listed = self.pip_auto_fix_names()
+            if len(installed) > 0 and not any(normalize_pip_name(x) in listed for x in installed):
                 # upgrade to maximum version
-                targets = []
-                cur = versions[0]
-                if ocp is not None and StrictVersion(ocp) != cur:
-                    targets.append('opencv-contrib-python')
-                if ocph is not None and StrictVersion(ocph) != cur:
-                    targets.append('opencv-contrib-python-headless')
-                if op is not None and StrictVersion(op) != cur:
-                    targets.append('opencv-python')
-                if oph is not None and StrictVersion(oph) != cur:
-                    targets.append('opencv-python-headless')
+                newest = max(installed.values(), key=Version)
+                targets = [x for x, version in installed.items() if Version(version) != Version(newest)]
 
                 if len(targets) > 0:
+                    # --no-deps: the newest version is already installed for another package;
+                    # its dependencies, such as numpy, must stay as they are
                     for x in targets:
-                        cmd = make_pip_cmd(['install', f"{x}=={versions[0].version_string}"])
+                        cmd = make_pip_cmd(['install', '--no-deps', f"{x}=={newest}"])
+                        subprocess.check_output(cmd, universal_newlines=True)
+
+                    preferred = list(installed)[-1]
+                    if preferred not in targets:
+                        # it was already at the newest version, and the installs above replaced its `cv2`
+                        cmd = make_pip_cmd(['install', '--no-deps', '--force-reinstall', f"{preferred}=={newest}"])
                         subprocess.check_output(cmd, universal_newlines=True)
 
                     logging.info(f"[ComfyUI-Manager] 'opencv' dependencies were fixed: {targets}")
@@ -506,26 +816,17 @@ class PIPFixer:
                         parsed = parse_requirement_line(x)
                         need_to_reinstall = True
 
-                        normalized_name = parsed['package'].lower().replace('-', '_')
+                        normalized_name = normalize_pip_name(parsed['package'])
                         if normalized_name in new_pip_versions:
                             if 'version' in parsed and 'operator' in parsed:
-                                cur = StrictVersion(new_pip_versions[normalized_name])
-                                dest = parsed['version']
-                                op = parsed['operator']
-                                if cur == dest:
-                                    if op in ['==', '>=', '<=']:
-                                        need_to_reinstall = False
-                                elif cur < dest:
-                                    if op in ['<=', '<', '~=', '!=']:
-                                        need_to_reinstall = False
-                                elif cur > dest:
-                                    if op in ['>=', '>', '~=', '!=']:
-                                        need_to_reinstall = False
+                                specifier = Specifier(parsed['operator'] + parsed['version'])
+                                if specifier.contains(new_pip_versions[normalized_name], prereleases=True):
+                                    need_to_reinstall = False
 
                         if need_to_reinstall:
                             cmd_args = ['install']
                             if 'version' in parsed and 'operator' in parsed:
-                                cmd_args.append(parsed['package']+parsed['operator']+parsed['version'].version_string)
+                                cmd_args.append(parsed['package']+parsed['operator']+parsed['version'])
 
                             if 'index_url' in parsed:
                                 cmd_args.append('--index-url')
@@ -572,6 +873,32 @@ def robust_readlines(fullpath):
         return []
 
 
+def build_restart_command(argv, drop_args=()):
+    """
+    Rebuild the command line used to re-exec the current ComfyUI process.
+
+    `argv` is `sys.argv` of the running process; entries listed in `drop_args` are left out.
+    The result is meant to be passed to `os.execv(sys.executable, ...)`.
+
+    On Windows, `os.execv` does not quote anything: it joins the list with spaces into one
+    command line and the new process splits it again. Every entry is therefore quoted with
+    the MSVC rules (`subprocess.list2cmdline`), otherwise an argument such as `Profile 1`
+    comes back as two arguments. Other platforms pass the list through untouched.
+    """
+    argv = [x for x in argv if x not in drop_args]
+
+    if argv[0].endswith("__main__.py"):  # this is a python module
+        module_name = os.path.basename(os.path.dirname(argv[0]))
+        cmds = [sys.executable, '-m', module_name] + argv[1:]
+    else:
+        cmds = [sys.executable] + argv
+
+    if sys.platform.startswith('win32'):
+        cmds = [subprocess.list2cmdline([x]) for x in cmds]
+
+    return cmds
+
+
 def restore_pip_snapshot(pips, options):
     non_url = []
     local_url = []
@@ -597,7 +924,7 @@ def restore_pip_snapshot(pips, options):
         # try all at once
         res = 1
         try:
-            res = subprocess.check_output(make_pip_cmd(['install'] + non_url))
+            res = subprocess.check_call(make_pip_cmd(['install'] + non_url))
         except Exception:
             pass
 
@@ -606,7 +933,7 @@ def restore_pip_snapshot(pips, options):
             for x in non_url:
                 res = 1
                 try:
-                    res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+                    res = subprocess.check_call(make_pip_cmd(['install', '--no-deps', x]))
                 except Exception:
                     pass
 
@@ -617,7 +944,7 @@ def restore_pip_snapshot(pips, options):
         for x in non_local_url:
             res = 1
             try:
-                res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+                res = subprocess.check_call(make_pip_cmd(['install', '--no-deps', x]))
             except Exception:
                 pass
 
@@ -628,7 +955,7 @@ def restore_pip_snapshot(pips, options):
         for x in local_url:
             res = 1
             try:
-                res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+                res = subprocess.check_call(make_pip_cmd(['install', '--no-deps', x]))
             except Exception:
                 pass
 

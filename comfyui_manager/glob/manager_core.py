@@ -184,80 +184,7 @@ def remap_pip_package(pkg):
 
 
 def is_blacklisted(name):
-    name = name.strip()
-
-    pattern = r'([^<>!~=]+)([<>!~=]=?)([^ ]*)'
-    match = re.search(pattern, name)
-
-    if match:
-        name = match.group(1)
-
-    if name in cm_global.pip_blacklist:
-        return True
-
-    if name in cm_global.pip_downgrade_blacklist:
-        pips = manager_util.get_installed_packages()
-
-        if match is None:
-            if name in pips:
-                return True
-        elif match.group(2) in ['<=', '==', '<', '~=']:
-            if name in pips:
-                if manager_util.StrictVersion(pips[name]) >= manager_util.StrictVersion(match.group(3)):
-                    return True
-
-    return False
-
-
-def is_installed(name):
-    name = name.strip()
-
-    if name.startswith('#'):
-        return True
-
-    pattern = r'([^<>!~=]+)([<>!~=]=?)([0-9.a-zA-Z]*)'
-    match = re.search(pattern, name)
-
-    if match:
-        name = match.group(1)
-
-    if name in cm_global.pip_blacklist:
-        return True
-
-    if name in cm_global.pip_downgrade_blacklist:
-        pips = manager_util.get_installed_packages()
-
-        if match is None:
-            if name in pips:
-                return True
-        elif match.group(2) in ['<=', '==', '<', '~=']:
-            if name in pips:
-                if manager_util.StrictVersion(pips[name]) >= manager_util.StrictVersion(match.group(3)):
-                    print(f"[ComfyUI-Manager] skip black listed pip installation: '{name}'")
-                    return True
-
-    pkg = manager_util.get_installed_packages().get(name.lower())
-    if pkg is None:
-        return False  # update if not installed
-
-    if match is None:
-        return True   # don't update if version is not specified
-
-    if match.group(2) in ['>', '>=']:
-        if manager_util.StrictVersion(pkg) < manager_util.StrictVersion(match.group(3)):
-            return False
-        elif manager_util.StrictVersion(pkg) > manager_util.StrictVersion(match.group(3)):
-            print(f"[SKIP] Downgrading pip package isn't allowed: {name.lower()} (cur={pkg})")
-
-    if match.group(2) == '==':
-        if manager_util.StrictVersion(pkg) < manager_util.StrictVersion(match.group(3)):
-            return False
-
-    if match.group(2) == '~=':
-        if manager_util.StrictVersion(pkg) == manager_util.StrictVersion(match.group(3)):
-            return False
-
-    return name.lower() in manager_util.get_installed_packages()
+    return manager_util.pip_block_reason(name, cm_global.pip_blacklist, cm_global.pip_downgrade_blacklist) is not None
 
 
 def normalize_channel(channel):
@@ -913,7 +840,8 @@ class UnifiedManager:
 
     def _get_cnr_install_info(self, node_id, version_spec):
         node_info = cnr_utils.install_node(node_id, version_spec)
-        if node_info is not None and node_info.status == 'NodeVersionStatusFlagged' and not manager_funcs.is_flagged_install_allowed():
+        if (node_info is not None and node_info.status == 'NodeVersionStatusFlagged'
+                and not manager_funcs.is_flagged_install_allowed(node_id)):
             logging.error(manager_security.FLAGGED_NODEPACK_INSTALL_GUIDANCE)
             raise PermissionError(manager_security.FLAGGED_NODEPACK_INSTALL_ERROR)
         return node_info
@@ -1322,12 +1250,28 @@ class UnifiedManager:
 
         manager_downloader.download_url(node_info.download_url, get_default_custom_nodes_path(), archive_name)
         os.makedirs(install_path, exist_ok=True)
-        extracted = manager_util.extract_package_as_zip(download_path, install_path)
-        os.remove(download_path)
+        try:
+            extracted = manager_util.extract_package_as_zip(download_path, install_path)
+        except Exception as e:
+            # Left in place, the new directory makes the next install fail with 'Install path already exists'.
+            # A cleanup that fails as well is logged: the extraction error is the one to report.
+            try:
+                try_rmtree(node_id, install_path)
+            except Exception as cleanup_error:
+                logging.warning(f"[ComfyUI-Manager] Failed to clean up '{install_path}': {cleanup_error}")
+            return result.fail(f'Failed to extract archive: {node_id}@{version_spec}: {e}')
+        finally:
+            try:
+                os.remove(download_path)
+            except OSError:
+                pass
         result.to_path = install_path
 
         if extracted is None:
-            shutil.rmtree(install_path)
+            try:
+                try_rmtree(node_id, install_path)
+            except Exception as cleanup_error:
+                logging.warning(f"[ComfyUI-Manager] Failed to clean up '{install_path}': {cleanup_error}")
             return result.fail(f'Empty archive file: {node_id}@{version_spec}')
 
         # create .tracking file
@@ -1696,9 +1640,13 @@ class ManagerFuncs:
     def __init__(self):
         pass
 
-    def is_flagged_install_allowed(self):
-        # Server-scheduled restore children inherit only the resolved permission.
-        return os.environ.get('_COMFYUI_MANAGER_CNR_ALLOW_FLAGGED', 'true') == 'true'
+    def is_flagged_install_allowed(self, node_id):
+        # Restore children use the parent's permission and whitelist directory,
+        # even if the CLI resolves a different user directory.
+        return manager_security.is_cnr_install_allowed(
+            'NodeVersionStatusFlagged', os.environ.get('_COMFYUI_MANAGER_CNR_ALLOW_FLAGGED', 'true') == 'true',
+            listen_address=None, node_id=node_id,
+            manager_files_path=os.environ.get('_COMFYUI_MANAGER_CNR_WHITELIST_DIR'))
 
     def run_script(self, cmd, cwd='.'):
         if len(cmd) > 0 and cmd[0].startswith("#"):
@@ -1929,14 +1877,10 @@ def try_install_script(url, repo_path, install_cmd, instant_execution=False):
         reserve_script(repo_path, install_cmd)
         return True
     else:
-        if len(install_cmd) == 5 and install_cmd[2:4] == ['pip', 'install']:
-            if is_blacklisted(install_cmd[4]):
-                print(f"[ComfyUI-Manager] skip black listed pip installation: '{install_cmd[4]}'")
-                return True
-        elif len(install_cmd) == 6 and install_cmd[3:5] == ['pip', 'install']:  # uv mode
-            if is_blacklisted(install_cmd[5]):
-                print(f"[ComfyUI-Manager] skip black listed pip installation: '{install_cmd[5]}'")
-                return True
+        requirement = manager_util.pip_install_requirement(install_cmd)
+        if requirement is not None and is_blacklisted(requirement):
+            print(f"[ComfyUI-Manager] skip black listed pip installation: '{requirement}'")
+            return True
 
         print(f"\n## ComfyUI-Manager: EXECUTE => {install_cmd}")
         code = manager_funcs.run_script(install_cmd, cwd=repo_path)
@@ -2379,9 +2323,7 @@ async def get_data_by_mode(mode, filename, channel_url=None):
                     json_obj = await manager_util.get_data(cache_uri)
                 else:
                     json_obj = await manager_util.get_data(uri)
-                    with manager_util.cache_lock:
-                        with open(cache_uri, "w", encoding='utf-8') as file:
-                            json.dump(json_obj, file, indent=4, sort_keys=True)
+                    manager_util.write_cache_file(cache_uri, json_obj)
     except Exception as e:
         print(f"[ComfyUI-Manager] Due to a network error, switching to local mode.\n=> {filename} @ {channel_url}/{mode}\n=> {e}")
         uri = os.path.join(manager_util.comfyui_manager_path, filename)
@@ -3221,7 +3163,7 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
                         todo_disable.append(k)
                     else:
                         cnr_ver = cnr_info[k]
-                        if v[1] != cnr_ver:
+                        if v[0] != cnr_ver:
                             todo_checkout.append((k, cnr_ver))
                         else:
                             skip_node_packs.append(k)
@@ -3268,6 +3210,10 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
             # robust filter out comfyui-manager while restoring snapshot
             if 'comfyui-manager' in k.lower():
                 continue
+
+            # Snapshots saved at a detached HEAD used to keep the newline that follows the hash.
+            if isinstance(v.get('hash'), str):
+                v['hash'] = v['hash'].strip()
 
             norm_k = git_utils.normalize_url(k)
             git_info[norm_k] = v

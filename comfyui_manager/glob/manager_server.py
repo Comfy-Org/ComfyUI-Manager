@@ -87,6 +87,7 @@ from ..common.security_messages import (
     SECURITY_MESSAGE_MIDDLE,
     SECURITY_MESSAGE_MIDDLE_P,
     SECURITY_MESSAGE_HIGH_P,
+    SECURITY_MESSAGE_NORMAL_MINUS_MODEL,
 )
 from .constants import (
     model_dir_name_map,
@@ -133,8 +134,10 @@ def error_response(
 
 
 class ManagerFuncsInComfyUI(core.ManagerFuncs):
-    def is_flagged_install_allowed(self):
-        return core.get_config()['allow_flagged_nodepack_install'] or manager_security.is_loopback_listener(args.listen)
+    def is_flagged_install_allowed(self, node_id):
+        return manager_security.is_cnr_install_allowed(
+            'NodeVersionStatusFlagged', core.get_config()['allow_flagged_nodepack_install'], args.listen,
+            node_id=node_id, manager_files_path=context.manager_files_path)
 
     def run_script(self, cmd, cwd="."):
         if len(cmd) > 0 and cmd[0].startswith("#"):
@@ -1057,6 +1060,18 @@ async def task_worker():
             return OperationResult.failed.value
 
         json_data = params.model_dump()
+
+        # Checked here, not in a route: queue/install_model and queue/task both end up here.
+        if not await model_utils.check_whitelist_for_model(json_data):
+            logging.error(f"[ComfyUI-Manager] Invalid model install request is detected: {json_data}")
+            return "Invalid model install request is detected"
+
+        if not json_data["filename"].endswith(".safetensors") and not security_utils.is_allowed_security_level("high+"):
+            models_json = await core.get_data_by_mode(ManagerDatabaseSource.cache.value, "model-list.json", "default")
+
+            if not any(x.get("url") == json_data["url"] for x in models_json.get("models", [])):
+                logging.error(SECURITY_MESSAGE_NORMAL_MINUS_MODEL)
+                return "A security error has occurred. Please check the terminal logs"
 
         model_path = model_utils.get_model_path(json_data)
         model_url = json_data.get("url")
@@ -2073,17 +2088,9 @@ def restart(request):
         "\nRestarting... [Legacy Mode]\n\n"
     )  # This printing should not be logging - that will be ugly
 
-    sys_argv = sys.argv.copy()
-    if "--windows-standalone-build" in sys_argv:
-        sys_argv.remove("--windows-standalone-build")
-
-    if sys_argv[0].endswith("__main__.py"):  # this is a python module
-        module_name = os.path.basename(os.path.dirname(sys_argv[0]))
-        cmds = [sys.executable, "-m", module_name] + sys_argv[1:]
-    elif sys.platform.startswith("win32"):
-        cmds = ['"' + sys.executable + '"', '"' + sys_argv[0] + '"'] + sys_argv[1:]
-    else:
-        cmds = [sys.executable] + sys_argv
+    cmds = manager_util.build_restart_command(
+        sys.argv, drop_args=("--windows-standalone-build",)
+    )
 
     print(f"Command: {cmds}", flush=True)
 
@@ -2136,10 +2143,8 @@ async def default_cache_update():
 
             json_obj = await manager_util.get_data(uri, True)
 
-            with manager_util.cache_lock:
-                with open(cache_uri, "w", encoding="utf-8") as file:
-                    json.dump(json_obj, file, indent=4, sort_keys=True)
-                    logging.debug(f"[ComfyUI-Manager] default cache updated: {uri}")
+            if manager_util.write_cache_file(cache_uri, json_obj):
+                logging.debug(f"[ComfyUI-Manager] default cache updated: {uri}")
         except Exception as e:
             logging.error(
                 f"[ComfyUI-Manager] Failed to perform initial fetching '{filename}': {e}"

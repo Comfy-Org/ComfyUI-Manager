@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import logging
 import os
 import shutil
 import subprocess
@@ -24,27 +25,6 @@ import pytest
 _MOCK_INSTALLED_PACKAGES: dict[str, str] = {}
 
 
-class _FakeStrictVersion:
-    """Minimal replica of manager_util.StrictVersion for testing."""
-
-    def __init__(self, version_string: str) -> None:
-        parts = version_string.split('.')
-        self.major = int(parts[0])
-        self.minor = int(parts[1]) if len(parts) > 1 else 0
-        self.patch = int(parts[2]) if len(parts) > 2 else 0
-
-    def __ge__(self, other: _FakeStrictVersion) -> bool:
-        return (self.major, self.minor, self.patch) >= (other.major, other.minor, other.patch)
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, _FakeStrictVersion):
-            return NotImplemented
-        return (self.major, self.minor, self.patch) == (other.major, other.minor, other.patch)
-
-    def __lt__(self, other: _FakeStrictVersion) -> bool:
-        return (self.major, self.minor, self.patch) < (other.major, other.minor, other.patch)
-
-
 def _fake_get_installed_packages(renew: bool = False) -> dict[str, str]:
     return _MOCK_INSTALLED_PACKAGES
 
@@ -54,9 +34,21 @@ def _fake_robust_readlines(path: str) -> list[str]:
         return f.readlines()
 
 
-# Build a fake manager_util module
+# Build a fake manager_util module: the production code, with only the functions
+# that run pip or read files replaced. It stays a bare module without ``__file__``
+# so that tests importing the real package afterwards discard it.
+_real_manager_util_spec = importlib.util.spec_from_file_location(
+    "_cm_real_manager_util",
+    os.path.join(os.path.dirname(__file__), os.pardir, "comfyui_manager", "common", "manager_util.py"),
+)
+assert _real_manager_util_spec is not None and _real_manager_util_spec.loader is not None
+_real_manager_util = importlib.util.module_from_spec(_real_manager_util_spec)
+_real_manager_util_spec.loader.exec_module(_real_manager_util)
+
 _manager_util_fake = types.ModuleType("comfyui_manager.common.manager_util")
-_manager_util_fake.StrictVersion = _FakeStrictVersion
+_manager_util_fake.__dict__.update(
+    {name: value for name, value in vars(_real_manager_util).items() if not name.startswith("__")}
+)
 _manager_util_fake.get_installed_packages = _fake_get_installed_packages
 _manager_util_fake.robust_readlines = _fake_robust_readlines
 
@@ -101,7 +93,6 @@ _CREDENTIAL_PATTERN = _udr_module._CREDENTIAL_PATTERN
 _DANGEROUS_PATTERNS = _udr_module._DANGEROUS_PATTERNS
 _INLINE_DANGEROUS_OPTIONS = _udr_module._INLINE_DANGEROUS_OPTIONS
 _TMP_PREFIX = _udr_module._TMP_PREFIX
-_VERSION_SPEC_PATTERN = _udr_module._VERSION_SPEC_PATTERN
 
 
 # ---------------------------------------------------------------------------
@@ -202,6 +193,26 @@ class TestCollectRequirements:
         r = _resolver([p])
         deps = r.collect_requirements()
         assert deps.requirements[0].spec == "numpy>=1.0"
+
+    @pytest.mark.parametrize("entry", ["opencv-python", "opencv_python", "OpenCV-Python"])
+    def test_blacklist_name_spelling_does_not_matter(self, entry, tmp_path):
+        p = _make_node_pack(str(tmp_path), "pack_a", "opencv-python>=4.8\nnumpy\n")
+        r = _resolver([p], blacklist={entry})
+        deps = r.collect_requirements()
+        assert [req.name for req in deps.requirements] == ["numpy"]
+        assert deps.skipped == [("opencv-python>=4.8", "blacklisted")]
+
+    @pytest.mark.parametrize("requirement", [
+        "Torch == 2.0.0", "torch[opt]>=2.0", "torch>=1.0,<3",
+        "torch (>=2.0)", "torch(>=2.0)",
+        "torch==", "torch=>2.0",                     # malformed version clauses
+    ])
+    def test_blacklist_matches_every_requirement_form(self, requirement, tmp_path):
+        p = _make_node_pack(str(tmp_path), "pack_a", requirement + "\nnumpy\n")
+        r = _resolver([p], blacklist={"torch"})
+        deps = r.collect_requirements()
+        assert [req.name for req in deps.requirements] == ["numpy"]
+        assert deps.skipped == [(requirement, "blacklisted")]
 
     def test_blacklist_filtering(self, tmp_path):
         p = _make_node_pack(str(tmp_path), "pack_a", "torch\nnumpy\ntorchaudio\n")
@@ -534,6 +545,91 @@ class TestDowngradeBlacklist:
         r = _resolver([p], downgrade_blacklist=["torch"])
         deps = r.collect_requirements()
         assert len(deps.requirements) == 1  # installed < requested → allowed
+
+    @pytest.mark.parametrize("entry", ["opencv-python", "opencv_python", "OpenCV-Python"])
+    @pytest.mark.parametrize("requirement", ["opencv-python~=4.8.1.78", "opencv_python", "OpenCV-Python<4.9"])
+    def test_name_spelling_does_not_matter(self, entry, requirement, tmp_path):
+        # get_installed_packages() keys are normalised: lowercase with '_'.
+        _MOCK_INSTALLED_PACKAGES["opencv_python"] = "5.0.0.93"
+        p = _make_node_pack(str(tmp_path), "pack_a", requirement + "\n")
+        r = _resolver([p], downgrade_blacklist=[entry])
+        deps = r.collect_requirements()
+        assert deps.requirements == []
+        assert "downgrade blacklisted" in deps.skipped[0][1]
+
+    @pytest.mark.parametrize("installed,requirement", [
+        ("0.0.30+cu126", "torch==0.0.20"),           # a local version label
+        ("5.0.0.93", "torch<5"),                     # a fourth release component
+    ])
+    def test_installed_version_forms_are_compared(self, installed, requirement, tmp_path, caplog):
+        _MOCK_INSTALLED_PACKAGES["torch"] = installed
+        p = _make_node_pack(str(tmp_path), "pack_a", requirement + "\n")
+        r = _resolver([p], downgrade_blacklist=["torch"])
+        with caplog.at_level(logging.ERROR, logger="ComfyUI-Manager"):
+            deps = r.collect_requirements()
+        assert deps.skipped == [(requirement, "downgrade blacklisted")]
+        assert caplog.text == ""
+
+    @pytest.mark.parametrize("entry", ["ruamel.yaml", "ruamel-yaml"])
+    @pytest.mark.parametrize("requirement", ["ruamel.yaml<0.18", "ruamel-yaml<0.18"])
+    def test_dots_are_name_separators(self, entry, requirement, tmp_path):
+        _MOCK_INSTALLED_PACKAGES["ruamel_yaml"] = "0.18.6"
+        p = _make_node_pack(str(tmp_path), "pack_a", requirement + "\n")
+        r = _resolver([p], downgrade_blacklist=[entry])
+        deps = r.collect_requirements()
+        assert deps.skipped == [(requirement, "downgrade blacklisted")]
+
+    @pytest.mark.parametrize("installed,requirement", [
+        ("2.1.0", "torch=>1.0"),
+        ("2.1.0", "torch=="),
+    ])
+    def test_uncomparable_version_is_blocked_with_an_explanation(
+        self, installed, requirement, tmp_path, caplog,
+    ):
+        _MOCK_INSTALLED_PACKAGES["torch"] = installed
+        p = _make_node_pack(str(tmp_path), "pack_a", requirement + "\n")
+        r = _resolver([p], downgrade_blacklist=["torch"])
+        with caplog.at_level(logging.ERROR, logger="ComfyUI-Manager"):
+            deps = r.collect_requirements()
+        assert deps.requirements == []
+        assert deps.skipped == [(requirement, "downgrade blacklisted")]
+        errors = [record.getMessage() for record in caplog.records if record.levelno == logging.ERROR]
+        assert len(errors) == 1
+        assert f"Skipped '{requirement}'" in errors[0]
+        assert f"installed version ({installed}) cannot be compared with the requested version" in errors[0]
+        assert "Install it manually" in errors[0] and "downgrade_blacklist in config.ini" in errors[0]
+
+    @pytest.mark.parametrize("requirement,blocked", [
+        ("torch == 1.20", True),
+        ('torch==1.20; python_version > "3.8"', True),
+        ('torch ; python_version > "3.8"', True),    # no version: the marker is not a version clause
+        ("torch<=1.20,>=1.0", True),
+        ("torch>=1.0,<2.0", True),                   # the lower bound comes first
+        ("torch (>=1.0,<2.0)", True),
+        ("torch(<2.0)", True),
+        ("torch===1.20", True),
+        ("torch==2.*", True),
+        ("torch[opt]==1.20", True),
+        ("torch == 3.0", False),
+        ('torch==3.0; python_version > "3.8"', False),
+        ("torch<=3.0,>=1.0", False),
+        ("torch>=1.0", False),                       # a lower bound below the installed version
+        ("torch>=1.0,<3.0", False),
+        ("torch(>=1.0,<3.0)", False),
+        ("torch==3.*", False),
+        # With extras the installed version is kept and the extras' dependencies are added.
+        ("torch[opt]", False),
+        ("torch[opt]==2.1.0", False),
+    ])
+    def test_version_clause_is_read_from_the_requirement(self, requirement, blocked, tmp_path, caplog):
+        _MOCK_INSTALLED_PACKAGES["torch"] = "2.1.0"
+        p = _make_node_pack(str(tmp_path), "pack_a", requirement + "\n")
+        r = _resolver([p], downgrade_blacklist=["torch"])
+        with caplog.at_level(logging.ERROR, logger="ComfyUI-Manager"):
+            deps = r.collect_requirements()
+        assert (deps.requirements == []) is blocked
+        # A misread version would be reported as uncomparable.
+        assert caplog.text == ""
 
     def teardown_method(self):
         _MOCK_INSTALLED_PACKAGES.clear()
@@ -1132,17 +1228,6 @@ class TestPatterns:
         assert _DANGEROUS_PATTERNS.match("requests") is None
         assert _DANGEROUS_PATTERNS.match("torch --index-url https://x.com") is None
 
-    def test_version_spec_pattern(self):
-        m = _VERSION_SPEC_PATTERN.search("torch>=2.0")
-        assert m is not None
-        assert m.group(1) == "torch"
-        assert m.group(2) == ">="
-        assert m.group(3) == "2.0"
-
-    def test_version_spec_no_version(self):
-        m = _VERSION_SPEC_PATTERN.search("torch")
-        assert m is None
-
 
 # ===========================================================================
 # _extract_package_name
@@ -1163,6 +1248,15 @@ class TestExtractPackageName:
 
     def test_at_url(self):
         assert UnifiedDepResolver._extract_package_name("pkg @ https://example.com/pkg.tar.gz") == "pkg"
+
+    def test_parentheses(self):
+        assert UnifiedDepResolver._extract_package_name("numpy(<2)") == "numpy"
+
+    def test_dots(self):
+        assert UnifiedDepResolver._extract_package_name("ruamel.yaml<0.18") == "ruamel_yaml"
+
+    def test_line_without_a_package_name(self):
+        assert UnifiedDepResolver._extract_package_name("(Broken") == "(broken"
 
 
 # ===========================================================================

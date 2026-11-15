@@ -17,6 +17,14 @@ from _install_flags_testutil import import_context, import_reader
 
 
 @pytest.fixture
+def security():
+    import_context()
+    from comfyui_manager.common import manager_security
+
+    return manager_security
+
+
+@pytest.fixture
 def cnr_client(monkeypatch):
     import_context()
     from comfy.cli_args import args
@@ -29,7 +37,7 @@ def cnr_client(monkeypatch):
 @pytest.fixture(params=['glob', 'legacy'])
 def core(request, cnr_client, monkeypatch, tmp_path):
     core = import_reader(request.param)
-    monkeypatch.setattr(core.manager_funcs, 'is_flagged_install_allowed', lambda: False)
+    monkeypatch.setattr(core.manager_funcs, 'is_flagged_install_allowed', lambda node_id: False)
     monkeypatch.setattr(core, 'get_config', lambda: {'allow_flagged_nodepack_install': False})
     monkeypatch.setattr(core, 'get_default_custom_nodes_path', lambda: str(tmp_path))
     return core
@@ -42,13 +50,29 @@ def api_response(status='NodeVersionStatusFlagged', http=200):
     })
 
 
-@pytest.mark.parametrize('permission,allowed', [(None, True), ('true', True), ('false', False)])
-def test_cli_install_uses_only_parent_permission(core, monkeypatch, permission, allowed, tmp_path):
+@pytest.mark.parametrize('permission,listed_id,allowed,whitelist_logged', [
+    (None, None, True, False), ('true', 'FiXtUrE', True, False), ('false', None, False, False),
+    ('false', 'FiXtUrE', True, True), ('false', 'other', False, False),
+])
+def test_cli_install_uses_parent_policy(
+    core, monkeypatch, caplog, permission, listed_id, allowed, whitelist_logged, tmp_path,
+):
     from comfy.cli_args import args
 
+    # Restore children use Python's default WARNING threshold.
+    caplog.set_level(logging.WARNING)
     monkeypatch.delenv('_COMFYUI_MANAGER_CNR_ALLOW_FLAGGED', raising=False)
     if permission is not None:
         monkeypatch.setenv('_COMFYUI_MANAGER_CNR_ALLOW_FLAGGED', permission)
+    monkeypatch.delenv('_COMFYUI_MANAGER_CNR_WHITELIST_DIR', raising=False)
+    if listed_id is not None:
+        parent_dir = tmp_path / 'parent-manager'
+        parent_dir.mkdir()
+        (parent_dir / 'nodepack-whitelist.list').write_text(listed_id + '\n')
+        monkeypatch.setenv('_COMFYUI_MANAGER_CNR_WHITELIST_DIR', str(parent_dir))
+    # The child's local config cannot expand the server's permission.
+    monkeypatch.setattr(core.context, 'manager_files_path', str(tmp_path))
+    (tmp_path / 'nodepack-whitelist.list').write_text('fixture\n')
     monkeypatch.setattr(core, 'manager_funcs', core.ManagerFuncs())
     monkeypatch.setattr(args, 'listen', '127.0.0.1' if permission == 'false' else '0.0.0.0')
     monkeypatch.setattr(core, 'get_config', lambda: {'allow_flagged_nodepack_install': permission == 'false'})
@@ -65,6 +89,12 @@ def test_cli_install_uses_only_parent_permission(core, monkeypatch, permission, 
     assert result.result is allowed, result.msg
     assert get.call_count == 1
     assert download.call_count == int(allowed)
+    records = [record for record in caplog.records if 'permitted by nodepack whitelist' in record.getMessage()]
+    assert len(records) == int(whitelist_logged)
+    if whitelist_logged:
+        assert records[0].levelno == logging.WARNING
+        assert "'fixture'" in records[0].getMessage()
+        assert str(parent_dir / 'nodepack-whitelist.list') in records[0].getMessage()
 
 
 @pytest.mark.parametrize('listen,allowed', [
@@ -73,25 +103,131 @@ def test_cli_install_uses_only_parent_permission(core, monkeypatch, permission, 
     ('192.168.1.2', False), ('127.0.0.1,0.0.0.0', False),
     ('0.0.0.0,::', False), ('', False), ('127.0.0.1,', False),
 ])
-def test_listener_policy(cnr_client, listen, allowed):
-    from comfyui_manager.common.manager_security import is_cnr_install_allowed
-
-    assert is_cnr_install_allowed('NodeVersionStatusFlagged', False, listen) is allowed
-    assert is_cnr_install_allowed('NodeVersionStatusFlagged', True, listen) is True
+def test_listener_policy(security, listen, allowed):
+    assert security.is_cnr_install_allowed('NodeVersionStatusFlagged', False, listen) is allowed
+    assert security.is_cnr_install_allowed('NodeVersionStatusFlagged', True, listen) is True
 
 
-def test_hostname_requires_all_resolved_addresses_to_be_loopback(cnr_client, monkeypatch):
-    from comfyui_manager.common.manager_security import is_loopback_listener
-
+def test_hostname_requires_all_resolved_addresses_to_be_loopback(security, monkeypatch):
     def addresses(*hosts):
         return [(socket.AF_INET, socket.SOCK_STREAM, 6, '', (host, 0)) for host in hosts]
 
     monkeypatch.setattr(socket, 'getaddrinfo', lambda *a, **k: addresses('127.0.0.1', '::1'))
-    assert is_loopback_listener('localhost')
+    assert security.is_loopback_listener('localhost')
     monkeypatch.setattr(socket, 'getaddrinfo', lambda *a, **k: addresses('127.0.0.1', '192.168.1.2'))
-    assert not is_loopback_listener('localhost')
+    assert not security.is_loopback_listener('localhost')
     monkeypatch.setattr(socket, 'getaddrinfo', Mock(side_effect=socket.gaierror))
-    assert not is_loopback_listener('invalid.invalid')
+    assert not security.is_loopback_listener('invalid.invalid')
+
+
+@pytest.mark.parametrize('contents,node_id,allowed', [
+    (None, 'fixture', False), ('', 'fixture', False), ('# fixture\n', 'fixture', False),
+    ('fixture\n', 'fixture', True), ('\ufefffixture\n', 'fixture', True),
+    (' \tfixture \r\n', 'fixture', True), ('fixture # approved\n', 'fixture', True),
+    ('Fixture\n', 'fixture', True), ('fixture\n', 'FIXTURE', True),
+    ('FiXtUrE\n', 'fIxTuRe', True), ('fixture-other\n', 'fixture', False),
+    ('fixture@2.0.0\n', 'fixture', False), ('*\nfixture-*\n', 'fixture', False),
+    ('https://example.invalid/fixture\n', 'fixture', False),
+])
+def test_whitelist_matches_pack_ids(security, tmp_path, contents, node_id, allowed):
+    path = tmp_path / 'nodepack-whitelist.list'
+    if contents is not None:
+        path.write_text(contents, encoding='utf-8')
+    assert security.is_flagged_nodepack_whitelisted(node_id, tmp_path) is allowed
+
+
+def test_whitelist_template_grants_no_exceptions(security, tmp_path):
+    manager_dir = tmp_path / 'user/__manager'
+    security.ensure_nodepack_whitelist(manager_dir)
+    contents = (manager_dir / 'nodepack-whitelist.list').read_text()
+    assert contents.strip() and all(line.lstrip().startswith('#') for line in contents.splitlines() if line.strip())
+    assert not security.is_flagged_nodepack_whitelisted('comfyui-impact-pack', manager_dir)
+    assert not security.is_flagged_nodepack_whitelisted('comfyui-inspire-pack', manager_dir)
+
+
+@pytest.mark.parametrize('contents', [b'', b'# Keep this comment\nFiXtUrE\n'])
+def test_whitelist_template_preserves_existing_file(security, tmp_path, caplog, contents):
+    path = tmp_path / 'nodepack-whitelist.list'
+    path.write_bytes(contents)
+    security.ensure_nodepack_whitelist(tmp_path)
+    assert path.read_bytes() == contents
+    assert 'Cannot create nodepack whitelist' not in caplog.text
+
+
+def test_whitelist_template_write_failure_is_logged(security, tmp_path, monkeypatch, caplog):
+    monkeypatch.setattr(security, 'open', Mock(side_effect=PermissionError('read-only')), raising=False)
+    security.ensure_nodepack_whitelist(tmp_path)
+    assert not (tmp_path / 'nodepack-whitelist.list').exists()
+    assert 'Cannot create nodepack whitelist' in caplog.text
+
+
+@pytest.mark.parametrize('failure', ['manager-file', 'dangling-symlink', 'whitelist-directory'])
+def test_whitelist_template_path_failure_is_logged(security, tmp_path, caplog, failure):
+    manager_dir = tmp_path / 'manager'
+    path = manager_dir / 'nodepack-whitelist.list'
+    if failure == 'manager-file':
+        manager_dir.write_text('existing file')
+    else:
+        manager_dir.mkdir()
+        if failure == 'dangling-symlink':
+            try:
+                path.symlink_to(manager_dir / 'missing-target')
+            except (OSError, NotImplementedError) as exc:
+                pytest.skip(f'Symlinks unavailable: {exc}')
+        else:
+            path.mkdir()
+
+    security.ensure_nodepack_whitelist(manager_dir)
+
+    assert 'Cannot create nodepack whitelist' in caplog.text
+    assert str(path) in caplog.text
+    if failure == 'manager-file':
+        assert manager_dir.read_text() == 'existing file'
+    elif failure == 'dangling-symlink':
+        assert path.is_symlink() and not path.exists()
+    else:
+        assert path.is_dir()
+
+
+@pytest.mark.parametrize('prefix,suffix', [
+    (b'', b''),
+    (b'', b'comfyui-impact-pack\n'),
+    (b'comfyui-impact-pack\n' + b'# comment\n' * 2048, b''),
+], ids=['utf16-appended', 'utf8-after-utf16', 'match-before-invalid-encoding'])
+def test_mixed_encoding_whitelist_is_rejected(security, tmp_path, caplog, prefix, suffix):
+    security.ensure_nodepack_whitelist(tmp_path)
+    path = tmp_path / 'nodepack-whitelist.list'
+    with path.open('ab') as file:
+        file.write(prefix + 'comfyui-impact-pack\r\n'.encode('utf-16-le') + suffix)
+
+    assert not security.is_flagged_nodepack_whitelisted('comfyui-impact-pack', tmp_path)
+    assert 'NUL' in caplog.text and 'UTF-8' in caplog.text
+    assert str(path) in caplog.text
+    assert 'permitted by nodepack whitelist' not in caplog.text
+
+
+def test_whitelist_reloads_edits_and_removal(security, tmp_path):
+    path = tmp_path / 'nodepack-whitelist.list'
+    path.write_text('fixture\n', encoding='utf-8')
+    assert security.is_flagged_nodepack_whitelisted('fixture', tmp_path)
+    path.write_text('other\n', encoding='utf-8')
+    assert not security.is_flagged_nodepack_whitelisted('fixture', tmp_path)
+    assert security.is_flagged_nodepack_whitelisted('other', tmp_path)
+    path.unlink()
+    assert not security.is_flagged_nodepack_whitelisted('other', tmp_path)
+
+
+@pytest.mark.parametrize('failure', ['encoding', 'directory'])
+def test_unreadable_whitelist_grants_no_exceptions(security, tmp_path, caplog, failure):
+    path = tmp_path / 'nodepack-whitelist.list'
+    if failure == 'encoding':
+        # The invalid byte is beyond the first read buffer. A matching first
+        # line must not hide a decoding failure later in the file.
+        path.write_bytes(b'fixture\n' + b'# comment\n' * 2048 + b'\xff')
+    else:
+        path.mkdir()
+    assert not security.is_flagged_nodepack_whitelisted('fixture', tmp_path)
+    assert 'Cannot read flagged nodepack whitelist' in caplog.text
 
 
 @pytest.mark.parametrize('status,permission,allowed', [
@@ -101,7 +237,7 @@ def test_hostname_requires_all_resolved_addresses_to_be_loopback(cnr_client, mon
 def test_install_uses_status_from_one_response(core, monkeypatch, tmp_path, caplog, status, permission, allowed):
     get = Mock(return_value=api_response(status))
     monkeypatch.setattr(core.cnr_utils.requests, 'get', get)
-    monkeypatch.setattr(core.manager_funcs, 'is_flagged_install_allowed', lambda: permission)
+    monkeypatch.setattr(core.manager_funcs, 'is_flagged_install_allowed', lambda node_id: permission)
     download = Mock(side_effect=lambda url, directory, name: (tmp_path / name).write_bytes(b'fixture'))
     monkeypatch.setattr(core.manager_downloader, 'download_url', download)
     monkeypatch.setattr(core.manager_util, 'extract_package_as_zip', lambda *a: ['__init__.py'])
@@ -126,7 +262,7 @@ def test_install_uses_status_from_one_response(core, monkeypatch, tmp_path, capl
 
 @pytest.mark.parametrize('http', [403, 404, 500])
 def test_override_does_not_bypass_registry_refusal(core, monkeypatch, tmp_path, http):
-    monkeypatch.setattr(core.manager_funcs, 'is_flagged_install_allowed', lambda: True)
+    monkeypatch.setattr(core.manager_funcs, 'is_flagged_install_allowed', lambda node_id: True)
     get = Mock(return_value=api_response(http=http))
     monkeypatch.setattr(core.cnr_utils.requests, 'get', get)
     download = Mock(side_effect=AssertionError('Registry refusal must prevent downloading'))
@@ -383,14 +519,27 @@ def test_git_reinstall_replaces_existing_pack(core, monkeypatch, tmp_path, versi
     assert execute.call_args.args[1] == str(installed)
 
 
-@pytest.mark.parametrize('status', ['', 'NodeVersionStatusActive', 'NodeVersionStatusFlagged'])
-@pytest.mark.parametrize('override', [False, True])
-@pytest.mark.parametrize('listen', ['127.0.0.1', '0.0.0.0'])
-def test_deferred_switch_reuses_status_with_current_policy(cnr_client, monkeypatch, tmp_path, caplog, status, override, listen):
+@pytest.mark.parametrize('status,override,listen,whitelist,allowed', [
+    ('NodeVersionStatusActive', False, '0.0.0.0', '', True),
+    ('NodeVersionStatusFlagged', False, '127.0.0.1', '', True),
+    ('NodeVersionStatusFlagged', True, '0.0.0.0', '', True),
+    ('NodeVersionStatusFlagged', False, '0.0.0.0', '', False),
+    ('NodeVersionStatusFlagged', False, '0.0.0.0', 'FiXtUrE\n', True),
+    ('NodeVersionStatusFlagged', False, '0.0.0.0', 'fixture-other\n', False),
+    ('', False, '127.0.0.1', '', True),
+    ('', True, '0.0.0.0', '', True),
+    ('', False, '0.0.0.0', '', False),
+    ('', False, '0.0.0.0', 'FiXtUrE\n', True),
+    ('', False, '0.0.0.0', 'fixture-other\n', False),
+])
+def test_deferred_switch_reuses_status_with_current_policy(
+    cnr_client, monkeypatch, tmp_path, caplog, status, override, listen, whitelist, allowed,
+):
     from comfy.cli_args import args as server_args
-    from comfyui_manager.common import manager_downloader, manager_util
+    from comfyui_manager.common import manager_downloader, manager_security, manager_util
 
     monkeypatch.setattr(server_args, 'listen', listen)
+    (tmp_path / 'nodepack-whitelist.list').write_text(whitelist)
     # Execute the real function without running prestartup's module-level startup.
     source = Path(cnr_client.__file__).parents[1] / 'prestartup_script.py'
     tree = ast.parse(source.read_text())
@@ -398,6 +547,8 @@ def test_deferred_switch_reuses_status_with_current_policy(cnr_client, monkeypat
                     and node.name == 'execute_lazy_cnr_switch')
     scope = {'__package__': 'comfyui_manager', 'os': os, 'logging': logging,
              'manager_downloader': manager_downloader, 'manager_util': manager_util,
+             'manager_security': manager_security,
+             'manager_files_path': str(tmp_path),
              'default_conf': {'allow_flagged_nodepack_install': str(override)}}
     exec(compile(ast.Module(body=[function], type_ignores=[]), str(source), 'exec'), scope)
     from_path, to_path = tmp_path / 'fixture@1.0.0', tmp_path / 'fixture'
@@ -415,7 +566,6 @@ def test_deferred_switch_reuses_status_with_current_policy(cnr_client, monkeypat
     args = ('fixture', 'https://example.invalid/archive.zip', str(from_path), str(to_path), False, str(tmp_path))
     # Omit the added argument for the old on-disk reservation format.
     result = scope['execute_lazy_cnr_switch'](*args, *([status] if status else []))
-    allowed = status == 'NodeVersionStatusActive' or override or listen == '127.0.0.1'
     assert result is allowed
     assert downloader.call_count == int(allowed)
     assert to_path.exists() is allowed

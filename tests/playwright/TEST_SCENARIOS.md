@@ -191,7 +191,7 @@ Note: skipped when no import-failed nodes are present.
 ## Exclusions
 
 - `share_option` — per user instruction
-- **External-service auth/integration** (9 endpoints) — external services are unreachable from E2E
+- **External-service auth/integration** (4 endpoints) — external services are unreachable from E2E
 - **Individual queue endpoints** (6) — unused by JS; delegated internally through `queue/batch`
 - `queue/abort_current` — unused by JS (Stop uses `queue/reset`)
 - `/manager/notice` (v1) — superseded by v2

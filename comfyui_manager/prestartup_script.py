@@ -16,6 +16,7 @@ from .common import security_check
 from .common import manager_util
 from .common import cm_global
 from .common import manager_downloader
+from .common import manager_security
 from .common.timestamp_utils import current_timestamp
 import folder_paths
 
@@ -67,6 +68,7 @@ comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
 
 custom_nodes_base_path = folder_paths.get_folder_paths('custom_nodes')[0]
 manager_files_path = folder_paths.get_system_user_directory("manager")
+manager_security.ensure_nodepack_whitelist(manager_files_path)
 manager_pip_overrides_path = os.path.join(manager_files_path, "pip_overrides.json")
 manager_pip_blacklist_path = os.path.join(manager_files_path, "pip_blacklist.list")
 restore_snapshot_path = os.path.join(manager_files_path, "startup-scripts", "restore-snapshot.json")
@@ -512,47 +514,22 @@ def is_installed(name):
     if name.startswith('#'):
         return True
 
-    pattern = r'([^<>!~=]+)([<>!~=]=?)([0-9.a-zA-Z]*)'
-    match = re.search(pattern, name)
-
-    if match:
-        name = match.group(1)
-
-    if name in cm_global.pip_blacklist:
+    reason = manager_util.pip_block_reason(name, cm_global.pip_blacklist, cm_global.pip_downgrade_blacklist)
+    if reason is not None:
+        if reason == 'downgrade blacklisted':
+            print(f"[ComfyUI-Manager] skip black listed pip installation: '{name}'")
         return True
 
-    if name in cm_global.pip_downgrade_blacklist:
-        pips = manager_util.get_installed_packages()
+    pkg_name, extras, clauses = manager_util.parse_pip_spec(name)
+    if pkg_name is None or extras:
+        return False  # not a plain named requirement, or extras to add: let pip decide
 
-        if match is None:
-            if name in pips:
-                return True
-        elif match.group(2) in ['<=', '==', '<', '~=']:
-            if name in pips:
-                if manager_util.StrictVersion(pips[name]) >= manager_util.StrictVersion(match.group(3)):
-                    print(f"[ComfyUI-Manager] skip black listed pip installation: '{name}'")
-                    return True
-
-    pkg = manager_util.get_installed_packages().get(name.lower())
+    pkg = manager_util.get_installed_packages().get(pkg_name)
     if pkg is None:
         return False  # update if not installed
 
-    if match is None:
-        return True   # don't update if version is not specified
-
-    if match.group(2) in ['>', '>=']:
-        if manager_util.StrictVersion(pkg) < manager_util.StrictVersion(match.group(3)):
-            return False
-        elif manager_util.StrictVersion(pkg) > manager_util.StrictVersion(match.group(3)):
-            print(f"[SKIP] Downgrading pip package isn't allowed: {name.lower()} (cur={pkg})")
-
-    if match.group(2) == '==':
-        if manager_util.StrictVersion(pkg) < manager_util.StrictVersion(match.group(3)):
-            return False
-
-    if match.group(2) == '~=':
-        if manager_util.StrictVersion(pkg) == manager_util.StrictVersion(match.group(3)):
-            return False
+    if manager_util.requires_newer_version(clauses, pkg):
+        return False
 
     return True       # prevent downgrade
 
@@ -591,12 +568,12 @@ if os.path.exists(restore_snapshot_path):
             new_env['COMFYUI_PATH'] = os.path.dirname(folder_paths.__file__)
 
         from comfy.cli_args import args
-        from .common import manager_security
 
         allow_flagged = default_conf.get('allow_flagged_nodepack_install', '').lower() == 'true'
         new_env['_COMFYUI_MANAGER_CNR_ALLOW_FLAGGED'] = str(
             allow_flagged or manager_security.is_loopback_listener(args.listen)
         ).lower()
+        new_env['_COMFYUI_MANAGER_CNR_WHITELIST_DIR'] = manager_files_path
         cmd_str = [sys.executable, '-m', 'cm_cli', 'restore-snapshot', restore_snapshot_path]
         exit_code = process_wrap(cmd_str, custom_nodes_base_path, handler=msg_capture, env=new_env)
 
@@ -650,14 +627,15 @@ def execute_lazy_cnr_switch(target, zip_url, from_path, to_path, no_deps, custom
     import uuid
     import shutil
     from comfy.cli_args import args
-    from .common.manager_security import FLAGGED_NODEPACK_INSTALL_GUIDANCE, is_cnr_install_allowed
 
     allow_flagged = default_conf.get('allow_flagged_nodepack_install', '').lower() == 'true'
-    if not is_cnr_install_allowed(status or 'NodeVersionStatusFlagged', allow_flagged, args.listen):
+    if not manager_security.is_cnr_install_allowed(
+            status or 'NodeVersionStatusFlagged', allow_flagged, args.listen,
+            node_id=target, manager_files_path=manager_files_path):
         if not status:
             logging.error("Cannot execute reserved CNR switch for '%s': stored Registry status is missing. Request the installation again so its current status can be checked.", target)
         else:
-            logging.error(FLAGGED_NODEPACK_INSTALL_GUIDANCE)
+            logging.error(manager_security.FLAGGED_NODEPACK_INSTALL_GUIDANCE)
         return False
 
     # 1. download
@@ -774,7 +752,8 @@ def execute_startup_script():
                     if script[1] == "#FORCE":
                         del script[1]
                     else:
-                        if 'pip' in script[1:] and 'install' in script[1:] and is_installed(script[-1]):
+                        requirement = manager_util.pip_install_requirement(script[1:])
+                        if requirement is not None and is_installed(requirement):
                             continue
 
                     print(f"\n## ComfyUI-Manager: EXECUTE => {script[1:]}")
@@ -856,15 +835,7 @@ if script_executed:
         print("--------------------------------------------------------------------------\n")
         exit(0)
     else:
-        sys_argv = sys.argv.copy()
-
-        if sys_argv[0].endswith("__main__.py"):  # this is a python module
-            module_name = os.path.basename(os.path.dirname(sys_argv[0]))
-            cmds = [sys.executable, '-m', module_name] + sys_argv[1:]
-        elif sys.platform.startswith('win32'):
-            cmds = ['"' + sys.executable + '"', '"' + sys_argv[0] + '"'] + sys_argv[1:]
-        else:
-            cmds = [sys.executable] + sys_argv
+        cmds = manager_util.build_restart_command(sys.argv)
 
         print(f"Command: {cmds}", flush=True)
         print("--------------------------------------------------------------------------\n")

@@ -643,10 +643,10 @@ class TestInstallModel:
                   advances beyond baseline within a bounded timeout)
               (c) optionally, queue/history records a row matching this ui_id
             Download completion to a real model file is NOT an E2E responsibility —
-            it depends on external network + the target URL. The test URL points
-            to example.com, which will not yield a valid safetensors file; the
-            task will still transition through running → history (as failed /
-            trivial-success), which is the E2E-observable we need.
+            it depends on external network + the target URL. The test model is
+            not in the model list, so the worker refuses it without a download;
+            the task still transitions through running → history (as failed),
+            which is the E2E-observable we need.
         """
         _reset_queue()
 

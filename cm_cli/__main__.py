@@ -1541,9 +1541,8 @@ async def _force_update_cache(channel):
 
             json_obj = await manager_util.get_data(uri, silent=True)
 
-            with manager_util.cache_lock:
-                with open(cache_uri, "w", encoding='utf-8') as file:
-                    json.dump(json_obj, file, indent=4, sort_keys=True)
+            if not manager_util.write_cache_file(cache_uri, json_obj):
+                raise OSError("the cache file is in use")
 
             print(f"  [CACHED] {filename}")
         except Exception as e:
