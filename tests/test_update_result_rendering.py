@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from js_lift import JsSource
+from test_grid_highlight_escaping import browser  # noqa: F401 -- fixture
 
 JS = JsSource(Path(__file__).resolve().parent.parent / "js")
 
@@ -31,6 +32,7 @@ def test_update_results_preserve_links_titles_and_missing_url_labels(status):
         page.set_content('<div id="dialog"></div>')
         page.add_script_tag(content="""
             let is_updating = true;
+            const update_all_button = document.createElement('button');
             function reset_action_buttons() {}
             function setNeedRestart() {}
             function infoToast() {}
@@ -56,3 +58,25 @@ def test_update_results_preserve_links_titles_and_missing_url_labels(status):
         assert items.nth(1).locator("a").count() == 0
         assert page.locator("#dialog draft").count() == 0
         browser.close()
+
+
+@pytest.mark.parametrize("status", ["in_progress", "done"])
+def test_a_queue_report_before_the_manager_menu_exists_is_ignored(browser, status):  # noqa: F811
+    handler = JS.lift_declaration("comfyui-manager.js", "async function set_inprogress_mode(")
+    handler += JS.lift_declaration("comfyui-manager.js", "async function reset_action_buttons(")
+    handler += JS.lift_declaration("comfyui-manager.js", "async function onQueueStatus(")
+    page = browser.new_page()
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    page.add_script_tag(content="""
+        let is_updating = false;
+        let update_all_button = null, update_comfyui_button = null, switch_comfyui_button = null;
+    """ + handler)
+
+    page.evaluate("event => onQueueStatus(event)", {"detail": {
+        "status": status, "nodepack_result": {}, "done_count": 0, "total_count": 1,
+    }})
+    page.wait_for_timeout(100)
+
+    assert errors == []
+    page.close()

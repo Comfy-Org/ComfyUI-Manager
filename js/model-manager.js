@@ -501,7 +501,8 @@ export class ModelManager {
 			}
 		}
 
-		this.install_context = {btn: btn, targets: target_items};
+		const context = {btn: btn, targets: target_items};
+		this.install_context = context;
 
 		if(errorMsg) {
 			this.showError(errorMsg);
@@ -515,7 +516,10 @@ export class ModelManager {
 		}
 		else {
 			await api.fetchApi('/manager/queue/start', { method: 'POST' });
-			this.showStop();
+			// The queue can end before this request is answered.
+			if(this.install_context === context) {
+				this.showStop();
+			}
 			showTerminal();
 		}
 	}
@@ -535,23 +539,35 @@ export class ModelManager {
 			self.grid.updateRow(item);
 		}
 		else if(event.detail.status == 'done') {
-			self.hideStop();
 			self.onQueueCompleted(event.detail);
 		}
 	}
 
 	async onQueueCompleted(info) {
 		let result = info.model_result;
-
-		if(result.length == 0) {
-			return;
-		}
-
 		let self = ModelManager.instance;
 
 		if(!self.install_context) {
 			return;
 		}
+
+		// model_result is a dict (model hash -> outcome). A queue that ends
+		// without one, such as a node pack install, is not this install's
+		// while tasks are left. With none left, this install is over without
+		// a result, as after a refused request or a queue that was reset.
+		const ended_without_result = !result || Object.keys(result).length === 0;
+
+		if(ended_without_result) {
+			// Another install can start while the server is asked.
+			const context = self.install_context;
+			const stats = await (await api.fetchApi('/manager/queue/status')).json();
+
+			if(stats.total_count > stats.done_count || self.install_context !== context) {
+				return;
+			}
+		}
+
+		self.hideStop();
 
 		let btn = self.install_context.btn;
 
@@ -573,11 +589,16 @@ export class ModelManager {
 			self.grid.updateCell(item, "installed");
 		}
 
+		if(ended_without_result) {
+			self.install_context = undefined;
+			return;
+		}
+
 		if (errorMsg) {
 			self.showError(errorMsg);
 			show_message("Installation Error:\n"+errorMsg);
 		} else {
-			self.showStatus(`Install ${result.length} models successfully`);
+			self.showStatus(`Install ${Object.keys(result).length} models successfully`);
 		}
 
 		self.showRefresh();
