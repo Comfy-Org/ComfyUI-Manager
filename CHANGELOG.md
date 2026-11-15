@@ -210,6 +210,10 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   always answered that it was not one, so after `colorama.init()` the colors of
   every `print()` were removed, and tqdm and rich took a terminal for a pipe
   (#3259, #3423).
+- Restarting ComfyUI from the Manager under comfy-cli no longer prints
+  `ValueError: I/O operation on closed file` on the console. The log file is
+  closed before the process exits, and what was logged after that was still
+  written to it.
 
 ## [4.3] - 2026-09-19
 
