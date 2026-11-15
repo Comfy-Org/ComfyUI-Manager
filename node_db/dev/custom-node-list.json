@@ -1,6 +1,17 @@
 {
     "custom_nodes": [
         {
+            "author": "rohit267",
+            "title": "Champdev Custom Nodes [SECURITY ISSUE]",
+            "id": "champdev",
+            "reference": "https://github.com/rohit267/champdev-comfyui-nodes",
+            "files": [
+                "https://github.com/rohit267/champdev-comfyui-nodes"
+            ],
+            "install_type": "git-clone",
+            "description": "Champdev Custom Nodes. Contains Champdev Save Image/Video, a file manager and a terminal. [w/This nodepack has a remote code execution vulnerability, even when ComfyUI listens only on a loopback address. Once it is loaded, the ComfyUI server serves an interactive OS shell and a file manager, whether or not the nodes are used. The pack sends telemetry, including the password that unlocks them, to the author's server.]"
+        },
+        {
             "author": "magicwang1111",
             "title": "ComfyUI-GPT-image (OpenAI/Relay) [NAME CONFLICT]",
             "id": "comfyui-gpt-image-openai-relay",
