@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Restarting under comfy-cli no longer reports a closed log file
+
+Restarting ComfyUI from the Manager under comfy-cli printed `ValueError: I/O
+operation on closed file` on the console. The log file is closed before the
+process exits, and what was logged after that was still written to it.
+
 ### Libraries are told whether the console is a terminal
 
 With file logging on, the logger that captures the output answered every
