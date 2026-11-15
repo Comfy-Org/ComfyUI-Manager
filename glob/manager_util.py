@@ -17,6 +17,7 @@ import re
 import logging
 import platform
 import shlex
+import time
 from functools import lru_cache
 from html import escape, unescape
 from html.entities import html5
@@ -294,11 +295,17 @@ def _atomic_write_json(cache_uri, json_obj):
         except OSError:
             # a file system that refuses chmod sets the mode itself
             pass
-        try:
-            os.replace(tmp_uri, cache_uri)
-        except OSError:
-            # Windows does not replace a file that is open elsewhere; write
-            # over it, as before, rather than fail the write
+        for attempt in range(3):
+            try:
+                os.replace(tmp_uri, cache_uri)
+                break
+            except OSError:
+                # Windows does not replace a file that is open elsewhere. A
+                # reader has it open for a moment only, so try again shortly.
+                if attempt < 2:
+                    time.sleep(0.1)
+        else:
+            # still refused: write over it, as before, rather than fail the write
             with open(cache_uri, "w", encoding="utf-8") as file:
                 json.dump(json_obj, file, indent=4, sort_keys=True)
     finally:

@@ -114,14 +114,40 @@ def test_cache_is_replaced_where_its_mode_cannot_be_set(tmp_path):
     assert [p.name for p in tmp_path.iterdir()] == ["cache.json"]
 
 
-def test_cache_that_cannot_be_replaced_is_written_over(tmp_path):
-    # Windows refuses to replace a file that another reader has open
+def _refusing_replace(refusals):
+    """An os.replace that refuses the given number of times, as Windows does
+    while another reader has the file open, and then replaces."""
+    replace = os.replace
+    attempts = []
+
+    def attempt(src, dst):
+        attempts.append(dst)
+        if len(attempts) <= refusals:
+            raise PermissionError(13, "The process cannot access the file", dst)
+        replace(src, dst)
+
+    return attempt, attempts
+
+
+def test_cache_is_replaced_once_the_reader_has_closed_it(tmp_path):
     cache = _fresh_cache(tmp_path, {"a": 1})
+    attempt, attempts = _refusing_replace(2)
 
-    def refuse(src, dst):
-        raise PermissionError(13, "The process cannot access the file", dst)
-
-    with patch.object(os, "replace", refuse):
+    with patch.object(os, "replace", attempt), patch.object(MANAGER_UTIL.time, "sleep"), \
+         patch.object(MANAGER_UTIL.json, "dump", wraps=json.dump) as dump:
         _save(cache, {"b": 2})
+    assert len(attempts) == 3
+    assert dump.call_count == 1, "the cache must not be written in place"
+    assert json.loads(cache.read_text(encoding="utf-8")) == {"b": 2}
+    assert [p.name for p in tmp_path.iterdir()] == ["cache.json"]
+
+
+def test_cache_that_stays_open_elsewhere_is_written_over(tmp_path):
+    cache = _fresh_cache(tmp_path, {"a": 1})
+    attempt, attempts = _refusing_replace(100)
+
+    with patch.object(os, "replace", attempt), patch.object(MANAGER_UTIL.time, "sleep"):
+        _save(cache, {"b": 2})
+    assert len(attempts) == 3
     assert json.loads(cache.read_text(encoding="utf-8")) == {"b": 2}
     assert [p.name for p in tmp_path.iterdir()] == ["cache.json"]
