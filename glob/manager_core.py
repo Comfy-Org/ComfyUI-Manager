@@ -3411,6 +3411,10 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
             if 'comfyui-manager' in k.lower():
                 continue
 
+            # Snapshots saved at a detached HEAD used to keep the newline that follows the hash.
+            if isinstance(v.get('hash'), str):
+                v['hash'] = v['hash'].strip()
+
             norm_k = git_utils.normalize_url(k)
             git_info[norm_k] = v
 
