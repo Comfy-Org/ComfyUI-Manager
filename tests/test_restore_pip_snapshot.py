@@ -88,6 +88,22 @@ def test_url_package_is_reported_only_when_pip_fails(restore, option, url):
     assert report == f"Installation failed for pip packages: ['{url}']"
 
 
+def test_every_failed_package_is_reported(restore):
+    urls = ['https://example.com/gamma.whl', 'file:///wheels/delta.whl']
+
+    commands, report = restore(['--pip-non-url', '--pip-non-local-url', '--pip-local-url'],
+                               failing=['alpha', 'beta', *urls])
+
+    assert commands == [
+        ['install', 'alpha==1.0', 'beta==2.0'],
+        ['install', '--no-deps', 'alpha==1.0'],
+        ['install', '--no-deps', 'beta==2.0'],
+        ['install', '--no-deps', urls[0]],
+        ['install', '--no-deps', urls[1]],
+    ]
+    assert report == f"Installation failed for pip packages: {['alpha==1.0', 'beta==2.0', *urls]}"
+
+
 def test_group_without_its_option_is_left_alone(restore):
     commands, report = restore([])
 
