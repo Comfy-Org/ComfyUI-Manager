@@ -1,8 +1,23 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import {
   waitForComfyUI, openManagerMenu, openCustomNodesManager, openModelManager,
   routeNodeList, routeModelList, makePack, makeModel, serverSanitizeTag, XSS_PAYLOAD,
 } from './helpers';
+
+/** The grid replaces the status line with its row count as soon as it redraws, so record the
+ *  texts that the manager passes to it; read them from `window.__statuses`. */
+async function recordStatuses(page: Page, file: string, exported: string) {
+  await page.evaluate(async ({ file, exported }) => {
+    const module = await import(`/extensions/comfyui-manager-legacy/${file}.js`);
+    const manager = module[exported].instance;
+    const showStatus = manager.showStatus.bind(manager);
+    (window as any).__statuses = [];
+    manager.showStatus = (msg: string, color?: string) => {
+      (window as any).__statuses.push(msg);
+      showStatus(msg, color);
+    };
+  }, { file, exported });
+}
 
 for (const kind of ['nodes', 'models']) {
   const prefix = kind === 'nodes' ? 'cn' : 'cmm';
@@ -34,7 +49,9 @@ for (const kind of ['nodes', 'models']) {
       await expect(page.locator(`.${prefix}-btn-loading`)).toHaveCount(0);
       expect(await page.evaluate(async ({ file, exported }) => {
         const module = await import(`/extensions/comfyui-manager-legacy/${file}.js`);
-        return !!module[exported].instance.install_context;
+        const manager = module[exported].instance;
+        // The Model Manager keeps one pending install for each batch.
+        return manager.install_contexts ? manager.install_contexts.size > 0 : !!manager.install_context;
       }, { file, exported })).toBe(false);
       expect(errors).toEqual([]);
     });
@@ -86,7 +103,8 @@ for (const kind of ['nodes', 'models']) {
     }
     expect(await page.evaluate(async ({ file, exported }) => {
       const module = await import(`/extensions/comfyui-manager-legacy/${file}.js`);
-      return !!module[exported].instance.install_context;
+      const manager = module[exported].instance;
+      return manager.install_contexts ? manager.install_contexts.size > 0 : !!manager.install_context;
     }, { file, exported })).toBe(false);
     expect(await page.evaluate(() => (window as any).__xss_fired)).toBeUndefined();
     expect(errors).toEqual([]);
@@ -130,18 +148,38 @@ for (const kind of ['nodes', 'models']) {
       await expect(page.locator(`.${prefix}-manager-stop`)).toBeVisible();
       expect(await page.evaluate(async ({ file, exported }) => {
         const module = await import(`/extensions/comfyui-manager-legacy/${file}.js`);
-        return !!module[exported].instance.install_context;
+        const manager = module[exported].instance;
+        // The Model Manager keeps one pending install for each batch.
+        return manager.install_contexts ? manager.install_contexts.size > 0 : !!manager.install_context;
       }, { file, exported })).toBe(true);
 
+      // A batch that carries no result for this manager is another manager's batch.
+      await page.evaluate(async detail => {
+        const { api } = await import('/scripts/api.js');
+        api.dispatchEvent(new CustomEvent('cm-queue-status', { detail }));
+      }, { status: 'batch-done', batch_id: 'another-batch', nodepack_result: kind === 'nodes' ? {} : { other: 'success' },
+        model_result: kind === 'models' ? {} : { other: 'success' }, done_count: 1, total_count: 1 });
+      expect(await page.evaluate(async ({ file, exported }) => {
+        const module = await import(`/extensions/comfyui-manager-legacy/${file}.js`);
+        const manager = module[exported].instance;
+        // The Model Manager keeps one pending install for each batch.
+        return manager.install_contexts ? manager.install_contexts.size > 0 : !!manager.install_context;
+      }, { file, exported })).toBe(true);
+
+      await recordStatuses(page, file, exported);
       await page.evaluate(async detail => {
         const { api } = await import('/scripts/api.js');
         api.dispatchEvent(new CustomEvent('cm-queue-status', { detail }));
       }, completion!);
       await expect(page.locator(`.${prefix}-manager-stop`)).toBeHidden();
       await expect(page.locator(`.${prefix}-btn-loading`)).toHaveCount(0);
+      expect(await page.evaluate(() => (window as any).__statuses)).toContain(
+        `Install ${2 - rejectedCount} ${kind === 'nodes' ? 'custom node(s)' : 'models'} successfully`);
       expect(await page.evaluate(async ({ file, exported }) => {
         const module = await import(`/extensions/comfyui-manager-legacy/${file}.js`);
-        return !!module[exported].instance.install_context;
+        const manager = module[exported].instance;
+        // The Model Manager keeps one pending install for each batch.
+        return manager.install_contexts ? manager.install_contexts.size > 0 : !!manager.install_context;
       }, { file, exported })).toBe(false);
     });
   }
@@ -169,7 +207,7 @@ for (const kind of ['nodes', 'models']) {
   });
 }
 
-for (const outcome of ['success', 'failure', 'empty']) {
+for (const outcome of ['success', 'failure']) {
   test(`models: only the active batch can update progress and complete (${outcome})`, async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(String(error)));
@@ -206,7 +244,8 @@ for (const outcome of ['success', 'failure', 'empty']) {
     const state = () => page.evaluate(async hash => {
       const { ModelManager } = await import('/extensions/comfyui-manager-legacy/model-manager.js');
       const manager = ModelManager.instance;
-      return { pending: !!manager.install_context, refresh: !!manager.grid.getRowItemBy('hash', hash)?.refresh };
+      const pending = manager.install_contexts ? manager.install_contexts.size > 0 : !!manager.install_context;
+      return { pending, refresh: !!manager.grid.getRowItemBy('hash', hash)?.refresh };
     }, target);
 
     await dispatch(status('other-batch', 'in_progress', {}));
@@ -217,16 +256,19 @@ for (const outcome of ['success', 'failure', 'empty']) {
 
     await dispatch(status(batch!.batch_id, 'in_progress', {}));
     expect(await state()).toEqual({ pending: true, refresh: true });
-    const result = outcome === 'empty' ? {} : { [target]: outcome === 'success' ? 'success' : 'download failed' };
+    const result = { [target]: outcome === 'success' ? 'success' : 'download failed' };
+    await recordStatuses(page, 'model-manager', 'ModelManager');
     await dispatch(status(batch!.batch_id, 'batch-done', result));
     await expect(page.locator('.cmm-manager-stop')).toBeHidden();
     expect((await state()).pending).toBe(false);
+    const statuses = await page.evaluate(() => (window as any).__statuses);
+    const refresh = "To apply the installed model, please click the 'Refresh' button.";
     if (outcome === 'success') {
-      await expect(page.locator('.cmm-manager-status')).toContainText('Install 1 models successfully');
-    } else if (outcome === 'failure') {
-      await expect(page.locator('.cmm-manager-message')).toContainText('download failed');
+      expect(statuses).toContain('Install 1 models successfully');
+      await expect(page.locator('.cmm-manager-message')).toContainText(refresh);
     } else {
-      await expect(page.locator('.cmm-manager-status')).toContainText('No models were installed');
+      await expect(page.locator('.cmm-manager-message')).toContainText('download failed');
+      await expect(page.locator('.cmm-manager-message')).not.toContainText(refresh);
     }
 
     await dispatch(status(batch!.batch_id, 'batch-done', { [target]: 'success' }));
@@ -234,6 +276,239 @@ for (const outcome of ['success', 'failure', 'empty']) {
     expect(errors).toEqual([]);
   });
 }
+
+type PostedBatch = { batch_id: string; install_model: { ui_id: string }[] };
+
+/** Answer the Model Manager's question whether the queue is running. The batch request is replaced
+ *  in these cases, so the real server never has the batch in its queue. */
+async function routeQueueStatus(page: Page, isProcessing: boolean) {
+  await page.route('**/v2/manager/queue/status', route => route.fulfill({
+    json: { total_count: 0, done_count: 0, in_progress_count: 0, is_processing: isProcessing },
+  }));
+}
+
+/** Keep the Model Manager's checks of the queue, so that a case can wait until they have finished. */
+async function recordQueueChecks(page: Page) {
+  await page.evaluate(async () => {
+    const { ModelManager } = await import('/extensions/comfyui-manager-legacy/model-manager.js');
+    const manager = ModelManager.instance;
+    const check = manager.endDroppedInstalls.bind(manager);
+    (window as any).__queueChecks = [];
+    manager.endDroppedInstalls = () => {
+      const finished = check();
+      (window as any).__queueChecks.push(finished);
+      return finished;
+    };
+  });
+}
+
+/** Resolve once every check of the queue that was started has handled its answer. */
+async function queueChecked(page: Page) {
+  await page.evaluate(async () => {
+    const checks = (window as any).__queueChecks;
+    if (checks.length === 0) throw new Error('The queue was not checked');
+    await Promise.all(checks);
+  });
+}
+
+/** Start one install for each of the listed models, as clicking Install in their rows does one after
+ *  the other; resolve with the id and the target of each batch that was posted. */
+async function installEachModel(page: Page, onBatchPosted?: (batch: PostedBatch) => Promise<void>) {
+  const batches: PostedBatch[] = [];
+  await page.route('**/v2/manager/queue/batch', async route => {
+    batches.push(route.request().postDataJSON());
+    await onBatchPosted?.(batches.at(-1)!);
+    await route.fulfill({ json: { failed: [] } });
+  });
+  await openManagerMenu(page);
+  await openModelManager(page);
+  await page.evaluate(async () => {
+    const { ModelManager } = await import('/extensions/comfyui-manager-legacy/model-manager.js');
+    const manager = ModelManager.instance;
+    for (const item of manager.modelList) {
+      const button = manager.grid.getCellNode(item, 'installed').querySelector('button[mode="install"]');
+      await manager.installModels([item], button);
+    }
+  });
+  return batches.map(batch => ({ id: batch.batch_id, target: batch.install_model[0].ui_id }));
+}
+
+async function dispatchQueueStatus(page: Page, detail: Record<string, unknown>) {
+  await page.evaluate(async value => {
+    const { api } = await import('/scripts/api.js');
+    api.dispatchEvent(new CustomEvent('cm-queue-status', { detail: value }));
+  }, detail);
+}
+
+/** How many installs are pending, and which of the given rows are marked as downloaded. */
+async function modelInstallState(page: Page, targets: string[]) {
+  return page.evaluate(async hashes => {
+    const { ModelManager } = await import('/extensions/comfyui-manager-legacy/model-manager.js');
+    const manager = ModelManager.instance;
+    return {
+      // A manager that keeps one install only has one pending at most.
+      pending: manager.install_contexts ? manager.install_contexts.size : (manager.install_context ? 1 : 0),
+      downloaded: hashes.map(hash => !!manager.grid.getRowItemBy('hash', hash)?.refresh),
+    };
+  }, targets);
+}
+
+test('models: each of two installs started in a row ends with its own batch', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(String(error)));
+  await page.goto('/');
+  await waitForComfyUI(page);
+  await routeModelList(page, [makeModel('first'), makeModel('second')]);
+  const [first, second] = await installEachModel(page);
+  const targets = [first.target, second.target];
+  await expect(page.locator('.cmm-manager-stop')).toBeVisible();
+  await expect(page.locator('.cmm-btn-loading')).toHaveCount(2);
+  expect(await modelInstallState(page, targets)).toEqual({ pending: 2, downloaded: [false, false] });
+
+  const report = (batch: { id: string; target: string }, status: string) => dispatchQueueStatus(page, {
+    status, batch_id: batch.id, ui_target: 'model_manager', target: batch.target,
+    model_result: { [batch.target]: 'success' }, done_count: 1, total_count: 1,
+  });
+  await report(first, 'in_progress');
+  await report(first, 'batch-done');
+  await expect(page.locator('.cmm-manager-stop')).toBeVisible();
+  await expect(page.locator('.cmm-btn-loading')).toHaveCount(1);
+  expect(await modelInstallState(page, targets)).toEqual({ pending: 1, downloaded: [true, false] });
+
+  await report(second, 'in_progress');
+  await report(second, 'batch-done');
+  await expect(page.locator('.cmm-manager-stop')).toBeHidden();
+  await expect(page.locator('.cmm-btn-loading')).toHaveCount(0);
+  expect(await modelInstallState(page, targets)).toEqual({ pending: 0, downloaded: [true, true] });
+  expect(errors).toEqual([]);
+});
+
+test('models: a queue that ends without the batch returns the install to idle', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(String(error)));
+  await page.goto('/');
+  await waitForComfyUI(page);
+  await routeModelList(page, [makeModel('first'), makeModel('second')]);
+  // Stop empties the queue: the task that is running ends, and then only the end of the queue is reported.
+  await routeQueueStatus(page, false);
+  const [first, second] = await installEachModel(page);
+  const targets = [first.target, second.target];
+  await dispatchQueueStatus(page, { status: 'in_progress', batch_id: first.id, ui_target: 'model_manager', target: first.target });
+  expect(await modelInstallState(page, targets)).toEqual({ pending: 2, downloaded: [true, false] });
+
+  await dispatchQueueStatus(page, { status: 'all-done' });
+  await expect(page.locator('.cmm-manager-stop')).toBeHidden();
+  await expect(page.locator('.cmm-btn-loading')).toHaveCount(0);
+  expect(await modelInstallState(page, targets)).toEqual({ pending: 0, downloaded: [true, false] });
+  await expect(page.locator('.cmm-manager-message')).toContainText("To apply the installed model, please click the 'Refresh' button.");
+  expect(errors).toEqual([]);
+});
+
+test('models: a stopped queue that downloaded nothing asks for no refresh', async ({ page }) => {
+  await page.goto('/');
+  await waitForComfyUI(page);
+  await routeModelList(page, [makeModel('victim')]);
+  await routeQueueStatus(page, false);
+  const [batch] = await installEachModel(page);
+  await expect(page.locator('.cmm-manager-stop')).toBeVisible();
+
+  await dispatchQueueStatus(page, { status: 'all-done' });
+  await expect(page.locator('.cmm-manager-stop')).toBeHidden();
+  await expect(page.locator('.cmm-btn-loading')).toHaveCount(0);
+  expect(await modelInstallState(page, [batch.target])).toEqual({ pending: 0, downloaded: [false] });
+  await expect(page.locator('.cmm-manager-message')).toHaveText('');
+  await expect(page.locator('.cmm-manager-refresh')).toBeHidden();
+});
+
+test('models: the end of an earlier queue does not end an install that is being queued', async ({ page }) => {
+  await page.goto('/');
+  await waitForComfyUI(page);
+  await routeModelList(page, [makeModel('victim')]);
+  // The report of the queue that ran before reaches the page while the batch is still being posted.
+  // The batch is then added to the queue and runs.
+  await routeQueueStatus(page, true);
+  let asked = 0;
+  page.on('request', request => { if (request.url().endsWith('/v2/manager/queue/status')) asked++; });
+  const [batch] = await installEachModel(page, async () => {
+    await recordQueueChecks(page);
+    await dispatchQueueStatus(page, { status: 'all-done' });
+  });
+  await queueChecked(page);
+  expect(asked).toBe(1);
+  await expect(page.locator('.cmm-manager-stop')).toBeVisible();
+  expect(await modelInstallState(page, [batch.target])).toEqual({ pending: 1, downloaded: [false] });
+});
+
+test('models: an install that was dropped while it was being queued returns to idle', async ({ page }) => {
+  await page.goto('/');
+  await waitForComfyUI(page);
+  await routeModelList(page, [makeModel('victim')]);
+  // Stop emptied the queue after the batch was added to it, and the end of the queue is reported
+  // before the answer to the batch request arrives.
+  await routeQueueStatus(page, false);
+  const [batch] = await installEachModel(page, () => dispatchQueueStatus(page, { status: 'all-done' }));
+  await expect(page.locator('.cmm-manager-stop')).toBeHidden();
+  await expect(page.locator('.cmm-btn-loading')).toHaveCount(0);
+  expect(await modelInstallState(page, [batch.target])).toEqual({ pending: 0, downloaded: [false] });
+});
+
+test('models: the end of an earlier queue does not end an install that is running', async ({ page }) => {
+  await page.goto('/');
+  await waitForComfyUI(page);
+  await routeModelList(page, [makeModel('victim')]);
+  // The report of the queue that ran before reaches the page after the answer to the batch request.
+  await routeQueueStatus(page, true);
+  const [batch] = await installEachModel(page);
+  await recordQueueChecks(page);
+  await dispatchQueueStatus(page, { status: 'all-done' });
+  await queueChecked(page);
+  await expect(page.locator('.cmm-manager-stop')).toBeVisible();
+  await expect(page.locator('.cmm-btn-loading')).toHaveCount(1);
+  expect(await modelInstallState(page, [batch.target])).toEqual({ pending: 1, downloaded: [false] });
+
+  await dispatchQueueStatus(page, { status: 'batch-done', batch_id: batch.id,
+    model_result: { [batch.target]: 'success' }, done_count: 1, total_count: 1 });
+  await expect(page.locator('.cmm-manager-stop')).toBeHidden();
+  expect(await modelInstallState(page, [batch.target])).toEqual({ pending: 0, downloaded: [false] });
+});
+
+test('models: an install stays pending when the queue cannot be asked', async ({ page }) => {
+  await page.goto('/');
+  await waitForComfyUI(page);
+  await routeModelList(page, [makeModel('victim')]);
+  // Without an answer the queue may still be running the batch.
+  await page.route('**/v2/manager/queue/status', route => route.fulfill({ status: 500, body: 'error' }));
+  const [batch] = await installEachModel(page);
+  await recordQueueChecks(page);
+  await dispatchQueueStatus(page, { status: 'all-done' });
+  await queueChecked(page);
+  await expect(page.locator('.cmm-manager-stop')).toBeVisible();
+  expect(await modelInstallState(page, [batch.target])).toEqual({ pending: 1, downloaded: [false] });
+
+  // The next report of the end of the queue that can be checked ends it.
+  await page.unroute('**/v2/manager/queue/status');
+  await routeQueueStatus(page, false);
+  await dispatchQueueStatus(page, { status: 'all-done' });
+  await expect(page.locator('.cmm-manager-stop')).toBeHidden();
+  expect(await modelInstallState(page, [batch.target])).toEqual({ pending: 0, downloaded: [false] });
+});
+
+test('models: a batch that ends before its request is answered completes the install', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(String(error)));
+  await page.goto('/');
+  await waitForComfyUI(page);
+  await routeModelList(page, [makeModel('victim')]);
+  const [batch] = await installEachModel(page, posted => dispatchQueueStatus(page, {
+    status: 'batch-done', batch_id: posted.batch_id,
+    model_result: { [posted.install_model[0].ui_id]: 'download failed' }, done_count: 1, total_count: 1,
+  }));
+  await expect(page.locator('.cmm-manager-message')).toContainText('download failed');
+  await expect(page.locator('.cmm-manager-stop')).toBeHidden();
+  await expect(page.locator('.cmm-btn-loading')).toHaveCount(0);
+  expect(await modelInstallState(page, [batch.target])).toEqual({ pending: 0, downloaded: [false] });
+  expect(errors).toEqual([]);
+});
 
 test('nodes: lookup errors and missing row IDs remain literal text', async ({ page }) => {
   await page.goto('/');
