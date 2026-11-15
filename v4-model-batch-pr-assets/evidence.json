@@ -1,0 +1,273 @@
+{
+ "base": "9d5f6582",
+ "head": "64a9e897",
+ "red": "the JS of the base",
+ "green": "the JS of the head",
+ "scenario": "two models are installed one after the other; the first batch reports its model and ends while the second is still pending",
+ "captures": [
+  {
+   "capture": "screens/model-batch-first-ended.red.png",
+   "sha256": "7f92a93bfa32e36943105b5db2dfd112901240329df6a347df38ef6af5303a3b",
+   "annotated": "annotated/model-batch-first-ended.red.png",
+   "side": "red",
+   "viewport": "1440x900",
+   "boxes": [
+    {
+     "x": 425,
+     "y": 207,
+     "w": 142,
+     "h": 51,
+     "kind": "red",
+     "tag": "second download: no longer pending"
+    },
+    {
+     "x": 248,
+     "y": 772,
+     "w": 112,
+     "h": 36,
+     "kind": "red",
+     "tag": "no Stop button"
+    }
+   ],
+   "observed": {
+    "installsPending": 0,
+    "stopButtonShown": false,
+    "buttonsMarkedLoading": 0,
+    "firstRow": "Refresh Required",
+    "secondRow": "Install",
+    "secondRowLoading": false,
+    "message": "To apply the installed model, please click the 'Refresh' button."
+   },
+   "runs": [
+    {
+     "side": "red",
+     "run": "1",
+     "queued": {
+      "installsPending": 1,
+      "stopButtonShown": true,
+      "buttonsMarkedLoading": 2,
+      "firstRow": "Install",
+      "secondRow": "Install",
+      "secondRowLoading": true,
+      "message": ""
+     },
+     "afterFirst": {
+      "installsPending": 0,
+      "stopButtonShown": false,
+      "buttonsMarkedLoading": 0,
+      "firstRow": "Refresh Required",
+      "secondRow": "Install",
+      "secondRowLoading": false,
+      "message": "To apply the installed model, please click the 'Refresh' button."
+     },
+     "afterSecond": {
+      "installsPending": 0,
+      "stopButtonShown": false,
+      "buttonsMarkedLoading": 0,
+      "firstRow": "Refresh Required",
+      "secondRow": "Refresh Required",
+      "secondRowLoading": false,
+      "message": "To apply the installed model, please click the 'Refresh' button."
+     },
+     "pageErrors": []
+    },
+    {
+     "side": "red",
+     "run": "2",
+     "queued": {
+      "installsPending": 1,
+      "stopButtonShown": true,
+      "buttonsMarkedLoading": 2,
+      "firstRow": "Install",
+      "secondRow": "Install",
+      "secondRowLoading": true,
+      "message": ""
+     },
+     "afterFirst": {
+      "installsPending": 0,
+      "stopButtonShown": false,
+      "buttonsMarkedLoading": 0,
+      "firstRow": "Refresh Required",
+      "secondRow": "Install",
+      "secondRowLoading": false,
+      "message": "To apply the installed model, please click the 'Refresh' button."
+     },
+     "afterSecond": {
+      "installsPending": 0,
+      "stopButtonShown": false,
+      "buttonsMarkedLoading": 0,
+      "firstRow": "Refresh Required",
+      "secondRow": "Refresh Required",
+      "secondRowLoading": false,
+      "message": "To apply the installed model, please click the 'Refresh' button."
+     },
+     "pageErrors": []
+    },
+    {
+     "side": "red",
+     "run": "3",
+     "queued": {
+      "installsPending": 1,
+      "stopButtonShown": true,
+      "buttonsMarkedLoading": 2,
+      "firstRow": "Install",
+      "secondRow": "Install",
+      "secondRowLoading": true,
+      "message": ""
+     },
+     "afterFirst": {
+      "installsPending": 0,
+      "stopButtonShown": false,
+      "buttonsMarkedLoading": 0,
+      "firstRow": "Refresh Required",
+      "secondRow": "Install",
+      "secondRowLoading": false,
+      "message": "To apply the installed model, please click the 'Refresh' button."
+     },
+     "afterSecond": {
+      "installsPending": 0,
+      "stopButtonShown": false,
+      "buttonsMarkedLoading": 0,
+      "firstRow": "Refresh Required",
+      "secondRow": "Refresh Required",
+      "secondRowLoading": false,
+      "message": "To apply the installed model, please click the 'Refresh' button."
+     },
+     "pageErrors": []
+    }
+   ]
+  },
+  {
+   "capture": "screens/model-batch-first-ended.green.png",
+   "sha256": "c73590176553e507179d2f347845715c0a0f9fc19b5617879e19a998cb370664",
+   "annotated": "annotated/model-batch-first-ended.green.png",
+   "side": "green",
+   "viewport": "1440x900",
+   "boxes": [
+    {
+     "x": 425,
+     "y": 207,
+     "w": 142,
+     "h": 51,
+     "kind": "green",
+     "tag": "second download: still pending"
+    },
+    {
+     "x": 248,
+     "y": 772,
+     "w": 112,
+     "h": 36,
+     "kind": "green",
+     "tag": "Stop button kept"
+    }
+   ],
+   "observed": {
+    "installsPending": 1,
+    "stopButtonShown": true,
+    "buttonsMarkedLoading": 1,
+    "firstRow": "Refresh Required",
+    "secondRow": "Install",
+    "secondRowLoading": true,
+    "message": "To apply the installed model, please click the 'Refresh' button."
+   },
+   "runs": [
+    {
+     "side": "green",
+     "run": "1",
+     "queued": {
+      "installsPending": 2,
+      "stopButtonShown": true,
+      "buttonsMarkedLoading": 2,
+      "firstRow": "Install",
+      "secondRow": "Install",
+      "secondRowLoading": true,
+      "message": ""
+     },
+     "afterFirst": {
+      "installsPending": 1,
+      "stopButtonShown": true,
+      "buttonsMarkedLoading": 1,
+      "firstRow": "Refresh Required",
+      "secondRow": "Install",
+      "secondRowLoading": true,
+      "message": "To apply the installed model, please click the 'Refresh' button."
+     },
+     "afterSecond": {
+      "installsPending": 0,
+      "stopButtonShown": false,
+      "buttonsMarkedLoading": 0,
+      "firstRow": "Refresh Required",
+      "secondRow": "Refresh Required",
+      "secondRowLoading": false,
+      "message": "To apply the installed model, please click the 'Refresh' button."
+     },
+     "pageErrors": []
+    },
+    {
+     "side": "green",
+     "run": "2",
+     "queued": {
+      "installsPending": 2,
+      "stopButtonShown": true,
+      "buttonsMarkedLoading": 2,
+      "firstRow": "Install",
+      "secondRow": "Install",
+      "secondRowLoading": true,
+      "message": ""
+     },
+     "afterFirst": {
+      "installsPending": 1,
+      "stopButtonShown": true,
+      "buttonsMarkedLoading": 1,
+      "firstRow": "Refresh Required",
+      "secondRow": "Install",
+      "secondRowLoading": true,
+      "message": "To apply the installed model, please click the 'Refresh' button."
+     },
+     "afterSecond": {
+      "installsPending": 0,
+      "stopButtonShown": false,
+      "buttonsMarkedLoading": 0,
+      "firstRow": "Refresh Required",
+      "secondRow": "Refresh Required",
+      "secondRowLoading": false,
+      "message": "To apply the installed model, please click the 'Refresh' button."
+     },
+     "pageErrors": []
+    },
+    {
+     "side": "green",
+     "run": "3",
+     "queued": {
+      "installsPending": 2,
+      "stopButtonShown": true,
+      "buttonsMarkedLoading": 2,
+      "firstRow": "Install",
+      "secondRow": "Install",
+      "secondRowLoading": true,
+      "message": ""
+     },
+     "afterFirst": {
+      "installsPending": 1,
+      "stopButtonShown": true,
+      "buttonsMarkedLoading": 1,
+      "firstRow": "Refresh Required",
+      "secondRow": "Install",
+      "secondRowLoading": true,
+      "message": "To apply the installed model, please click the 'Refresh' button."
+     },
+     "afterSecond": {
+      "installsPending": 0,
+      "stopButtonShown": false,
+      "buttonsMarkedLoading": 0,
+      "firstRow": "Refresh Required",
+      "secondRow": "Refresh Required",
+      "secondRowLoading": false,
+      "message": "To apply the installed model, please click the 'Refresh' button."
+     },
+     "pageErrors": []
+    }
+   ]
+  }
+ ]
+}
