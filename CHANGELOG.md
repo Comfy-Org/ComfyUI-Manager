@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+### Cache files are replaced whole, and their age is counted from the last write
+
+The cached channel lists and the registry's node list were written in place. A
+write that stopped part-way, as when the disk is full or the process is killed,
+left a truncated file, which the Manager reads as an empty list. A cache is now
+written beside the file and put in its place in one step, so the file holds the
+previous list or the new one, and it keeps its permission bits. Where the file
+cannot be replaced, as on Windows while another process has it open, the
+replace is tried again for a moment and the file is then written in place as
+before.
+
+The age of a cached list is counted from its last write. It was read from the
+file's creation time, which Windows keeps when a file is rewritten, so a cache
+first created more than a day ago counted as expired however recently it was
+written (#3432).
+
 ### A disabled node pack that another extension asks for is enabled before the restart
 
 When an extension asks through `cm.try-install-custom-node` for a node pack that
