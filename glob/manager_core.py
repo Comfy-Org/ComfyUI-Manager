@@ -1336,7 +1336,8 @@ class UnifiedManager:
             # archive) behind, and the next install of this node refused with
             # 'Install path already exists' until the user cleaned up by hand.
             # try_rmtree: an entry it cannot delete gets scheduled for deletion
-            # at shutdown instead of silently staying and re-blocking the retry.
+            # at the next start instead of silently staying and re-blocking the
+            # retry.
             # A cleanup that fails as well is logged: the extraction error is
             # the one to report.
             try:
