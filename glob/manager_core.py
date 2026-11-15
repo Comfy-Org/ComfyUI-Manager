@@ -2436,9 +2436,7 @@ async def get_data_by_mode(mode, filename, channel_url=None):
                     json_obj = await manager_util.get_data(cache_uri)
                 else:
                     json_obj = await manager_util.get_data(uri)
-                    with manager_util.cache_lock:
-                        with open(cache_uri, "w", encoding='utf-8') as file:
-                            json.dump(json_obj, file, indent=4, sort_keys=True)
+                    manager_util.write_cache_file(cache_uri, json_obj)
     except Exception as e:
         print(f"[ComfyUI-Manager] Due to a network error, switching to local mode.\n=> {filename}\n=> {e}")
         uri = os.path.join(manager_util.comfyui_manager_path, filename)

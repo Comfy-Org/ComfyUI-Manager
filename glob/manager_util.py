@@ -17,6 +17,7 @@ import re
 import logging
 import platform
 import shlex
+import time
 from functools import lru_cache
 from html import escape, unescape
 from html.entities import html5
@@ -215,12 +216,16 @@ def simple_hash(input_string):
 
 
 def is_file_created_within_one_day(file_path):
+    # mtime, not ctime: on Windows ctime is the CREATION time, and rewriting
+    # a cache file in place does not change it — after the first day every
+    # rewritten cache was 'expired' forever, so each start and each
+    # fetch_updates refetched the whole registry.
     if not os.path.exists(file_path):
         return False
 
-    file_creation_time = os.path.getctime(file_path)
+    file_modified_time = os.path.getmtime(file_path)
     current_time = datetime.now().timestamp()
-    time_difference = current_time - file_creation_time
+    time_difference = current_time - file_modified_time
 
     return time_difference <= 86400
 
@@ -275,14 +280,60 @@ def get_cache_state(uri):
     return "expired"
 
 
+def _atomic_write_json(cache_uri, json_obj):
+    # A kill mid-dump used to leave a truncated cache that parsed as valid
+    # (fresh mtime) but returned {} — or blew up the CNR consumer. Temp file
+    # + os.replace: readers see the old cache or the new one, never a corpse.
+    # Returns whether the cache was replaced: one that stays open elsewhere is
+    # left as it is, with a warning.
+    tmp_uri = f"{cache_uri}.{os.getpid()}.tmp"
+    try:
+        with open(tmp_uri, "w", encoding="utf-8") as file:
+            json.dump(json_obj, file, indent=4, sort_keys=True)
+        try:
+            # the cache keeps the mode it had; a new one gets the default mode
+            if os.path.exists(cache_uri):
+                os.chmod(tmp_uri, os.stat(cache_uri).st_mode & 0o777)
+        except OSError:
+            # a file system that refuses chmod sets the mode itself
+            pass
+        for attempt in range(3):
+            try:
+                os.replace(tmp_uri, cache_uri)
+                return True
+            except OSError as e:
+                # Windows does not replace a file that is open elsewhere. A
+                # reader has it open for a moment only, so try again shortly.
+                refusal = e
+                if attempt < 2:
+                    time.sleep(0.1)
+        # still refused: keep the cache as it is. Writing over it in place
+        # could be cut short, and the caller has the data it fetched anyway.
+        logging.warning(f"[ComfyUI-Manager] The cache could not be replaced and is left as it is: {cache_uri}\n=> {refusal}")
+        return False
+    finally:
+        # gone after a replace; otherwise remove it if nothing holds it open
+        try:
+            os.remove(tmp_uri)
+        except OSError:
+            pass
+
+
 def save_to_cache(uri, json_obj, silent=False):
     cache_uri = get_cache_path(uri)
 
     with cache_lock:
-        with open(cache_uri, "w", encoding='utf-8') as file:
-            json.dump(json_obj, file, indent=4, sort_keys=True)
-            if not silent:
-                logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+        if _atomic_write_json(cache_uri, json_obj) and not silent:
+            logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+
+
+def write_cache_file(cache_uri, json_obj):
+    # for callers that compute their own cache path (get_data_by_mode's
+    # hash_filename scheme differs from get_cache_path) — same atomic
+    # guarantee: readers see the old cache or the new one, never a corpse.
+    # Returns whether the cache was replaced.
+    with cache_lock:
+        return _atomic_write_json(cache_uri, json_obj)
 
 
 async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=False, dont_cache=False):
@@ -306,10 +357,8 @@ async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=Fals
         json_obj = await get_data(uri, silent=silent)
         if not dont_cache:
             with cache_lock:
-                with open(cache_uri, "w", encoding='utf-8') as file:
-                    json.dump(json_obj, file, indent=4, sort_keys=True)
-                    if not silent:
-                        logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+                if _atomic_write_json(cache_uri, json_obj) and not silent:
+                    logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
 
     return json_obj
 
