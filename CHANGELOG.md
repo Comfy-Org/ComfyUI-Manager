@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Libraries are told whether the console is a terminal
+
+With file logging on, the logger that captures the output answered every
+library that asked that the console was not a terminal. After
+`colorama.init()`, the colors of every `print()` were removed, and tqdm and
+rich took a terminal for a pipe. The logger now answers with the state of the
+real console (#3259, #3423).
+
 ### The Model Manager no longer reports an install that did not happen
 
 After the server refused a model install request, the Model Manager kept
