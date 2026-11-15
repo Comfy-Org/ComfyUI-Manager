@@ -5,8 +5,8 @@
   'expired' forever after day one;
 - writes must be atomic: a kill mid-dump used to leave a truncated cache
   that looked fresh but served {} for the whole TTL. A write that fails
-  part-way leaves the previous cache, the cache keeps its mode, and where
-  the file cannot be replaced in one step it is written over as before.
+  part-way leaves the previous cache, the cache keeps its mode, and a cache
+  that stays open elsewhere is left as it is rather than written in place.
 """
 
 import errno
@@ -142,12 +142,16 @@ def test_cache_is_replaced_once_the_reader_has_closed_it(tmp_path):
     assert [p.name for p in tmp_path.iterdir()] == ["cache.json"]
 
 
-def test_cache_that_stays_open_elsewhere_is_written_over(tmp_path):
+def test_cache_that_stays_open_elsewhere_is_left_as_it_is(tmp_path, caplog):
     cache = _fresh_cache(tmp_path, {"a": 1})
     attempt, attempts = _refusing_replace(100)
 
-    with patch.object(os, "replace", attempt), patch.object(MANAGER_UTIL.time, "sleep"):
-        _save(cache, {"b": 2})
+    with patch.object(os, "replace", attempt), patch.object(MANAGER_UTIL.time, "sleep"), \
+         patch.object(MANAGER_UTIL, "get_cache_path", return_value=str(cache)), caplog.at_level("INFO"):
+        # the caller sees no error: it goes on with the data it fetched
+        MANAGER_UTIL.save_to_cache("https://example/list.json", {"b": 2})
     assert len(attempts) == 3
-    assert json.loads(cache.read_text(encoding="utf-8")) == {"b": 2}
+    assert json.loads(cache.read_text(encoding="utf-8")) == {"a": 1}
     assert [p.name for p in tmp_path.iterdir()] == ["cache.json"]
+    assert "The cache could not be replaced" in caplog.text
+    assert "default cache updated" not in caplog.text

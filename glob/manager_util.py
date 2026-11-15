@@ -284,8 +284,8 @@ def _atomic_write_json(cache_uri, json_obj):
     # A kill mid-dump used to leave a truncated cache that parsed as valid
     # (fresh mtime) but returned {} — or blew up the CNR consumer. Temp file
     # + os.replace: readers see the old cache or the new one, never a corpse.
-    # The one exception is a cache that cannot be replaced, which is written
-    # in place as it was before.
+    # Returns whether the cache was replaced: one that stays open elsewhere is
+    # left as it is, with a warning.
     tmp_uri = f"{cache_uri}.{os.getpid()}.tmp"
     try:
         with open(tmp_uri, "w", encoding="utf-8") as file:
@@ -300,16 +300,17 @@ def _atomic_write_json(cache_uri, json_obj):
         for attempt in range(3):
             try:
                 os.replace(tmp_uri, cache_uri)
-                break
-            except OSError:
+                return True
+            except OSError as e:
                 # Windows does not replace a file that is open elsewhere. A
                 # reader has it open for a moment only, so try again shortly.
+                refusal = e
                 if attempt < 2:
                     time.sleep(0.1)
-        else:
-            # still refused: write over it, as before, rather than fail the write
-            with open(cache_uri, "w", encoding="utf-8") as file:
-                json.dump(json_obj, file, indent=4, sort_keys=True)
+        # still refused: keep the cache as it is. Writing over it in place
+        # could be cut short, and the caller has the data it fetched anyway.
+        logging.warning(f"[ComfyUI-Manager] The cache could not be replaced and is left as it is: {cache_uri}\n=> {refusal}")
+        return False
     finally:
         if os.path.exists(tmp_uri):
             os.remove(tmp_uri)
@@ -319,8 +320,7 @@ def save_to_cache(uri, json_obj, silent=False):
     cache_uri = get_cache_path(uri)
 
     with cache_lock:
-        _atomic_write_json(cache_uri, json_obj)
-        if not silent:
+        if _atomic_write_json(cache_uri, json_obj) and not silent:
             logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
 
 
@@ -328,8 +328,9 @@ def write_cache_file(cache_uri, json_obj):
     # for callers that compute their own cache path (get_data_by_mode's
     # hash_filename scheme differs from get_cache_path) — same atomic
     # guarantee: readers see the old cache or the new one, never a corpse.
+    # Returns whether the cache was replaced.
     with cache_lock:
-        _atomic_write_json(cache_uri, json_obj)
+        return _atomic_write_json(cache_uri, json_obj)
 
 
 async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=False, dont_cache=False):
@@ -353,8 +354,7 @@ async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=Fals
         json_obj = await get_data(uri, silent=silent)
         if not dont_cache:
             with cache_lock:
-                _atomic_write_json(cache_uri, json_obj)
-                if not silent:
+                if _atomic_write_json(cache_uri, json_obj) and not silent:
                     logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
 
     return json_obj

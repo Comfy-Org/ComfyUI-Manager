@@ -10,8 +10,8 @@ left a truncated file, which the Manager reads as an empty list. A cache is now
 written beside the file and put in its place in one step, so the file holds the
 previous list or the new one, and it keeps its permission bits. Where the file
 cannot be replaced, as on Windows while another process has it open, the
-replace is tried again for a moment and the file is then written in place as
-before.
+replace is tried again for a moment; a file that stays open is left as it is,
+with a warning in the log, and is updated by a later fetch.
 
 The age of a cached list is counted from its last write. It was read from the
 file's creation time, which Windows keeps when a file is rewritten, so a cache
