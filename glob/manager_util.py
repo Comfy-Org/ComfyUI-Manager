@@ -8,7 +8,6 @@ import socket
 
 import aiohttp
 import json
-import tempfile
 import threading
 import os
 from datetime import datetime
@@ -282,17 +281,27 @@ def _atomic_write_json(cache_uri, json_obj):
     # A kill mid-dump used to leave a truncated cache that parsed as valid
     # (fresh mtime) but returned {} — or blew up the CNR consumer. Temp file
     # + os.replace: readers see the old cache or the new one, never a corpse.
-    fd, tmp_uri = tempfile.mkstemp(dir=os.path.dirname(cache_uri), prefix=".cache-", suffix=".tmp")
+    tmp_uri = f"{cache_uri}.{os.getpid()}.tmp"
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as file:
+        with open(tmp_uri, "w", encoding="utf-8") as file:
             json.dump(json_obj, file, indent=4, sort_keys=True)
-        os.replace(tmp_uri, cache_uri)
-    except BaseException:
         try:
-            os.unlink(tmp_uri)
+            # the cache keeps the mode it had; a new one gets the default mode
+            if os.path.exists(cache_uri):
+                os.chmod(tmp_uri, os.stat(cache_uri).st_mode & 0o777)
         except OSError:
+            # a file system that refuses chmod sets the mode itself
             pass
-        raise
+        try:
+            os.replace(tmp_uri, cache_uri)
+        except OSError:
+            # Windows does not replace a file that is open elsewhere; write
+            # over it, as before, rather than fail the write
+            with open(cache_uri, "w", encoding="utf-8") as file:
+                json.dump(json_obj, file, indent=4, sort_keys=True)
+    finally:
+        if os.path.exists(tmp_uri):
+            os.remove(tmp_uri)
 
 
 def save_to_cache(uri, json_obj, silent=False):

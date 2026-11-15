@@ -4,13 +4,19 @@
   and in-place rewrites never changed it, so every rewritten cache was
   'expired' forever after day one;
 - writes must be atomic: a kill mid-dump used to leave a truncated cache
-  that looked fresh but served {} for the whole TTL.
+  that looked fresh but served {} for the whole TTL. A write that fails
+  part-way leaves the previous cache, the cache keeps its mode, and where
+  the file cannot be replaced in one step it is written over as before.
 """
 
+import errno
 import json
 import os
+import sys
 import time
 from unittest.mock import patch
+
+import pytest
 
 from manager_test_utils import load_manager_util
 
@@ -43,5 +49,79 @@ def test_save_to_cache_leaves_no_tmp_debris_and_valid_json(tmp_path):
     with patch.object(MANAGER_UTIL, "get_cache_path", return_value=str(cache)):
         MANAGER_UTIL.save_to_cache("https://example/list.json", {"b": 2}, silent=True)
     assert json.loads(cache.read_text(encoding="utf-8")) == {"b": 2}
-    leftovers = [p.name for p in tmp_path.iterdir() if p.name.startswith(".cache-")]
-    assert leftovers == []
+    assert [p.name for p in tmp_path.iterdir()] == ["cache.json"]
+
+
+def _save(cache, body):
+    with patch.object(MANAGER_UTIL, "get_cache_path", return_value=str(cache)):
+        MANAGER_UTIL.save_to_cache("https://example/list.json", body, silent=True)
+
+
+def test_write_that_fails_on_a_value_keeps_the_previous_cache(tmp_path):
+    cache = _fresh_cache(tmp_path, {"a": 1})
+    with pytest.raises(TypeError):
+        _save(cache, {"b": 2, "c": object()})
+    assert json.loads(cache.read_text(encoding="utf-8")) == {"a": 1}
+    assert [p.name for p in tmp_path.iterdir()] == ["cache.json"]
+
+
+def test_write_that_runs_out_of_space_keeps_the_previous_cache(tmp_path):
+    cache = _fresh_cache(tmp_path, {"a": 1})
+
+    def disk_full(obj, file, **_):
+        file.write('{"b": ')
+        raise OSError(errno.ENOSPC, "No space left on device")
+
+    with patch.object(MANAGER_UTIL.json, "dump", disk_full), pytest.raises(OSError):
+        _save(cache, {"b": 2})
+    assert json.loads(cache.read_text(encoding="utf-8")) == {"a": 1}
+    assert [p.name for p in tmp_path.iterdir()] == ["cache.json"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX permission bits")
+def test_cache_keeps_its_mode(tmp_path):
+    plain = tmp_path / "plain"
+    plain.write_text("")
+    default_mode = plain.stat().st_mode & 0o777
+    plain.unlink()
+
+    cache = tmp_path / "cache.json"
+    _save(cache, {"a": 1})
+    assert cache.stat().st_mode & 0o777 == default_mode
+
+    other_mode = default_mode ^ 0o040  # never what a new file gets
+    os.chmod(cache, other_mode)
+    _save(cache, {"b": 2})
+    assert cache.stat().st_mode & 0o777 == other_mode
+
+
+def test_cache_is_replaced_where_its_mode_cannot_be_set(tmp_path):
+    cache = _fresh_cache(tmp_path, {"a": 1})
+    replace = os.replace
+    replaced = []
+
+    def refuse(path, mode):
+        raise PermissionError(errno.EPERM, "Operation not permitted", path)
+
+    def record(src, dst):
+        replaced.append(dst)
+        replace(src, dst)
+
+    with patch.object(os, "chmod", refuse), patch.object(os, "replace", record):
+        _save(cache, {"b": 2})
+    assert replaced == [str(cache)]
+    assert json.loads(cache.read_text(encoding="utf-8")) == {"b": 2}
+    assert [p.name for p in tmp_path.iterdir()] == ["cache.json"]
+
+
+def test_cache_that_cannot_be_replaced_is_written_over(tmp_path):
+    # Windows refuses to replace a file that another reader has open
+    cache = _fresh_cache(tmp_path, {"a": 1})
+
+    def refuse(src, dst):
+        raise PermissionError(13, "The process cannot access the file", dst)
+
+    with patch.object(os, "replace", refuse):
+        _save(cache, {"b": 2})
+    assert json.loads(cache.read_text(encoding="utf-8")) == {"b": 2}
+    assert [p.name for p in tmp_path.iterdir()] == ["cache.json"]
