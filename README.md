@@ -1,6 +1,6 @@
 # Validation evidence: End each model install with its own batch
 
-Captured on `64a9e897`, targeting `manager-v4`.
+Captured on `e6e79832`, targeting `manager-v4`.
 
 - `v4-model-batch-pr-assets/annotated/`: the captures with boxes and captions laid over them
 - `v4-model-batch-pr-assets/screens/`: the unmodified browser captures
