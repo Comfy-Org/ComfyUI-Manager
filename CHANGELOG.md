@@ -198,6 +198,11 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   After Stop, the dialog returns to idle; it stayed waiting, with its Stop
   button. A failed download is no longer followed by the request to click
   Refresh (#3303, #3437).
+- In the legacy UI, say why restoring or removing a snapshot failed. For a
+  request the server refused, the message was `Restore snapshot failed:
+  undefined / ReferenceError: exception is not defined`, also for a removal,
+  and a refused restore still asked for a restart. An answer with another
+  error status was taken as success (#3436).
 
 ## [4.3] - 2026-09-19
 
