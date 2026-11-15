@@ -281,6 +281,8 @@ def _atomic_write_json(cache_uri, json_obj):
     # A kill mid-dump used to leave a truncated cache that parsed as valid
     # (fresh mtime) but returned {} — or blew up the CNR consumer. Temp file
     # + os.replace: readers see the old cache or the new one, never a corpse.
+    # The one exception is a cache that cannot be replaced, which is written
+    # in place as it was before.
     tmp_uri = f"{cache_uri}.{os.getpid()}.tmp"
     try:
         with open(tmp_uri, "w", encoding="utf-8") as file:
