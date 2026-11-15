@@ -672,8 +672,12 @@ class UnifiedManager:
         elif node_id in self.unknown_inactive_nodes:
             return True
 
+        # cnr_inactive_nodes holds a version -> path dict; comparing the dict
+        # to version_spec (None here) is always False, so a disabled CNR pack
+        # looked active and enable never restored it. Any non-nightly inactive
+        # version counts, mirroring the explicit "cnr" branch above.
         target = self.cnr_inactive_nodes.get(node_id, None)
-        if target is not None and target == version_spec:
+        if target and any(ver != 'nightly' for ver in target.keys()):
             return True
 
         return False
@@ -1035,7 +1039,7 @@ class UnifiedManager:
 
         if version_spec is None:
             version_spec = self.resolve_unspecified_version(node_id, guess_mode='inactive')
-            if version is None:
+            if version_spec is None:
                 return result.fail(f'Specified inactive node not exists: {node_id}')
 
         if self.is_enabled(node_id, version_spec):

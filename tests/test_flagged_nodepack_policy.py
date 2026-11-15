@@ -251,6 +251,28 @@ print(json.dumps({'ok': result.result, 'old_path': installed.exists(),
                     'queries': 0, 'downloads': 0, 'scripts': 0}
 
 
+def test_unspecified_version_enable_restores_cnr_disabled_pack():
+    data = run('''
+installed = nodes / '.disabled/fixture@1_0_0'
+installed.mkdir(parents=True)
+(installed / '__init__.py').write_text('already installed')
+manager.cnr_map['fixture'] = {'id': 'fixture'}
+manager.cnr_inactive_nodes['fixture'] = {'1.0.0': str(installed)}
+# version_spec=None: the inactive-dict fallback must recognize the disabled
+# CNR pack (a dict never equals version_spec) and enable must restore it
+# without re-downloading, instead of routing install_by_id to a fresh install
+disabled = manager.is_disabled('fixture')
+result = manager.unified_enable('fixture')
+print(json.dumps({'disabled': disabled, 'ok': result.result, 'action': result.action,
+    'msg': result.msg,
+    'active_ok': manager.active_nodes.get('fixture') == ('1.0.0', str(nodes / 'fixture')),
+    'old_path': installed.exists(),
+    'downloads': core.manager_downloader.download_url.call_count}))
+''')
+    assert data == {'disabled': True, 'ok': True, 'action': 'enable', 'msg': None,
+                    'active_ok': True, 'old_path': False, 'downloads': 0}
+
+
 def test_failed_uninstall_stops_reinstall():
     data = run('''
 status = 'NodeVersionStatusActive'

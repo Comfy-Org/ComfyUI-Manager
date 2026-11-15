@@ -1476,14 +1476,16 @@ async def _queue_node_install(request, operation):
     if json_data['version'] != 'unknown' and selected_version != 'unknown':
         if skip_post_install:
             if cnr_id in core.unified_manager.nightly_inactive_nodes or cnr_id in core.unified_manager.cnr_inactive_nodes:
-                core.unified_manager.unified_enable(cnr_id)
+                enable_res = core.unified_manager.unified_enable(cnr_id)
+                enable_msg = 'success' if (enable_res is not None and enable_res.result) else (enable_res.msg if enable_res is not None else 'enable failed')
                 # Mirror the pair of events (in_progress then done) that the async
                 # task_worker normally emits for queued operations. The in_progress
                 # event is what sets item.restart=true on the client row so the
                 # action cell re-renders as "Restart Required"; without it, the
                 # "Enable" button remains visible after successful enable. The done
                 # event drives the completion UI (toast, restart indicator, button
-                # loading clear).
+                # loading clear). Its nodepack_result carries the enable outcome —
+                # a failed enable must not be reported as success.
                 ui_id = json_data.get('ui_id', cnr_id)
                 PromptServer.instance.send_sync(
                     "cm-queue-status",
@@ -1494,7 +1496,7 @@ async def _queue_node_install(request, operation):
                 PromptServer.instance.send_sync(
                     "cm-queue-status",
                     {'status': 'done',
-                     'nodepack_result': {ui_id: 'success'},
+                     'nodepack_result': {ui_id: enable_msg},
                      'model_result': {},
                      'total_count': 1, 'done_count': 1})
                 return web.Response(status=200)
