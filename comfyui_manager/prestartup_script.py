@@ -298,6 +298,11 @@ try:
             # Same reasoning as isatty(): without this attribute, colorama's
             # StreamWrapper.closed falls back to True (AttributeError -> closed),
             # which again forces strip=True. Report the real underlying state.
+            if log_file.closed:
+                # after close_log() nothing can be written through this logger;
+                # colorama, which keeps it, would write its reset at exit
+                return True
+
             stream = original_stdout if self.is_stdout else original_stderr
             try:
                 return stream.closed
