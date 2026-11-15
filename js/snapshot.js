@@ -6,6 +6,14 @@ import { buildGuiFrame } from "./comfyui-gui-builder.js";
 
 loadCss("./snapshot.css");
 
+// The server gives its reason as plain text, and most refusals carry none.
+// For those, and for the error page of a proxy, show the status line.
+async function failureReason(response) {
+	const plain = (response.headers.get('Content-Type') || '').startsWith('text/plain');
+	const text = plain ? await response.text() : '';
+	return sanitizeHTML(text || `HTTP ${response.status} ${response.statusText}`.trim());
+}
+
 async function restore_snapshot(target) {
 	if(SnapshotManager.instance) {
 		let success = false;
@@ -17,8 +25,8 @@ async function restore_snapshot(target) {
 				return false;
 			}
 
-			if(response.status == 400) {
-				show_message(`Restore snapshot failed: ${sanitizeHTML(target)} / ${sanitizeHTML(await response.text())}`);
+			if(!response.ok) {
+				show_message(`Restore snapshot failed: ${sanitizeHTML(String(target))} / ${await failureReason(response)}`);
 				return false;
 			}
 
@@ -27,7 +35,7 @@ async function restore_snapshot(target) {
 			return true;
 		}
 		catch(exception) {
-			show_message(`Restore snapshot failed: ${sanitizeHTML(target)} / ${sanitizeHTML(String(exception))}`);
+			show_message(`Restore snapshot failed: ${sanitizeHTML(String(target))} / ${sanitizeHTML(String(exception))}`);
 			return false;
 		}
 		finally {
@@ -49,8 +57,8 @@ async function remove_snapshot(target) {
 				return false;
 			}
 
-			if(response.status == 400) {
-				show_message(`Remove snapshot failed: ${sanitizeHTML(target)} / ${sanitizeHTML(await response.text())}`);
+			if(!response.ok) {
+				show_message(`Remove snapshot failed: ${sanitizeHTML(String(target))} / ${await failureReason(response)}`);
 				return false;
 			}
 
@@ -58,7 +66,7 @@ async function remove_snapshot(target) {
 			return true;
 		}
 		catch(exception) {
-			show_message(`Remove snapshot failed: ${sanitizeHTML(target)} / ${sanitizeHTML(String(exception))}`);
+			show_message(`Remove snapshot failed: ${sanitizeHTML(String(target))} / ${sanitizeHTML(String(exception))}`);
 			return false;
 		}
 		finally {
