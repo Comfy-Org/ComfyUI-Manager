@@ -1,0 +1,142 @@
+{
+ "base": "b76eb112",
+ "head": "5020051e",
+ "red": "the JS of the base",
+ "green": "the JS of the head",
+ "captures": [
+  {
+   "capture": "screens/3434-preview.red.png",
+   "sha256": "f0eba1ae8551557b921f3059d233f905c7dec4f1763da37505d3f8a09f38ba36",
+   "annotated": "annotated/3434-preview.red.png",
+   "side": "red",
+   "viewport": "1440x900",
+   "boxes": [
+    {
+     "x": 438,
+     "y": 68,
+     "w": 333,
+     "h": 244,
+     "kind": "red",
+     "tag": "text between < > is missing"
+    },
+    {
+     "x": 762,
+     "y": 176,
+     "w": 140,
+     "h": 28,
+     "kind": "same",
+     "tag": "hovered node (same on both)",
+     "below": true
+    }
+   ],
+   "observed": {
+    "text": [
+     "LoRA Tag Loader",
+     "Preview",
+     "image",
+     "text",
+     ", 1girl & fennec ears",
+     "notes",
+     "max tags",
+     "3",
+     "Reads tags & returns the prompt without them."
+    ],
+    "elementsBuiltFromTheDefinition": [
+     "beta",
+     "rgb",
+     "out",
+     "lora:detail:0.8",
+     "optional",
+     "int",
+     "lora:name:weight"
+    ]
+   }
+  },
+  {
+   "capture": "screens/3434-preview.green.png",
+   "sha256": "43aef319647e8730231b6671f9e81b9393c9054d7c8d2552f5855aecc7bf8b86",
+   "annotated": "annotated/3434-preview.green.png",
+   "side": "green",
+   "viewport": "1440x900",
+   "boxes": [
+    {
+     "x": 320,
+     "y": 68,
+     "w": 451,
+     "h": 244,
+     "kind": "green",
+     "tag": "shown as written"
+    },
+    {
+     "x": 762,
+     "y": 176,
+     "w": 140,
+     "h": 28,
+     "kind": "same",
+     "tag": "hovered node (same on both)",
+     "below": true
+    }
+   ],
+   "observed": {
+    "text": [
+     "LoRA Tag Loader <beta>",
+     "Preview",
+     "image <RGB>",
+     "text<out>",
+     "<lora:detail:0.8>, 1girl & fennec ears",
+     "notes <optional>",
+     "max tags <int>",
+     "3",
+     "Reads <lora:name:weight> tags & returns the prompt without them."
+    ],
+    "elementsBuiltFromTheDefinition": []
+   }
+  }
+ ],
+ "runs": [
+  {
+   "scenario": "3434-preview",
+   "run": "green-1",
+   "observed": {
+    "text": [
+     "LoRA Tag Loader <beta>",
+     "Preview",
+     "image <RGB>",
+     "text<out>",
+     "<lora:detail:0.8>, 1girl & fennec ears",
+     "notes <optional>",
+     "max tags <int>",
+     "3",
+     "Reads <lora:name:weight> tags & returns the prompt without them."
+    ],
+    "elementsBuiltFromTheDefinition": []
+   }
+  },
+  {
+   "scenario": "3434-preview",
+   "run": "red-1",
+   "observed": {
+    "text": [
+     "LoRA Tag Loader",
+     "Preview",
+     "image",
+     "text",
+     ", 1girl & fennec ears",
+     "notes",
+     "max tags",
+     "3",
+     "Reads tags & returns the prompt without them."
+    ],
+    "elementsBuiltFromTheDefinition": [
+     "beta",
+     "rgb",
+     "out",
+     "lora:detail:0.8",
+     "optional",
+     "int",
+     "lora:name:weight"
+    ]
+   }
+  }
+ ]
+}
