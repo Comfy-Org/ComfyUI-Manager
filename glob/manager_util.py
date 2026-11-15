@@ -312,8 +312,11 @@ def _atomic_write_json(cache_uri, json_obj):
         logging.warning(f"[ComfyUI-Manager] The cache could not be replaced and is left as it is: {cache_uri}\n=> {refusal}")
         return False
     finally:
-        if os.path.exists(tmp_uri):
+        # gone after a replace; otherwise remove it if nothing holds it open
+        try:
             os.remove(tmp_uri)
+        except OSError:
+            pass
 
 
 def save_to_cache(uri, json_obj, silent=False):

@@ -155,3 +155,18 @@ def test_cache_that_stays_open_elsewhere_is_left_as_it_is(tmp_path, caplog):
     assert [p.name for p in tmp_path.iterdir()] == ["cache.json"]
     assert "The cache could not be replaced" in caplog.text
     assert "default cache updated" not in caplog.text
+
+
+def test_temporary_file_that_is_open_elsewhere_does_not_fail_the_write(tmp_path):
+    # a scanner that opens the new file keeps Windows from replacing with it and from removing it
+    cache = _fresh_cache(tmp_path, {"a": 1})
+    attempt, attempts = _refusing_replace(100)
+
+    def refuse(path):
+        raise PermissionError(13, "The process cannot access the file", path)
+
+    with patch.object(os, "replace", attempt), patch.object(os, "remove", refuse), \
+         patch.object(MANAGER_UTIL.time, "sleep"):
+        assert MANAGER_UTIL.write_cache_file(str(cache), {"b": 2}) is False
+    assert len(attempts) == 3
+    assert json.loads(cache.read_text(encoding="utf-8")) == {"a": 1}
