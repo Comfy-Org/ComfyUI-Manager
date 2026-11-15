@@ -1021,7 +1021,7 @@ def restore_pip_snapshot(pips, options):
         # try all at once
         res = 1
         try:
-            res = subprocess.check_output(make_pip_cmd(['install'] + non_url))
+            res = subprocess.check_call(make_pip_cmd(['install'] + non_url))
         except Exception:
             pass
 
@@ -1030,7 +1030,7 @@ def restore_pip_snapshot(pips, options):
             for x in non_url:
                 res = 1
                 try:
-                    res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+                    res = subprocess.check_call(make_pip_cmd(['install', '--no-deps', x]))
                 except Exception:
                     pass
 
@@ -1041,7 +1041,7 @@ def restore_pip_snapshot(pips, options):
         for x in non_local_url:
             res = 1
             try:
-                res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+                res = subprocess.check_call(make_pip_cmd(['install', '--no-deps', x]))
             except Exception:
                 pass
 
@@ -1052,7 +1052,7 @@ def restore_pip_snapshot(pips, options):
         for x in local_url:
             res = 1
             try:
-                res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+                res = subprocess.check_call(make_pip_cmd(['install', '--no-deps', x]))
             except Exception:
                 pass
 
