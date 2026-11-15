@@ -1250,12 +1250,28 @@ class UnifiedManager:
 
         manager_downloader.download_url(node_info.download_url, get_default_custom_nodes_path(), archive_name)
         os.makedirs(install_path, exist_ok=True)
-        extracted = manager_util.extract_package_as_zip(download_path, install_path)
-        os.remove(download_path)
+        try:
+            extracted = manager_util.extract_package_as_zip(download_path, install_path)
+        except Exception as e:
+            # Left in place, the new directory makes the next install fail with 'Install path already exists'.
+            # A cleanup that fails as well is logged: the extraction error is the one to report.
+            try:
+                try_rmtree(node_id, install_path)
+            except Exception as cleanup_error:
+                logging.warning(f"[ComfyUI-Manager] Failed to clean up '{install_path}': {cleanup_error}")
+            return result.fail(f'Failed to extract archive: {node_id}@{version_spec}: {e}')
+        finally:
+            try:
+                os.remove(download_path)
+            except OSError:
+                pass
         result.to_path = install_path
 
         if extracted is None:
-            shutil.rmtree(install_path)
+            try:
+                try_rmtree(node_id, install_path)
+            except Exception as cleanup_error:
+                logging.warning(f"[ComfyUI-Manager] Failed to clean up '{install_path}': {cleanup_error}")
             return result.fail(f'Empty archive file: {node_id}@{version_spec}')
 
         # create .tracking file
