@@ -18,10 +18,8 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 JS = JsSource(os.environ.get("MANAGER_JS_DIR") or (REPO_ROOT / "js"))
 
 COMMON = "common.js"
-SHARE_COMMON = "comfyui-share-common.js"
-SHARE_OPENART = "comfyui-share-openart.js"
-SHARE_COPUS = "comfyui-share-copus.js"
 SHARE_YOUML = "comfyui-share-youml.js"
+MANAGER_MENU = "comfyui-manager.js"
 SNAPSHOT = "snapshot.js"
 MANAGER = "custom-nodes-manager.js"
 
@@ -301,11 +299,11 @@ class NoticeWiringTest(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# [D2] share-service URLs
+# [D2] service-chosen URLs
 # ---------------------------------------------------------------------------
 @unittest.skipIf(NODE is None, "node is required to execute the lifted production JS")
-class ShareDialogUrlTest(unittest.TestCase):
-    """Share-service URLs must use safe schemes and quoted attributes."""
+class ServiceUrlTest(unittest.TestCase):
+    """Service-chosen URLs must use safe schemes and quoted attributes."""
 
     def _preamble(self) -> str:
         span = JS.lift_span(
@@ -330,67 +328,31 @@ class ShareDialogUrlTest(unittest.TestCase):
         )
         self.assertEqual(handler_attrs(markup), [], markup)
 
-    # --- comfyui-share-common.js, the fully service-controlled URL ----------
-    def _common_expression(self) -> str:
-        from js_lift import line_containing
-        line = line_containing(JS.text(SHARE_COMMON),
-                               'this.final_message.innerHTML = "Your art has been shared:')
-        return line.split("innerHTML =", 1)[1].strip().rstrip(";")
-
-    def test_share_common_rejects_an_executing_scheme(self):
-        # The href here is SINGLE-quoted, so the breakout variant uses `'`.
-        for payload in (SCHEME_PAYLOAD, DATA_PAYLOAD, BREAKOUT_SINGLE_QUOTED):
-            with self.subTest(payload=payload):
-                markup = self._render(
-                    self._common_expression(),
-                    "const response_json = {comfyworkflows: {url: %s}};" % (_json(payload),))
-                self._assert_scheme_rejected(markup, "comfyui-share-common.js")
-
-    def test_share_common_still_links_an_ordinary_url(self):
-        """The leg a refuse-everything fix would fail."""
-        markup = self._render(
-            self._common_expression(),
-            "const response_json = {comfyworkflows: {url: %s}};" % (_json(BENIGN_URL),))
-        self.assertIn(
-            BENIGN_URL, hrefs(markup),
-            "an ordinary https URL must still become a working link: %r" % (markup,))
-
-    def test_every_share_anchor_severs_the_opener(self):
-        """Check opener isolation without imposing an order on rel tokens."""
-        cases = [
-            ("comfyui-share-common.js", self._common_expression(),
-             "const response_json = {comfyworkflows: {url: %s}};" % (_json(BENIGN_URL),)),
-            ("comfyui-share-youml.js", self._youml_expression(),
-             "const messagePrefix = 'shared.';\nconst recipePageUrl = %s;" % (_json(BENIGN_URL),)),
-            ("comfyui-share-openart.js", self._openart_expression(),
-             "const url = %s;" % (_json(BENIGN_URL),)),
-            ("comfyui-share-copus.js", self._copus_expression(),
-             "const url = %s;" % (_json(BENIGN_URL),)),
-        ]
-        for name, expression, bindings in cases:
-            with self.subTest(file=name):
-                markup = self._render(expression, bindings)
-                anchors = [attrs for tag, attrs in parse(markup).elements if tag == "a"]
-                self.assertTrue(anchors, "no anchor produced by %s: %r" % (name, markup))
-                for attrs in anchors:
-                    self.assertEqual(
-                        attrs.get("target"), "_blank",
-                        "%s: this guard is about _blank anchors; the target "
-                        "changed, so re-derive it: %r" % (name, markup))
-                    self.assertIn(
-                        "rel", attrs,
-                        "%s opens a service-chosen page in a new tab without "
-                        "rel, so that page keeps a reference to this window: %r"
-                        % (name, markup))
-                    rel = attrs["rel"].lower().split()
-                    self.assertIn("noopener", rel, markup)
-                    self.assertIn("noreferrer", rel, markup)
-
-    # --- comfyui-share-youml.js, also fully service-controlled --------------
+    # --- comfyui-share-youml.js, the fully service-controlled URL -----------
     def _youml_expression(self) -> str:
         span = JS.lift_span(SHARE_YOUML, "this.message.innerHTML = `${messagePrefix}",
                             "visit it on YouML</a>`;")
         return span.split("innerHTML =", 1)[1].strip().rstrip(";")
+
+    def test_share_youml_anchor_severs_the_opener(self):
+        """Check opener isolation without imposing an order on rel tokens."""
+        markup = self._render(
+            self._youml_expression(),
+            "const messagePrefix = 'shared.';\nconst recipePageUrl = %s;" % (_json(BENIGN_URL),))
+        anchors = [attrs for tag, attrs in parse(markup).elements if tag == "a"]
+        self.assertTrue(anchors, "no anchor produced: %r" % (markup,))
+        for attrs in anchors:
+            self.assertEqual(
+                attrs.get("target"), "_blank",
+                "this guard is about _blank anchors; the target changed, so "
+                "re-derive it: %r" % (markup,))
+            self.assertIn(
+                "rel", attrs,
+                "a service-chosen page opens in a new tab without rel, so that "
+                "page keeps a reference to this window: %r" % (markup,))
+            rel = attrs["rel"].lower().split()
+            self.assertIn("noopener", rel, markup)
+            self.assertIn("noreferrer", rel, markup)
 
     def test_share_youml_rejects_an_executing_scheme(self):
         # The href here is DOUBLE-quoted, so the breakout variant uses `"`.
@@ -402,36 +364,19 @@ class ShareDialogUrlTest(unittest.TestCase):
                     "const recipePageUrl = %s;" % (_json(payload),))
                 self._assert_scheme_rejected(markup, "comfyui-share-youml.js")
 
-    # --- openart / copus: an id is interpolated into a URL PATH -------------
-    # The scheme is hardcoded, so these cannot carry javascript:. What they CAN
-    # carry is a quote: the id is a service-returned string dropped inside a
-    # double-quoted attribute, so `"` closes it and the rest is markup. That is a
-    # different failure from the two above and is asserted as such.
-    def _openart_expression(self) -> str:
-        from js_lift import line_containing
-        line = line_containing(JS.text(SHARE_OPENART),
-                               "this.message.innerHTML = `Workflow has been shared successfully.")
-        return line.split("innerHTML =", 1)[1].strip().rstrip(";")
-
-    def _copus_expression(self) -> str:
-        from js_lift import line_containing
-        line = line_containing(JS.text(SHARE_COPUS),
-                               "this.message.innerHTML = `Workflow has been shared successfully.")
-        return line.split("innerHTML =", 1)[1].strip().rstrip(";")
-
-    def test_openart_id_cannot_break_out_of_the_href_attribute(self):
-        markup = self._render(
-            self._openart_expression(),
-            'const url = "https://openart.ai/workflows/-/-/" + '
-            '%s;' % (_json('x" onmouseover="window.__probe=1'),))
-        self.assertEqual(handler_attrs(markup), [], markup)
-
-    def test_copus_id_cannot_break_out_of_the_href_attribute(self):
-        markup = self._render(
-            self._copus_expression(),
-            'const url = "https://example.invalid/work/" + '
-            '%s;' % (_json('x" onmouseover="window.__probe=1'),))
-        self.assertEqual(handler_attrs(markup), [], markup)
+    # --- comfyui-manager.js, the update-result links ------------------------
+    def test_update_result_links_cannot_close_their_single_quoted_href(self):
+        # The href here is SINGLE-quoted, so the breakout variant uses `'`.
+        lines = [line for line in JS.text(MANAGER_MENU).splitlines()
+                 if "<li><a href='${safeHref(url)}'" in line]
+        self.assertEqual(len(lines), 2, "the updated list and the failed list: %r" % (lines,))
+        for number, line in enumerate(lines):
+            with self.subTest(link=number):
+                markup = self._render(
+                    line.split("msg +=", 1)[1].strip().rstrip(";"),
+                    "const title = 'pack';\nconst url = %s;" % (_json(BREAKOUT_SINGLE_QUOTED),))
+                self.assertEqual(handler_attrs(markup), [], markup)
+                self.assertEqual(len(hrefs(markup)), 1, markup)
 
 
 # ---------------------------------------------------------------------------

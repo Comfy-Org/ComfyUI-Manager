@@ -554,47 +554,22 @@ def is_installed(name):
     if name.startswith('#'):
         return True
 
-    pattern = r'([^<>!~=]+)([<>!~=]=?)([0-9.a-zA-Z]*)'
-    match = re.search(pattern, name)
-
-    if match:
-        name = match.group(1)
-
-    if name in cm_global.pip_blacklist:
+    reason = manager_util.pip_block_reason(name, cm_global.pip_blacklist, cm_global.pip_downgrade_blacklist)
+    if reason is not None:
+        if reason == 'downgrade blacklisted':
+            print(f"[ComfyUI-Manager] skip black listed pip installation: '{name}'")
         return True
 
-    if name in cm_global.pip_downgrade_blacklist:
-        pips = manager_util.get_installed_packages()
+    pkg_name, extras, clauses = manager_util.parse_pip_spec(name)
+    if pkg_name is None or extras:
+        return False  # not a plain named requirement, or extras to add: let pip decide
 
-        if match is None:
-            if name in pips:
-                return True
-        elif match.group(2) in ['<=', '==', '<', '~=']:
-            if name in pips:
-                if manager_util.StrictVersion(pips[name]) >= manager_util.StrictVersion(match.group(3)):
-                    print(f"[ComfyUI-Manager] skip black listed pip installation: '{name}'")
-                    return True
-
-    pkg = manager_util.get_installed_packages().get(name.lower())
+    pkg = manager_util.get_installed_packages().get(pkg_name)
     if pkg is None:
         return False  # update if not installed
 
-    if match is None:
-        return True   # don't update if version is not specified
-
-    if match.group(2) in ['>', '>=']:
-        if manager_util.StrictVersion(pkg) < manager_util.StrictVersion(match.group(3)):
-            return False
-        elif manager_util.StrictVersion(pkg) > manager_util.StrictVersion(match.group(3)):
-            print(f"[SKIP] Downgrading pip package isn't allowed: {name.lower()} (cur={pkg})")
-
-    if match.group(2) == '==':
-        if manager_util.StrictVersion(pkg) < manager_util.StrictVersion(match.group(3)):
-            return False
-
-    if match.group(2) == '~=':
-        if manager_util.StrictVersion(pkg) == manager_util.StrictVersion(match.group(3)):
-            return False
+    if manager_util.requires_newer_version(clauses, pkg):
+        return False
 
     return True       # prevent downgrade
 
@@ -810,7 +785,8 @@ def execute_startup_script():
                     if script[1] == "#FORCE":
                         del script[1]
                     else:
-                        if 'pip' in script[1:] and 'install' in script[1:] and is_installed(script[-1]):
+                        requirement = manager_util.pip_install_requirement(script[1:])
+                        if requirement is not None and is_installed(requirement):
                             continue
 
                     print(f"\n## ComfyUI-Manager: EXECUTE => {script[1:]}")
@@ -864,15 +840,7 @@ if script_executed:
         print("--------------------------------------------------------------------------\n")
         exit(0)
     else:
-        sys_argv = sys.argv.copy()
-
-        if sys_argv[0].endswith("__main__.py"):  # this is a python module
-            module_name = os.path.basename(os.path.dirname(sys_argv[0]))
-            cmds = [sys.executable, '-m', module_name] + sys_argv[1:]
-        elif sys.platform.startswith('win32'):
-            cmds = ['"' + sys.executable + '"', '"' + sys_argv[0] + '"'] + sys_argv[1:]
-        else:
-            cmds = [sys.executable] + sys_argv
+        cmds = manager_util.build_restart_command(sys.argv)
 
         print(f"Command: {cmds}", flush=True)
         print("--------------------------------------------------------------------------\n")

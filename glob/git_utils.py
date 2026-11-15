@@ -26,7 +26,10 @@ def get_commit_hash(fullpath):
                 else:
                     return "unknown"
             else:
-                return line
+                # detached HEAD: the file holds the sha followed by a newline;
+                # without the strip the pinned hash carries that newline into
+                # snapshots, and the next restore's checkout of that hash fails
+                return line.strip()
 
     return "unknown"
 
