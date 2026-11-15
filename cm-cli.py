@@ -82,7 +82,7 @@ def read_downgrade_blacklist():
     try:
         import configparser
         config = configparser.ConfigParser(strict=False)
-        config.read(core.manager_config.path)
+        config.read(core.manager_config_path)
         default_conf = config['default']
 
         if 'downgrade_blacklist' in default_conf:
