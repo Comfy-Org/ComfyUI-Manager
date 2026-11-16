@@ -1,6 +1,17 @@
 {
     "custom_nodes": [
         {
+            "author": "ruiqutech",
+            "title": "RuiquNodes for ComfyUI [SECURITY ISSUE]",
+            "id": "RuiquNodes",
+            "reference": "https://github.com/ruiqutech/ComfyUI-RuiquNodes",
+            "files": [
+                "https://github.com/ruiqutech/ComfyUI-RuiquNodes"
+            ],
+            "install_type": "git-clone",
+            "description": "Nodes of EvaluateMultiple1, EvaluateMultiple3...\nSupport the execution of any fragment of Python code, generating multiple outputs from multiple inputs. [w/This nodepack has a remote code execution vulnerability. Its Evaluate nodes run any Python code the workflow supplies, with no restriction, so a workflow you queue, or a request sent to a ComfyUI server reachable from the network, can run any program on the host.]"
+        },
+        {
             "author": "rohit267",
             "title": "Champdev Custom Nodes [SECURITY ISSUE]",
             "id": "champdev",
