@@ -199,10 +199,18 @@ local_db_custom_node_list = os.path.join(manager_util.comfyui_manager_path, "cus
 local_db_extension_node_mappings = os.path.join(manager_util.comfyui_manager_path, "extension-node-map.json")
 
 
+ALLOWED_UPDATE_POLICIES = ('stable', 'stable-comfyui', 'nightly', 'nightly-comfyui')
+ALLOWED_DB_MODES = ('cache', 'channel', 'local', 'remote')
+
+
 def set_update_policy(mode):
+    if mode not in ALLOWED_UPDATE_POLICIES:
+        raise ValueError(f"Invalid update_policy {mode!r}; must be one of {ALLOWED_UPDATE_POLICIES}")
     core.get_config()['update_policy'] = mode
 
 def set_db_mode(mode):
+    if mode not in ALLOWED_DB_MODES:
+        raise ValueError(f"Invalid db_mode {mode!r}; must be one of {ALLOWED_DB_MODES}")
     core.get_config()['db_mode'] = mode
 
 def print_comfyui_version():
@@ -802,7 +810,8 @@ async def queue_batch(request):
                     failed.add(x['id'])
 
         elif k == 'update_comfyui':
-            await update_comfyui(None)
+            if v:
+                _update_comfyui()
 
         elif k == 'disable':
             for x in v:
@@ -1313,7 +1322,7 @@ def unzip_install(files):
 
             os.remove(temp_filename)
         except Exception as e:
-            logging.error(f"Install(unzip) error: {url} / {e}", file=sys.stderr)
+            logging.error(f"Install(unzip) error: {url} / {e}")
             return False
 
     logging.info("Installation was successful.")
@@ -1655,9 +1664,13 @@ async def update_comfyui(request):
     rejection = manager_security.reject_simple_form_post(request)
     if rejection is not None:
         return rejection
-    is_stable = core.get_config()['update_policy'] != 'nightly-comfyui'
-    temp_queue_batch.append(("update-comfyui", ('comfyui', is_stable)))
+    _update_comfyui()
     return web.Response(status=200)
+
+
+def _update_comfyui():
+    is_stable = core.get_config()['update_policy'] not in ('nightly', 'nightly-comfyui')
+    temp_queue_batch.append(("update-comfyui", ('comfyui', is_stable)))
 
 
 @routes.get("/v2/comfyui_manager/comfyui_versions")
@@ -1666,7 +1679,7 @@ async def comfyui_versions(request):
         res, current, latest = core.get_comfyui_versions()
         return web.json_response({'versions': res, 'current': current}, status=200, content_type='application/json')
     except Exception as e:
-        logging.error(f"ComfyUI update fail: {e}", file=sys.stderr)
+        logging.error(f"ComfyUI update fail: {e}")
 
     return web.Response(status=400)
 
@@ -1691,7 +1704,7 @@ async def comfyui_switch_version(request):
     except json.JSONDecodeError:
         return web.Response(status=400, text="Invalid JSON body")
     except Exception as e:
-        logging.error(f"ComfyUI update fail: {e}", file=sys.stderr)
+        logging.error(f"ComfyUI update fail: {e}")
         return web.Response(status=400)
 
 
@@ -1780,8 +1793,10 @@ async def set_db_mode_api(request):
         set_db_mode(data['value'])
         core.write_config()
         return web.Response(status=200)
-    except (json.JSONDecodeError, KeyError):
+    except (json.JSONDecodeError, KeyError, TypeError):
         return web.Response(status=400, text='Invalid request')
+    except ValueError as e:
+        return web.Response(status=400, text=str(e))
 
 
 @routes.get("/v2/manager/policy/update")
@@ -1800,8 +1815,10 @@ async def set_update_policy_api(request):
         set_update_policy(data['value'])
         core.write_config()
         return web.Response(status=200)
-    except (json.JSONDecodeError, KeyError):
+    except (json.JSONDecodeError, KeyError, TypeError):
         return web.Response(status=400, text='Invalid request')
+    except ValueError as e:
+        return web.Response(status=400, text=str(e))
 
 
 @routes.get("/v2/manager/channel_url_list")

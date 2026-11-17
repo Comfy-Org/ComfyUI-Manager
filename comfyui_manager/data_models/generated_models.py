@@ -224,8 +224,12 @@ class UpdateComfyUIQueryParams(BaseModel):
     )
     ui_id: str = Field(..., description="UI identifier for task tracking")
     stable: Optional[bool] = Field(
-        True,
-        description="Whether to update to stable version (true) or nightly (false)",
+        None,
+        description="Whether to update to stable version (true) or nightly (false). When neither this nor `is_stable` is given, the update policy decides.",
+    )
+    is_stable: Optional[bool] = Field(
+        None,
+        description="Another name for `stable`, the one the task parameters use. Read when `stable` is not given.",
     )
 
 
