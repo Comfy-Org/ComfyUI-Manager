@@ -2,6 +2,42 @@
 
 ## Unreleased
 
+### A setting chosen while the Manager menu is loading it is kept
+
+The Manager menu asks the server for the database mode, the component policy,
+the update policy and the share option when it is first opened. A value chosen
+before the answer arrived was saved, but the menu went back to showing the old
+one. The menu keeps the chosen value.
+
+### Setting requests with an unknown value are refused
+
+The routes that set `db_mode`, `update_policy` and `component_policy` stored
+whatever value a request carried and wrote it to `config.ini`. They answer 400
+for a value that is not one of those the Manager's menu offers, and for a JSON
+body without a `value`, which ended with status 500.
+
+### Install requests with an unusable body are answered with 400
+
+`/customnode/install/git_url` and `/customnode/install/pip` answered 500 when
+the JSON body was not an object, or when `url` or `packages` was not a string.
+They answer 400, as they do for a missing field.
+
+### Console messages show paths, URLs and package names as they are
+
+Manager printed many of its messages through rich, which reads square
+brackets as markup. A package name such as `diffusers[torch]` was shown as
+`diffusers`, a text such as `:100:` as an emoji, and a line longer than the
+console was broken in the middle of a path or a URL. A text with a closing
+tag such as `[/b]` raised `MarkupError` instead of being printed, in the
+middle of the operation that reported it. These messages are now printed as
+they are; numbers and quoted strings keep their colors.
+
+### The list of ComfyUI versions answers a failure with 400 again
+
+When the versions of ComfyUI could not be read, the request for the list ended
+with status 500 and a `TypeError` in the log: the call that logs the cause was
+given an argument it does not take. The cause is logged, and the answer is 400.
+
 ### Restarting under comfy-cli no longer reports a closed log file
 
 Restarting ComfyUI from the Manager under comfy-cli printed `ValueError: I/O

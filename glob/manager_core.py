@@ -27,7 +27,9 @@ import toml
 
 orig_print = print
 
-from rich import print
+import rich
+from rich.console import Console
+from rich.markup import escape
 from packaging import version
 
 import uuid
@@ -42,6 +44,12 @@ import git_utils
 import manager_downloader
 import manager_migration
 from node_package import InstalledNodePackage
+
+
+def print(*objects, sep=" ", end="\n", file=None):
+    # rich's print with its highlighting only, so that a path, a URL or an error text is written as it is
+    console = rich.get_console() if file is None else Console(file=file)
+    console.print(*objects, sep=sep, end=end, markup=False, emoji=False, soft_wrap=True)
 
 
 version_code = [3, 43]
@@ -773,7 +781,7 @@ class UnifiedManager:
         channel_url = normalize_channel(channel)
         if channel_url:
             if mode not in ['remote', 'local', 'cache']:
-                print(f"[bold red]ERROR: Invalid mode is specified `--mode {mode}`[/bold red]", file=sys.stderr)
+                rich.print(f"[bold red]ERROR: Invalid mode is specified `--mode {escape(mode)}`[/bold red]", file=sys.stderr)
                 return {}
 
         # validate channel - only the channel set by the user is allowed.

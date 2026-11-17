@@ -235,6 +235,7 @@ var switch_comfyui_button = null;
 var update_all_button = null;
 var restart_stop_button = null;
 var update_policy_combo = null;
+var update_policy_chosen = false;
 
 let share_option = 'all';
 const share_options = [
@@ -642,10 +643,12 @@ async function switchComfyUI() {
 
 		showVersionSelectorDialog(versions, obj.current, async (selected_version) => {
 			if(selected_version == 'nightly') {
+				update_policy_chosen = true;
 				update_policy_combo.value = 'nightly-comfyui';
 				api.fetchApi('/manager/policy/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: 'nightly-comfyui' }) });
 			}
 			else {
+				update_policy_chosen = true;
 				update_policy_combo.value = 'stable-comfyui';
 				api.fetchApi('/manager/policy/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: 'stable-comfyui' }) });
 			}
@@ -996,11 +999,14 @@ class ManagerMenuDialog extends ComfyDialog {
 		this.datasrc_combo.appendChild($el('option', { value: 'local', text: 'Local' }, []));
 		this.datasrc_combo.appendChild($el('option', { value: 'remote', text: 'Channel (remote)' }, []));
 
+		// a choice made before the stored value arrives is not to be replaced by it
+		let db_mode_chosen = false;
 		api.fetchApi('/manager/db_mode')
 			.then(response => response.text())
-			.then(data => { this.datasrc_combo.value = data; });
+			.then(data => { if(!db_mode_chosen) this.datasrc_combo.value = data; });
 
 		this.datasrc_combo.addEventListener('change', function (event) {
+			db_mode_chosen = true;
 			api.fetchApi('/manager/db_mode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: event.target.value }) });
 		});
 
@@ -1142,14 +1148,18 @@ class ManagerMenuDialog extends ComfyDialog {
 			share_combo.appendChild($el('option', { value: option[0], text: `${option[1]}` }, []));
 		}
 
+		let share_option_chosen = false;
 		api.fetchApi('/manager/share_option')
 			.then(response => response.text())
 			.then(data => {
-				share_option = to_share_option(data);
-				share_combo.value = share_option;
+				if(!share_option_chosen) {
+					share_option = to_share_option(data);
+					share_combo.value = share_option;
+				}
 			});
 
 		share_combo.addEventListener('change', function (event) {
+			share_option_chosen = true;
 			const value = event.target.value;
 			share_option = value;
 			api.fetchApi(`/manager/share_option?value=${value}`);
@@ -1169,14 +1179,18 @@ class ManagerMenuDialog extends ComfyDialog {
 		component_policy_combo.appendChild($el('option', { value: 'workflow', text: 'Use workflow version' }, []));
 		component_policy_combo.appendChild($el('option', { value: 'higher', text: 'Use higher version' }, []));
 		component_policy_combo.appendChild($el('option', { value: 'mine', text: 'Use my version' }, []));
+		let component_policy_chosen = false;
 		api.fetchApi('/manager/policy/component')
 			.then(response => response.text())
 			.then(data => {
-				component_policy_combo.value = data;
-				set_component_policy(data);
+				if(!component_policy_chosen) {
+					component_policy_combo.value = data;
+					set_component_policy(data);
+				}
 			});
 
 		component_policy_combo.addEventListener('change', function (event) {
+			component_policy_chosen = true;
 			api.fetchApi('/manager/policy/component', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: event.target.value }) });
 			set_component_policy(event.target.value);
 		});
@@ -1192,10 +1206,12 @@ class ManagerMenuDialog extends ComfyDialog {
 		api.fetchApi('/manager/policy/update')
 			.then(response => response.text())
 			.then(data => {
-				update_policy_combo.value = data;
+				if(!update_policy_chosen)
+					update_policy_combo.value = data;
 			});
 
 		update_policy_combo.addEventListener('change', function (event) {
+			update_policy_chosen = true;
 			api.fetchApi('/manager/policy/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: event.target.value }) });
 		});
 
