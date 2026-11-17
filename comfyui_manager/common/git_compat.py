@@ -15,6 +15,8 @@ Exports:
 
 import os
 import re
+import shutil
+import subprocess
 import sys
 from abc import ABC, abstractmethod
 from collections import deque
@@ -52,25 +54,71 @@ def _to_https_url(url):
 # Backend selection
 # ---------------------------------------------------------------------------
 
+def find_git_executable(git_exe, timeout=10):
+    """The full path of the program `git_exe` if it answers `version` as git does; None otherwise."""
+    # A name without a directory is looked up on PATH; GitPython would take it
+    # as a file of the current directory.
+    path = shutil.which(git_exe)
+    if path is None:
+        return None
+
+    try:
+        res = subprocess.run([path, 'version'], capture_output=True, stdin=subprocess.DEVNULL, timeout=timeout)
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    if res.returncode != 0 or not res.stdout.startswith(b'git version'):
+        return None
+
+    return os.path.abspath(path)
+
+
 _PYGIT2_REQUESTED = os.environ.get('CM_USE_PYGIT2', '').strip() == '1'
 USE_PYGIT2 = _PYGIT2_REQUESTED
+
+# The git set as `git_exe`, from prestartup or from the process that runs git_helper.
+# GitPython is told before it is imported, so that a git that is not on PATH can be named.
+_GIT_EXE = os.environ.get('GIT_EXE_PATH')
+_GIT_EXE_FOUND = None
+
+
+def _find_configured_git():
+    found = find_git_executable(_GIT_EXE)
+    if found is not None:
+        os.environ['GIT_PYTHON_GIT_EXECUTABLE'] = found
+    else:
+        print(f"[ComfyUI-Manager] `git_exe = {_GIT_EXE}` is not a working git executable. The default git is used.", file=sys.stderr)
+    return found
+
+
+if not USE_PYGIT2 and _GIT_EXE:
+    _GIT_EXE_FOUND = _find_configured_git()
 
 if not USE_PYGIT2:
     try:
         import git as _git
-        _git.Git().execute(['git', '--version'])
+        _git.Git().execute([_git.Git.GIT_PYTHON_GIT_EXECUTABLE, '--version'])
     except Exception:
         USE_PYGIT2 = True
 
 if USE_PYGIT2:
+    # Without a git, GitPython raises already when it is imported, unless it
+    # is told to keep quiet. The legacy modules import it themselves.
+    os.environ.setdefault('GIT_PYTHON_REFRESH', 'quiet')
+
     try:
         import pygit2 as _pygit2
     except ImportError:
         # pygit2 not available either — fall back to GitPython and let it
-        # fail at the point of use, preserving pre-existing behavior.
+        # fail at the point of use.
         USE_PYGIT2 = False
+        if _PYGIT2_REQUESTED and _GIT_EXE:
+            # pygit2 was asked for, so the setting was not looked at above
+            _GIT_EXE_FOUND = _find_configured_git()
         _PYGIT2_REQUESTED = False
         import git as _git
+        if not _git.GIT_OK:
+            print("[ComfyUI-Manager] No git executable was found and pygit2 is not installed. What needs git will fail.", file=sys.stderr)
     else:
         # Disable owner validation once at import time.
         # Required for Desktop 2.0 standalone installs where repo directories
@@ -237,7 +285,7 @@ class GitRepo(ABC):
     def checkout_new_branch(self, branch_name: str, start_point: str): ...
 
     @abstractmethod
-    def submodule_update(self): ...
+    def submodule_update(self, init=True): ...
 
     @abstractmethod
     def clear_cache(self): ...
@@ -424,8 +472,8 @@ class _GitPythonRepo(GitRepo):
     def checkout_new_branch(self, branch_name, start_point):
         self._repo.git.checkout('-b', branch_name, start_point)
 
-    def submodule_update(self):
-        self._repo.git.submodule('update', '--init', '--recursive')
+    def submodule_update(self, init=True):
+        self._repo.git.submodule('update', *(['--init'] if init else []), '--recursive')
 
     def clear_cache(self):
         self._repo.git.clear_cache()
@@ -443,6 +491,17 @@ class _GitPythonRepo(GitRepo):
 # ===================================================================
 # Pygit2 wrapper
 # ===================================================================
+
+def _remote_callbacks():
+    """The callbacks of a clone or a fetch, without the one for the progress messages of the server.
+
+    pygit2 decodes each piece of such a message as UTF-8 before it calls that one, and a piece can end
+    in the middle of a character: the clone or the fetch then ended with UnicodeDecodeError.
+    """
+    callbacks = _pygit2.RemoteCallbacks()
+    callbacks.sideband_progress = None
+    return callbacks
+
 
 class _Pygit2Repo(GitRepo):
     def __init__(self, path):
@@ -471,12 +530,12 @@ class _Pygit2Repo(GitRepo):
             anon.fetch(
                 list(refspecs) if refspecs is not None
                 else list(remote.fetch_refspecs),
-                proxy=_HTTP_PROXY,
+                proxy=_HTTP_PROXY, callbacks=_remote_callbacks(),
             )
         elif refspecs is not None:
-            remote.fetch(list(refspecs), proxy=_HTTP_PROXY)
+            remote.fetch(list(refspecs), proxy=_HTTP_PROXY, callbacks=_remote_callbacks())
         else:
-            remote.fetch(proxy=_HTTP_PROXY)
+            remote.fetch(proxy=_HTTP_PROXY, callbacks=_remote_callbacks())
 
     @property
     def working_dir(self):
@@ -845,28 +904,84 @@ class _Pygit2Repo(GitRepo):
         self._repo.checkout(branch)
         self._repo.set_head(branch.name)
 
-    def submodule_update(self):
+    def _update_submodules(self, repo):
+        # One that `.gitmodules` alone names has no commit, and a commit that `.gitmodules` does not name has no url:
+        # neither can be fetched, and pygit2 refuses the second.
+        names = [submodule.name for submodule in repo.submodules
+                 if submodule.head_id is not None and submodule.url is not None]
+        for name in names:
+            # what a clone that failed left, with nothing fetched and no checkout: pygit2 refuses to clone into it
+            leftover = os.path.join(repo.path, 'modules', name)
+            if os.path.exists(leftover) and not os.path.exists(os.path.join(repo.workdir, repo.submodules[name].path, '.git')) \
+                    and _pygit2.Repository(leftover).is_empty:
+                shutil.rmtree(leftover)
+
+        if names:
+            repo.submodules.init(names)
+            for name in names:
+                # as for the repository itself: an ssh url is fetched over https, which needs no credentials for a public one
+                url = repo.config[f'submodule.{name}.url']
+                if _to_https_url(url) != url:
+                    repo.config[f'submodule.{name}.url'] = _to_https_url(url)
+
+            if _HTTP_PROXY is not None:
+                # `update` cannot be given the proxy: what it would fetch is fetched here, and it is left the checkout
+                for name in names:
+                    submodule = repo.submodules[name]
+                    path = os.path.join(repo.workdir, submodule.path)
+                    if not os.path.exists(os.path.join(path, '.git')):
+                        # the url that `init` resolved: the one of `.gitmodules` may be relative
+                        _pygit2.clone_repository(repo.config[f'submodule.{name}.url'], path, proxy=_HTTP_PROXY, callbacks=_remote_callbacks())
+                    else:
+                        cloned = submodule.open()
+                        if submodule.head_id not in cloned:
+                            cloned.remotes['origin'].fetch(proxy=_HTTP_PROXY, callbacks=_remote_callbacks())
+            repo.submodules.update(names, callbacks=_remote_callbacks())
+
+        # as `--recursive`: the submodules of a submodule
+        for name in names:
+            self._update_submodules(repo.submodules[name].open())
+
+    def _update_fetched_submodules(self, repo):
+        # one that was never fetched is left alone; pygit2 refuses it and would not come to the others
+        fetched = [submodule.name for submodule in repo.submodules
+                   if os.path.exists(os.path.join(repo.workdir, submodule.path, '.git'))]
+        if _HTTP_PROXY is not None:
+            # `update` cannot be given the proxy: what it would fetch is fetched here
+            for name in fetched:
+                submodule = repo.submodules[name]
+                cloned = submodule.open()
+                if submodule.head_id is not None and submodule.head_id not in cloned:
+                    cloned.remotes['origin'].fetch(proxy=_HTTP_PROXY, callbacks=_remote_callbacks())
+        if fetched:
+            repo.submodules.update(fetched, callbacks=_remote_callbacks())
+
+        # as `--recursive`: the submodules of a submodule
+        for name in fetched:
+            self._update_fetched_submodules(repo.submodules[name].open())
+
+    def submodule_update(self, init=True):
         try:
-            self._repo.submodules.init()
-            self._repo.submodules.update()
-        except Exception:
+            if init:
+                self._update_submodules(self._repo)
+            else:
+                self._update_fetched_submodules(self._repo)
+        except Exception as e:
             import subprocess
             try:
                 result = subprocess.run(
-                    ['git', 'submodule', 'update', '--init', '--recursive'],
+                    ['git', 'submodule', 'update', *(['--init'] if init else []), '--recursive'],
                     cwd=self._working_dir,
                     capture_output=True, timeout=120,
                 )
-                if result.returncode != 0:
-                    raise GitCommandError(
-                        f"submodule update failed (exit {result.returncode}): "
-                        f"{result.stderr.decode(errors='replace')}")
             except FileNotFoundError:
-                print("[ComfyUI-Manager] pygit2: submodule update requires system git (not installed)", file=sys.stderr)
-            except GitCommandError:
-                raise
-            except Exception as sub_e:
-                print(f"[ComfyUI-Manager] pygit2: submodule update failed: {sub_e}", file=sys.stderr)
+                # no git to do it in the place of pygit2: the caller must not take the update as done
+                raise GitCommandError(f"submodule update failed: {e}") from e
+
+            if result.returncode != 0:
+                raise GitCommandError(
+                    f"submodule update failed (exit {result.returncode}): "
+                    f"{result.stderr.decode(errors='replace')}")
 
     def clear_cache(self):
         pass
@@ -922,9 +1037,9 @@ def clone_repo(url, dest, progress=None):
         # configured so proxy-less installs keep working on older pygit2.
         # (A configured proxy still needs >=1.18 — see requirements.txt.)
         if _HTTP_PROXY is not None:
-            _pygit2.clone_repository(_to_https_url(url), dest, proxy=_HTTP_PROXY)
+            _pygit2.clone_repository(_to_https_url(url), dest, proxy=_HTTP_PROXY, callbacks=_remote_callbacks())
         else:
-            _pygit2.clone_repository(_to_https_url(url), dest)
+            _pygit2.clone_repository(_to_https_url(url), dest, callbacks=_remote_callbacks())
         repo = _Pygit2Repo(dest)
         repo.submodule_update()
         return repo
@@ -938,7 +1053,17 @@ def clone_repo(url, dest, progress=None):
 
 def setup_git_environment(git_exe):
     """Configure the git executable path (GitPython only)."""
-    if USE_PYGIT2:
+    if USE_PYGIT2 or not git_exe:
         return
-    if git_exe:
-        _git.Git().update_environment(GIT_PYTHON_GIT_EXECUTABLE=git_exe)
+
+    if git_exe == _GIT_EXE:
+        # checked, and reported if it is no git, when this module was imported
+        found = _GIT_EXE_FOUND
+    else:
+        found = find_git_executable(git_exe)
+        if found is None:
+            print(f"[ComfyUI-Manager] `git_exe = {git_exe}` is not a working git executable. The default git is used.", file=sys.stderr)
+
+    # GitPython may have been imported before this module, with the git on PATH
+    if found is not None and _git.Git.GIT_PYTHON_GIT_EXECUTABLE != found:
+        _git.refresh(found)

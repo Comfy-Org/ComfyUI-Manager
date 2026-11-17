@@ -99,6 +99,8 @@ else:
     network_mode_description = core.get_config()["network_mode"]
 logging.info("[ComfyUI-Manager] network_mode: " + network_mode_description)
 
+environment_utils.initialize_environment()
+
 
 MAXIMUM_HISTORY_SIZE = 10000
 routes = PromptServer.instance.routes

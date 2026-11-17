@@ -32,6 +32,7 @@ if not os.path.exists(os.path.join(comfy_path, 'folder_paths.py')):
 
 
 import utils.extra_config
+from comfyui_manager.common.git_compat import setup_git_environment  # before the modules that import GitPython
 from comfyui_manager.common import manager_util
 from comfyui_manager.common import cm_global
 from comfyui_manager.legacy import manager_core as core
@@ -135,25 +136,26 @@ class Ctx:
         self.no_deps = no_deps
 
     def set_user_directory(self, user_directory):
-        if user_directory is None:
-            return
+        if user_directory is not None:
+            extra_model_paths_yaml = os.path.join(user_directory, 'extra_model_paths.yaml')
+            if os.path.exists(extra_model_paths_yaml):
+                utils.extra_config.load_extra_path_config(extra_model_paths_yaml)
 
-        extra_model_paths_yaml = os.path.join(user_directory, 'extra_model_paths.yaml')
-        if os.path.exists(extra_model_paths_yaml):
-            utils.extra_config.load_extra_path_config(extra_model_paths_yaml)
+            context.update_user_directory(user_directory)
 
-        context.update_user_directory(user_directory)
+            if os.path.exists(context.manager_pip_overrides_path):
+                with open(context.manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
+                    cm_global.pip_overrides = json.load(json_file)
 
-        if os.path.exists(context.manager_pip_overrides_path):
-            with open(context.manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
-                cm_global.pip_overrides = json.load(json_file)
+            if os.path.exists(context.manager_pip_blacklist_path):
+                with open(context.manager_pip_blacklist_path, 'r', encoding="UTF-8", errors="ignore") as f:
+                    for x in f.readlines():
+                        y = x.strip()
+                        if y != '':
+                            cm_global.pip_blacklist.add(y)
 
-        if os.path.exists(context.manager_pip_blacklist_path):
-            with open(context.manager_pip_blacklist_path, 'r', encoding="UTF-8", errors="ignore") as f:
-                for x in f.readlines():
-                    y = x.strip()
-                    if y != '':
-                        cm_global.pip_blacklist.add(y)
+        # the configuration of the user directory is known from here on
+        setup_git_environment(core.get_config()['git_exe'])
 
     def update_custom_nodes_dir(self, target_dir):
         import folder_paths

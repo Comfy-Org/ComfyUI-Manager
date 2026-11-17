@@ -132,7 +132,7 @@ def initialize_environment():
     #     manager_util.comfyui_manager_path, "extension-node-map.json"
     # )
 
-    print_comfyui_version()
     setup_environment()
+    print_comfyui_version()
 
     core.check_invalid_nodes()

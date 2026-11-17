@@ -243,6 +243,7 @@ def gitpull(path):
             repo.stash()
 
         commit_hash = repo.head_commit_hexsha
+        detached = repo.head_is_detached
         try:
             if repo.head_is_detached:
                 switch_to_default_branch(repo)
@@ -261,12 +262,15 @@ def gitpull(path):
                 remote_commit_hash = repo.get_ref_commit_hexsha(f'{remote_name}/{branch_name}')
             else:
                 print("CUSTOM NODE PULL: Fail")  # update fail
-                return
+                # the exit code tells a caller that does not read the output
+                sys.exit(1)
 
             if commit_hash == remote_commit_hash:
                 print("CUSTOM NODE PULL: None")  # there is no update
                 return
 
+            # where the branch is: `commit_hash` is another commit when the pack was not on its branch
+            before_pull = repo.head_commit_hexsha
             try:
                 repo.pull_ff_only()
             except GitCommandError:
@@ -276,16 +280,32 @@ def gitpull(path):
                 repo.reset_hard(f'{remote_name}/{branch_name}')
                 print(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
 
-            repo.submodule_update()
+            try:
+                repo.submodule_update()
+            except Exception:
+                # the pull is undone: at the new commit the next update finds nothing to do, and the install script is never run
+                repo.reset_hard(before_pull)
+                if detached:
+                    # a pack that was not on its branch goes back to its commit
+                    repo.checkout(commit_hash)
+                try:
+                    # the submodules that were updated before the one that failed go back with it
+                    repo.submodule_update(init=False)
+                except Exception:
+                    pass
+                raise
+
             new_commit_hash = repo.head_commit_hexsha
 
             if commit_hash != new_commit_hash:
                 print("CUSTOM NODE PULL: Success")  # update success
             else:
                 print("CUSTOM NODE PULL: Fail")  # update fail
+                sys.exit(1)
         except Exception as e:
             print(e)
             print("CUSTOM NODE PULL: Fail")  # unknown git error
+            sys.exit(1)
 
 
 def checkout_comfyui_hash(target_hash):

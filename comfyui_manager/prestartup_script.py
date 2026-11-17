@@ -101,7 +101,18 @@ def check_file_logging():
         enable_file_logging = False
 
 
+def set_git_executable():
+    # git_compat reads this when it is imported
+    # read as written: a path of Windows may hold a `%`, which the parser takes as the start of a reference
+    git_exe = default_conf.get('git_exe', '', raw=True) if 'git_exe' in default_conf else ''
+    if git_exe != '':
+        os.environ['GIT_EXE_PATH'] = git_exe
+
+
 read_config()
+set_git_executable()
+# GitPython is imported here, with the git of `git_exe`, before any other module imports it
+from .common import git_compat  # noqa: E402,F401
 read_uv_mode()
 read_unified_resolver_mode()
 security_check.security_check()

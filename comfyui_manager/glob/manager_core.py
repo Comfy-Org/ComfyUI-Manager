@@ -10,7 +10,9 @@ import sys
 import subprocess
 import re
 import shutil
+import stat
 import configparser
+import contextlib
 import platform
 
 from ..common.git_compat import open_repo, clone_repo, GitCommandError
@@ -35,6 +37,11 @@ from rich.markup import escape
 from packaging import version
 
 import uuid
+
+if os.name == 'nt':
+    import msvcrt
+else:
+    import fcntl
 
 from ..common import cm_global
 from ..common.config_writer import DirtyTrackingConfig, write_config_merged
@@ -694,7 +701,8 @@ class UnifiedManager:
             if os.path.exists(disabled_dir):
                 for x in os.listdir(disabled_dir):
                     fullpath = os.path.join(disabled_dir, x)
-                    if os.path.isdir(fullpath):
+                    # `.locks` has the claims of installs, and is no nodepack
+                    if os.path.isdir(fullpath) and x != '.locks':
                         self.update_cache_at_path(fullpath)
 
     @staticmethod
@@ -1317,14 +1325,37 @@ class UnifiedManager:
             clone_url = git_utils.get_url_for_clone(url)
             print(f"Download: git clone '{clone_url}'")
 
-            if not instant_execution and platform.system() == 'Windows':
-                res = manager_funcs.run_script([sys.executable, context.git_script_path, "--clone", get_default_custom_nodes_path(), clone_url, repo_path], cwd=get_default_custom_nodes_path())
-                if res != 0:
-                    return result.fail(f"Failed to clone repo: {clone_url}")
-            else:
-                repo = clone_repo(clone_url, repo_path, progress=GitProgress())
-                repo.clear_cache()
-                repo.close()
+            with claimed_install(repo_path) as claimed:
+                if not claimed:
+                    return result.fail(f"Another install is in progress: '{repo_path}'")
+
+                # this install makes the directory, so that what it removes after a clone that failed is its own:
+                # another install can make the directory after a check that it is not there
+                try:
+                    os.makedirs(repo_path)
+                    existed = False
+                except FileExistsError:
+                    existed = True
+                if not instant_execution and platform.system() == 'Windows':
+                    try:
+                        res = manager_funcs.run_script([sys.executable, context.git_script_path, "--clone", get_default_custom_nodes_path(), clone_url, repo_path], cwd=get_default_custom_nodes_path())
+                    except subprocess.CalledProcessError as e:
+                        # the default runner, which cm-cli has, raises for the exit code that the one of the server returns
+                        res = e.returncode
+                    if res != 0:
+                        if not existed:
+                            remove_failed_clone(repo_path)
+                        return result.fail(f"Failed to clone repo: {clone_url}")
+                else:
+                    try:
+                        repo = clone_repo(clone_url, repo_path, progress=GitProgress())
+                    except Exception:
+                        if not existed:
+                            remove_failed_clone(repo_path)
+                        raise
+
+                    repo.clear_cache()
+                    repo.close()
 
             def postinstall():
                 return self.execute_install_script(url, repo_path, instant_execution=instant_execution, no_deps=no_deps)
@@ -1715,7 +1746,8 @@ def read_config():
 
         return {
                     'http_channel_enabled': get_bool('http_channel_enabled', False),
-                    'git_exe': default_conf.get('git_exe', ''),
+                    # read as written: a path of Windows may hold a `%`, which the parser takes as the start of a reference
+                    'git_exe': default_conf.get('git_exe', '', raw=True),
                     'use_uv': get_bool('use_uv', True),
                     'use_unified_resolver': get_bool('use_unified_resolver', False),
                     'channel_url': default_conf.get('channel_url', DEFAULT_CHANNEL),
@@ -1965,7 +1997,9 @@ def __win_check_git_update(path, do_fetch=False, do_update=False):
 def __win_check_git_pull(path):
     command = [sys.executable, context.git_script_path, "--pull", path]
     process = subprocess.Popen(command, env=get_script_env(), cwd=get_default_custom_nodes_path())
-    process.wait()
+    # the helper ends with 1 when the pull failed
+    if process.wait() != 0:
+        raise ValueError(f"Failed to pull: {path}")
 
 
 def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=False, no_deps=False):
@@ -2221,36 +2255,56 @@ async def gitclone_install(url, instant_execution=False, msg_prefix='', no_deps=
 
             repo_path = os.path.join(get_default_custom_nodes_path(), node_dir)
 
-            if os.path.exists(repo_path):
-                return result.fail(f"Already exists: '{repo_path}'")
+            with claimed_install(repo_path) as claimed:
+                if not claimed:
+                    return result.fail(f"Another install is in progress: '{repo_path}'")
 
-            for custom_nodes_dir in get_custom_nodes_paths():
-                disabled_repo_path1 = os.path.join(custom_nodes_dir, '.disabled', node_dir)
-                disabled_repo_path2 = os.path.join(custom_nodes_dir, repo_name+'.disabled')  # old style
+                if os.path.exists(repo_path):
+                    return result.fail(f"Already exists: '{repo_path}'")
 
-                if os.path.exists(disabled_repo_path1):
-                    return result.fail(f"Already exists (disabled): '{disabled_repo_path1}'")
+                for custom_nodes_dir in get_custom_nodes_paths():
+                    disabled_repo_path1 = os.path.join(custom_nodes_dir, '.disabled', node_dir)
+                    disabled_repo_path2 = os.path.join(custom_nodes_dir, repo_name+'.disabled')  # old style
 
-                if os.path.exists(disabled_repo_path2):
-                    return result.fail(f"Already exists (disabled): '{disabled_repo_path2}'")
+                    if os.path.exists(disabled_repo_path1):
+                        return result.fail(f"Already exists (disabled): '{disabled_repo_path1}'")
 
-            print(f"CLONE into '{repo_path}'")
+                    if os.path.exists(disabled_repo_path2):
+                        return result.fail(f"Already exists (disabled): '{disabled_repo_path2}'")
 
-            # Clone the repository from the remote URL
-            clone_url = git_utils.get_url_for_clone(url)
+                print(f"CLONE into '{repo_path}'")
 
-            if not instant_execution and platform.system() == 'Windows':
-                res = manager_funcs.run_script([sys.executable, context.git_script_path, "--clone", get_default_custom_nodes_path(), clone_url, repo_path], cwd=get_default_custom_nodes_path())
-                if res != 0:
-                    return result.fail(f"Failed to clone '{clone_url}' into  '{repo_path}'")
-            else:
-                repo = clone_repo(clone_url, repo_path, progress=GitProgress())
-                if commit_id!= "":
-                    repo.checkout(commit_id)
-                    repo.submodule_update()
+                # Clone the repository from the remote URL
+                clone_url = git_utils.get_url_for_clone(url)
 
-                repo.clear_cache()
-                repo.close()
+                try:
+                    # this install makes the directory, so that what it removes after a clone that failed is its own
+                    os.makedirs(repo_path)
+                except FileExistsError:
+                    # another install made it after the check above
+                    return result.fail(f"Already exists: '{repo_path}'")
+
+                if not instant_execution and platform.system() == 'Windows':
+                    try:
+                        res = manager_funcs.run_script([sys.executable, context.git_script_path, "--clone", get_default_custom_nodes_path(), clone_url, repo_path], cwd=get_default_custom_nodes_path())
+                    except subprocess.CalledProcessError as e:
+                        # the default runner, which cm-cli has, raises for the exit code that the one of the server returns
+                        res = e.returncode
+                    if res != 0:
+                        remove_failed_clone(repo_path)
+                        return result.fail(f"Failed to clone '{clone_url}' into  '{repo_path}'")
+                else:
+                    try:
+                        repo = clone_repo(clone_url, repo_path, progress=GitProgress())
+                        if commit_id!= "":
+                            repo.checkout(commit_id)
+                            repo.submodule_update()
+                    except Exception:
+                        remove_failed_clone(repo_path)
+                        raise
+
+                    repo.clear_cache()
+                    repo.close()
 
             execute_install_script(url, repo_path, instant_execution=instant_execution, no_deps=no_deps)
             print("Installation was successful.")
@@ -2276,11 +2330,14 @@ def git_pull(path):
                 print(f"STASH: '{path}' is dirty.")
                 repo.stash()
 
+            # the commit of a pack that is not on its branch
+            detached_at = repo.head_commit_hexsha if repo.head_is_detached else None
             if repo.head_is_detached:
                 if not switch_to_default_branch(repo):
                     raise ValueError(f"Failed to switch to default branch while pulling: {path}")
 
             branch_name = repo.active_branch_name
+            commit_hash = repo.head_commit_hexsha
             remote_name = repo.get_tracking_remote_name()
 
             try:
@@ -2292,7 +2349,20 @@ def git_pull(path):
                 repo.reset_hard(f'{remote_name}/{branch_name}')
                 logging.info(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
 
-            repo.submodule_update()
+            try:
+                repo.submodule_update()
+            except Exception:
+                # the pull is undone: at the new commit the next update finds nothing to do, and the install script is never run
+                repo.reset_hard(commit_hash)
+                if detached_at:
+                    # a pack that was not on its branch goes back to its commit
+                    repo.checkout(detached_at)
+                try:
+                    # the submodules that were updated before the one that failed go back with it
+                    repo.submodule_update(init=False)
+                except Exception:
+                    pass
+                raise
 
     return True
 
@@ -2370,6 +2440,50 @@ def gitclone_fix(files, instant_execution=False, no_deps=False):
 def pip_install(packages):
     install_cmd = ['#FORCE'] + manager_util.make_pip_cmd(["install", '-U']) + packages
     try_install_script('pip install via manager', '..', install_cmd)
+
+
+@contextlib.contextmanager
+def claimed_install(repo_path):
+    """Gives False while another install of the node pack at `repo_path` runs, in this process or in another.
+
+    The claim is a lock on an open file, which ends with its process, also with one that is killed: the file that stays means nothing.
+    The file is beside the nodepacks, in `.disabled/.locks`, which ComfyUI does not load: where it cannot be made, no nodepack can be installed either,
+    and an install does not run without it."""
+    claims = os.path.join(os.path.dirname(repo_path), '.disabled', '.locks')
+    os.makedirs(claims, exist_ok=True)
+    fd = os.open(os.path.join(claims, os.path.basename(repo_path) + '.lock'), os.O_RDWR | os.O_CREAT, 0o666)
+    try:
+        try:
+            if os.name == 'nt':
+                msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
+            else:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            yield False
+        else:
+            yield True
+    finally:
+        os.close(fd)
+
+
+def remove_failed_clone(path):
+    """What a clone that failed left is in the way of the next install.
+
+    `rmtree`, which an uninstall uses, tries again and raises, also for a path that is not there."""
+    if platform.system() == 'Windows':
+        # there git makes its pack files read-only, and a read-only file is not removed
+        for directory, _, names in os.walk(path):
+            for name in names:
+                file = os.path.join(directory, name)
+                if not os.path.islink(file):
+                    try:
+                        os.chmod(file, stat.S_IWRITE)
+                    except OSError:
+                        # the removal below is tried all the same, and tells what is left
+                        pass
+    shutil.rmtree(path, ignore_errors=True)
+    if os.path.exists(path):
+        logging.warning(f"[ComfyUI-Manager] What the clone that failed left could not be removed: '{path}'")
 
 
 def rmtree(path):
@@ -3498,11 +3612,12 @@ def resolve_giturl_from_path(fullpath):
     if not os.path.exists(git_config_path):
         return "unknown"
 
-    config = configparser.ConfigParser(strict=False)
-    config.read(git_config_path)
+    config = git_utils.read_git_config(git_config_path)
+    if config is None:
+        return None
 
     for k, v in config.items():
-        if k.startswith('remote ') and 'url' in v:
+        if k.startswith('remote ') and v.get('url'):
             return v['url'].replace("git@github.com:", "https://github.com/")
 
     return None
@@ -3511,10 +3626,14 @@ def resolve_giturl_from_path(fullpath):
 def repo_switch_commit(repo_path, commit_hash):
     try:
         with open_repo(repo_path) as repo:
-            if repo.head_commit_hexsha == commit_hash:
-                return False
+            if repo.head_commit_hexsha != commit_hash:
+                repo.checkout(commit_hash)
+                repo.submodule_update()
+                return True
 
-            repo.checkout(commit_hash)
-            return True
+            # an update of the submodules that failed is done again; one that was never fetched is left alone
+            if os.path.exists(os.path.join(repo_path, '.gitmodules')):
+                repo.submodule_update(init=False)
+            return False
     except Exception:
         return None
