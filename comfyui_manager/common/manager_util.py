@@ -323,6 +323,64 @@ def extract_package_as_zip(file_path, extract_path):
         return None
 
 
+def extracted_path(name):
+    """Where `zipfile` extracts the member `name` of an archive, from the directory it extracts into."""
+    name = os.path.splitdrive(name.replace('/', os.path.sep))[1]
+    parts = [part for part in name.split(os.path.sep) if part not in ('', os.path.curdir, os.path.pardir)]
+    if os.path.sep == '\\':
+        # on Windows it also replaces the characters that a name cannot hold, and drops the dots and spaces that end a part
+        parts = [part.translate(str.maketrans(':<>|"?*', '_______')).rstrip(' .') for part in parts]
+    return os.path.sep.join(part for part in parts if part)
+
+
+def is_inside(directory, name):
+    """Whether `name`, taken from `directory`, is a path in it."""
+    directory = os.path.realpath(directory)
+    try:
+        return os.path.commonpath((directory, os.path.realpath(os.path.join(directory, name)))) == directory
+    except ValueError:
+        # on Windows, a path of another drive
+        return False
+
+
+def switch_package_files(file_path, path):
+    """Extract the archive of another version over the nodepack at `path`, without the files that the version there has alone.
+
+    Returns the names in the archive, as `extract_package_as_zip`, or None if it is not a zip."""
+    import zipfile
+    try:
+        with zipfile.ZipFile(file_path, "r") as zip_ref:
+            extracted = zip_ref.namelist()
+    except zipfile.BadZipFile:
+        logging.error(f"File '{file_path}' is not a zip or is corrupted.")
+        return None
+
+    with open(os.path.join(path, '.tracking'), 'r', encoding='utf-8') as f:
+        prev_files = {line.strip() for line in f}
+    # a file can be named in more than one way, as `a.py` and `./a.py`: the paths that the names are extracted to are compared
+    garbage = {extracted_path(x) for x in prev_files} - {extracted_path(x) for x in extracted}
+    # through a link, a path can lead out of the nodepack
+    garbage = [os.path.join(path, x) for x in garbage if is_inside(path, x)]
+
+    # one that cannot be removed, as a file that is open on Windows, stays beside the files of the new version
+    for x in garbage:
+        try:
+            if os.path.isfile(x):
+                os.remove(x)
+        except OSError as e:
+            logging.warning(f"[ComfyUI-Manager] A file of the old version is left: {e}")
+
+    for x in garbage:
+        try:
+            if os.path.isdir(x) and not os.listdir(x):
+                os.rmdir(x)
+        except OSError as e:
+            logging.warning(f"[ComfyUI-Manager] A folder of the old version is left: {e}")
+
+    # after the files are removed: two names can be one file, as names that differ in case alone are on Windows
+    return extract_package_as_zip(file_path, path)
+
+
 def normalize_pip_name(name):
     """Return the key used to compare pip package names.
 

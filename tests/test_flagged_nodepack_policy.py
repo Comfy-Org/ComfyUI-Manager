@@ -380,7 +380,9 @@ def test_preflight_response_is_reused(core, monkeypatch, installed, instant, tmp
         (marker.parent / '.tracking').write_text('__init__.py')
 
     def download(url, directory, name):
-        (tmp_path / name).write_bytes(b'fixture')
+        # a switch reads the names in the archive before it is extracted
+        with zipfile.ZipFile(tmp_path / name, 'w') as archive:
+            archive.writestr('__init__.py', '')
 
     def extract(archive, directory):
         (Path(directory) / '__init__.py').write_text('replacement')
@@ -557,7 +559,9 @@ def test_deferred_switch_reuses_status_with_current_policy(
     (from_path / '__init__.py').write_text('')
 
     def download(url, directory, name):
-        (Path(directory) / name).write_bytes(b'fixture')
+        # the switch reads the names in the archive before it is extracted
+        with zipfile.ZipFile(Path(directory) / name, 'w') as archive:
+            archive.writestr('__init__.py', '')
 
     downloader = Mock(side_effect=download)
     monkeypatch.setattr(manager_downloader, 'download_url', downloader)

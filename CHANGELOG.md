@@ -51,6 +51,68 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   middle of the operation that reported it. Numbers and quoted strings keep
   their colors.
 
+- Carry out a scheduled snapshot restore in the directories of the server.
+  With `--base-directory`, the restore that runs at the next start worked on
+  the Manager's files and the `custom_nodes` directory inside the ComfyUI
+  directory instead of those of the base directory: it did not see the node
+  packs of the server, and ended with `Restore snapshot failed`.
+
+- Report the steps of a snapshot restore that failed. The summary listed a
+  nodepack as `INSTALLED`, `DISABLED` or `ENABLED` without looking at the
+  result of the step: a clone that failed, for example because the directory
+  already existed or the url could not be reached, was `INSTALLED`. A step
+  that fails is listed as `FAILED`, and Manager itself is no longer listed as
+  `DISABLED`. A Registry that cannot be reached ended the restore at the first
+  nodepack to install from it, and so did a nodepack whose directory could not
+  be moved to disable or enable it; such a nodepack is listed as `FAILED`, and
+  the restore goes on.
+- Restore the commit of the snapshot for every git nodepack. A git nodepack
+  that the restore had to clone stayed at the newest commit; it is checked out
+  at the commit of the snapshot, and its install script runs after that. An
+  installed git nodepack that the Registry does not know was checked out only
+  when `cm-cli` was run from `custom_nodes`, as a scheduled restore does; it
+  is checked out from any directory.
+- Install the requirements and run the install script of a Registry nodepack
+  that a snapshot restore installs. The nodepack was unpacked and nothing
+  more. It is listed as `FAILED` when they fail.
+- Try a requirement or an install script that failed again. It was taken as
+  done until the next start: the next nodepack that names the requirement
+  skipped it, and installing or fixing the nodepack again did not run the
+  script.
+- Write what is reserved for the next start as UTF-8, which is how the
+  start-up script reads it. The install script of an update, the removal of a
+  nodepack whose files are in use and a switch of version are reserved in a
+  file that was written in the encoding of the system. On Windows a path with
+  a character outside ASCII was lost: one that the code page cannot write,
+  such as a Korean folder name with code page 1252, raised an error and
+  nothing was reserved; one that it can write was read back as another path,
+  and what was reserved was not carried out at the next start.
+- Remove the files of the old version from the nodepack when a switch of
+  version is carried out at the next start. The files that the new version no
+  longer has were looked for in `custom_nodes` in place of the directory of
+  the nodepack: they stayed in the nodepack, and a file of the same name in
+  `custom_nodes` was removed. A switch of version, at the next start or at
+  once, now compares the files of the two versions by the paths they are
+  extracted to. A file that the new archive names in another way, as `./a.py`
+  for `a.py`, was removed after it was extracted, and a name of the old list
+  that leads out of the nodepack removed a file outside it. A file behind a
+  link that leads out of the nodepack is left alone. The files that the new
+  version no longer has are removed before its archive is extracted: where
+  two names are one file, as names that differ in case alone are on Windows,
+  a file of the new version was removed. A file of the old version that
+  cannot be removed, as one that another program has open on Windows, is
+  left with a warning; it ended the switch in the middle. A nodepack whose
+  directory keeps its name is no longer moved onto itself at the next start,
+  which Windows refuses while a file in it is open. When the switch moves the
+  nodepack to another directory, the install script of the new version runs
+  there; it was looked for in the directory that the nodepack was moved
+  from, and did not run.
+- Read the list of the files of a Registry nodepack as UTF-8, which is how
+  it is written. It was read in the encoding of the system: on Windows a
+  switch of version of a nodepack with a file name outside ASCII ended in
+  the middle, with the files of the new version unpacked, its install script
+  not run and the files of the old version left.
+
 - Refuse a `db_mode` or an `update_policy` that Manager does not know in the
   legacy server. With `--enable-manager-legacy-ui`, the two setting routes
   stored whatever value a request carried and wrote it to `config.ini`. They
