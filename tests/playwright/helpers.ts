@@ -119,15 +119,15 @@ export async function closeToasts(page: Page) {
 
 /** Close the topmost dialog via its X (close) button or Escape. */
 export async function closeDialog(page: Page) {
-  // Every Manager dialog has a `.p-dialog-close-button` (X). A sub-dialog lies
+  // Every Manager dialog has a `.cm-ui-close` (X). A sub-dialog lies
   // over the manager-menu dialog (`#cm-manager-dialog`), whose X stays visible
   // but cannot be clicked then, so the sub-dialogs are tried first.
   for (const sel of [
-    '#cn-manager-dialog .p-dialog-close-button',
-    '#cmm-manager-dialog .p-dialog-close-button',
-    '#snapshot-manager-dialog .p-dialog-close-button',
-    '#cm-manager-dialog .p-dialog-close-button',
-    '.p-dialog-close-button',
+    '#cn-manager-dialog .cm-ui-close',
+    '#cmm-manager-dialog .cm-ui-close',
+    '#snapshot-manager-dialog .cm-ui-close',
+    '#cm-manager-dialog .cm-ui-close',
+    '.cm-ui-close',
   ]) {
     const btn = page.locator(sel).last();
     if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {

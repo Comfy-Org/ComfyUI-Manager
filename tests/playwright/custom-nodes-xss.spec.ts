@@ -639,8 +639,8 @@ test.describe('batch error dialog', () => {
 // ===========================================================================
 
 // The selectors below are load-bearing and were arrived at the hard way.
-// `.p-dialog input` matches the Custom Nodes SEARCH box
-// (`.cn-manager-keywords`, in `.p-dialog-header`) before it matches the prompt
+// `.cm-ui-dialog input` matches the Custom Nodes SEARCH box
+// (`.cn-manager-keywords`, in `.cm-ui-header`) before it matches the prompt
 // field, so a `.first()` on it silently types the URL into the search box:
 // install_via_git_url is never called, the denial modal never renders, and the
 // row fails as though the client produced nothing. Targeting
@@ -665,7 +665,7 @@ test.describe('403 denial text', () => {
     // install_via_git_url -> the 403 arm at common.js:254.
     //
     // `.prompt-dialog-content input` is the load-bearing selector. A broader
-    // `.p-dialog input` matches the Custom Nodes SEARCH box first, which is
+    // `.cm-ui-dialog input` matches the Custom Nodes SEARCH box first, which is
     // silent: the URL lands in the search field, no request is made, and the
     // row fails at the denial assertion as though the client rendered nothing.
     await page.locator('.cn-manager-install-url').first().click();

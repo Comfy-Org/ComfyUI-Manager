@@ -67,6 +67,13 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   value was saved, but the menu went back to showing the old one when it
   arrived.
 
+- Draw the dialogs of the legacy UI with styles of Manager's own. The Manager
+  menu, the Custom Nodes Manager, the Model Manager and the Snapshot Manager
+  were built with the classes of PrimeVue dialogs and buttons, and a ComfyUI
+  frontend that no longer ships those styles drew them without a background:
+  the buttons lay over the canvas and the nodes behind them. `main` has had
+  this change since #3392.
+
 ## [4.4] - 2026-11-16
 
 ### Changed

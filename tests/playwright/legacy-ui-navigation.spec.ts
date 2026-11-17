@@ -42,9 +42,9 @@ test.describe('Dialog Navigation', () => {
       timeout: 15_000,
     });
 
-    // Close the Model Manager dialog via its close button (p-dialog-close-button)
-    const mmMask = page.locator('.p-dialog-mask:has(#cmm-manager-dialog)');
-    const mmCloseBtn = mmMask.locator('button[aria-label="Close"], .p-dialog-close-button').first();
+    // Close the Model Manager dialog via its close button
+    const mmMask = page.locator('.cm-ui-overlay:has(#cmm-manager-dialog)');
+    const mmCloseBtn = mmMask.locator('button[aria-label="Close"], .cm-ui-close').first();
     if (await mmCloseBtn.isVisible({ timeout: 2_000 }).catch(() => false)) {
       await mmCloseBtn.click();
     } else {
