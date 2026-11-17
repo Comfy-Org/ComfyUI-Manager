@@ -827,10 +827,10 @@ class TestUpdateAll:
                 if isinstance(pkg, dict) and pkg.get("enabled", True):
                     active_packs += 1
 
-        # The handler runs reload + get_custom_nodes synchronously, which can
-        # be slow (up to ~2 min on cache-cold runs). Use an explicit long
-        # timeout; a timeout here is a real server-perf regression, NOT
-        # something to hide as a pass.
+        # The handler fetches the whole Registry list before it answers. The
+        # list is fetched 30 nodepacks per page with a pause after each page,
+        # to keep the load on the Registry low: about three minutes for 6,500
+        # nodepacks, and longer as the list grows.
         resp = requests.post(
             f"{BASE_URL}/v2/manager/queue/update_all",
             params={
@@ -838,7 +838,7 @@ class TestUpdateAll:
                 "client_id": "e2e-update-all",
                 "ui_id": "e2e-update-all",
             },
-            timeout=180,
+            timeout=600,
         )
 
         # Detect expected outcome based on server security configuration.

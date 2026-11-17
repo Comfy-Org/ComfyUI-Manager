@@ -415,6 +415,10 @@ class _GitPythonRepo(GitRepo):
         self._repo.create_head(name)
 
     def checkout(self, ref):
+        # ref can be a _HeadProxy from get_head_by_name
+        if isinstance(ref, _HeadProxy):
+            ref = ref.name
+
         self._repo.git.checkout(ref)
 
     def checkout_new_branch(self, branch_name, start_point):

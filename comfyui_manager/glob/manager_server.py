@@ -1860,10 +1860,12 @@ async def update_comfyui(request):
         )
 
         # Check if stable parameter was provided, otherwise use config
-        if query_params.stable is None:
-            is_stable = core.get_config()["update_policy"] != "nightly-comfyui"
-        else:
+        if query_params.stable is not None:
             is_stable = query_params.stable
+        elif query_params.is_stable is not None:
+            is_stable = query_params.is_stable
+        else:
+            is_stable = core.get_config()["update_policy"] not in ("nightly", "nightly-comfyui")
 
         client_id = query_params.client_id
         ui_id = query_params.ui_id
@@ -1993,7 +1995,7 @@ async def set_db_mode_api(request):
         environment_utils.set_db_mode(data["value"])
         core.write_config()
         return web.Response(status=200)
-    except (json.JSONDecodeError, KeyError):
+    except (json.JSONDecodeError, KeyError, TypeError):
         return web.Response(status=400, text="Invalid request")
     except ValueError as e:
         return web.Response(status=400, text=str(e))
@@ -2015,7 +2017,7 @@ async def set_update_policy_api(request):
         environment_utils.set_update_policy(data["value"])
         core.write_config()
         return web.Response(status=200)
-    except (json.JSONDecodeError, KeyError):
+    except (json.JSONDecodeError, KeyError, TypeError):
         return web.Response(status=400, text="Invalid request")
     except ValueError as e:
         return web.Response(status=400, text=str(e))

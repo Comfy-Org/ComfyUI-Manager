@@ -422,8 +422,10 @@ components:
           description: UI identifier for task tracking
         stable:
           type: boolean
-          default: true
-          description: Whether to update to stable version (true) or nightly (false)
+          description: Whether to update to stable version (true) or nightly (false). When neither this nor `is_stable` is given, the update policy decides.
+        is_stable:
+          type: boolean
+          description: Another name for `stable`, the one the task parameters use. Read when `stable` is not given.
       required: [client_id, ui_id]
     ComfyUISwitchVersionParams:
       type: object
@@ -1333,7 +1335,7 @@ paths:
             text/plain:
               schema:
                 type: string
-                enum: [channel, local, remote]
+                enum: [cache, channel, local, remote]
     post:
       summary: Set database mode
       description: Sets the database mode. Payload is a JSON object with a `value` field.
@@ -1347,7 +1349,7 @@ paths:
               properties:
                 value:
                   type: string
-                  enum: [channel, local, remote]
+                  enum: [cache, channel, local, remote]
                   description: New database mode
       responses:
         '200':
@@ -1365,7 +1367,7 @@ paths:
             text/plain:
               schema:
                 type: string
-                enum: [stable, nightly, nightly-comfyui]
+                enum: [stable, stable-comfyui, nightly, nightly-comfyui]
     post:
       summary: Set update policy
       description: Sets the update policy. Payload is a JSON object with a `value` field.
@@ -1379,7 +1381,7 @@ paths:
               properties:
                 value:
                   type: string
-                  enum: [stable, nightly, nightly-comfyui]
+                  enum: [stable, stable-comfyui, nightly, nightly-comfyui]
                   description: New update policy
       responses:
         '200':

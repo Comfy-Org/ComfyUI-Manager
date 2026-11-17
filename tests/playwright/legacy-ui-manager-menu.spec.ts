@@ -106,6 +106,65 @@ test.describe('Manager Menu Dialog', () => {
     }
   });
 
+  for (const setting of [
+    { name: 'DB mode', route: '/v2/manager/db_mode', options: /Cache|Local|Channel/, values: ['local', 'remote'], post: true },
+    { name: 'Update Policy', route: '/v2/manager/policy/update', options: /Stable|Nightly/, values: ['nightly-comfyui', 'stable-comfyui'], post: true },
+    { name: 'Share', route: '/v2/manager/share_option', options: /YouML|Matrix/, values: ['youml', 'matrix'], post: false },
+  ]) {
+    test(`${setting.name}: a choice made while the setting is still loading is kept`, async ({ page }) => {
+      // The dialog asks the server for the setting when it is first opened.
+      // Hold the answer back after the server has given it, choose another
+      // value, then let the answer through. The value that is chosen is not
+      // the first option, which the select shows before the answer and which
+      // a user therefore cannot choose. The share option is saved by a GET
+      // with `value`, the other two by a POST.
+      const reads = (request: { method(): string; url(): string }) =>
+        request.method() === 'GET' && request.url().includes(setting.route) && !new URL(request.url()).searchParams.has('value');
+      const saves = (request: { method(): string; url(): string }) => request.url().includes(setting.route) && !reads(request);
+      const save = (value: string) => setting.post
+        ? page.request.post(setting.route, { data: JSON.stringify({ value }), headers: { 'Content-Type': 'application/json' } })
+        : page.request.get(`${setting.route}?value=${value}`);
+      const stored = await (await page.request.get(setting.route)).text();
+      const chosen = setting.values.find((value) => value !== stored)!;
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      let answered!: () => void;
+      const answer = new Promise<void>((resolve) => { answered = resolve; });
+      await page.route(`**${setting.route}*`, async (route) => {
+        if (!reads(route.request())) {
+          await route.continue();
+          return;
+        }
+        const response = await route.fetch();
+        answered();
+        await held;
+        await route.fulfill({ response });
+      });
+
+      try {
+        await openManagerMenu(page);
+        const combo = page.locator('#cm-manager-dialog').first().locator('select').filter({ hasText: setting.options }).first();
+        // The answer that is held back is one the server gave before the choice.
+        await answer;
+        const saved = page.waitForResponse((response) => saves(response.request()));
+        await combo.selectOption(chosen);
+        await saved;
+
+        const loaded = page.waitForResponse((response) => reads(response.request()));
+        release();
+        await loaded;
+        await page.waitForTimeout(300);
+
+        await expect(combo).toHaveValue(chosen);
+        expect(await (await page.request.get(setting.route)).text()).toBe(chosen);
+      } finally {
+        release();
+        await page.unroute(`**${setting.route}*`);
+        await save(stored);
+      }
+    });
+  }
+
   test('Update Policy dropdown persists via UI (close-reopen verification)', async ({ page }) => {
     // Wave3 WI-U Cluster H target 2: same UI-only pattern as the DB mode test.
     await openManagerMenu(page);
