@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { waitForComfyUI, openManagerMenu, clickMenuButton } from './helpers';
+import { waitForComfyUI, openManagerMenu, clickMenuButton, closeToasts } from './helpers';
 
 const SNAPSHOT_ROW_SELECTOR = '#snapshot-manager-dialog tr, #snapshot-manager-dialog li';
 
@@ -113,6 +113,7 @@ test.describe('Snapshot Manager', () => {
     page.once('dialog', async (d) => {
       await d.accept();
     });
+    await closeToasts(page);
     await removeBtn.first().click();
 
     // Effect verification: snapshot disappears from backend AND from UI
@@ -146,6 +147,7 @@ test.describe('Snapshot Manager', () => {
         };
       });
     });
+    await closeToasts(page);
     await page.locator(SNAPSHOT_ROW_SELECTOR, { hasText: name }).first()
       .locator(`button:has-text("${action}")`).click();
     await page.evaluate(() => (window as any).__handled);

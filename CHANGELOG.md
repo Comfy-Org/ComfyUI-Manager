@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Fixed
+
+- Restarting ComfyUI from the Manager under comfy-cli no longer prints
+  `ValueError: I/O operation on closed file` on the console. The log file is
+  closed before the process exits, and what was logged after that was still
+  written to it.
+- In the legacy UI, Update ComfyUI and Update All with ComfyUI no longer end
+  with status 500 and nothing queued. The batch route called the handler of
+  the update route without a request.
+- With `update_policy = nightly`, the legacy server updates ComfyUI to the
+  nightly version. Only `nightly-comfyui` was taken as nightly, and `nightly`
+  as stable.
+- The legacy server answers 400 again when the list of ComfyUI versions cannot
+  be read or a switch to another version fails. The call that logs the cause
+  was given an argument it does not take, so the answer was 500 with a
+  `TypeError` in the log.
+
+- Update ComfyUI to the latest stable version again when Manager runs git
+  through GitPython, which it does whenever the `git` command is available.
+  The update ended with `Failed to checkout 'master' branch` and ComfyUI
+  stayed at its version: the branch to check out was passed to git as an
+  object instead of by its name. An update to the nightly version failed the
+  same way when the checkout was detached and the remote's default branch was
+  not known locally.
+
+- On the default server, `POST /v2/manager/queue/update_comfyui` follows
+  `update_policy` when the request names no version line. Its `stable`
+  parameter defaulted to true, so the policy was never read and such a request
+  updated ComfyUI to the stable version also under `nightly-comfyui`.
+  `nightly` is taken as nightly too.
+- On the default server, the same route reads `is_stable`, the name the
+  ComfyUI frontend sends, when `stable` is not given. It was ignored.
+- `openapi.yaml` lists the values the two setting routes accept: `cache` for
+  `db_mode` and `stable-comfyui` for the update policy were missing.
+
+- Print console messages with paths, URLs and package names as they are.
+  Manager printed many of its messages through rich, which reads square
+  brackets as markup: a package name such as `diffusers[torch]` was shown as
+  `diffusers`, a text such as `:100:` as an emoji, and a line longer than the
+  console was broken in the middle of a path or a URL. A text with a closing
+  tag such as `[/b]` raised `MarkupError` instead of being printed, in the
+  middle of the operation that reported it. Numbers and quoted strings keep
+  their colors.
+
+- Refuse a `db_mode` or an `update_policy` that Manager does not know in the
+  legacy server. With `--enable-manager-legacy-ui`, the two setting routes
+  stored whatever value a request carried and wrote it to `config.ini`. They
+  answer 400 for a value that is not one of the known ones, as the default
+  server does.
+- Answer 400 from the two setting routes of both servers for a JSON body that
+  is not an object. It ended with status 500.
+- Name the security level `normal-` and the database mode `channel` as the
+  servers do in `common/enums.py`, which had `normal-minus` and no `channel`.
+  Nothing read these two members.
+
+- Keep a database mode, update policy or share option that is chosen in the
+  legacy Manager menu while the menu is still loading the stored value. The
+  value was saved, but the menu went back to showing the old one when it
+  arrived.
+
 ## [4.4] - 2026-11-16
 
 ### Changed
@@ -210,10 +270,6 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   always answered that it was not one, so after `colorama.init()` the colors of
   every `print()` were removed, and tqdm and rich took a terminal for a pipe
   (#3259, #3423).
-- Restarting ComfyUI from the Manager under comfy-cli no longer prints
-  `ValueError: I/O operation on closed file` on the console. The log file is
-  closed before the process exits, and what was logged after that was still
-  written to it.
 
 ## [4.3] - 2026-09-19
 

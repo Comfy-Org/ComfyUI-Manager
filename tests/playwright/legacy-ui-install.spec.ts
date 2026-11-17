@@ -141,16 +141,13 @@ test.describe('UI-driven install/uninstall', () => {
 
     // Wait for grid to populate before applying filter (avoids race on empty grid)
     await expect(page.locator('.tg-body .tg-row').first()).toBeVisible({ timeout: 30_000 });
-    const initialRowCount = await page.locator('.tg-body .tg-row').count();
 
-    // Filter to Not Installed to make install buttons visible. Wait for
-    // filtered row count to actually change (DOM state, not wall-clock).
+    // Filter to Not Installed to make install buttons visible. The grid
+    // renders only the rows in view, so their number does not tell whether
+    // the filter was applied; the search below waits for its own result.
     const filterSelect = page.locator('select.cn-manager-filter').first();
     if (await filterSelect.isVisible().catch(() => false)) {
       await filterSelect.selectOption({ value: 'not-installed' });
-      await expect
-        .poll(async () => page.locator('.tg-body .tg-row').count(), { timeout: 10_000 })
-        .not.toBe(initialRowCount);
     }
 
     // Search for the specific test pack. Wait for search to narrow results.
