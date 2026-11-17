@@ -56,7 +56,7 @@ test.describe('Manager Menu Dialog', () => {
     // No page.request / page.waitForResponse — pure UI interaction + dialog
     // close-reopen as the persistence proof. networkidle is used only as a
     // settle barrier (wait), never as assertion input. Close via the dialog's
-    // own `.p-dialog-close-button` (X button) because Escape doesn't close
+    // own `.cm-ui-close` (X button) because Escape doesn't close
     // ComfyDialog reliably.
     await openManagerMenu(page);
     const dialog = page.locator('#cm-manager-dialog').first();
@@ -72,7 +72,7 @@ test.describe('Manager Menu Dialog', () => {
       await page.waitForLoadState('networkidle');
 
       // Close + reopen (UI-only persistence proof)
-      await dialog.locator('.p-dialog-close-button').first().click();
+      await dialog.locator('.cm-ui-close').first().click();
       // ComfyDialog.close() sets display:none but keeps the element in DOM,
       // so check visibility (toBeHidden), not presence (toHaveCount 0).
       await expect(page.locator('#cm-manager-dialog').first()).toBeHidden({ timeout: 5_000 });
@@ -178,7 +178,7 @@ test.describe('Manager Menu Dialog', () => {
       await policyCombo.selectOption(newValue);
       await page.waitForLoadState('networkidle');
 
-      await dialog.locator('.p-dialog-close-button').first().click();
+      await dialog.locator('.cm-ui-close').first().click();
       // ComfyDialog.close() sets display:none but keeps the element in DOM,
       // so check visibility (toBeHidden), not presence (toHaveCount 0).
       await expect(page.locator('#cm-manager-dialog').first()).toBeHidden({ timeout: 5_000 });
