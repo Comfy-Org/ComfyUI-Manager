@@ -237,13 +237,24 @@ else:
     )
 
 
+ALLOWED_COMPONENT_POLICIES = ('workflow', 'higher', 'mine')
+ALLOWED_UPDATE_POLICIES = ('stable-comfyui', 'nightly-comfyui')
+ALLOWED_DB_MODES = ('cache', 'local', 'remote')
+
+
 def set_component_policy(mode):
+    if mode not in ALLOWED_COMPONENT_POLICIES:
+        raise ValueError(f"Invalid component_policy {mode!r}; must be one of {ALLOWED_COMPONENT_POLICIES}")
     core.get_config()['component_policy'] = mode
 
 def set_update_policy(mode):
+    if mode not in ALLOWED_UPDATE_POLICIES:
+        raise ValueError(f"Invalid update_policy {mode!r}; must be one of {ALLOWED_UPDATE_POLICIES}")
     core.get_config()['update_policy'] = mode
 
 def set_db_mode(mode):
+    if mode not in ALLOWED_DB_MODES:
+        raise ValueError(f"Invalid db_mode {mode!r}; must be one of {ALLOWED_DB_MODES}")
     core.get_config()['db_mode'] = mode
 
 def print_comfyui_version():
@@ -1297,7 +1308,7 @@ def unzip_install(files):
 
             os.remove(temp_filename)
         except Exception as e:
-            logging.error(f"Install(unzip) error: {url} / {e}", file=sys.stderr)
+            logging.error(f"Install(unzip) error: {url} / {e}")
             return False
 
     logging.info("Installation was successful.")
@@ -1319,7 +1330,7 @@ def copy_install(files, js_path_name=None):
                 download_url(url, path, filename)
 
         except Exception as e:
-            logging.error(f"Install(copy) error: {url} / {e}", file=sys.stderr)
+            logging.error(f"Install(copy) error: {url} / {e}")
             return False
 
     logging.info("Installation was successful.")
@@ -1340,7 +1351,7 @@ def copy_uninstall(files, js_path_name='.'):
             elif os.path.exists(file_path + ".disabled"):
                 os.remove(file_path + ".disabled")
         except Exception as e:
-            logging.error(f"Uninstall(copy) error: {url} / {e}", file=sys.stderr)
+            logging.error(f"Uninstall(copy) error: {url} / {e}")
             return False
 
     logging.info("Uninstallation was successful.")
@@ -1371,7 +1382,7 @@ def copy_set_active(files, is_disable, js_path_name='.'):
             os.rename(current_name, new_name)
 
         except Exception as e:
-            logging.error(f"{action_name}(copy) error: {url} / {e}", file=sys.stderr)
+            logging.error(f"{action_name}(copy) error: {url} / {e}")
 
             return False
 
@@ -1601,12 +1612,14 @@ async def install_custom_node_git_url(request):
     # cannot forge an application/json body without a CORS preflight, which this
     # server does not answer — same body-handler convention as every other
     # request.json() route (see _reject_simple_form_content_type docstring).
-    # A malformed body or a missing 'url' is a client error (400), not a 500:
-    # don't let JSONDecodeError/KeyError bubble up as a server fault.
+    # A malformed body, a missing 'url' or one that is not a string is a client
+    # error (400), not a 500: don't let it bubble up as a server fault.
     try:
         json_data = await request.json()
         url = json_data['url']
-    except (KeyError, ValueError):
+    except (KeyError, TypeError, ValueError):
+        url = None
+    if not isinstance(url, str):
         return web.Response(status=400, text="Invalid request body: expected JSON object with a 'url' field")
     res = await core.gitclone_install(url)
 
@@ -1628,12 +1641,14 @@ async def install_custom_node_pip(request):
         return security_403_response(flag_token='allow_pip_install')
 
     # JSON body (not raw text) for the same preflight-forcing reason as
-    # /customnode/install/git_url above; malformed body or missing 'packages'
-    # is a 400, not a 500.
+    # /customnode/install/git_url above; malformed body, missing 'packages' or
+    # one that is not a string is a 400, not a 500.
     try:
         json_data = await request.json()
         packages = json_data['packages']
-    except (KeyError, ValueError):
+    except (KeyError, TypeError, ValueError):
+        packages = None
+    if not isinstance(packages, str):
         return web.Response(status=400, text="Invalid request body: expected JSON object with a 'packages' field")
     core.pip_install(packages.split(' '))
 
@@ -1700,7 +1715,7 @@ async def comfyui_versions(request):
         res, current, latest = core.get_comfyui_versions()
         return web.json_response({'versions': res, 'current': current}, status=200, content_type='application/json')
     except Exception as e:
-        logging.error(f"ComfyUI update fail: {e}", file=sys.stderr)
+        logging.error(f"ComfyUI update fail: {e}")
 
     return web.Response(status=400)
 
@@ -1812,7 +1827,12 @@ async def get_db_mode(request):
 @routes.post("/manager/db_mode")
 async def set_db_mode_handler(request):
     json_data = await request.json()
-    set_db_mode(json_data['value'])
+    try:
+        set_db_mode(json_data['value'])
+    except (KeyError, TypeError):
+        return web.Response(status=400, text='Invalid request')
+    except ValueError as e:
+        return web.Response(status=400, text=str(e))
     core.write_config()
     return web.Response(status=200)
 
@@ -1825,7 +1845,12 @@ async def get_component_policy(request):
 @routes.post("/manager/policy/component")
 async def set_component_policy_handler(request):
     json_data = await request.json()
-    set_component_policy(json_data['value'])
+    try:
+        set_component_policy(json_data['value'])
+    except (KeyError, TypeError):
+        return web.Response(status=400, text='Invalid request')
+    except ValueError as e:
+        return web.Response(status=400, text=str(e))
     core.write_config()
     return web.Response(status=200)
 
@@ -1838,7 +1863,12 @@ async def get_update_policy(request):
 @routes.post("/manager/policy/update")
 async def set_update_policy_handler(request):
     json_data = await request.json()
-    set_update_policy(json_data['value'])
+    try:
+        set_update_policy(json_data['value'])
+    except (KeyError, TypeError):
+        return web.Response(status=400, text='Invalid request')
+    except ValueError as e:
+        return web.Response(status=400, text=str(e))
     core.write_config()
     return web.Response(status=200)
 
