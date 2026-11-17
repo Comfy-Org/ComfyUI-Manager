@@ -16,6 +16,51 @@ whatever value a request carried and wrote it to `config.ini`. They answer 400
 for a value that is not one of those the Manager's menu offers, and for a JSON
 body without a `value`, which ended with status 500.
 
+### `git_exe` chooses the git executable
+
+The path set as `git_exe` in `config.ini` was read but not used: git commands
+kept running the `git` found on `PATH`. The Manager, cm-cli and the git helper
+now run the configured executable, and it no longer has to be on `PATH`: the
+Manager also starts when the only git is the one named by `git_exe`.
+
+A value that is not a working git is reported in the log, and the default git
+is used. The value is read as it is written: with a `%` in it, as in a path
+of Windows, the Manager read every setting of `config.ini` as its default.
+`git_exe` is used only when the configuration file is in a protected
+directory, that is with a ComfyUI that has the System User API.
+
+### The commit and the submodules of a git node pack
+
+A snapshot recorded no commit for a git node pack whose refs were packed, as
+after `git gc`. The commit is read from `packed-refs` too. A `HEAD` that is
+not UTF-8 raised an error where the commit of a node pack is read; the commit
+of such a pack is now unknown.
+
+When a snapshot restore checks a git node pack out, its submodules are brought
+to the commits that the commit names, also when the node pack is at the commit
+of the snapshot already. A submodule that was never fetched is fetched only
+when the node pack itself is checked out.
+
+### An update or an install whose git step fails is a failure, and can be done again
+
+On Windows the pull of an update runs in a helper process, which ended with 0
+when the pull failed, and its result was not read: the update went on to the
+install script and ended as done. The helper ends with 1 now, and the update
+fails.
+
+When the update of its submodules failed, a node pack stayed at the new
+commit: the next update found nothing to do, and the install script of the
+update never ran. The node pack is left at the commit it was at, and the
+submodules that were updated before the one that failed go back with it.
+
+A clone that failed left its directory in `custom_nodes`, which kept the node
+pack from being installed again: an install by url was answered with
+`Already exists`. What the clone left is removed.
+
+An install of a node pack that another install is working on, in the server or
+in another process as `cm-cli`, is answered with `Another install is in
+progress`: its clone would be removed with what the other one left.
+
 ### Install requests with an unusable body are answered with 400
 
 `/customnode/install/git_url` and `/customnode/install/pip` answered 500 when

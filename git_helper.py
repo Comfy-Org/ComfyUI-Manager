@@ -193,6 +193,7 @@ def gitpull(path):
         repo.git.stash()
 
     commit_hash = repo.head.commit.hexsha
+    detached = repo.head.is_detached
     try:
         if repo.head.is_detached:
             switch_to_default_branch(repo)
@@ -213,13 +214,16 @@ def gitpull(path):
             remote_commit_hash = repo.refs[f'{remote_name}/{branch_name}'].object.hexsha
         else:
             print("CUSTOM NODE PULL: Fail")  # update fail
-            return
+            # the exit code tells a caller that does not read the output
+            sys.exit(1)
 
         if commit_hash == remote_commit_hash:
             print("CUSTOM NODE PULL: None")  # there is no update
             repo.close()
             return
 
+        # where the branch is: `commit_hash` is another commit when the pack was not on its branch
+        before_pull = repo.head.commit.hexsha
         try:
             repo.git.pull('--ff-only')
         except git.GitCommandError:
@@ -229,16 +233,32 @@ def gitpull(path):
             repo.git.reset('--hard', f'{remote_name}/{branch_name}')
             print(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
 
-        repo.git.submodule('update', '--init', '--recursive')
+        try:
+            repo.git.submodule('update', '--init', '--recursive')
+        except Exception:
+            # the pull is undone: at the new commit the next update finds nothing to do, and the install script is never run
+            repo.git.reset('--hard', before_pull)
+            if detached:
+                # a pack that was not on its branch goes back to its commit
+                repo.git.checkout(commit_hash)
+            try:
+                # the submodules that were updated before the one that failed go back with it
+                repo.git.submodule('update', '--recursive')
+            except Exception:
+                pass
+            raise
+
         new_commit_hash = repo.head.commit.hexsha
 
         if commit_hash != new_commit_hash:
             print("CUSTOM NODE PULL: Success")  # update success
         else:
             print("CUSTOM NODE PULL: Fail")  # update fail
+            sys.exit(1)
     except Exception as e:
         print(e)
         print("CUSTOM NODE PULL: Fail")  # unknown git error
+        sys.exit(1)
 
     repo.close()
 
@@ -493,8 +513,14 @@ def restore_pip_snapshot(pips, options):
 
 
 def setup_environment():
-    if git_exe_path is not None:
-        git.Git().update_environment(GIT_PYTHON_GIT_EXECUTABLE=git_exe_path)
+    if git_exe_path:
+        default_git = git.Git.GIT_PYTHON_GIT_EXECUTABLE
+        try:
+            git.refresh(git_exe_path)
+        except Exception:
+            # a program that is not git fails in more ways than a path that cannot be run, and stays selected
+            git.Git.GIT_PYTHON_GIT_EXECUTABLE = default_git
+            print(f"[ComfyUI-Manager] `git_exe = {git_exe_path}` is not a working git executable. The default git is used.", file=sys.stderr)
 
 
 setup_environment()

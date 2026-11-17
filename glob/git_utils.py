@@ -15,21 +15,32 @@ def is_git_repo(path: str) -> bool:
 def get_commit_hash(fullpath):
     git_head = os.path.join(fullpath, '.git', 'HEAD')
     if os.path.exists(git_head):
-        with open(git_head) as f:
+        # a ref can be named in any bytes, so the files are read as bytes and the names compared as they are
+        with open(git_head, 'rb') as f:
             line = f.readline()
 
-            if line.startswith("ref: "):
-                ref = os.path.join(fullpath, '.git', line[5:].strip())
+            if line.startswith(b"ref: "):
+                ref_name = line[5:].strip()
+                ref = os.path.join(os.fsencode(fullpath), b'.git', ref_name)
                 if os.path.exists(ref):
-                    with open(ref) as f2:
-                        return f2.readline().strip()
-                else:
-                    return "unknown"
+                    with open(ref, 'rb') as f2:
+                        return f2.readline().strip().decode('ascii', errors='replace')
+
+                # after `git pack-refs` or `git gc` the ref is a line of packed-refs
+                packed_refs = os.path.join(fullpath, '.git', 'packed-refs')
+                if os.path.exists(packed_refs):
+                    with open(packed_refs, 'rb') as f2:
+                        for packed in f2:
+                            fields = packed.split()
+                            if len(fields) == 2 and fields[1] == ref_name:
+                                return fields[0].decode('ascii', errors='replace')
+
+                return "unknown"
             else:
                 # detached HEAD: the file holds the sha followed by a newline;
                 # without the strip the pinned hash carries that newline into
                 # snapshots, and the next restore's checkout of that hash fails
-                return line.strip()
+                return line.strip().decode('ascii', errors='replace')
 
     return "unknown"
 

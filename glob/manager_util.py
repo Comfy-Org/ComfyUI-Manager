@@ -10,6 +10,7 @@ import aiohttp
 import json
 import threading
 import os
+import shutil
 from datetime import datetime
 import subprocess
 import sys
@@ -1109,3 +1110,23 @@ def restore_pip_snapshot(pips, options):
                 failed.append(x)
 
     print(f"Installation failed for pip packages: {failed}")
+
+
+def find_git_executable(git_exe, timeout=10):
+    """
+    the full path of the program `git_exe` if it answers `version` as git does; None otherwise
+    """
+    # a name without a directory is looked up on PATH; GitPython would take it as a file of the current directory
+    path = shutil.which(git_exe)
+    if path is None:
+        return None
+
+    try:
+        res = subprocess.run([path, 'version'], capture_output=True, stdin=subprocess.DEVNULL, timeout=timeout)
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    if res.returncode != 0 or not res.stdout.startswith(b'git version'):
+        return None
+
+    return os.path.abspath(path)
