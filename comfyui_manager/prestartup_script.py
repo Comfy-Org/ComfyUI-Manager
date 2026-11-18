@@ -597,7 +597,8 @@ if os.path.exists(restore_snapshot_path):
             allow_flagged or manager_security.is_loopback_listener(args.listen)
         ).lower()
         new_env['_COMFYUI_MANAGER_CNR_WHITELIST_DIR'] = manager_files_path
-        cmd_str = [sys.executable, '-m', 'cm_cli', 'restore-snapshot', restore_snapshot_path]
+        cmd_str = [sys.executable, '-m', 'cm_cli', 'restore-snapshot', restore_snapshot_path,
+                   '--user-directory', manager_files_path, '--restore-to', custom_nodes_base_path]
         exit_code = process_wrap(cmd_str, custom_nodes_base_path, handler=msg_capture, env=new_env)
 
         if exit_code != 0:
@@ -666,9 +667,10 @@ def execute_lazy_cnr_switch(target, zip_url, from_path, to_path, no_deps, custom
     download_path = os.path.join(custom_nodes_path, archive_name)
     manager_downloader.download_url(zip_url, custom_nodes_path, archive_name)
 
-    # 2. extract files into <node_id>@<cur_ver>
-    extracted = manager_util.extract_package_as_zip(download_path, from_path)
-    os.remove(download_path)
+    try:
+        extracted = manager_util.switch_package_files(download_path, from_path)
+    finally:
+        os.remove(download_path)
 
     if extracted is None:
         if len(os.listdir(from_path)) == 0:
@@ -677,32 +679,10 @@ def execute_lazy_cnr_switch(target, zip_url, from_path, to_path, no_deps, custom
         print(f'Empty archive file: {target}')
         return False
 
+    if from_path != to_path:
+        print(f"'{from_path}' is moved to '{to_path}'")
+        shutil.move(from_path, to_path)
 
-    # 3. calculate garbage files (.tracking - extracted)
-    tracking_info_file = os.path.join(from_path, '.tracking')
-    prev_files = set()
-    with open(tracking_info_file, 'r') as f:
-        for line in f:
-            prev_files.add(line.strip())
-    garbage = prev_files.difference(extracted)
-    garbage = [os.path.join(custom_nodes_path, x) for x in garbage]
-
-    # 4-1. remove garbage files
-    for x in garbage:
-        if os.path.isfile(x):
-            os.remove(x)
-
-    # 4-2. remove garbage dir if empty
-    for x in garbage:
-        if os.path.isdir(x):
-            if not os.listdir(x):
-                os.rmdir(x)
-
-    # 5. rename dir name <node_id>@<prev_ver> ==> <node_id>@<cur_ver>
-    print(f"'{from_path}' is moved to '{to_path}'")
-    shutil.move(from_path, to_path)
-
-    # 6. create .tracking file
     tracking_info_file = os.path.join(to_path, '.tracking')
     with open(tracking_info_file, "w", encoding='utf-8') as file:
         file.write('\n'.join(list(extracted)))
@@ -765,8 +745,9 @@ def execute_startup_script():
 
                     elif script[1] == "#LAZY-CNR-SWITCH-SCRIPT":
                         status = script[8] if len(script) > 8 else ''
-                        if execute_lazy_cnr_switch(script[0], script[2], script[3], script[4], script[5], script[6], status):
-                            execute_lazy_install_script(script[3], script[7])
+                        to_path = script[4]
+                        if execute_lazy_cnr_switch(script[0], script[2], script[3], to_path, script[5], script[6], status):
+                            execute_lazy_install_script(to_path, script[7])
 
                     elif script[1] == "#LAZY-DELETE-NODEPACK":
                         execute_lazy_delete(script[2])

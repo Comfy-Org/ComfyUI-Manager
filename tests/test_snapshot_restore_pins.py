@@ -28,7 +28,7 @@ def git(path, *args):
 def core(request, monkeypatch, tmp_path):
     core = import_reader(request.param)
     monkeypatch.setattr(core, 'get_default_custom_nodes_path', lambda: str(tmp_path))
-    monkeypatch.setattr(core.manager_util, 'restore_pip_snapshot', Mock())
+    monkeypatch.setattr(core.manager_util, 'restore_pip_snapshot', Mock(return_value=[]))
     return core
 
 
@@ -44,7 +44,7 @@ def manager(core, monkeypatch):
 def restore(core, tmp_path, **snapshot):
     path = tmp_path / 'snapshot.json'
     path.write_text(json.dumps({'cnr_custom_nodes': {}, 'git_custom_nodes': {}, 'file_custom_nodes': [], **snapshot}))
-    asyncio.run(core.restore_snapshot(str(path)))
+    return asyncio.run(core.restore_snapshot(str(path)))
 
 
 @pytest.mark.parametrize('head, expected', [

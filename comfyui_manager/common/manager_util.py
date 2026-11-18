@@ -323,6 +323,70 @@ def extract_package_as_zip(file_path, extract_path):
         return None
 
 
+def is_inside(directory, name):
+    directory = os.path.abspath(directory)
+    try:
+        return os.path.commonpath((directory, os.path.abspath(os.path.join(directory, name)))) == directory
+    except ValueError:
+        # on Windows, a path of another drive
+        return False
+
+
+def switch_package_files(file_path, path):
+    import zipfile
+    try:
+        with zipfile.ZipFile(file_path, "r") as zip_ref:
+            extracted = zip_ref.namelist()
+    except zipfile.BadZipFile:
+        logging.error(f"File '{file_path}' is not a zip or is corrupted.")
+        return None
+
+    with open(os.path.join(path, '.tracking'), 'r', encoding='utf-8') as f:
+        # As the list is written: a name can start or end with a space.
+        prev_files = {line.rstrip('\n') for line in f}
+    root = os.path.abspath(path)
+    garbage = prev_files - set(extracted)
+    garbage = [os.path.abspath(os.path.join(root, x)) for x in garbage if is_inside(root, x)]
+
+    for x in garbage:
+        try:
+            if os.path.isfile(x):
+                os.remove(x)
+        except OSError as e:
+            logging.warning(f"[ComfyUI-Manager] A file of the old version is left: {e}")
+
+    folders = set()
+    for x in garbage:
+        while len(x) > len(root):
+            folders.add(x)
+            x = os.path.dirname(x)
+
+    real_root = os.path.realpath(root)
+
+    def reached_without_a_link(x):
+        return os.path.normcase(os.path.realpath(x)) == os.path.normcase(real_root + x[len(root):])
+
+    for x in sorted(folders, key=len, reverse=True):
+        try:
+            if not os.path.isdir(x) or not reached_without_a_link(x):
+                continue
+
+            # the files of a `__pycache__` are caches of the modules that were there, as those of Python and of numba
+            cache = os.path.join(x, '__pycache__')
+            if os.listdir(x) == ['__pycache__'] and reached_without_a_link(cache):
+                for name in os.listdir(cache):
+                    os.remove(os.path.join(cache, name))
+                os.rmdir(cache)
+
+            if not os.listdir(x):
+                os.rmdir(x)
+        except OSError as e:
+            logging.warning(f"[ComfyUI-Manager] A folder of the old version is left: {e}")
+
+    # after the files are removed: two names can be one file, as names that differ in case alone are on Windows
+    return extract_package_as_zip(file_path, path)
+
+
 def normalize_pip_name(name):
     """Return the key used to compare pip package names.
 
@@ -963,3 +1027,4 @@ def restore_pip_snapshot(pips, options):
                 failed.append(x)
 
     print(f"Installation failed for pip packages: {failed}")
+    return failed
