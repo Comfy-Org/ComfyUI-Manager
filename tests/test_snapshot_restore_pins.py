@@ -27,7 +27,7 @@ core = manager_core
 nodes = pathlib.Path(tmp) / 'custom_nodes'
 nodes.mkdir()
 core.get_default_custom_nodes_path = lambda: str(nodes)
-manager_util.restore_pip_snapshot = Mock()
+manager_util.restore_pip_snapshot = Mock(return_value=[])
 manager = core.UnifiedManager()
 manager.reload = AsyncMock()
 manager.get_custom_nodes = AsyncMock(return_value={})
@@ -36,7 +36,7 @@ core.unified_manager = manager
 def restore(**snapshot):
     path = pathlib.Path(tmp) / 'snapshot.json'
     path.write_text(json.dumps({'cnr_custom_nodes': {}, 'git_custom_nodes': {}, 'file_custom_nodes': [], **snapshot}))
-    asyncio.run(core.restore_snapshot(str(path)))
+    return asyncio.run(core.restore_snapshot(str(path)))
 
 def git(*args):
     return subprocess.run(['git', *args], cwd=nodes / 'fixture', check=True, capture_output=True, text=True).stdout.strip()
