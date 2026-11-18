@@ -75,11 +75,99 @@ update never ran. The pull is undone, and the submodules that were updated
 before the one that failed go back with it. A node pack with a submodule
 that cannot be fetched at all is not updated until it can.
 
+### A snapshot restore reports what failed, and restores the pinned commit
+
+The summary of a restore listed a node pack as `INSTALLED`, `DISABLED` or
+`ENABLED` without looking at the result of the step: a clone that failed, for
+example because the directory already existed or the url could not be reached,
+was `INSTALLED`. A step that fails is now listed as `FAILED`, and the Manager
+itself is no longer listed as `DISABLED`. A registry that cannot be reached
+ended the restore at the first node pack to install from it, and so did a
+node pack whose directory could not be moved to disable or enable it; such a
+node pack is listed as `FAILED`, and the restore goes on. `cm-cli
+restore-snapshot` ends with 1 when a step failed or a pip package that a
+`--pip-*` option selects was not installed, and a scheduled restore then says
+`Restore snapshot failed.`: it ended with 0. A url of the snapshot that cannot
+be parsed ended the restore as well; the node pack is listed as `FAILED`.
+
+A git node pack that the restore had to clone stayed at the newest commit. It
+is checked out at the commit of the snapshot, and its install script runs after
+that. When the commit cannot be checked out, the install script still runs, at
+the commit the clone is at, and the node pack is listed as `FAILED`. An
+installed git node pack that the registry does not know was checked out only
+when cm-cli was run from `custom_nodes`, as a scheduled restore does; it is
+checked out from any directory.
+
+A git node pack of the registry that was already installed, or that the
+restore enabled, was listed a second time as `SKIPPED`; it is listed once. An
+installed one that is checked out is listed by its name, as the others are: it
+was listed by its path.
+
+A registry node pack that the restore had to install was unpacked, but its
+requirements were not installed and its install script did not run. The
+restore now runs them, and lists the node pack as `FAILED` when they fail.
+
+A requirement or an install script that failed was taken as done until the
+next start: the next node pack that names the requirement skipped it, and
+installing or fixing the node pack again did not run the script. Both are
+tried again. The install script of a git node pack was skipped in the same way
+when it was cloned where another version of the node pack had been installed
+since the start, as a restore does for a snapshot that has both; it runs.
+
 ### Install requests with an unusable body are answered with 400
 
 `/customnode/install/git_url` and `/customnode/install/pip` answered 500 when
 the JSON body was not an object, or when `url` or `packages` was not a string.
 They answer 400, as they do for a missing field.
+
+### What is reserved for the next start is written as UTF-8
+
+The install script of an update, the removal of a node pack whose files are in
+use and a switch of version are reserved in a file that the start-up script
+reads as UTF-8, and that was written in the encoding of the system. On Windows
+a path with a character outside ASCII was lost: one that the code page cannot
+write, such as a Korean folder name with code page 1252, raised an error and
+nothing was reserved; one that it can write was read back as another path, and
+what was reserved was not carried out at the next start. The file is written
+as UTF-8.
+
+A switch of version that is carried out at the next start looked for the files
+that the new version no longer has in `custom_nodes` in place of the directory
+of the node pack: they stayed in the node pack, and a file of the same name in
+`custom_nodes` was removed. They are removed from the node pack. A switch of
+version, at the next start or at once, removes the files that the new version
+no longer has before it extracts the archive of the new version: where two
+names are one file, as `./a.py` and `a.py`, or names that differ in case alone
+on Windows, a file of the new version was removed after it was extracted.
+A name of the old list that leads out of the node pack, with `..` or as an
+absolute path, removed a file outside it; nothing is removed for such a name.
+A file that the old version has alone and that cannot be removed, as one that
+another program has open on Windows, is left with a warning, and the switch
+goes on with the files of the new version.
+A folder that the files of the old version left empty, or with nothing but the
+`__pycache__` of Python, stayed, and a file of the new version could not take
+its place; such a folder is removed.
+A node pack whose directory keeps its name is no longer moved onto itself at
+the next start, which Windows refuses while a file in it is open.
+When the switch moves the node pack to another directory, the install script
+of the new version runs there; it was looked for in the directory that the
+node pack was moved from, and did not run.
+
+That list is written as UTF-8 and was read in the encoding of the system. On
+Windows a switch of version of a node pack with a file name that the code page
+of the system cannot decode ended in the middle: the files of the new version
+were unpacked, its install script did not run and the files of the old version
+stayed. The list is read as UTF-8. A name of the list is read as it is written:
+a space at its start or its end was dropped, and the file of the other name was
+the one removed.
+
+### A scheduled snapshot restore works with `--base-directory`
+
+With `--base-directory`, where `custom_nodes` is not inside the ComfyUI
+directory, a snapshot restore scheduled for the next start failed with
+`ModuleNotFoundError: No module named 'utils'`, and the request was dropped.
+The restore now gets the path of ComfyUI, and the user directory and
+`custom_nodes` directory the server uses.
 
 ### Console messages show paths, URLs and package names as they are
 

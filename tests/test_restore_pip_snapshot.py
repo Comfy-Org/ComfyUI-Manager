@@ -49,7 +49,7 @@ def restore(monkeypatch, capsys):
             check_call=check_call, check_output=check_output,
             CalledProcessError=subprocess.CalledProcessError))
 
-        manager_util.restore_pip_snapshot(PIPS, options)
+        run.not_installed = manager_util.restore_pip_snapshot(PIPS, options)
         report = capsys.readouterr().out.strip().splitlines()[-1]
         return commands, report
 
@@ -102,6 +102,16 @@ def test_every_failed_package_is_reported(restore):
         ['install', '--no-deps', urls[1]],
     ]
     assert report == f"Installation failed for pip packages: {['alpha==1.0', 'beta==2.0', *urls]}"
+
+
+@pytest.mark.parametrize('failing, not_installed', [
+    ([], []),
+    (['beta', 'delta'], ['beta==2.0', 'file:///wheels/delta.whl']),
+])
+def test_packages_that_were_not_installed_are_returned(restore, failing, not_installed):
+    restore(['--pip-non-url', '--pip-non-local-url', '--pip-local-url'], failing=failing)
+
+    assert restore.not_installed == not_installed
 
 
 def test_group_without_its_option_is_left_alone(restore):
