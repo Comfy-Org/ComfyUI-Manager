@@ -25,6 +25,7 @@ from ..common import cm_global
 from ..common import manager_downloader
 from ..common import context
 from ..common import manager_security
+from ..common.git_compat import setup_git_environment
 
 
 logging.info(f"### Loading: ComfyUI-Manager ({core.version_str})")
@@ -278,7 +279,7 @@ def setup_environment():
     git_exe = core.get_config()['git_exe']
 
     if git_exe != '':
-        git.Git().update_environment(GIT_PYTHON_GIT_EXECUTABLE=git_exe)
+        setup_git_environment(git_exe)
 
 
 setup_environment()

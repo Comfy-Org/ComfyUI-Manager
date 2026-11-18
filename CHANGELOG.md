@@ -51,6 +51,88 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   middle of the operation that reported it. Numbers and quoted strings keep
   their colors.
 
+- Start with a node pack whose `.git/config` Manager could not read. A url
+  with a `%`, such as one with `%20`, a key without a value, such as `bare`
+  alone, a key on a line that is indented more than the one before it, a byte
+  order mark at the start of the file, or on Windows text that
+  the code page of the system cannot decode, such as a Korean user name
+  written in UTF-8, raised an error while Manager was loading: ComfyUI did not
+  start, or with `--enable-manager-legacy-ui` started without Manager. These
+  files are read now, and for a file that cannot be read the url of that pack
+  is unknown and a warning names the file once.
+
+- Run the git executable set as `git_exe` in `config.ini`. The path was read
+  but not used: with the GitPython backend, git commands kept running the
+  `git` found on `PATH`, and without a `git` on `PATH` the pygit2 backend was
+  selected, or with the legacy UI Manager did not load. Both servers, the git
+  helper and `cm-cli` now run the configured executable. For the servers and
+  what they start it no longer has to be on `PATH`; `cm-cli` run by hand still
+  needs a git on `PATH`. A value that is not a working git is reported, and
+  the default git is used. The value is read as it is written: with a `%` in
+  it, as in a path of Windows, Manager read every setting of `config.ini` as
+  its default. The configured executable is also run when pygit2
+  is asked for with `CM_USE_PYGIT2=1` but is not installed.
+- Start without a git. With neither a `git` on `PATH` nor pygit2, ComfyUI did
+  not start, or with the legacy UI started without Manager; Manager now loads
+  and reports that git is missing, and what needs git fails when it is used.
+  With pygit2 and no `git`, the legacy UI started without Manager; it now
+  loads on the pygit2 backend, but what the legacy server does with GitPython
+  itself still needs a git.
+
+- Update the submodules of a submodule with the pygit2 backend, and fail when
+  the submodules could not be updated. pygit2 updated the submodules of the
+  nodepack and not those below them, which git does. When it could not update
+  them and there was no `git` to do it in its place, or that `git` did not
+  answer in time, a message was printed and the install or the update went on
+  as if they were updated.
+- Fetch the submodules of a nodepack through the proxy with the pygit2
+  backend. The nodepack was cloned through the `http.proxy` of the global git
+  configuration and its submodules were not, so behind a proxy they could not
+  be fetched. As for the nodepack, the proxy is used for an `https` url.
+- Fetch a submodule with an ssh url over https with the pygit2 backend, as the
+  nodepack itself is. It was asked for credentials, which pygit2 does not
+  have, and with a public repository does not need.
+- Fetch a submodule again with the pygit2 backend after its clone failed, and
+  check one out again after its checkout was removed, as by an update that
+  was undone. What was left of it in `.git/modules` kept every later update
+  from it.
+- Update a nodepack whose submodule is at another commit than the nodepack
+  names, with the pygit2 backend. The update ended before the pull, at a
+  stash with nothing to stash, as it did after a submodule could not be
+  fetched once.
+- Do not end a clone or a fetch of the pygit2 backend at a progress message
+  of the server. pygit2 decodes each piece of such a message as UTF-8, and a
+  piece can end in the middle of a character: with a server that writes its
+  messages in a language other than English, a clone, a fetch or the update
+  of a submodule failed now and then with `UnicodeDecodeError`.
+- Bring the submodules of a git nodepack to the commits that its commit names
+  when a snapshot restore checks it out, and also when it is at the commit of
+  the snapshot already. A submodule that was never fetched is then fetched
+  too in a nodepack that Manager installed, as Manager clones a nodepack with
+  its submodules; with the pygit2 backend, or in a nodepack cloned without
+  them, it is fetched only when the nodepack itself is checked out.
+- Record the commit of a git nodepack whose refs are packed, as after
+  `git gc`, in a snapshot. It was recorded as `unknown`. A `HEAD` that is not
+  UTF-8, as one that names a branch in another encoding, raised an error where
+  the commit of a nodepack is read. It is read as bytes now. On Windows the
+  commit of a branch whose name is not ASCII, as a Korean one, could be
+  unknown as well: the file of the branch is looked for under the name that
+  Git for Windows gives it.
+- Start with a git nodepack whose commit cannot be read. The commit is read
+  while Manager is loading, and an error there kept ComfyUI from starting, or
+  with `--enable-manager-legacy-ui` Manager from loading: for a `.git` with a
+  folder where the file of the branch would be, as after
+  `git checkout --orphan feature` beside a branch `feature/x`, or with a file
+  that cannot be read. The commit of such a nodepack is unknown now.
+- Fail an update whose pull failed in the git helper. On Windows the pull runs
+  in a helper process, which ended with 0 when the pull failed, and its result
+  was not read: the update went on to the install script and ended as done.
+  The helper ends with 1 now.
+- Undo the pull of an update when the update of its submodules fails. The
+  nodepack stayed at the new commit: the next update found nothing to do, and
+  the install script of the update never ran. The submodules that were updated
+  before the one that failed go back with it. A nodepack with a submodule
+  that cannot be fetched at all is not updated until it can.
 - Refuse a `db_mode` or an `update_policy` that Manager does not know in the
   legacy server. With `--enable-manager-legacy-ui`, the two setting routes
   stored whatever value a request carried and wrote it to `config.ini`. They
