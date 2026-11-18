@@ -123,8 +123,18 @@ def check_file_logging():
     if 'file_logging' in default_conf and default_conf['file_logging'].lower() == 'false':
         enable_file_logging = False
 
+def set_git_executable():
+    # GitPython reads this when it is imported, so that a git that is not on PATH can be named
+    # read as written: a path of Windows may hold a `%`, which the parser takes as the start of a reference
+    git_exe = default_conf.get('git_exe', '', raw=True) if 'git_exe' in default_conf else ''
+    if git_exe != '' and _has_system_user_api:
+        git_exe = manager_util.find_git_executable(git_exe)
+        if git_exe is not None:
+            os.environ['GIT_PYTHON_GIT_EXECUTABLE'] = git_exe
+
 
 read_config()
+set_git_executable()
 read_uv_mode()
 security_check.security_check()
 check_file_logging()

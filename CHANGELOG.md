@@ -16,6 +16,65 @@ whatever value a request carried and wrote it to `config.ini`. They answer 400
 for a value that is not one of those the Manager's menu offers, and for a JSON
 body without a `value`, which ended with status 500.
 
+### `git_exe` chooses the git executable
+
+The path set as `git_exe` in `config.ini` was read but not used: git commands
+kept running the `git` found on `PATH`. The Manager, cm-cli and the git helper
+now run the configured executable. For the Manager it no longer has to be on
+`PATH`: the Manager also starts when the only git is the one named by
+`git_exe`. cm-cli still needs a git on `PATH` to start.
+
+A value that is not a working git is reported in the log, and the default git
+is used. The value is read as it is written: with a `%` in it, as in a path
+of Windows, the Manager read every setting of `config.ini` as its default.
+`git_exe` is used only when the configuration file is in a protected
+directory, that is with a ComfyUI that has the System User API.
+
+### The commit and the submodules of a git node pack
+
+A snapshot recorded no commit for a git node pack whose refs were packed, as
+after `git gc`. The commit is read from `packed-refs` too. A `HEAD` that is
+not UTF-8, as one that names a branch in another encoding, raised an error
+where the commit of a node pack is read. It is read as bytes now. On Windows
+the commit of a branch whose name is not ASCII, as a Korean one, could be
+unknown as well: the file of the branch is looked for under the name that Git
+for Windows gives it. The commit is read while the Manager is loading, and an
+error there kept the Manager from loading: also for a `.git` with a folder
+where the file of the branch would be, as after
+`git checkout --orphan feature` beside a branch `feature/x`, or with a file
+that cannot be read. The commit of such a node pack is unknown now.
+
+When a snapshot restore checks a git node pack out, its submodules are brought
+to the commits that the commit names, also when the node pack is at the commit
+of the snapshot already. A submodule that was never fetched is then fetched
+too in a node pack that the Manager installed, as the Manager clones a node
+pack with its submodules; in a node pack cloned without them, it is fetched
+only when the node pack itself is checked out.
+
+### A node pack whose `.git/config` cannot be read
+
+The Manager reads the remote url of every installed node pack from its
+`.git/config` while it is loading. A url with a `%`, such as one with `%20`,
+a key without a value, such as `bare` alone, a key on a line that is indented
+more than the one before it, a byte order mark at the start of the file, or
+text that the encoding of the system cannot decode, such as the name of a
+branch in another encoding, raised an error there, and the Manager did not
+load. These files are read now, and for a file that cannot be read the url of
+that node pack is unknown and a warning names the file once.
+
+### An update whose git step fails is a failure, and can be done again
+
+On Windows the pull of an update runs in a helper process, which ended with 0
+when the pull failed, and its result was not read: the update went on to the
+install script and ended as done. The helper ends with 1 now, and the update
+fails.
+
+When the update of its submodules failed, a node pack stayed at the new
+commit: the next update found nothing to do, and the install script of the
+update never ran. The pull is undone, and the submodules that were updated
+before the one that failed go back with it. A node pack with a submodule
+that cannot be fetched at all is not updated until it can.
+
 ### Install requests with an unusable body are answered with 400
 
 `/customnode/install/git_url` and `/customnode/install/pip` answered 500 when

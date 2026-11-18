@@ -17,6 +17,7 @@ resets cached_config, runs the scenario, and prints one JSON line for the
 parent to assert.
 """
 import json
+import os
 import subprocess
 import sys
 import textwrap
@@ -24,6 +25,10 @@ import unittest
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+# what `git rev-parse --local-env-vars` lists: with one of them, git does not work on the repository of its directory
+GIT_LOCATION = ("GIT_ALTERNATE_OBJECT_DIRECTORIES", "GIT_CONFIG", "GIT_CONFIG_PARAMETERS", "GIT_CONFIG_COUNT", "GIT_OBJECT_DIRECTORY",
+                "GIT_DIR", "GIT_WORK_TREE", "GIT_IMPLICIT_WORK_TREE", "GIT_GRAFT_FILE", "GIT_INDEX_FILE", "GIT_NO_REPLACE_OBJECTS",
+                "GIT_REPLACE_REF_BASE", "GIT_PREFIX", "GIT_SHALLOW_FILE", "GIT_COMMON_DIR")
 
 _CHILD_PREAMBLE = textwrap.dedent(
     """
@@ -65,6 +70,7 @@ def _run_child(body):
         text=True,
         timeout=180,
         cwd=str(REPO_ROOT),
+        env={name: value for name, value in os.environ.items() if name not in GIT_LOCATION},
     )
     if proc.returncode != 0:
         raise AssertionError(
