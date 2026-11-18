@@ -1213,7 +1213,7 @@ def restore_snapshot(
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
     try:
-        asyncio.run(core.restore_snapshot(snapshot_path, extras))
+        is_restored = asyncio.run(core.restore_snapshot(snapshot_path, extras))
     except Exception:
         print("[bold red]ERROR: Failed to restore snapshot.[/bold red]")
         traceback.print_exc()
@@ -1222,6 +1222,9 @@ def restore_snapshot(
         raise typer.Exit(code=1)
 
     _finalize_resolve(pip_fixer, uv_compile)
+
+    if not is_restored:
+        raise typer.Exit(code=1)
 
 
 @app.command(

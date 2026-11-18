@@ -133,6 +133,83 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   the install script of the update never ran. The submodules that were updated
   before the one that failed go back with it. A nodepack with a submodule
   that cannot be fetched at all is not updated until it can.
+
+- Carry out a scheduled snapshot restore in the directories of the server.
+  With `--base-directory`, the restore that runs at the next start worked on
+  the Manager's files and the `custom_nodes` directory inside the ComfyUI
+  directory instead of those of the base directory: it did not see the node
+  packs of the server.
+
+- Report the steps of a snapshot restore that failed. The summary listed a
+  nodepack as `INSTALLED`, `DISABLED` or `ENABLED` without looking at the
+  result of the step: a clone that failed, for example because the directory
+  already existed or the url could not be reached, was `INSTALLED`. A step that
+  fails is listed as `FAILED`, and Manager itself is no longer listed as
+  `DISABLED`. A Registry that cannot be reached ended the restore at the first
+  nodepack to install from it, and so did a nodepack whose directory could not
+  be moved to disable or enable it; such a nodepack is listed as `FAILED`, and
+  the restore goes on. `cm-cli restore-snapshot` ends with 1 when a step failed
+  or a pip package that a `--pip-*` option selects was not installed, and a
+  scheduled restore then says `Restore snapshot failed.`: it ended with 0. A
+  url of the snapshot that cannot be parsed ended the restore as well; the
+  nodepack is listed as `FAILED`. A git nodepack of the Registry that was
+  already installed, or that the restore enabled, was listed a second time as
+  `SKIPPED`; it is listed once. An installed one that is checked out is listed
+  by its name, as the others are: it was listed by its path.
+- Restore the commit of the snapshot for every git nodepack. A git nodepack
+  that the restore had to clone stayed at the newest commit; it is checked out
+  at the commit of the snapshot, and its install script runs after that. When
+  the commit cannot be checked out, the install script still runs, at the
+  commit the clone is at, and the nodepack is listed as `FAILED`. An installed
+  git nodepack that the Registry does not know was checked out only when
+  `cm-cli` was run from `custom_nodes`, as a scheduled restore does; it is
+  checked out from any directory.
+- Install the requirements and run the install script of a Registry nodepack
+  that a snapshot restore installs. The nodepack was unpacked and nothing
+  more. It is listed as `FAILED` when they fail.
+- Try a requirement or an install script that failed again. It was taken as
+  done until the next start: the next nodepack that names the requirement
+  skipped it, and installing or fixing the nodepack again did not run the
+  script. The install script of a git nodepack was skipped in the same way
+  when it was cloned where another version of the nodepack had been installed
+  since the start, as a restore does for a snapshot that has both; it runs.
+- Write what is reserved for the next start as UTF-8, which is how the
+  start-up script reads it. The install script of an update, the removal of a
+  nodepack whose files are in use and a switch of version are reserved in a
+  file that was written in the encoding of the system. On Windows a path with
+  a character outside ASCII was lost: one that the code page cannot write,
+  such as a Korean folder name with code page 1252, raised an error and
+  nothing was reserved; one that it can write was read back as another path,
+  and what was reserved was not carried out at the next start.
+- Remove the files of the old version from the nodepack when a switch of
+  version is carried out at the next start. The files that the new version no
+  longer has were looked for in `custom_nodes` in place of the directory of the
+  nodepack: they stayed in the nodepack, and a file of the same name in
+  `custom_nodes` was removed. A switch of version, at the next start or at
+  once, removes the files that the new version no longer has before it extracts
+  the archive of the new version: where two names are one file, as `./a.py` and
+  `a.py`, or names that differ in case alone on Windows, a file of the new
+  version was removed after it was extracted. A name of the old list that leads
+  out of the nodepack, with `..` or as an absolute path, removed a file outside
+  it; nothing is removed for such a name. A file that the old version has alone
+  and that cannot be removed, as one that another program has open on Windows,
+  is left with a warning, and the switch goes on with the files of the new
+  version. A nodepack whose directory keeps its name is no longer moved onto
+  itself at the next start, which Windows refuses while a file in it is open.
+  When the switch moves the nodepack to another directory, the install script
+  of the new version runs there; it was looked for in the directory that the
+  nodepack was moved from, and did not run.
+  A folder that the files of the old version left empty, or with nothing but
+  the `__pycache__` of Python, stayed, and a file of the new version could not
+  take its place; such a folder is removed.
+- Read the list of the files of a Registry nodepack as UTF-8, which is how it
+  is written. It was read in the encoding of the system: on Windows a switch of
+  version of a nodepack with a file name that the code page of the system
+  cannot decode ended in the middle, with the files of the new version
+  unpacked, its install script not run and the files of the old version left. A
+  name of the list is read as it is written: a space at its start or its end
+  was dropped, and the file of the other name was the one removed.
+
 - Refuse a `db_mode` or an `update_policy` that Manager does not know in the
   legacy server. With `--enable-manager-legacy-ui`, the two setting routes
   stored whatever value a request carried and wrote it to `config.ini`. They

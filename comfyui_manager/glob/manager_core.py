@@ -801,25 +801,27 @@ class UnifiedManager:
                 for line in lines:
                     package_name = remap_pip_package(line.strip())
                     if package_name and not package_name.startswith('#') and package_name not in self.processed_install:
-                        self.processed_install.add(package_name)
                         clean_package_name = package_name.split('#')[0].strip()
                         install_cmd = manager_util.make_pip_cmd(["install", clean_package_name])
                         if clean_package_name != "" and not clean_package_name.startswith('#'):
                             res = res and try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
+                        if res:
+                            self.processed_install.add(package_name)
 
                 pip_fixer.fix_broken()
 
             if os.path.exists(install_script_path) and install_script_path not in self.processed_install:
-                self.processed_install.add(install_script_path)
                 print("Install: install script")
                 install_cmd = [sys.executable, "install.py"]
-                return res and try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
+                res = res and try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
+                if res:
+                    self.processed_install.add(install_script_path)
 
         return res
 
     def reserve_cnr_switch(self, target, zip_url, from_path, to_path, no_deps, status=''):
         script_path = os.path.join(context.manager_startup_script_path, "install-scripts.txt")
-        with open(script_path, "a") as file:
+        with open(script_path, "a", encoding="utf-8") as file:
             obj = [target, "#LAZY-CNR-SWITCH-SCRIPT", zip_url, from_path, to_path, no_deps, get_default_custom_nodes_path(), sys.executable, status]
             file.write(f"{obj}\n")
 
@@ -905,10 +907,11 @@ class UnifiedManager:
         download_path = os.path.join(get_default_custom_nodes_path(), archive_name)
         manager_downloader.basic_download_url(node_info.download_url, get_default_custom_nodes_path(), archive_name)
 
-        # 2. extract files into <node_id>
         install_path = self.active_nodes[node_id][1]
-        extracted = manager_util.extract_package_as_zip(download_path, install_path)
-        os.remove(download_path)
+        try:
+            extracted = manager_util.switch_package_files(download_path, install_path)
+        finally:
+            os.remove(download_path)
 
         if extracted is None:
             if len(os.listdir(install_path)) == 0:
@@ -916,32 +919,10 @@ class UnifiedManager:
 
             return result.fail(f'Empty archive file: {node_id}@{version_spec}')
 
-        # 3. calculate garbage files (.tracking - extracted)
-        tracking_info_file = os.path.join(install_path, '.tracking')
-        prev_files = set()
-        with open(tracking_info_file, 'r') as f:
-            for line in f:
-                prev_files.add(line.strip())
-        garbage = prev_files.difference(extracted)
-        garbage = [os.path.join(install_path, x) for x in garbage]
-
-        # 4-1. remove garbage files
-        for x in garbage:
-            if os.path.isfile(x):
-                os.remove(x)
-
-        # 4-2. remove garbage dir if empty
-        for x in garbage:
-            if os.path.isdir(x):
-                if not os.listdir(x):
-                    os.rmdir(x)
-
-        # 5. create .tracking file
         tracking_info_file = os.path.join(install_path, '.tracking')
         with open(tracking_info_file, "w", encoding='utf-8') as file:
             file.write('\n'.join(list(extracted)))
 
-        # 6. post install
         result.target = version_spec
 
         def postinstall():
@@ -1325,6 +1306,9 @@ class UnifiedManager:
                 repo = clone_repo(clone_url, repo_path, progress=GitProgress())
                 repo.clear_cache()
                 repo.close()
+
+            # an install script that ran in this folder was of the pack that was there before the clone
+            self.processed_install.discard(os.path.join(repo_path, 'install.py'))
 
             def postinstall():
                 return self.execute_install_script(url, repo_path, instant_execution=instant_execution, no_deps=no_deps)
@@ -1843,7 +1827,7 @@ def reserve_script(repo_path, install_cmds):
         os.makedirs(context.manager_startup_script_path)
 
     script_path = os.path.join(context.manager_startup_script_path, "install-scripts.txt")
-    with open(script_path, "a") as file:
+    with open(script_path, "a", encoding="utf-8") as file:
         obj = [repo_path] + install_cmds
         file.write(f"{obj}\n")
 
@@ -2175,9 +2159,14 @@ class GitProgress(RemoteProgress):
 
 def is_valid_url(url):
     # Check for HTTP/HTTPS URL format
-    result = urlparse(url)
-    if result.scheme and result.netloc:
-        return True
+    try:
+        result = urlparse(url)
+        if result.scheme and result.netloc:
+            return True
+    except ValueError:
+        # What cannot be parsed, as a host with a bracket that is not closed,
+        # is not such a URL.
+        pass
 
     # Check for SSH git URL format
     if SSH_URL_PATTERN.match(url):
@@ -3139,6 +3128,30 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
     installed_node_packs = []
     failed = []
 
+    def run_postinstall(res):
+        try:
+            return res.postinstall()
+        except Exception:
+            traceback.print_exc()
+            return False
+
+    def attempt(step, *args):
+        try:
+            return step(*args)
+        except Exception as e:
+            logging.error(f"[ComfyUI-Manager] {e}")
+            return ManagedResult('fail').fail(str(e))
+
+    def finish_clone(res, name, path, commit_hash):
+        is_switched = repo_switch_commit(path, commit_hash)
+        is_installed = run_postinstall(res)
+        if is_switched is None:
+            failed.append(f"{name}@{commit_hash}")
+        elif not is_installed:
+            failed.append(name)
+        else:
+            cloned_repos.append(name)
+
     await unified_manager.reload('cache')
     await unified_manager.get_custom_nodes('default', 'cache')
 
@@ -3147,8 +3160,6 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
         cnr_repo_map[v['id']] = k
 
     print("Restore snapshot.")
-
-    postinstalls = []
 
     with open(snapshot_path, 'r', encoding="UTF-8") as snapshot_file:
         if snapshot_path.endswith('.json'):
@@ -3184,11 +3195,16 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
                             skip_node_packs.append(k)
 
             for x in todo_disable:
-                unified_manager.unified_disable(x, False)
-                disabled_repos.append(x)
+                if attempt(unified_manager.unified_disable, x, False).result:
+                    disabled_repos.append(x)
+                else:
+                    failed.append(x)
 
             for x in todo_checkout:
-                ps = unified_manager.cnr_switch_version(x[0], x[1], instant_execution=True, no_deps=True, return_postinstall=False)
+                try:
+                    ps = unified_manager.cnr_switch_version(x[0], x[1], instant_execution=True, no_deps=True, return_postinstall=False)
+                except Exception as e:
+                    ps = ManagedResult('switch-cnr').fail(str(e))
                 if ps.action == 'switch-cnr' and ps.result:
                     switched_node_packs.append(f"{x[0]}@{x[1]}")
                 elif ps.action == 'skip':
@@ -3203,18 +3219,17 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
                 if 'comfyui-manager' in k or k in checked_cnr:
                     continue
 
-                ps = await unified_manager.install_by_id(k, version_spec=v, instant_execution=True, return_postinstall=True)
-                if ps.action == 'install-cnr' and ps.result:
-                    installed_node_packs.append(f"{k}@{v}")
-                elif not ps.result:
+                try:
+                    ps = await unified_manager.install_by_id(k, version_spec=v, instant_execution=True, return_postinstall=True)
+                except Exception as e:
+                    ps = ManagedResult('install-cnr').fail(str(e))
+                if not ps.result:
                     failed.append(f"{k}@{v}")
                     logging.error(ps.msg)
-
-                if ps is not None and ps.result:
-                    if hasattr(ps, 'postinstall'):
-                        postinstalls.append(ps.postinstall)
-                    else:
-                        print("cm-cli: unexpected [0001]")
+                elif not run_postinstall(ps):
+                    failed.append(f"{k}@{v}")
+                elif ps.action == 'install-cnr':
+                    installed_node_packs.append(f"{k}@{v}")
 
         # for nightly restore
         _git_info = info.get('git_custom_nodes')
@@ -3225,6 +3240,8 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
             # robust filter out comfyui-manager while restoring snapshot
             if 'comfyui-manager' in k.lower():
                 continue
+
+            v.setdefault('hash', 'unknown')
 
             # Snapshots saved at a detached HEAD used to keep the newline that follows the hash.
             if isinstance(v.get('hash'), str):
@@ -3251,7 +3268,8 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
                         todo_disable.append(k)
                     else:
                         commit_hash = git_info[normalized_url]['hash']
-                        todo_checkout.append((v[1], commit_hash))
+                        todo_checkout.append((k, v[1], commit_hash))
+                        processed_urls.append(normalized_url)
 
             for k, v in unified_manager.nightly_inactive_nodes.items():
                 if 'comfyui-manager' in k:
@@ -3267,35 +3285,52 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
                         processed_urls.append(normalized_url)
 
             for x in todo_disable:
-                unified_manager.unified_disable(x, False)
-                disabled_repos.append(x)
+                if attempt(unified_manager.unified_disable, x, False).result:
+                    disabled_repos.append(x)
+                else:
+                    failed.append(x)
 
             for x in todo_enable:
-                res = unified_manager.unified_enable(x[0], 'nightly')
+                res = attempt(unified_manager.unified_enable, x[0], 'nightly')
 
                 is_switched = False
                 if res and res.target:
                     is_switched = repo_switch_commit(res.target, x[1])
 
-                if is_switched:
+                if not res.result:
+                    failed.append(x[0])
+                elif is_switched is None:
+                    failed.append(f"{x[0]}@{x[1]}")
+                elif is_switched:
                     checkout_repos.append(f"{x[0]}@{x[1]}")
                 else:
                     enabled_repos.append(x[0])
 
-            for x in todo_checkout:
-                is_switched = repo_switch_commit(x[0], x[1])
+            for name, path, commit_hash in todo_checkout:
+                is_switched = repo_switch_commit(path, commit_hash)
 
                 if is_switched:
-                    checkout_repos.append(f"{x[0]}@{x[1]}")
+                    checkout_repos.append(f"{name}@{commit_hash}")
+                elif is_switched is None:
+                    failed.append(f"{name}@{commit_hash}")
+                else:
+                    skip_node_packs.append(name)
 
             for x in git_info.keys():
+                if x in processed_urls:
+                    continue
+
                 normalized_url = git_utils.normalize_url(x)
                 cnr = unified_manager.repo_cnr_map.get(normalized_url)
                 if cnr is not None:
                     pack_id = cnr['id']
-                    res = await unified_manager.install_by_id(pack_id, 'nightly', instant_execution=True, no_deps=False, return_postinstall=False)
+                    try:
+                        res = await unified_manager.install_by_id(pack_id, 'nightly', instant_execution=True, no_deps=False, return_postinstall=True)
+                    except Exception as e:
+                        logging.error(f"[ComfyUI-Manager] {e}")
+                        res = ManagedResult('fail').fail(str(e))
                     if res.action == 'install-git' and res.result:
-                        cloned_repos.append(pack_id)
+                        finish_clone(res, pack_id, unified_manager.active_nodes[pack_id][1], git_info[x]['hash'])
                     elif res.action == 'skip':
                         skip_node_packs.append(pack_id)
                     elif not res.result:
@@ -3313,6 +3348,9 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
     processed_urls = []
 
     for k2, v2 in unified_manager.unknown_active_nodes.items():
+        if 'comfyui-manager' in k2.lower():
+            continue
+
         repo_url = resolve_giturl_from_path(v2[1])
 
         if repo_url is None:
@@ -3324,7 +3362,7 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
             todo_disable.append(k2)
         else:
             commit_hash = git_info[normalized_url]['hash']
-            todo_checkout.append((k2, commit_hash))
+            todo_checkout.append((k2, v2[1], commit_hash))
             processed_urls.append(normalized_url)
 
     for k2, v2 in unified_manager.unknown_inactive_nodes.items():
@@ -3341,28 +3379,36 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
             processed_urls.append(normalized_url)
 
     for x in todo_disable:
-        unified_manager.unified_disable(x, True)
-        disabled_repos.append(x)
+        if attempt(unified_manager.unified_disable, x, True).result:
+            disabled_repos.append(x)
+        else:
+            failed.append(x)
 
     for x in todo_enable:
-        res = unified_manager.unified_enable(x[0], 'unknown')
+        res = attempt(unified_manager.unified_enable, x[0], 'unknown')
 
         is_switched = False
         if res and res.target:
             is_switched = repo_switch_commit(res.target, x[1])
 
-        if is_switched:
+        if not res.result:
+            failed.append(x[0])
+        elif is_switched is None:
+            failed.append(f"{x[0]}@{x[1]}")
+        elif is_switched:
             checkout_repos.append(f"{x[0]}@{x[1]}")
         else:
             enabled_repos.append(x[0])
 
-    for x in todo_checkout:
-        is_switched = repo_switch_commit(x[0], x[1])
+    for name, path, commit_hash in todo_checkout:
+        is_switched = repo_switch_commit(path, commit_hash)
 
         if is_switched:
-            checkout_repos.append(f"{x[0]}@{x[1]}")
+            checkout_repos.append(f"{name}@{commit_hash}")
+        elif is_switched is None:
+            failed.append(f"{name}@{commit_hash}")
         else:
-            skip_node_packs.append(x[0])
+            skip_node_packs.append(name)
 
     for x in processed_urls:
         if x in git_info:
@@ -3374,10 +3420,14 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
             repo_name = repo_name[:-4]
 
         to_path = os.path.join(get_default_custom_nodes_path(), repo_name)
-        unified_manager.repo_install(repo_url, to_path, instant_execution=True, no_deps=False, return_postinstall=False)
-        cloned_repos.append(repo_name)
+        res = unified_manager.repo_install(repo_url, to_path, instant_execution=True, no_deps=False, return_postinstall=True)
+        if not res.result:
+            failed.append(repo_name)
+            continue
 
-    manager_util.restore_pip_snapshot(pips, git_helper_extras)
+        finish_clone(res, repo_name, to_path, git_info[repo_url]['hash'])
+
+    pips_not_installed = manager_util.restore_pip_snapshot(pips, git_helper_extras)
 
     # print summary
     for x in cloned_repos:
@@ -3394,11 +3444,10 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
         print(f"[  DISABLED ] {x}")
     for x in skip_node_packs:
         print(f"[  SKIPPED  ] {x}")
-    for x in failed:
+    for x in dict.fromkeys(failed):
         print(f"[  FAILED   ] {x}")
 
-    # if is_failed:
-    #     print("[bold red]ERROR: Failed to restore snapshot.[/bold red]")
+    return not failed and not pips_not_installed
 
 
 def get_comfyui_versions(repo=None):
@@ -3522,6 +3571,9 @@ def redo_submodule_update(repo, repo_path):
 
 
 def repo_switch_commit(repo_path, commit_hash):
+    if commit_hash == 'unknown':
+        return False
+
     try:
         with open_repo(repo_path) as repo:
             if repo.head_commit_hexsha != commit_hash:
