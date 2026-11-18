@@ -10,8 +10,10 @@ import aiohttp
 import json
 import threading
 import os
+import shutil
 from datetime import datetime
 import subprocess
+import tempfile
 import sys
 import re
 import logging
@@ -1109,3 +1111,41 @@ def restore_pip_snapshot(pips, options):
                 failed.append(x)
 
     print(f"Installation failed for pip packages: {failed}")
+
+
+def which_on_path(name):
+    """
+    the file that the directories of PATH give for the name of a command
+    `shutil.which` looks in the current directory first on Windows, and takes a directory of PATH that is not absolute
+    """
+    names = [name]
+    if os.name == 'nt':
+        extensions = [x for x in os.environ.get('PATHEXT', '.COM;.EXE;.BAT;.CMD').split(os.pathsep) if x]
+        if not name.lower().endswith(tuple(x.lower() for x in extensions)):
+            names = [name + x for x in extensions]
+
+    for directory in os.get_exec_path():
+        for x in names:
+            path = os.path.join(directory, x)
+            if os.path.isabs(directory) and os.path.isfile(path) and os.access(path, os.X_OK):
+                return path
+
+    return None
+
+
+def find_git_executable(git_exe, timeout=10):
+    # a name without a directory is a command of PATH; GitPython would take it as a file of the current directory
+    path = shutil.which(git_exe) if os.path.dirname(git_exe) else which_on_path(git_exe)
+    if path is None:
+        return None
+
+    try:
+        # the answer goes to a file: with a pipe, Windows waits after the time is up for every program that holds the pipe
+        with tempfile.TemporaryFile() as answer:
+            res = subprocess.run([path, 'version'], stdout=answer, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, timeout=timeout)
+            answer.seek(0)
+            is_git = res.returncode == 0 and answer.read(11) == b'git version'
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    return os.path.abspath(path) if is_git else None

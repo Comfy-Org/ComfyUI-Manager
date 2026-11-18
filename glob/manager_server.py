@@ -314,18 +314,9 @@ def print_comfyui_version():
             logging.info("### ComfyUI Revision: UNKNOWN (The currently installed ComfyUI is not a Git repository)")
 
 
+core.setup_git_executable()
 print_comfyui_version()
 core.check_invalid_nodes()
-
-
-def setup_environment():
-    git_exe = core.get_config()['git_exe']
-
-    if git_exe != '':
-        git.Git().update_environment(GIT_PYTHON_GIT_EXECUTABLE=git_exe)
-
-
-setup_environment()
 
 # Expand Server api
 

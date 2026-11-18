@@ -13,7 +13,6 @@ from git.remote import RemoteProgress
 
 
 comfy_path = os.environ.get('COMFYUI_PATH')
-git_exe_path = os.environ.get('GIT_EXE_PATH')
 
 if comfy_path is None:
     print("\nWARN: The `COMFYUI_PATH` environment variable is not set. Assuming `custom_nodes/ComfyUI-Manager/../../` as the ComfyUI path.", file=sys.stderr)
@@ -181,6 +180,14 @@ def switch_to_default_branch(repo):
     return False
 
 
+def undo_pull(repo, commit):
+    repo.git.reset('--hard', commit)
+    try:
+        repo.git.submodule('update', '--recursive')
+    except Exception:
+        pass
+
+
 def gitpull(path):
     # Check if the path is a git repository
     if not os.path.exists(os.path.join(path, '.git')):
@@ -220,6 +227,7 @@ def gitpull(path):
             repo.close()
             return
 
+        tip_before_pull = repo.head.commit.hexsha
         try:
             repo.git.pull('--ff-only')
         except git.GitCommandError:
@@ -229,7 +237,12 @@ def gitpull(path):
             repo.git.reset('--hard', f'{remote_name}/{branch_name}')
             print(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
 
-        repo.git.submodule('update', '--init', '--recursive')
+        try:
+            repo.git.submodule('update', '--init', '--recursive')
+        except Exception:
+            undo_pull(repo, tip_before_pull)
+            raise
+
         new_commit_hash = repo.head.commit.hexsha
 
         if commit_hash != new_commit_hash:
@@ -239,6 +252,7 @@ def gitpull(path):
     except Exception as e:
         print(e)
         print("CUSTOM NODE PULL: Fail")  # unknown git error
+        sys.exit(1)
 
     repo.close()
 
@@ -490,14 +504,6 @@ def restore_pip_snapshot(pips, options):
                 failed.append(x)
 
     print(f"Installation failed for pip packages: {failed}")
-
-
-def setup_environment():
-    if git_exe_path is not None:
-        git.Git().update_environment(GIT_PYTHON_GIT_EXECUTABLE=git_exe_path)
-
-
-setup_environment()
 
 
 try:
