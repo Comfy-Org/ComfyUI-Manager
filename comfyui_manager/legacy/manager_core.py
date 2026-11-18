@@ -1726,7 +1726,8 @@ def read_config():
 
         return {
                     'http_channel_enabled': get_bool('http_channel_enabled', False),
-                    'git_exe': default_conf.get('git_exe', ''),
+                    # read as written: a path of Windows may hold a `%`, which the parser takes as the start of a reference
+                    'git_exe': default_conf.get('git_exe', '', raw=True),
                     'use_uv': get_bool('use_uv', True),
                     'channel_url': default_conf.get('channel_url', DEFAULT_CHANNEL),
                     'default_cache_as_channel_url': get_bool('default_cache_as_channel_url', False),
@@ -1979,7 +1980,8 @@ def __win_check_git_update(path, do_fetch=False, do_update=False):
 def __win_check_git_pull(path):
     command = [sys.executable, context.git_script_path, "--pull", path]
     process = subprocess.Popen(command, env=get_script_env(), cwd=get_default_custom_nodes_path())
-    process.wait()
+    if process.wait() != 0:
+        raise ValueError(f"Failed to pull: {path}")
 
 
 def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=False, no_deps=False):
@@ -2265,6 +2267,14 @@ async def gitclone_install(url, instant_execution=False, msg_prefix='', no_deps=
         return result.fail(f"Install(git-clone)[1] error: {url} / {e}")
 
 
+def undo_pull(repo, commit):
+    repo.git.reset('--hard', commit)
+    try:
+        repo.git.submodule('update', '--recursive')
+    except Exception:
+        pass
+
+
 def git_pull(path):
     # Check if the path is a git repository
     if not os.path.exists(os.path.join(path, '.git')):
@@ -2287,6 +2297,7 @@ def git_pull(path):
         current_branch = repo.active_branch
         remote_name = current_branch.tracking_branch().remote_name
         branch_name = current_branch.name
+        commit_hash = repo.head.commit.hexsha
 
         try:
             repo.git.pull('--ff-only')
@@ -2297,7 +2308,11 @@ def git_pull(path):
             repo.git.reset('--hard', f'{remote_name}/{branch_name}')
             logging.info(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
 
-        repo.git.submodule('update', '--init', '--recursive')
+        try:
+            repo.git.submodule('update', '--init', '--recursive')
+        except Exception:
+            undo_pull(repo, commit_hash)
+            raise
 
         repo.close()
 
@@ -3514,23 +3529,32 @@ def resolve_giturl_from_path(fullpath):
     if not os.path.exists(git_config_path):
         return "unknown"
 
-    config = configparser.ConfigParser(strict=False)
-    config.read(git_config_path)
+    config = git_utils.read_git_config(git_config_path)
+    if config is None:
+        return None
 
     for k, v in config.items():
-        if k.startswith('remote ') and 'url' in v:
+        if k.startswith('remote ') and v.get('url'):
             return v['url'].replace("git@github.com:", "https://github.com/")
 
     return None
 
 
+def redo_submodule_update(repo, repo_path):
+    if os.path.exists(os.path.join(repo_path, '.gitmodules')):
+        repo.git.submodule('update', '--recursive')
+
+
 def repo_switch_commit(repo_path, commit_hash):
     try:
         repo = git.Repo(repo_path)
-        if repo.head.commit.hexsha == commit_hash:
-            return False
+        if repo.head.commit.hexsha != commit_hash:
+            repo.git.checkout(commit_hash)
+            repo.git.submodule('update', '--init', '--recursive')
+            return True
 
-        repo.git.checkout(commit_hash)
-        return True
-    except Exception:
+        redo_submodule_update(repo, repo_path)
+        return False
+    except Exception as e:
+        logging.error(f"[ComfyUI-Manager] Failed to check out '{repo_path}' at {commit_hash}: {e}")
         return None

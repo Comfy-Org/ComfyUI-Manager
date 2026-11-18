@@ -1715,7 +1715,8 @@ def read_config():
 
         return {
                     'http_channel_enabled': get_bool('http_channel_enabled', False),
-                    'git_exe': default_conf.get('git_exe', ''),
+                    # read as written: a path of Windows may hold a `%`, which the parser takes as the start of a reference
+                    'git_exe': default_conf.get('git_exe', '', raw=True),
                     'use_uv': get_bool('use_uv', True),
                     'use_unified_resolver': get_bool('use_unified_resolver', False),
                     'channel_url': default_conf.get('channel_url', DEFAULT_CHANNEL),
@@ -1965,7 +1966,8 @@ def __win_check_git_update(path, do_fetch=False, do_update=False):
 def __win_check_git_pull(path):
     command = [sys.executable, context.git_script_path, "--pull", path]
     process = subprocess.Popen(command, env=get_script_env(), cwd=get_default_custom_nodes_path())
-    process.wait()
+    if process.wait() != 0:
+        raise ValueError(f"Failed to pull: {path}")
 
 
 def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=False, no_deps=False):
@@ -2281,6 +2283,7 @@ def git_pull(path):
                     raise ValueError(f"Failed to switch to default branch while pulling: {path}")
 
             branch_name = repo.active_branch_name
+            commit_hash = repo.head_commit_hexsha
             remote_name = repo.get_tracking_remote_name()
 
             try:
@@ -2292,7 +2295,11 @@ def git_pull(path):
                 repo.reset_hard(f'{remote_name}/{branch_name}')
                 logging.info(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
 
-            repo.submodule_update()
+            try:
+                repo.submodule_update()
+            except Exception:
+                repo.undo_pull(commit_hash)
+                raise
 
     return True
 
@@ -3498,23 +3505,32 @@ def resolve_giturl_from_path(fullpath):
     if not os.path.exists(git_config_path):
         return "unknown"
 
-    config = configparser.ConfigParser(strict=False)
-    config.read(git_config_path)
+    config = git_utils.read_git_config(git_config_path)
+    if config is None:
+        return None
 
     for k, v in config.items():
-        if k.startswith('remote ') and 'url' in v:
+        if k.startswith('remote ') and v.get('url'):
             return v['url'].replace("git@github.com:", "https://github.com/")
 
     return None
 
 
+def redo_submodule_update(repo, repo_path):
+    if os.path.exists(os.path.join(repo_path, '.gitmodules')):
+        repo.submodule_update(init=False)
+
+
 def repo_switch_commit(repo_path, commit_hash):
     try:
         with open_repo(repo_path) as repo:
-            if repo.head_commit_hexsha == commit_hash:
-                return False
+            if repo.head_commit_hexsha != commit_hash:
+                repo.checkout(commit_hash)
+                repo.submodule_update()
+                return True
 
-            repo.checkout(commit_hash)
-            return True
-    except Exception:
+            redo_submodule_update(repo, repo_path)
+            return False
+    except Exception as e:
+        logging.error(f"[ComfyUI-Manager] Failed to check out '{repo_path}' at {commit_hash}: {e}")
         return None

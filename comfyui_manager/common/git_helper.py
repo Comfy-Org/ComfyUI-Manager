@@ -6,7 +6,7 @@ import traceback
 # Make git_compat importable as a standalone subprocess script
 sys.path.insert(0, os.path.dirname(__file__))
 
-from git_compat import open_repo, clone_repo, GitCommandError, setup_git_environment
+from git_compat import open_repo, clone_repo, GitCommandError
 import json
 import yaml
 import requests
@@ -18,7 +18,6 @@ except ImportError:
 
 
 comfy_path = os.environ.get('COMFYUI_PATH')
-git_exe_path = os.environ.get('GIT_EXE_PATH')
 
 if comfy_path is None:
     print("git_helper: environment variable 'COMFYUI_PATH' is not specified.")
@@ -267,6 +266,7 @@ def gitpull(path):
                 print("CUSTOM NODE PULL: None")  # there is no update
                 return
 
+            tip_before_pull = repo.head_commit_hexsha
             try:
                 repo.pull_ff_only()
             except GitCommandError:
@@ -276,7 +276,12 @@ def gitpull(path):
                 repo.reset_hard(f'{remote_name}/{branch_name}')
                 print(f"[ComfyUI-Manager] Reset to {remote_name}/{branch_name}")
 
-            repo.submodule_update()
+            try:
+                repo.submodule_update()
+            except Exception:
+                repo.undo_pull(tip_before_pull)
+                raise
+
             new_commit_hash = repo.head_commit_hexsha
 
             if commit_hash != new_commit_hash:
@@ -286,6 +291,7 @@ def gitpull(path):
         except Exception as e:
             print(e)
             print("CUSTOM NODE PULL: Fail")  # unknown git error
+            sys.exit(1)
 
 
 def checkout_comfyui_hash(target_hash):
@@ -535,14 +541,6 @@ def restore_pip_snapshot(pips, options):
                 failed.append(x)
 
     print(f"Installation failed for pip packages: {failed}")
-
-
-def setup_environment():
-    if git_exe_path is not None:
-        setup_git_environment(git_exe_path)
-
-
-setup_environment()
 
 
 try:
