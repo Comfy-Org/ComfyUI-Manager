@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### A snapshot restore installs a git node pack as the snapshot names it
+
+A snapshot names a git node pack by its url. For a url that the registry
+knows, the restore asked for a nightly install by the id of the registry, and
+that install takes its url from the node list. When the node list had no entry
+for the node pack, as after the list went over to a fork of it, nothing was
+cloned and the summary said `[  FAILED   ]` with no word of why. When the node
+list had another repository under the same name, that one was cloned. The
+restore clones the url of the snapshot, as a nightly install of that node
+pack: a version of the registry that is enabled is disabled first, and the
+node pack is checked out at the commit of the snapshot. The restore no longer
+reads the node list.
+
+A node pack that was switched from its clone to a version of the registry
+keeps the clone, disabled, and a snapshot saves both. The restore enabled or
+cloned the clone and disabled the version that the snapshot names. Such a node
+pack is restored at that version, and its git entry is left alone. When that
+version cannot be installed, the clone is restored as before.
+
+A clone of the restore that is refused says why in the log, as
+`Invalid git url: ...`.
+
 ### A failed legacy backup is reported without the text of the error, and leaves no part of a backup
 
 When the legacy directory could not be moved to its backup, the startup notice
