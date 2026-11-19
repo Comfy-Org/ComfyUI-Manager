@@ -251,15 +251,20 @@ print(json.dumps({'ok': result.result, 'old_path': installed.exists(),
                     'queries': 0, 'downloads': 0, 'scripts': 0}
 
 
-def test_failed_uninstall_stops_reinstall():
+def test_reinstall_stops_when_the_installed_folder_cannot_be_moved_aside():
     data = run('''
 status = 'NodeVersionStatusActive'
-manager.unified_uninstall = Mock(return_value=core.ManagedResult('uninstall').fail('cannot remove'))
+installed = nodes / 'fixture'
+installed.mkdir()
+manager.active_nodes['fixture'] = ('1.0.0', str(installed))
+rename = os.rename
+os.rename = Mock(side_effect=PermissionError('cannot move'))
 result = asyncio.run(manager.reinstall_by_id('fixture', '2.0.0'))
-print(json.dumps({'ok': result.result, 'message': result.msg, 'queries': get.call_count,
-    'downloads': core.manager_downloader.download_url.call_count}))
+os.rename = rename
+print(json.dumps({'ok': result.result, 'moved': 'cannot move' in result.msg, 'kept': installed.is_dir(),
+    'queries': get.call_count, 'downloads': core.manager_downloader.download_url.call_count}))
 ''')
-    assert data == {'ok': False, 'message': 'cannot remove', 'queries': 1, 'downloads': 0}
+    assert data == {'ok': False, 'moved': True, 'kept': True, 'queries': 1, 'downloads': 0}
 
 
 @pytest.mark.parametrize('version', ['nightly', 'unknown'])

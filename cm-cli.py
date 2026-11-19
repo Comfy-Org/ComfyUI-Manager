@@ -9,6 +9,7 @@ from typing import Optional
 
 import typer
 from rich import print
+from rich.markup import escape
 from typing_extensions import List, Annotated
 import re
 import git
@@ -75,7 +76,6 @@ def check_comfyui_hash():
 
 
 check_comfyui_hash()  # This is a preparation step for manager_core
-core.check_invalid_nodes()
 
 
 def read_downgrade_blacklist():
@@ -235,12 +235,28 @@ def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
 
 
 def reinstall_node(node_spec_str, is_all=False, cnt_msg=''):
-    node_spec = unified_manager.resolve_node_spec(node_spec_str)
+    node_name, version_spec, _ = unified_manager.resolve_node_spec(node_spec_str)
+    repo_url = None
+    if core.is_valid_url(node_name):
+        url = node_name.rstrip('/')
+        cnr = unified_manager.get_cnr_by_repo(url)
+        if cnr:
+            node_name, version_spec, _ = unified_manager.resolve_node_spec(cnr['id'])
+        else:
+            node_name, version_spec, repo_url = core.unknown_node_id(url), 'unknown', url
 
-    node_name, version_spec, _ = node_spec
+    res = asyncio.run(unified_manager.reinstall_by_id(node_name, version_spec, cmd_ctx.channel, cmd_ctx.mode, instant_execution=True,
+                                                      no_deps=cmd_ctx.no_deps, repo_url=repo_url))
+    if res.action == 'skip':
+        print(f"{cnt_msg} [   SKIP  ] {node_name:50} => Already installed")
+        return
+    if not res.result:
+        print(f"[bold red]ERROR: An error occurred while reinstalling '{node_name}'.\n{escape(res.msg)}[/bold red]")
+        return
 
-    unified_manager.unified_uninstall(node_name, version_spec == 'unknown')
-    install_node(node_name, is_all=is_all, cnt_msg=cnt_msg)
+    # in capitals, as install_node prints a git install: rich reads a lowercase [nightly] as markup
+    target = res.target.upper() if res.target in ('nightly', 'unknown') else res.target
+    print(f"{cnt_msg} [REINSTALLED] {node_name:50}[{target}]")
 
 
 def fix_node(node_spec_str, is_all=False, cnt_msg='', fixed=None):
@@ -317,8 +333,9 @@ def update_parallel(nodes):
         nodes = []
         for x in unified_manager.active_nodes.keys():
             nodes.append(x)
-        for x in unified_manager.unknown_active_nodes.keys():
-            nodes.append(x+"@unknown")
+        for k, v in unified_manager.unknown_active_nodes.items():
+            if v[1] not in unified_manager.invalid_installations:
+                nodes.append(k+"@unknown")
     else:
         nodes = [x for x in nodes if x.lower() not in ['comfy', 'comfyui']]
 
