@@ -239,6 +239,14 @@ def read_cnr_info(fullpath):
         return None  # not valid CNR node pack
 
 
+def read_project_name(fullpath):
+    try:
+        with open(os.path.join(fullpath, 'pyproject.toml'), "r", encoding="utf-8") as f:
+            return toml.load(f)['project']['name'].strip()
+    except Exception:
+        return None
+
+
 def generate_cnr_id(fullpath, cnr_id):
     cnr_id_path = os.path.join(fullpath, '.git', '.cnr-id')
     try:

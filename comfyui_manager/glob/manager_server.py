@@ -350,6 +350,7 @@ class TaskQueue:
         # Force cache refresh for successful pack-modifying operations
         pack_modifying_tasks = {
             OperationType.install.value,
+            OperationType.reinstall.value,
             OperationType.uninstall.value,
             OperationType.enable.value,
             OperationType.disable.value,
@@ -825,7 +826,7 @@ async def task_worker():
     logging.debug("[ComfyUI-Manager] Task worker started")
     await core.unified_manager.reload(ManagerDatabaseSource.cache.value)
 
-    async def do_install(params: InstallPackParams) -> str:
+    async def do_install(params: InstallPackParams, operation: str) -> str:
         node_id = params.id
         node_version = params.selected_version
         channel = params.channel
@@ -856,13 +857,18 @@ async def task_worker():
             if not security_utils.is_allowed_security_level(level):
                 logging.error(SECURITY_MESSAGE_MIDDLE_P if level == 'middle+' else SECURITY_MESSAGE_MIDDLE)
                 return OperationResult.failed.value
-            res = await core.unified_manager.install_by_id(
-                node_name,
-                version_spec,
-                channel,
-                mode,
-                return_postinstall=skip_post_install,
-            )  # discard post install if skip_post_install mode
+            if operation == OperationType.reinstall.value:
+                res = await core.unified_manager.reinstall_by_id(
+                    node_name, version_spec, channel, mode
+                )
+            else:
+                res = await core.unified_manager.install_by_id(
+                    node_name,
+                    version_spec,
+                    channel,
+                    mode,
+                    return_postinstall=skip_post_install,
+                )
 
             if res.action not in [
                 "skip",
@@ -909,7 +915,7 @@ async def task_worker():
                 # the remote URL. Downstream branches at L901/904 already
                 # handle url is None, so we just need a None-safe title.
                 # Harmonized with legacy/manager_server.py equivalent (WI #252).
-                url = core.unified_manager.unknown_active_nodes[node_name][0]
+                url = core.unified_manager.unknown_active_nodes.get(node_name, (None,))[0]
                 title = os.path.basename(url) if url else node_name
             else:
                 url = core.unified_manager.cnr_map[node_name].get("repository")
@@ -932,7 +938,7 @@ async def task_worker():
 
             base_res["msg"] = res.msg or f"An error occurred while updating '{node_name}'."
             logging.error(
-                f"\nERROR: An error occurred while updating '{node_name}'. (res.result={res.result}, res.action={res.action})"
+                f"\nERROR: An error occurred while updating '{node_name}': {res.msg} (res.result={res.result}, res.action={res.action})"
             )
             return base_res
         except Exception:
@@ -1187,8 +1193,8 @@ async def task_worker():
         )
 
         try:
-            if kind == OperationType.install.value:
-                msg = await do_install(item.params)
+            if kind in (OperationType.install.value, OperationType.reinstall.value):
+                msg = await do_install(item.params, kind)
             elif kind == OperationType.enable.value:
                 msg = await do_enable(item.params)
             elif kind == OperationType.install_model.value:
@@ -1526,6 +1532,9 @@ async def _update_all(params: UpdateAllQueryParams) -> web.Response:
             # skip updating comfyui-manager if desktop version
             if os.environ.get("__COMFYUI_DESKTOP_VERSION__"):
                 continue
+
+        if v[1] in core.unified_manager.invalid_installations:
+            continue
 
         update_task = QueueTaskItem(
             kind=OperationType.update.value,
@@ -2201,6 +2210,9 @@ async def default_cache_update():
             logging.info(
                 "[ComfyUI-Manager] The private comfyregistry is not yet supported in `network_mode=private`."
             )
+            await core.unified_manager.reload(
+                ManagerDatabaseSource.remote.value, dont_wait=False, update_cnr_map=False
+            )
         else:
             # load at least once
             await core.unified_manager.reload(
@@ -2214,6 +2226,7 @@ async def default_cache_update():
             ManagerDatabaseSource.remote.value, dont_wait=False, update_cnr_map=False
         )
 
+    core.check_invalid_nodes()
     logging.info("[ComfyUI-Manager] All startup tasks have been completed.")
 
 
