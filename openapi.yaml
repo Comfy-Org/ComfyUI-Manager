@@ -20,7 +20,7 @@ components:
   schemas:
     OperationType:
       type: string
-      enum: [install, uninstall, update, update-comfyui, fix, disable, enable, install-model]
+      enum: [install, reinstall, uninstall, update, update-comfyui, fix, disable, enable, install-model]
       description: Type of operation or task being performed
     OperationResult:
       type: string
@@ -226,6 +226,9 @@ components:
         enabled:
           type: boolean
           description: Whether the pack is enabled
+        invalid_installation:
+          type: [boolean, 'null']
+          description: True when the folder has neither .git nor .tracking, so the Manager can neither update it nor tell its version; absent or null otherwise. Its ver is then "unknown" and its cnr_id is the registry id of its pack when the registry list has it, otherwise [project].name of its pyproject.toml in lower case (also while the registry list is still loading), otherwise "". A reinstall task fixes it.
       required: [ver, enabled]
     SelectedVersion:
       type: string
@@ -921,6 +924,18 @@ paths:
                   kind: "install"
                   params:
                     id: "pythongosssss/ComfyUI-Custom-Scripts"
+                    version: "latest"
+                    selected_version: "latest"
+                    mode: "remote"
+                    channel: "default"
+              reinstall:
+                summary: Reinstall a custom node in place of its folders, which are kept if the install fails
+                value:
+                  ui_id: "task_132"
+                  client_id: "client_abc"
+                  kind: "reinstall"
+                  params:
+                    id: "comfyui-impact-pack"
                     version: "latest"
                     selected_version: "latest"
                     mode: "remote"

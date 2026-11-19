@@ -57,7 +57,7 @@ def load_server(server, manager_util, channel_url):
         pass
 
     config = {"channel_url": channel_url, "network_mode": "public", "default_cache_as_channel_url": True}
-    core = SimpleNamespace(get_config=lambda: config, refresh_channel_dict=lambda: None,
+    core = SimpleNamespace(get_config=lambda: config, refresh_channel_dict=lambda: None, check_invalid_nodes=lambda: None,
                            unified_manager=SimpleNamespace(reload=loaded, get_custom_nodes=loaded))
     remote = SimpleNamespace(remote=SimpleNamespace(value="remote"))
     startup = load_functions(PACKAGE / server / "manager_server.py", {"default_cache_update"}, {

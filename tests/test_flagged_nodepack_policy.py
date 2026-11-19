@@ -455,18 +455,22 @@ def test_snapshot_denial_preserves_existing_pack_without_retry(core, monkeypatch
 
 
 @pytest.mark.parametrize('core', ['legacy'], indirect=True)
-def test_reinstall_stops_when_removal_fails(core, monkeypatch):
+def test_reinstall_stops_when_the_installed_folder_cannot_be_moved_aside(core, monkeypatch, tmp_path):
     get = Mock(return_value=api_response('NodeVersionStatusActive'))
     monkeypatch.setattr(core.cnr_utils.requests, 'get', get)
-    download = Mock(side_effect=AssertionError('failed removal must prevent downloading'))
+    download = Mock(side_effect=AssertionError('a folder that cannot be moved aside must prevent downloading'))
     monkeypatch.setattr(core.manager_downloader, 'download_url', download)
     manager = core.UnifiedManager()
-    manager.unified_uninstall = Mock(return_value=core.ManagedResult('uninstall').fail('cannot remove'))
+    installed = tmp_path / 'fixture'
+    installed.mkdir()
+    manager.active_nodes['fixture'] = ('1.0.0', str(installed))
+    monkeypatch.setattr(core.os, 'rename', Mock(side_effect=PermissionError('cannot move')))
 
     result = asyncio.run(manager.reinstall_by_id('fixture', '2.0.0'))
 
     assert result.result is False
-    assert result.msg == 'cannot remove'
+    assert 'cannot move' in result.msg
+    assert installed.is_dir()
     assert get.call_count == 1
     assert download.call_count == 0
 
