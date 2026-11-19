@@ -330,10 +330,10 @@ The security settings are applied based on whether the ComfyUI server's listener
 
 | Risky Level | features                                                                                                                              |
 |-------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| high+       | * **Switch ComfyUI version**<BR>* **Fix nodepack** |
+| high+       | * **Switch ComfyUI version**<BR>* **Restore Snapshot**<BR>* **Fix nodepack** |
 | high        | _(no features at this tier — `Fix nodepack` promoted to `high+` to align the enforcement gate with the `SECURITY_MESSAGE_HIGH_P` log text)_ |
-| middle+     | * Uninstall/Update<BR>* Installation of Git/nightly nodepacks registered in the `default channel`.<BR>* Restore/Remove Snapshot<BR>* Install model |
-| middle      | * Restart<BR>* Installation of CNR release versions (subject to the flagged-version policy below) |
+| middle+     | * Uninstall/Update<BR>* Installation of Git/nightly nodepacks registered in the `default channel`.<BR>* Enabling a disabled nightly in the place of an enabled Registry version.<BR>* Install model |
+| middle      | * Restart<BR>* Remove Snapshot<BR>* Installation of CNR release versions (subject to the flagged-version policy below) |
 | low         | * Update ComfyUI                                                                                                                      |
 
 * **Note**: `Install via git url` and `pip install` are no longer gated by `security_level` — they moved to the dedicated flags `allow_git_url_install` / `allow_pip_install`. Installation of a nodepack registered not in the `default channel` likewise requires `allow_git_url_install` (in addition to the `middle+` level preconditions) instead of a `high+` security level. See the [Dedicated install flags](#dedicated-install-flags-allow_git_url_install--allow_pip_install) subsection below.

@@ -217,7 +217,7 @@ def install(server, node, version, operation='install', *, repository='https://e
             'ui_id': ui_id, 'client_id': 'flagged-e2e', 'kind': operation, 'params': params,
         }, timeout=10)
         response.raise_for_status()
-        requests.post(server.base + '/v2/manager/queue/start', timeout=10).raise_for_status()
+        requests.post(server.base + '/v2/manager/queue/start', headers={'Content-Type': 'application/json'}, timeout=10).raise_for_status()
         query = {'ui_id': ui_id}
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
@@ -625,7 +625,7 @@ def test_scheduled_snapshot_restores_through_server_restart(
     installed = tmp_path / 'custom_nodes/fixture-snapshot'
     marker = installed / 'installed.txt'
     reservation = tmp_path / 'user/__manager/startup-scripts/restore-snapshot.json'
-    with running_server(tmp_path, tree, '127.0.0.1', False, 'normal', registry) as server:
+    with running_server(tmp_path, tree, '127.0.0.1', False, 'normal-', registry) as server:
         if existing:
             install(server, 'fixture-snapshot', '1.0.0')
             assert marker.read_text() == '1.0.0'

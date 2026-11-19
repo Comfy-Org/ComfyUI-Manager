@@ -172,7 +172,7 @@ export function rebootAPI() {
 	customConfirm("Are you sure you'd like to reboot the server?").then((isConfirmed) => {
 		if (isConfirmed) {
 			try {
-				api.fetchApi("/v2/manager/reboot", { method: 'POST' });
+				api.fetchApi("/v2/manager/reboot", { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 			}
 			catch(exception) {}
 		}
@@ -212,7 +212,8 @@ export async function install_pip(packages) {
 
 	const res = await api.fetchApi("/v2/customnode/install/pip", {
 		method: "POST",
-		body: packages,
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ packages: packages }),
 	});
 
 	if(res.status == 403) {
@@ -247,7 +248,8 @@ export async function install_via_git_url(url, manager_dialog) {
 
 	const res = await api.fetchApi("/v2/customnode/install/git_url", {
 		method: "POST",
-		body: url,
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ url: url }),
 	});
 
 	if(res.status == 403) {

@@ -320,7 +320,7 @@ class TestUpdateComfyuiQueued:
 
     def test_direct_endpoint_returns_200(self, comfyui_legacy):
         resp = requests.post(
-            f"{BASE_URL}/v2/manager/queue/update_comfyui", timeout=15
+            f"{BASE_URL}/v2/manager/queue/update_comfyui", headers={"Content-Type": "application/json"}, timeout=15
         )
         assert resp.status_code == 200, (
             f"update_comfyui should return 200 at default security_level, "
@@ -468,7 +468,7 @@ class TestSwitchComfyuiSelfSwitch:
 class TestInstallViaGitUrlRealClone:
     """Real E2E for wi-037 POST /v2/customnode/install/git_url.
 
-    Strategy: POST with body=TRUSTED_GIT_URL (plain text). Handler
+    Handler
     (legacy/manager_server.py:1502-1519) runs core.gitclone_install(url)
     synchronously; 200 on success + 'After restarting ComfyUI' log;
     'skip' action on already-installed → also 200.
@@ -492,8 +492,7 @@ class TestInstallViaGitUrlRealClone:
         try:
             resp = requests.post(
                 f"{BASE_URL}/v2/customnode/install/git_url",
-                data=TRUSTED_GIT_URL,
-                headers={"Content-Type": "text/plain"},
+                json={"url": TRUSTED_GIT_URL},
                 timeout=180,
             )
             assert resp.status_code == 200, (
@@ -558,8 +557,7 @@ class TestInstallPipRealExecute:
         try:
             resp = requests.post(
                 f"{BASE_URL}/v2/customnode/install/pip",
-                data=TRUSTED_PIP_PKG,
-                headers={"Content-Type": "text/plain"},
+                json={"packages": TRUSTED_PIP_PKG},
                 timeout=30,
             )
             assert resp.status_code == 200, (

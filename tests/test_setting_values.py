@@ -44,11 +44,13 @@ def post(request):
                      "routes": SimpleNamespace(post=lambda path: lambda function: function)}
         if request.param == "legacy":
             namespace["is_allowed_security_level"] = lambda level: allowed
+            namespace["manager_security"] = SimpleNamespace(reject_non_json_post=lambda request: None)
             take(PACKAGE / "legacy/manager_server.py", HANDLERS | SETTERS, namespace)
         else:
             setters = take(PACKAGE / "glob/utils/environment_utils.py", SETTERS, {"core": core})
             namespace["environment_utils"] = SimpleNamespace(**{name: setters[name] for name in SETTERS})
-            namespace["security_utils"] = SimpleNamespace(is_allowed_security_level=lambda level: allowed)
+            namespace["security_utils"] = SimpleNamespace(is_allowed_security_level=lambda level: allowed,
+                                                          reject_non_json_post=lambda request: None)
             take(PACKAGE / "glob/manager_server.py", HANDLERS, namespace)
 
         async def read():

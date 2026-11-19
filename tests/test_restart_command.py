@@ -114,7 +114,7 @@ def run_restart_site(path, execv):
         nodes = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name == "restart"]
     assert len(nodes) == 1, f"restart code not found in {path}"
 
-    allow = SimpleNamespace(reject_simple_form_post=lambda request: None, is_allowed_security_level=lambda level: True)
+    allow = SimpleNamespace(reject_non_json_post=lambda request: None, is_allowed_security_level=lambda level: True)
     namespace = {
         "os": SimpleNamespace(environ={}, path=os.path, execv=execv),  # not a comfy-cli session
         "sys": sys,

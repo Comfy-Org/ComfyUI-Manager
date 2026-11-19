@@ -37,7 +37,7 @@ from packaging import version
 import uuid
 
 from ..common import cm_global
-from ..common.config_writer import DirtyTrackingConfig, write_config_merged
+from ..common.config_writer import DirtyTrackingConfig, with_valid_values, write_config_merged
 from ..common import cnr_utils
 from ..common import manager_util
 from ..common import manager_security
@@ -1684,7 +1684,7 @@ def write_config():
 
 def read_config():
     try:
-        config = configparser.ConfigParser(strict=False)
+        config = configparser.ConfigParser(strict=False, interpolation=None)
         config.read(context.manager_config_path)
         default_conf = config['default']
 
@@ -1697,7 +1697,7 @@ def read_config():
         # Re-reading from config would undo the fallback.
         manager_util.bypass_ssl = get_bool('bypass_ssl', False)
 
-        return {
+        return with_valid_values({
                     'http_channel_enabled': get_bool('http_channel_enabled', False),
                     # read as written: a path of Windows may hold a `%`, which the parser takes as the start of a reference
                     'git_exe': default_conf.get('git_exe', '', raw=True),
@@ -1720,9 +1720,12 @@ def read_config():
                     'allow_git_url_install': get_bool('allow_git_url_install', False),
                     'allow_pip_install': get_bool('allow_pip_install', False),
                     'allow_flagged_nodepack_install': get_bool('allow_flagged_nodepack_install', False),
-               }
+               })
 
-    except Exception:
+    except Exception as e:
+        if os.path.exists(context.manager_config_path):
+            logging.warning(f"[ComfyUI-Manager] '{context.manager_config_path}' could not be read ({e!r}); the default settings are used.")
+
         import importlib.util
         # temporary disable `uv` on Windows by default (https://github.com/Comfy-Org/ComfyUI-Manager/issues/1969)
         manager_util.use_uv = importlib.util.find_spec("uv") is not None and platform.system() != "Windows"
@@ -3450,6 +3453,11 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
     return not failed and not pips_not_installed
 
 
+def parse_semver(tag_name):
+    match = re.fullmatch(r'v(\d+)\.(\d+)\.(\d+)', tag_name)
+    return tuple(int(x) for x in match.groups()) if match else None
+
+
 def get_comfyui_versions(repo=None):
     created_repo = repo is None
     repo = repo or open_repo(context.comfy_path)
@@ -3461,10 +3469,6 @@ def get_comfyui_versions(repo=None):
             repo.get_remote(remote_name).fetch()
         except Exception:
             logging.error("[ComfyUI-Manager] Failed to fetch ComfyUI")
-
-        def parse_semver(tag_name):
-            match = re.match(r'^v(\d+)\.(\d+)\.(\d+)$', tag_name)
-            return tuple(int(x) for x in match.groups()) if match else None
 
         def normalize_describe(tag_name):
             if not tag_name:
@@ -3531,6 +3535,22 @@ def get_comfyui_versions(repo=None):
     finally:
         if created_repo:
             repo.close()
+
+
+def is_comfyui_downgrade(tag):
+    if tag == 'nightly':
+        return False
+
+    with open_repo(context.comfy_path) as repo:
+        described = repo.describe_tags() or ''
+
+    release, _, commits_after_release = described.partition('-')
+    current = parse_semver(release)
+    target = parse_semver(tag)
+    if current is None or target is None:
+        return True
+
+    return target <= current if commits_after_release else target < current
 
 
 def switch_comfyui(tag):

@@ -47,12 +47,13 @@ def load_share_art(package, output_dir, temp_dir, os_module: object = os):
         async def close(self):
             pass
 
-    namespace = load_functions(PACKAGE / package / "share_3rdparty.py", {"share_art"}, {
+    namespace = load_functions(PACKAGE / package / "share_3rdparty.py", {"share_art", "is_matrix_org"}, {
         "PromptServer": SimpleNamespace(instance=SimpleNamespace(routes=web.RouteTableDef())),
         "folder_paths": SimpleNamespace(get_output_directory=lambda: str(output_dir),
                                         get_temp_directory=lambda: str(temp_dir)),
         "os": os_module, "web": web, "json": json, "mimetypes": mimetypes,
-        "matrix_nio_is_available": True, "set_matrix_auth": lambda matrix_auth: None,
+        "matrix_nio_is_available": True, "get_matrix_auth": lambda: None, "set_matrix_auth": lambda matrix_auth: None,
+        "manager_security": SimpleNamespace(reject_non_json_post=lambda request: None),
         "AsyncClient": AsyncClient, "LoginResponse": LoginResponse, "UploadResponse": UploadResponse,
     })
     return namespace["share_art"], uploads
@@ -60,7 +61,7 @@ def load_share_art(package, output_dir, temp_dir, os_module: object = os):
 
 def share(share_art, output):
     body = {
-        "matrix_auth": {"homeserver": "matrix.example", "username": "user", "password": "password"},
+        "matrix_auth": {"homeserver": "matrix.org", "username": "user", "password": "password"},
         "share_destinations": ["matrix"], "credits": "", "title": "", "description": "",
         "prompt": {"workflow": {}}, "potential_outputs": [output], "selected_output_index": 0,
     }
@@ -107,7 +108,7 @@ def test_a_file_in_the_directory_is_shared(package, dirs, output, content):
     response = share(share_art, output)
 
     assert response.status == 200
-    assert uploads[0] == ("https://matrix.example", content)
+    assert uploads[0] == ("https://matrix.org", content)
 
 
 @pytest.mark.parametrize("output", [

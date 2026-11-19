@@ -359,7 +359,7 @@ Negative check: <what must NOT happen>
 - **Observable**: manager_startup_script_path for `restore-snapshot.json`
 - **Assertion**: restore-snapshot.json exists; content == target snapshot; (downstream: reboot → state reverts)
 
-### Goal SR6 — Security gate (<middle+)
+### Goal SR6 — Security gate (<high+)
 - **Assertion**: 403; no marker file
 
 ---
@@ -666,7 +666,7 @@ Reusable verification templates organized by intent category. Apply the template
 
 **Security tiers to cover**:
 - `middle` — reboot, snapshot/remove, _uninstall, _update
-- `middle+` — update_all, snapshot/restore, _install_custom_node, _install_model
+- `middle+` — update_all, _install_custom_node, _install_model
 - `high+` — comfyui_switch_version, install/git_url, install/pip, non-safetensors model, _fix (`middle` → `high` in commit `c8992e5d`; subsequent `high` → `high+` in WI-#235 to align the gate with the `SECURITY_MESSAGE_HIGH_P` log text)
 
 **Path-traversal sub-template** (within security boundary):

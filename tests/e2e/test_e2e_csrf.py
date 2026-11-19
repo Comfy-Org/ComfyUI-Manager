@@ -149,14 +149,14 @@ class TestCsrfPostWorks:
 
     def test_queue_reset_post_works(self, comfyui):
         """POST queue/reset should succeed (the same path rejects GET)."""
-        resp = requests.post(f"{BASE_URL}/v2/manager/queue/reset", timeout=10)
+        resp = requests.post(f"{BASE_URL}/v2/manager/queue/reset", headers={"Content-Type": "application/json"}, timeout=10)
         assert resp.status_code == 200, (
             f"POST queue/reset should succeed, got {resp.status_code}: {resp.text[:200]}"
         )
 
     def test_snapshot_save_post_works(self, comfyui):
         """POST snapshot/save should succeed."""
-        resp = requests.post(f"{BASE_URL}/v2/snapshot/save", timeout=30)
+        resp = requests.post(f"{BASE_URL}/v2/snapshot/save", headers={"Content-Type": "application/json"}, timeout=30)
         assert resp.status_code == 200, (
             f"POST snapshot/save should succeed, got {resp.status_code}: {resp.text[:200]}"
         )
@@ -168,6 +168,7 @@ class TestCsrfPostWorks:
                 requests.post(
                     f"{BASE_URL}/v2/snapshot/remove",
                     params={"target": items[0]},
+                    headers={"Content-Type": "application/json"},
                     timeout=10,
                 )
 
@@ -207,18 +208,10 @@ class TestCsrfReadEndpointsStillAllowGet:
 # Content-Type gate — second CSRF mitigation layer
 # ---------------------------------------------------------------------------
 #
-# GET→POST conversion alone does NOT block <form method=POST> from a malicious
-# cross-origin page, because browsers mark form submissions with one of three
-# CORS "simple request" Content-Types (Fetch spec §3.2.3) and do NOT preflight
-# them. These 9 high-risk state mutation endpoints therefore additionally
-# reject those three MIME types at the handler entry. Bare POST (no body) and
-# application/json remain accepted — same-origin fetch() and existing
-# manager-core JS callers are unaffected.
-#
-# Source of truth for the gated handler list:
-# comfyui_manager/common/manager_security.py :: reject_simple_form_post
-# comfyui_manager/glob/manager_server.py     :: 9 handlers call it
-FORM_REJECTED_POST_ENDPOINTS = [
+# A page of another origin can make a browser send a POST without a CORS
+# preflight: as a form, or with no Content-Type at all, with or without a body.
+# It cannot send application/json without a preflight.
+BODYLESS_POST_ENDPOINTS = [
     "/v2/manager/queue/update_all",
     "/v2/snapshot/remove",
     "/v2/snapshot/restore",
@@ -228,65 +221,47 @@ FORM_REJECTED_POST_ENDPOINTS = [
     "/v2/manager/queue/update_comfyui",
     # "/v2/comfyui_manager/comfyui_switch_version"  — removed in WI #258:
     # migrated from query-string to JSON body, now a body-reading handler.
-    # Per the module policy in common/manager_security.py, body-reading
-    # handlers are NOT gated (CORS preflight on application/json already
-    # blocks cross-origin form POST forgery).
     "/v2/manager/reboot",
 ]
 
-SIMPLE_FORM_CONTENT_TYPES = [
+NOT_JSON_CONTENT_TYPES = [
+    None,
     "application/x-www-form-urlencoded",
     "multipart/form-data; boundary=----WebKitFormBoundaryTest",
     "text/plain",
 ]
 
 
-class TestFormContentTypeRejected:
-    """Every gated state-changing endpoint MUST reject CORS simple-request
-    Content-Types to block preflight-less <form method=POST> CSRF.
-
-    Matrix: 9 endpoints × 3 Content-Types = 27 assertions.
-    """
-
+class TestContentTypeThatIsNotJsonRejected:
     @pytest.mark.parametrize(
         "content_type",
-        SIMPLE_FORM_CONTENT_TYPES,
-        ids=["urlencoded", "multipart", "textplain"],
+        NOT_JSON_CONTENT_TYPES,
+        ids=["none", "urlencoded", "multipart", "textplain"],
     )
     @pytest.mark.parametrize(
         "path",
-        FORM_REJECTED_POST_ENDPOINTS,
-        ids=FORM_REJECTED_POST_ENDPOINTS,
+        BODYLESS_POST_ENDPOINTS,
+        ids=BODYLESS_POST_ENDPOINTS,
     )
-    def test_form_content_type_rejected(self, comfyui, path, content_type):
-        """POST with a simple-form Content-Type must be rejected with 400.
-
-        The handler's Content-Type gate runs BEFORE the security_level check,
+    def test_content_type_that_is_not_json_rejected(self, comfyui, path, content_type):
+        """The handler's Content-Type gate runs BEFORE the security_level check,
         so the expected status is 400 even under security levels that would
         otherwise return 403.
         """
         resp = requests.post(
             f"{BASE_URL}{path}",
-            headers={"Content-Type": content_type},
-            data="",  # empty body still counts: browsers would not preflight
+            headers={} if content_type is None else {"Content-Type": content_type},
+            data="",
             timeout=10,
         )
         assert resp.status_code == 400, (
-            f"CSRF FORM-POST GATE BYPASS: POST {path} with "
+            f"CSRF GATE BYPASS: POST {path} with "
             f"Content-Type={content_type!r} returned {resp.status_code} "
             f"(expected 400): {resp.text[:200]}"
         )
 
 
-class TestNoBodyPostStillAccepted:
-    """Positive control: bare POST (no body, no Content-Type) must still pass
-    the form-content-type gate.
-
-    The existing frontend (snapshot.js, comfyui-manager.js, etc.) issues
-    fetch()/XHR POSTs without an explicit body for these idempotent-ish
-    operations; a regression here would break those callers.
-    """
-
+class TestJsonPostWithoutBodyAccepted:
     @pytest.mark.parametrize(
         "path",
         # Subset — pick endpoints whose happy path is deterministic under the
@@ -300,16 +275,13 @@ class TestNoBodyPostStillAccepted:
         ],
         ids=["queue-reset", "queue-start", "snapshot-save"],
     )
-    def test_no_body_post_still_accepted(self, comfyui, path):
-        """Bare POST (no Content-Type, no body) must NOT be rejected by the
-        form-content-type gate. Any response other than 400-with-form-text
-        proves the gate did not fire."""
-        resp = requests.post(f"{BASE_URL}{path}", timeout=30)
+    def test_json_post_without_body_accepted(self, comfyui, path):
+        resp = requests.post(f"{BASE_URL}{path}", headers={"Content-Type": "application/json"}, timeout=30)
         # The gate returns 400 with a very specific text. Non-gate 400s
         # (validation errors, etc.) are allowed — we only assert the gate
         # itself didn't trigger.
         if resp.status_code == 400:
             assert "Invalid Content-Type for this endpoint" not in resp.text, (
-                f"POST {path} (bare) hit the form-content-type gate: "
+                f"POST {path} (application/json) hit the content-type gate: "
                 f"{resp.text[:200]}"
             )

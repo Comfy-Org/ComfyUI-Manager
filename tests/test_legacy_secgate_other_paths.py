@@ -14,7 +14,7 @@ PATHS GUARDED (the OTHER security_level gates):
         deny                                 branch (``is_allowed_security_level
                                              ('block')`` is hard-False; Q1)
   P3  nodepack/snapshot high+/middle       — ``comfyui_switch_version`` (high+),
-        gates                                ``restore_snapshot`` (middle+)
+        gates                                ``restore_snapshot`` (high+)
   P4  model non-.safetensors high+ gate    — ``_install_model`` (L1713)
 
 NON-VACUITY (the bar from the GOAL MM): every assertion below is written so
@@ -145,10 +145,6 @@ def _run(coro):
 
 
 class FakeRequest:
-    """Minimal stand-in for an aiohttp request. ``content_type`` satisfies
-    ``reject_simple_form_post``; nothing else is read on the deny path (the
-    gate returns before any body access)."""
-
     def __init__(self, content_type="application/json"):
         self.content_type = content_type
 
@@ -160,7 +156,7 @@ class FakeRequest:
 # ===========================================================================
 
 # (security_level, is_local_mode, network_mode, expected_allowed)
-_MIDDLE_PLUS = [  # P1 batch entry, _update_all, _install_model entry, restore_snapshot
+_MIDDLE_PLUS = [
     ("weak", True, "public", True),
     ("normal", True, "public", True),
     ("normal-", True, "public", True),
@@ -298,10 +294,9 @@ def test_p3_comfyui_switch_version_denies_high_plus_403(ms, gate):
     assert resp.status == 403
 
 
-def test_p3_restore_snapshot_denies_middle_plus_403(ms, gate):
-    """P3 middle+ handler: restore_snapshot denies with 403 at sl=strong
-    (middle+ requires normal or lower)."""
-    gate("strong", is_local_mode=True)
+@pytest.mark.parametrize("security_level", ["strong", "normal"])
+def test_p3_restore_snapshot_denies_high_plus_403(ms, gate, security_level):
+    gate(security_level, is_local_mode=True)
     resp = _run(ms.restore_snapshot(FakeRequest()))
     assert resp.status == 403
 

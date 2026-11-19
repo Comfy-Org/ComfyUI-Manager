@@ -173,7 +173,7 @@ export class ModelManager {
 
 			".cmm-manager-stop": {
 				click: () => {
-					api.fetchApi('/v2/manager/queue/reset', { method: 'POST' });
+					api.fetchApi('/v2/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 					infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 				}
 			},
@@ -492,6 +492,7 @@ export class ModelManager {
 		try {
 			const { data, error } = await fetchData(`/v2/manager/queue/batch`, {
 				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(batch)
 			});
 			if (error) throw error;

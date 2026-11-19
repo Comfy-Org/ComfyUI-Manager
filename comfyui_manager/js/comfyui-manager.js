@@ -495,6 +495,7 @@ async function updateComfyUI() {
 
 	const res = await api.fetchApi(`/v2/manager/queue/batch`, {
 		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(batch)
 	});
 }
@@ -644,17 +645,6 @@ async function switchComfyUI() {
 		}
 
 		showVersionSelectorDialog(versions, obj.current, async (selected_version) => {
-			if(selected_version == 'nightly') {
-				update_policy_chosen = true;
-				update_policy_combo.value = 'nightly-comfyui';
-				api.fetchApi('/v2/manager/policy/update', { method: 'POST', body: JSON.stringify({value: 'nightly-comfyui'}) });
-			}
-			else {
-				update_policy_chosen = true;
-				update_policy_combo.value = 'stable-comfyui';
-				api.fetchApi('/v2/manager/policy/update', { method: 'POST', body: JSON.stringify({value: 'stable-comfyui'}) });
-			}
-
 			let response = await api.fetchApi('/v2/comfyui_manager/comfyui_switch_version', {
 				method: 'POST',
 				cache: "no-store",
@@ -666,7 +656,15 @@ async function switchComfyUI() {
 				}),
 			});
 			if (response.status == 200) {
+				const update_policy = selected_version == 'nightly' ? 'nightly-comfyui' : 'stable-comfyui';
+				update_policy_chosen = true;
+				update_policy_combo.value = update_policy;
+				api.fetchApi('/v2/manager/policy/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({value: update_policy}) });
+
 				infoToast(`ComfyUI version is switched to ${selected_version}`);
+			}
+			else if (response.status == 403) {
+				customAlert('This action is not allowed with this security level configuration.');
 			}
 			else {
 				customAlert('Failed to switch ComfyUI version.');
@@ -816,6 +814,7 @@ async function updateAll(update_comfyui) {
 
 	const res = await api.fetchApi(`/v2/manager/queue/batch`, {
 		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
 		body: JSON.stringify(batch)
 	});
 }
@@ -832,7 +831,7 @@ function restartOrStop() {
 		rebootAPI();
 	}
 	else {
-		api.fetchApi('/v2/manager/queue/reset', { method: 'POST' });
+		api.fetchApi('/v2/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 		infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 	}
 }
@@ -989,7 +988,7 @@ class ManagerMenuDialog extends ComfyDialog {
 
 		this.datasrc_combo.addEventListener('change', function (event) {
 			db_mode_chosen = true;
-			api.fetchApi('/v2/manager/db_mode', { method: 'POST', body: JSON.stringify({value: event.target.value}) });
+			api.fetchApi('/v2/manager/db_mode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({value: event.target.value}) });
 		});
 
 		const dbRetrievalSetttingItem = createSettingsCombo("DB", this.datasrc_combo);
@@ -1011,7 +1010,7 @@ class ManagerMenuDialog extends ComfyDialog {
 					}
 
 					channel_combo.addEventListener('change', function (event) {
-						api.fetchApi('/v2/manager/channel_url_list', { method: 'POST', body: JSON.stringify({value: event.target.value}) });
+						api.fetchApi('/v2/manager/channel_url_list', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({value: event.target.value}) });
 					});
 
 					channel_combo.value = data.selected;
@@ -1046,7 +1045,7 @@ class ManagerMenuDialog extends ComfyDialog {
 			share_option_chosen = true;
 			const value = event.target.value;
 			share_option = value;
-			api.fetchApi(`/v2/manager/share_option?value=${value}`);
+			api.fetchApi('/v2/manager/share_option', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value }) });
 			const shareButton = document.getElementById("shareButton");
 			if (value === 'none') {
 				shareButton.style.display = "none";
@@ -1072,7 +1071,7 @@ class ManagerMenuDialog extends ComfyDialog {
 
 		update_policy_combo.addEventListener('change', function (event) {
 			update_policy_chosen = true;
-			api.fetchApi('/v2/manager/policy/update', { method: 'POST', body: JSON.stringify({value: event.target.value}) });
+			api.fetchApi('/v2/manager/policy/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({value: event.target.value}) });
 		});
 
 		const updateSetttingItem = createSettingsCombo("Update", update_policy_combo);

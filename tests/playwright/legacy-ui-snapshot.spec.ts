@@ -32,7 +32,7 @@ test.describe('Snapshot Manager', () => {
   test.afterEach(async ({ page }) => {
     // Cleanup snapshots newly created during the test to avoid state leak.
     for (const name of createdDuringTest) {
-      await page.request.post(`/v2/snapshot/remove?target=${encodeURIComponent(name)}`);
+      await page.request.post(`/v2/snapshot/remove?target=${encodeURIComponent(name)}`, { headers: { 'Content-Type': 'application/json' } });
     }
   });
 
@@ -78,7 +78,7 @@ test.describe('Snapshot Manager', () => {
 
   test('UI Remove button deletes a snapshot row', async ({ page }) => {
     // SETUP: create a snapshot via API so we have a deterministic target
-    const saveResp = await page.request.post('/v2/snapshot/save');
+    const saveResp = await page.request.post('/v2/snapshot/save', { headers: { 'Content-Type': 'application/json' } });
     expect(saveResp.ok()).toBe(true);
     const namesAfterSave = await getSnapshotNames(page);
     expect(namesAfterSave.length).toBeGreaterThan(0);

@@ -134,7 +134,7 @@ async function tryInstallCustomNode(event) {
 
 		let response;
 		try {
-			response = await api.fetchApi("/v2/manager/reboot", { method: 'POST' });
+			response = await api.fetchApi("/v2/manager/reboot", { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 		}
 		catch(exception) {
 			// The server restarts without answering.

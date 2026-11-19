@@ -816,6 +816,11 @@ class TaskQueue:
 task_queue = TaskQueue()
 
 
+def replaces_cnr_with_nightly(node_id):
+    unified = core.unified_manager
+    return unified.is_enabled(node_id, 'cnr') and unified.resolve_unspecified_version(node_id, guess_mode='inactive') == 'nightly'
+
+
 async def task_worker():
     logging.debug("[ComfyUI-Manager] Task worker started")
     await core.unified_manager.reload(ManagerDatabaseSource.cache.value)
@@ -881,6 +886,9 @@ async def task_worker():
     async def do_enable(params: EnablePackParams) -> str:
         cnr_id = params.cnr_id
         logging.debug("[ComfyUI-Manager] Enabling node: cnr_id=%s", cnr_id)
+        if replaces_cnr_with_nightly(cnr_id) and not security_utils.is_allowed_security_level('middle+'):
+            logging.error(SECURITY_MESSAGE_MIDDLE_P)
+            return OperationResult.failed.value
         core.unified_manager.unified_enable(cnr_id)
         return OperationResult.success.value
 
@@ -938,6 +946,10 @@ async def task_worker():
 
             # Check if this is a version switch operation
             if params.target_version:
+                if core.is_comfyui_downgrade(params.target_version) and not security_utils.is_allowed_security_level('high+'):
+                    logging.error(SECURITY_MESSAGE_HIGH_P)
+                    return OperationResult.failed.value
+
                 # Switch to specific version
                 logging.info(f"Switching ComfyUI to version: {params.target_version}")
                 core.switch_comfyui(params.target_version)
@@ -1256,6 +1268,10 @@ async def queue_task(request) -> web.Response:
     Returns:
         web.Response: HTTP 200 on successful queueing, HTTP 400 on validation error
     """
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     try:
         json_data = await request.json()
         # Validate input using Pydantic model
@@ -1451,7 +1467,7 @@ async def fetch_updates(request):
 
 @routes.post("/v2/manager/queue/update_all")
 async def update_all(request: web.Request) -> web.Response:
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
     try:
@@ -1564,7 +1580,7 @@ async def get_snapshot_list(request):
 
 @routes.post("/v2/snapshot/remove")
 async def remove_snapshot(request):
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
     if not security_utils.is_allowed_security_level("middle"):
@@ -1589,11 +1605,11 @@ async def remove_snapshot(request):
 
 @routes.post("/v2/snapshot/restore")
 async def restore_snapshot(request):
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
-    if not security_utils.is_allowed_security_level("middle+"):
-        logging.error(SECURITY_MESSAGE_MIDDLE_P)
+    if not security_utils.is_allowed_security_level("high+"):
+        logging.error(SECURITY_MESSAGE_HIGH_P)
         return web.Response(status=403)
 
     try:
@@ -1634,7 +1650,7 @@ async def get_current_snapshot_api(request):
 
 @routes.post("/v2/snapshot/save")
 async def save_snapshot(request):
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
     try:
@@ -1675,6 +1691,10 @@ def unzip_install(files):
 
 @routes.post("/v2/customnode/import_fail_info")
 async def import_fail_info(request):
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     try:
         json_data = await request.json()
 
@@ -1709,6 +1729,10 @@ async def import_fail_info(request):
 
 @routes.post("/v2/customnode/import_fail_info_bulk")
 async def import_fail_info_bulk(request):
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     try:
         json_data = await request.json()
         
@@ -1770,7 +1794,7 @@ async def import_fail_info_bulk(request):
 
 @routes.post("/v2/manager/queue/reset")
 async def reset_queue(request):
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
     logging.debug("[ComfyUI-Manager] Queue reset requested")
@@ -1833,7 +1857,7 @@ async def queue_count(request):
 
 @routes.post("/v2/manager/queue/start")
 async def queue_start(request):
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
     logging.debug("[ComfyUI-Manager] Queue start requested")
@@ -1850,7 +1874,7 @@ async def queue_start(request):
 @routes.post("/v2/manager/queue/update_comfyui")
 async def update_comfyui(request):
     """Queue a ComfyUI update based on the configured update policy."""
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
     try:
@@ -1903,10 +1927,10 @@ async def comfyui_versions(request):
 
 @routes.post("/v2/comfyui_manager/comfyui_switch_version")
 async def comfyui_switch_version(request):
-    # Body-reading handler — Content-Type gate omitted per
-    # comfyui_manager/common/manager_security.py module policy: a cross-origin
-    # <form method=POST> cannot forge a valid application/json body because
-    # the browser would trigger a CORS preflight that this server refuses.
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     if not security_utils.is_allowed_security_level("high+"):
         logging.error(SECURITY_MESSAGE_HIGH_P)
         return web.Response(status=403)
@@ -1945,6 +1969,10 @@ async def comfyui_switch_version(request):
 
 @routes.post("/v2/manager/queue/install_model")
 async def install_model(request):
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     try:
         json_data = await request.json()
 
@@ -1982,11 +2010,12 @@ async def db_mode(request):
 
 @routes.post("/v2/manager/db_mode")
 async def set_db_mode_api(request):
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     # Config writes are at the same risk tier as uninstall/update — apply the
-    # 'middle' gate consistent with snapshot/remove, etc. Content-Type gate is
-    # NOT applied here: this handler consumes application/json and a
-    # cross-origin <form method=POST> cannot forge that without triggering
-    # CORS preflight (see module docstring in common/manager_security.py).
+    # 'middle' gate consistent with snapshot/remove, etc.
     if not security_utils.is_allowed_security_level("middle"):
         logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403)
@@ -2008,7 +2037,10 @@ async def update_policy(request):
 
 @routes.post("/v2/manager/policy/update")
 async def set_update_policy_api(request):
-    # See set_db_mode_api above for gate rationale.
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     if not security_utils.is_allowed_security_level("middle"):
         logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403)
@@ -2040,7 +2072,10 @@ async def channel_url_list(request):
 
 @routes.post("/v2/manager/channel_url_list")
 async def set_channel_url(request):
-    # See set_db_mode_api above for gate rationale.
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     if not security_utils.is_allowed_security_level("middle"):
         logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403)
@@ -2065,7 +2100,7 @@ async def set_channel_url(request):
 
 @routes.post("/v2/manager/reboot")
 def restart(request):
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
     if not security_utils.is_allowed_security_level("middle"):

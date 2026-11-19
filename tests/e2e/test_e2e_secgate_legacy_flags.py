@@ -204,13 +204,13 @@ comfyui_flags_h = _make_flags_server_fixture(
 
 def _post_git_url(url: str) -> requests.Response:
     return requests.post(
-        f"{BASE_URL}/v2/customnode/install/git_url", data=url, timeout=120,
+        f"{BASE_URL}/v2/customnode/install/git_url", json={"url": url}, timeout=120,
     )
 
 
 def _post_pip(packages: str) -> requests.Response:
     return requests.post(
-        f"{BASE_URL}/v2/customnode/install/pip", data=packages, timeout=60,
+        f"{BASE_URL}/v2/customnode/install/pip", json={"packages": packages}, timeout=60,
     )
 
 

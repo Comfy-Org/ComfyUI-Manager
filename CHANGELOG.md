@@ -7,6 +7,101 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Security
+
+- Keep the saved Matrix password on the server.
+  `GET /v2/manager/get_matrix_auth` answered with the saved homeserver, username
+  and password, to any client that could reach the server. It now answers
+  without the password. With the legacy UI, the share dialog leaves the password
+  field empty for the saved account, and the server uses the saved password for
+  the username it was saved with; for another account a password has to be
+  typed. An account is saved once it has logged in; a share request no longer
+  replaces the saved account before that. If others could reach the server while
+  a Matrix password was saved, change that password.
+- Share to Matrix through matrix.org only, where the share room is. The server
+  logged in to any homeserver that a share request named, with the password of
+  the request. The homeserver of the legacy UI's share dialog can no longer be
+  changed, a share request that names another homeserver is refused, and an
+  account that was saved for another homeserver is not used: an account of
+  matrix.org has to be entered.
+- Keep the YouML API token in the browser that shares, which is what sends it to
+  YouML. The server stored it, and `GET /v2/manager/youml/settings` answered
+  with it to any client that could reach the server. Both
+  `/v2/manager/youml/settings` routes are removed. With the legacy UI, the token
+  has to be entered once more in the YouML share dialog. Delete `.youml` in
+  `<USER_DIRECTORY>/__manager/`, and if others could reach the server while a
+  token was saved, issue a new token.
+- Hold a switch of ComfyUI to an older version to the security level when it is
+  asked for through `POST /v2/manager/queue/task`. The switch route has needed
+  `normal-` or lower on a loopback listener, or `weak` in `personal_cloud` mode,
+  since 4.2.1; an `update-comfyui` task with a version was not checked. Such a
+  task now needs the same when the version is an older release or is not a
+  release tag. A task for `nightly` or for a newer release is an update and runs
+  at every level, as before. A ComfyUI with commits after its release, as on
+  `nightly`, would go back by a switch to that release, so that counts as older;
+  in a repository without release tags, such as a clone without tags, every
+  version but `nightly` does. `Switch ComfyUI` in the legacy UI's menu changed
+  the update policy before it asked for the switch, so a switch that was refused
+  still changed it; it now changes it after the switch is accepted, and says so
+  when the security level does not allow the switch.
+- Hold an enable that puts a nightly in the place of a registry version to the
+  security level of a nightly install (`middle+`). An `enable` names a node pack
+  and no version; with a registry version of the pack enabled and its nightly
+  disabled, it enabled the nightly instead, at any security level through
+  `queue/task` and at `middle` through the legacy UI's install route.
+- Hold a snapshot restore to the security level of the switch route (`high+`).
+  A restore takes the node packs back to the versions that the
+  snapshot recorded. `POST /v2/snapshot/restore` needed `middle+`, which the
+  default `security_level = normal` gives on a loopback listener. It now needs
+  `normal-` or lower on a loopback listener, or `weak` in `personal_cloud`
+  mode, and is refused otherwise. `cm-cli restore-snapshot` is not changed.
+- Read a value of `config.ini` as plain text, and use the default of a setting
+  for a value that it cannot have. Manager read `%(name)s` in a value as a
+  reference to another setting, and a `%` that is not of that form made the
+  whole file unreadable: every setting was then at its default,
+  `security_level` too, and nothing said so. A value is now read as it is
+  written; `%%`, which was read as one `%`, is now two. `security_level`,
+  `network_mode`, `db_mode` and `update_policy` have their default when
+  `config.ini` gives a value that they cannot have, and Manager logs a warning
+  that names it; the other settings are read as before, and `config.ini` keeps
+  the value. Before, a `security_level` that is not a level refused every
+  action that needs one; now it is `normal`. A `config.ini` that cannot be read
+  at all still gives the default settings, and is still written anew from them
+  when a setting is saved; Manager now logs a warning when it reads one.
+- Take a JSON body only as `application/json`. A POST route that reads a JSON
+  body parsed it whatever the Content-Type of the request. These routes, among
+  them `POST /v2/manager/queue/task` and `POST /v2/manager/queue/batch`, now
+  answer 400 unless the Content-Type is `application/json`. The legacy routes
+  `POST /v2/customnode/install/git_url` and `POST /v2/customnode/install/pip`
+  now take `{"url": ...}` and `{"packages": ...}` as JSON in place of plain
+  text. A script or tool that posts to these routes without
+  `Content-Type: application/json` has to add it.
+- Save only a choice of the share menu as the share option.
+  `/v2/manager/share_option` saved any text as the share option. It now saves
+  `all`, `none`, `youml` or `matrix`, the choices of the menu, and answers 400
+  for another value.
+- Write the saved Matrix account as a file of its user only. The share dialog
+  saves the account, with its password, in `matrix_auth` in Manager's data
+  directory. The file was written with the default mode of new files, which
+  other users of the machine can usually read. It is now written with mode
+  `0600`, and a file that is already there gets that mode the next time an
+  account is saved.
+- Take every POST that changes something only as `application/json`, and save
+  the share option by POST. A page of another site can make the browser send a
+  GET, and a POST without a body and without a Content-Type, for which no
+  preflight is made. The routes that take no body
+  (`/v2/manager/queue/start`, `/v2/manager/queue/reset`,
+  `/v2/manager/queue/update_all`, `/v2/manager/queue/update_comfyui`,
+  `/v2/snapshot/save`, `/v2/snapshot/remove`, `/v2/snapshot/restore`,
+  `/v2/manager/reboot`) now answer 400 unless the request has
+  `Content-Type: application/json`, as the routes that read a JSON body do: a
+  browser does not send that header to another site without a preflight. The
+  share option is saved with `POST /v2/manager/share_option` and a JSON body
+  `{"value": ...}`; `GET /v2/manager/share_option` only answers with the saved
+  option, and a `value` given to it is ignored. The legacy UI sends the header.
+  A script that calls one of these routes has to send it too, and one that
+  saved the share option with `?value=` has to POST.
+
 ## [4.4.1] - 2026-11-19
 
 ### Fixed

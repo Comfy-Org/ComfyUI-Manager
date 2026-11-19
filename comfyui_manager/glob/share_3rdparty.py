@@ -1,5 +1,6 @@
 import mimetypes
 from ..common import context
+from ..common import manager_security
 from . import manager_core as core
 
 import os
@@ -20,15 +21,33 @@ except Exception:
     matrix_nio_is_available = False
 
 
+SHARE_OPTIONS = ('all', 'none', 'youml', 'matrix')
+
+
 @PromptServer.instance.routes.get("/v2/manager/share_option")
 async def share_option(request):
-    if "value" in request.rel_url.query:
-        core.get_config()['share_option'] = request.rel_url.query['value']
-        core.write_config()
-    else:
-        return web.Response(text=core.get_config()['share_option'], status=200)
+    return web.Response(text=core.get_config()['share_option'], status=200)
 
+
+@PromptServer.instance.routes.post("/v2/manager/share_option")
+async def set_share_option(request):
+    rejection = manager_security.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
+    try:
+        value = (await request.json())['value']
+    except (json.JSONDecodeError, UnicodeDecodeError, KeyError, TypeError):
+        return web.Response(status=400, text='Invalid request')
+    if value not in SHARE_OPTIONS:
+        return web.Response(status=400, text='Invalid request')
+    core.get_config()['share_option'] = value
+    core.write_config()
     return web.Response(status=200)
+
+
+def is_matrix_org(homeserver):
+    return homeserver.replace("http://", "https://").removeprefix("https://") == "matrix.org"
 
 
 def get_matrix_auth():
@@ -38,7 +57,7 @@ def get_matrix_auth():
         with open(os.path.join(context.manager_files_path, "matrix_auth"), "r") as f:
             matrix_auth = f.read()
             homeserver, username, password = matrix_auth.strip().split("\n")
-            if not homeserver or not username or not password:
+            if not is_matrix_org(homeserver) or not username or not password:
                 return None
         return {
             "homeserver": homeserver,
@@ -49,44 +68,12 @@ def get_matrix_auth():
         return None
 
 
-def get_youml_settings():
-    if not os.path.exists(os.path.join(context.manager_files_path, ".youml")):
-        return None
-    try:
-        with open(os.path.join(context.manager_files_path, ".youml"), "r") as f:
-            youml_settings = f.read().strip()
-        return youml_settings if youml_settings else None
-    except Exception:
-        return None
-
-
-def set_youml_settings(settings):
-    with open(os.path.join(context.manager_files_path, ".youml"), "w") as f:
-        f.write(settings)
-
-
 @PromptServer.instance.routes.get("/v2/manager/get_matrix_auth")
 async def api_get_matrix_auth(request):
-    # print("Getting stored Matrix credentials...")
     matrix_auth = get_matrix_auth()
     if not matrix_auth:
         return web.Response(status=404)
-    return web.json_response(matrix_auth)
-
-
-@PromptServer.instance.routes.get("/v2/manager/youml/settings")
-async def api_get_youml_settings(request):
-    youml_settings = get_youml_settings()
-    if not youml_settings:
-        return web.Response(status=404)
-    return web.json_response(json.loads(youml_settings))
-
-
-@PromptServer.instance.routes.post("/v2/manager/youml/settings")
-async def api_set_youml_settings(request):
-    json_data = await request.json()
-    set_youml_settings(json.dumps(json_data))
-    return web.Response(status=200)
+    return web.json_response({"homeserver": matrix_auth["homeserver"], "username": matrix_auth["username"]})
 
 
 @PromptServer.instance.routes.get("/v2/manager/get_matrix_dep_status")
@@ -98,11 +85,17 @@ async def get_matrix_dep_status(request):
 
 
 def set_matrix_auth(json_data):
-    homeserver = json_data['homeserver']
     username = json_data['username']
     password = json_data['password']
-    with open(os.path.join(context.manager_files_path, "matrix_auth"), "w") as f:
-        f.write("\n".join([homeserver, username, password]))
+    path = os.path.join(context.manager_files_path, "matrix_auth")
+    # The mode of os.open is for a new file; a file that is there gets the mode before the password is written.
+    with open(os.open(path, os.O_WRONLY | os.O_CREAT, 0o600), "w") as f:
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass  # a file of another owner keeps its mode
+        f.truncate()
+        f.write("\n".join(["matrix.org", username, password]))
 
 
 def has_provided_matrix_auth(matrix_auth):
@@ -112,11 +105,17 @@ def has_provided_matrix_auth(matrix_auth):
 @PromptServer.instance.routes.post("/v2/manager/share")
 async def share_art(request):
     # get json data
+    rejection = manager_security.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     json_data = await request.json()
 
     matrix_auth = json_data['matrix_auth']
 
-    set_matrix_auth(matrix_auth)
+    saved = get_matrix_auth()
+    if saved and not matrix_auth['password'] and matrix_auth['username'] == saved['username']:
+        matrix_auth['password'] = saved['password']
 
     share_destinations = json_data['share_destinations']
     credits = json_data['credits']
@@ -171,20 +170,18 @@ async def share_art(request):
         content_type = assetFileType
 
         try:
-            homeserver = 'matrix.org'
-            if matrix_auth:
-                homeserver = matrix_auth.get('homeserver', 'matrix.org')
-            homeserver = homeserver.replace("http://", "https://")
-            if not homeserver.startswith("https://"):
-                homeserver = "https://" + homeserver
+            if not is_matrix_org(matrix_auth.get('homeserver', 'matrix.org')):
+                return web.json_response({"error": "Only an account of matrix.org can share."}, content_type='application/json', status=400)
 
-            client = AsyncClient(homeserver, matrix_auth['username'])
+            client = AsyncClient("https://matrix.org", matrix_auth['username'])
 
             # Login
             login_resp = await client.login(matrix_auth['password'])
             if not isinstance(login_resp, LoginResponse) or not login_resp.access_token:
                 await client.close()
                 return web.json_response({"error": "Invalid Matrix credentials."}, content_type='application/json', status=400)
+
+            set_matrix_auth(matrix_auth)
 
             # Upload asset
             with open(asset_filepath, 'rb') as f:

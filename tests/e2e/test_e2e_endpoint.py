@@ -102,7 +102,7 @@ def _queue_task(task: dict) -> None:
         timeout=10,
     )
     resp.raise_for_status()
-    requests.post(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
+    requests.post(f"{BASE_URL}/v2/manager/queue/start", headers={"Content-Type": "application/json"}, timeout=10)
 
 
 def _remove_pack(name: str) -> None:

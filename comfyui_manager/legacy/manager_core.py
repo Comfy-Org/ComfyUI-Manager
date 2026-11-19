@@ -35,7 +35,7 @@ from packaging import version
 import uuid
 
 from ..common import cm_global
-from ..common.config_writer import DirtyTrackingConfig, write_config_merged
+from ..common.config_writer import DirtyTrackingConfig, with_valid_values, write_config_merged
 from ..common import cnr_utils
 from ..common import manager_util
 from ..common import manager_security
@@ -1698,7 +1698,7 @@ def write_config():
 
 def read_config():
     try:
-        config = configparser.ConfigParser(strict=False)
+        config = configparser.ConfigParser(strict=False, interpolation=None)
         config.read(context.manager_config_path)
         default_conf = config['default']
 
@@ -1708,7 +1708,7 @@ def read_config():
         manager_util.use_uv = default_conf['use_uv'].lower() == 'true' if 'use_uv' in default_conf else False
         manager_util.bypass_ssl = get_bool('bypass_ssl', False)
 
-        return {
+        return with_valid_values({
                     'http_channel_enabled': get_bool('http_channel_enabled', False),
                     # read as written: a path of Windows may hold a `%`, which the parser takes as the start of a reference
                     'git_exe': default_conf.get('git_exe', '', raw=True),
@@ -1729,9 +1729,12 @@ def read_config():
                     'allow_git_url_install': get_bool('allow_git_url_install', False),
                     'allow_pip_install': get_bool('allow_pip_install', False),
                     'allow_flagged_nodepack_install': get_bool('allow_flagged_nodepack_install', False),
-               }
+               })
 
-    except Exception:
+    except Exception as e:
+        if os.path.exists(context.manager_config_path):
+            logging.warning(f"[ComfyUI-Manager] '{context.manager_config_path}' could not be read ({e!r}); the default settings are used.")
+
         manager_util.use_uv = False
         manager_util.bypass_ssl = False
 

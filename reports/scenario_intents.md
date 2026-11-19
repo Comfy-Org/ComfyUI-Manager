@@ -219,7 +219,7 @@ Intent categories used:
 | Success | Recovery: rollback to a known-good state after bad update |
 | Nonexistent | Input resilience |
 | Path traversal | Security boundary |
-| Security denied | Security boundary: middle+ required (restore is destructive) |
+| Security denied | Security boundary: high+ required (restore is destructive) |
 
 ## 1.4 Configuration
 

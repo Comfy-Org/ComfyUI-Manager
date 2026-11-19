@@ -93,7 +93,7 @@ def _queue_task(task: dict) -> None:
         timeout=10,
     )
     resp.raise_for_status()
-    requests.post(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
+    requests.post(f"{BASE_URL}/v2/manager/queue/start", headers={"Content-Type": "application/json"}, timeout=10)
 
 
 def _remove_pack(name: str) -> None:
@@ -241,7 +241,7 @@ def _ensure_pack_installed_with_tracking():
 
 def _reset_queue():
     """Reset the queue to clean state."""
-    requests.post(f"{BASE_URL}/v2/manager/queue/reset", timeout=10)
+    requests.post(f"{BASE_URL}/v2/manager/queue/reset", headers={"Content-Type": "application/json"}, timeout=10)
 
 
 def _wait_queue_idle(timeout=POLL_TIMEOUT):
@@ -696,7 +696,7 @@ class TestInstallModel:
             #   - done_count advanced → task already ran to history
             # Either proves the enqueued task left the pending state under
             # worker control. This does NOT assert download success.
-            requests.post(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
+            requests.post(f"{BASE_URL}/v2/manager/queue/start", headers={"Content-Type": "application/json"}, timeout=10)
 
             def _worker_observed_task() -> bool:
                 try:
@@ -838,6 +838,7 @@ class TestUpdateAll:
                 "client_id": "e2e-update-all",
                 "ui_id": "e2e-update-all",
             },
+            headers={"Content-Type": "application/json"},
             timeout=600,
         )
 
@@ -875,6 +876,7 @@ class TestUpdateAll:
         """POST /v2/manager/queue/update_all without required params -> 400."""
         resp = requests.post(
             f"{BASE_URL}/v2/manager/queue/update_all",
+            headers={"Content-Type": "application/json"},
             timeout=10,
         )
         assert resp.status_code == 400, (
@@ -903,6 +905,7 @@ class TestUpdateComfyUI:
                 "client_id": "e2e-update-comfyui",
                 "ui_id": "e2e-update-comfyui",
             },
+            headers={"Content-Type": "application/json"},
             timeout=10,
         )
         assert resp.status_code == 200, (
@@ -927,6 +930,7 @@ class TestUpdateComfyUI:
         """POST /v2/manager/queue/update_comfyui without required params -> 400."""
         resp = requests.post(
             f"{BASE_URL}/v2/manager/queue/update_comfyui",
+            headers={"Content-Type": "application/json"},
             timeout=10,
         )
         assert resp.status_code == 400, (
@@ -944,6 +948,7 @@ class TestUpdateComfyUI:
                 "ui_id": "e2e-update-comfyui-stable",
                 "stable": "true",
             },
+            headers={"Content-Type": "application/json"},
             timeout=10,
         )
         assert resp.status_code == 200, (
@@ -961,7 +966,7 @@ class TestUpdateComfyUI:
         # never reaches history (silent empty-history regression). The
         # actual update work will fail fast in E2E (no real git remote),
         # but the task completes and moves to history regardless.
-        requests.post(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
+        requests.post(f"{BASE_URL}/v2/manager/queue/start", headers={"Content-Type": "application/json"}, timeout=10)
         _wait_queue_idle(timeout=POLL_TIMEOUT)
 
         # Try to inspect queued task params via JSON path.

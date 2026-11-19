@@ -1,9 +1,8 @@
 """Shared settings-file writer for glob and legacy."""
 import configparser
+import logging
 import os
 import tempfile
-
-from rich import print
 
 
 class DirtyTrackingConfig(dict):
@@ -23,17 +22,35 @@ class DirtyTrackingConfig(dict):
         super().update(incoming)
 
 
+SETTING_VALUES = {
+    'security_level': ('normal', 'strong', 'normal-', 'weak'),
+    'network_mode': ('public', 'private', 'offline', 'personal_cloud'),
+    'db_mode': ('cache', 'channel', 'local', 'remote'),
+    'update_policy': ('stable-comfyui', 'nightly-comfyui', 'stable', 'nightly'),
+}
+
+
+def with_valid_values(settings):
+    for key, values in SETTING_VALUES.items():
+        default = values[0]
+        if settings[key] not in values:
+            logging.warning(f"[ComfyUI-Manager] {key} = {settings[key]!r} in config.ini is not valid; '{default}' is used.")
+            settings[key] = default
+
+    return settings
+
+
 def write_config_merged(config_path, cached, written_config_keys):
     """Merge changed owned keys onto the latest settings on disk.
 
     Preserve parsed keys and values, not INI comments or formatting."""
-    config = configparser.ConfigParser(strict=False)
+    config = configparser.ConfigParser(strict=False, interpolation=None)
     try:
         loaded = config.read(config_path)
     except (configparser.Error, UnicodeDecodeError) as e:
         # Preserve the existing fallback for malformed files.
-        print(f"[ComfyUI-Manager] Warning: '{config_path}' could not be parsed ({e}); rewriting it from the current settings.")
-        config = configparser.ConfigParser(strict=False)
+        logging.warning(f"[ComfyUI-Manager] '{config_path}' could not be parsed ({e}); rewriting it from the current settings.")
+        config = configparser.ConfigParser(strict=False, interpolation=None)
     else:
         # ConfigParser.read silently skips unreadable files; do not overwrite one.
         if not loaded and os.path.exists(config_path):
