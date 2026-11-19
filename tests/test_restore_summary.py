@@ -2,6 +2,7 @@ import ast
 import asyncio
 import os
 import pathlib
+import shutil
 import subprocess
 import traceback
 from types import SimpleNamespace
@@ -58,18 +59,27 @@ def in_registry(manager):  # noqa: F811
 @pytest.fixture
 def clones(manager, tmp_path):  # noqa: F811
     def clones(kind, clone):
-        if kind == 'url':
-            manager.repo_install = lambda url, path, return_postinstall=False, **options: clone(path, return_postinstall)
-            return
-
-        async def install(pack_id, version_spec, return_postinstall=False, **options):
-            manager.active_nodes[pack_id] = (version_spec, str(tmp_path / pack_id))
-            return clone(str(tmp_path / pack_id), return_postinstall)
-
-        in_registry(manager)
-        manager.install_by_id = AsyncMock(side_effect=install)
+        if kind == 'registry':
+            in_registry(manager)
+        manager.repo_install = lambda url, path, return_postinstall=False, **options: clone(path, return_postinstall)
 
     return clones
+
+
+@pytest.fixture
+def steps(core, manager, monkeypatch):  # noqa: F811
+    done = []
+    manager.unified_disable = lambda name, is_unknown: done.append('disable ' + name) or core.ManagedResult('disable')
+    manager.unified_enable = lambda name, version: done.append('enable %s@%s' % (name, version)) or core.ManagedResult('enable')
+    manager.repo_install = lambda url, path, **options: done.append('clone %s into %s' % (url, os.path.basename(path))) or core.ManagedResult('install-git')
+    manager._cnr_install = lambda name, version, *args: done.append('install %s@%s' % (name, version.version)) or core.ManagedResult('install-cnr')
+    monkeypatch.setattr(core.cnr_utils, 'install_node', lambda name, version: SimpleNamespace(version=version, download_url='https://registry.invalid/' + name, status='NodeVersionStatusActive'))
+    monkeypatch.setattr(core, 'repo_switch_commit', Mock(return_value=True))
+    return done
+
+
+def errors(caplog):
+    return [record.getMessage() for record in caplog.records if record.levelname == 'ERROR']
 
 
 CLONES = pytest.mark.parametrize('kind', ['registry', 'url'])
@@ -105,6 +115,133 @@ def test_url_that_is_not_cloned_is_reported_as_failed(manager, summary, tmp_path
     assert not (tmp_path / 'fixture').exists()
 
 
+def test_pack_of_the_registry_that_the_node_list_does_not_have_is_cloned(manager, summary, steps):  # noqa: F811
+    registered = {'id': 'fixture-of-the-registry', 'repository': REPO_URL, 'publisher': {'name': 'owner'}}
+    manager.repo_cnr_map[REPO_URL] = manager.cnr_map['fixture-of-the-registry'] = registered
+
+    assert summary(**pinned(REPO_URL + '.git')) == ['[ INSTALLED ] fixture-of-the-registry']
+    assert steps == [f'clone {REPO_URL} into fixture-of-the-registry']
+
+
+def test_pack_of_the_registry_is_cloned_from_the_url_of_the_snapshot_when_the_node_list_has_another_one_under_its_name(manager, summary, steps):  # noqa: F811
+    manager.repo_cnr_map[REPO_URL] = {'id': 'fixture'}
+    manager.get_custom_nodes.return_value = {'fixture': {'repository': 'https://github.com/another-owner/fixture'}}
+
+    assert summary(**pinned(REPO_URL)) == ['[ INSTALLED ] fixture']
+    assert steps == [f'clone {REPO_URL} into fixture']
+
+
+@pytest.mark.parametrize('in_node_list', [True, False])
+def test_enabled_version_of_the_registry_is_disabled_before_the_clone_of_a_snapshot_that_names_no_version(manager, summary, steps, tmp_path, in_node_list):  # noqa: F811
+    """A snapshot from before the registry has no `cnr_custom_nodes`, so nothing else disables that version."""
+    registered = {'id': 'fixture', 'repository': REPO_URL, 'publisher': {'name': 'owner'}}
+    manager.repo_cnr_map[REPO_URL] = manager.cnr_map['fixture'] = registered
+    manager.get_custom_nodes.return_value = {'fixture': {'repository': REPO_URL}} if in_node_list else {}
+    manager.active_nodes['fixture'] = ('1.0.0', str(tmp_path / 'fixture'))
+
+    assert summary(cnr_custom_nodes=None, **pinned(REPO_URL)) == ['[ INSTALLED ] fixture']
+    assert steps == ['disable fixture', f'clone {REPO_URL} into fixture']
+
+
+@pytest.mark.parametrize('machine, lines, done', [
+    ('that saved it', ['[  SKIPPED  ] fixture'], []),
+    ('with no node pack', ['[ INSTALLED ] fixture@1.0.0'], ['install fixture@1.0.0']),
+], ids=['that saved it', 'with no node pack'])
+def test_pack_saved_at_a_version_of_the_registry_with_its_clone_disabled_is_restored_at_that_version(core, manager, summary, steps, monkeypatch, tmp_path, machine, lines, done):  # noqa: F811
+    """A switch from the clone to a version of the registry keeps the clone, disabled, and a snapshot saves both."""
+    manager.repo_cnr_map[REPO_URL] = manager.cnr_map['fixture'] = {'id': 'fixture', 'repository': REPO_URL, 'publisher': {'name': 'owner'}}
+    version, clone = tmp_path / 'fixture', tmp_path / '.disabled/fixture@nightly'
+    version.mkdir()
+    (version / '.tracking').write_text('')
+    (version / 'pyproject.toml').write_text('[project]\nname = "fixture"\nversion = "1.0.0"\n')
+    repository(clone)
+    subprocess.run(['git', 'remote', 'add', 'origin', REPO_URL + '.git'], cwd=clone, check=True)
+    monkeypatch.setattr(core, 'get_custom_nodes_paths', lambda: [str(tmp_path)])
+    saved = asyncio.run(core.get_current_snapshot(custom_nodes_only=True))
+    if machine == 'that saved it':
+        manager.active_nodes['fixture'] = ('1.0.0', str(version))
+        manager.nightly_inactive_nodes['fixture'] = str(clone)
+    else:
+        shutil.rmtree(version)
+        shutil.rmtree(clone)
+
+    assert summary(cnr_custom_nodes=saved['cnr_custom_nodes'], git_custom_nodes=saved['git_custom_nodes']) == lines
+    assert steps == done
+
+
+def test_clone_that_is_enabled_is_left_to_the_install_of_the_version_that_the_snapshot_names(manager, summary, steps, tmp_path):  # noqa: F811
+    manager.repo_cnr_map[REPO_URL] = manager.cnr_map['fixture'] = {'id': 'fixture', 'repository': REPO_URL, 'publisher': {'name': 'owner'}}
+    manager.active_nodes['fixture'] = ('nightly', str(tmp_path / 'fixture'))
+
+    assert summary(cnr_custom_nodes={'fixture': '1.0.0'}, git_custom_nodes={REPO_URL: {'hash': COMMIT, 'disabled': True}}) == ['[ INSTALLED ] fixture@1.0.0']
+    assert steps == ['disable fixture', 'install fixture@1.0.0']
+
+
+@pytest.mark.parametrize('failure, lines, done', [
+    ('the registry does not have it', [f'[  CHECKOUT ] fixture@{COMMIT}', '[  FAILED   ] fixture@1.0.0'], []),
+    ('its download fails', [f'[  CHECKOUT ] fixture@{COMMIT}', '[  FAILED   ] fixture@1.0.0'], ['disable fixture', 'enable fixture@nightly']),
+    ('its download fails after another version was enabled', [f'[  CHECKOUT ] fixture@{COMMIT}', '[  FAILED   ] fixture@1.0.0'], ['disable fixture', 'enable fixture@cnr', 'enable fixture@nightly']),
+], ids=['the registry does not have it', 'its download fails', 'its download fails after another version was enabled'])
+def test_clone_of_the_snapshot_is_restored_when_the_version_that_the_snapshot_names_cannot_be_installed(core, manager, summary, steps, monkeypatch, tmp_path, failure, lines, done):  # noqa: F811
+    manager.repo_cnr_map[REPO_URL] = manager.cnr_map['fixture'] = {'id': 'fixture', 'repository': REPO_URL, 'publisher': {'name': 'owner'}}
+    manager.active_nodes['fixture'] = ('nightly', str(tmp_path / 'fixture'))
+
+    def disable(name, is_unknown):
+        steps.append('disable ' + name)
+        manager.nightly_inactive_nodes[name] = manager.active_nodes.pop(name)[1]
+        return core.ManagedResult('disable')
+
+    def enable(name, version):
+        steps.append('enable %s@%s' % (name, version))
+        if version == 'cnr':
+            manager.active_nodes[name] = ('2.0.0', manager.cnr_inactive_nodes[name].pop('2.0.0'))
+        return core.ManagedResult('enable').with_target(str(tmp_path / name))
+
+    manager.unified_disable, manager.unified_enable = disable, enable
+    if failure == 'the registry does not have it':
+        monkeypatch.setattr(core.cnr_utils, 'install_node', lambda name, version: None)
+    elif failure == 'its download fails':
+        manager._cnr_install = lambda name, version, *args: core.ManagedResult('install-cnr').fail('the download failed')
+    else:
+        manager.cnr_inactive_nodes['fixture'] = {'2.0.0': str(tmp_path / '.disabled/fixture@2_0_0')}
+        manager._cnr_switch_version = lambda name, version, *args: core.ManagedResult('switch-cnr').fail('the download failed')
+
+    assert summary(cnr_custom_nodes={'fixture': '1.0.0'}, git_custom_nodes={REPO_URL: {'hash': COMMIT, 'disabled': True}}) == lines
+    assert steps == done
+    assert [x.args for x in core.repo_switch_commit.call_args_list] == [(str(tmp_path / 'fixture'), COMMIT)]
+
+
+def test_pack_of_the_registry_with_the_name_of_the_manager_in_its_id_is_not_cloned(manager, summary, steps):  # noqa: F811
+    manager.repo_cnr_map[REPO_URL] = {'id': 'comfyui-manager-fixture'}
+
+    assert summary(**pinned(REPO_URL)) == ['[  SKIPPED  ] comfyui-manager-fixture']
+    assert steps == []
+
+
+@CLONES
+def test_clone_that_is_refused_tells_why(core, manager, clones, tmp_path, caplog, kind):  # noqa: F811
+    clones(kind, lambda path, return_postinstall: core.ManagedResult('install-git').fail('the clone was refused'))
+
+    restore(core, tmp_path, **pinned(REPO_URL))
+
+    assert errors(caplog) == ['the clone was refused']
+
+
+def test_url_that_is_not_cloned_tells_why(core, manager, tmp_path, caplog):  # noqa: F811
+    restore(core, tmp_path, **pinned('/home/someone/repos/fixture'))
+
+    assert errors(caplog) == ['Invalid git url: /home/someone/repos/fixture']
+
+
+def test_clone_of_a_pack_of_the_registry_that_raises_is_logged_once(core, manager, tmp_path, caplog):  # noqa: F811
+    in_registry(manager)
+    manager.repo_install = Mock(side_effect=RuntimeError('the disk is full'))
+
+    restore(core, tmp_path, **pinned(REPO_URL))
+
+    assert errors(caplog) == ['[ComfyUI-Manager] the disk is full']
+
+
 def test_url_that_cannot_be_parsed_is_reported_as_failed_and_the_restore_goes_on(manager, summary):  # noqa: F811
     entry = {'hash': COMMIT, 'disabled': False}
 
@@ -129,13 +266,12 @@ def test_cloned_pack_is_checked_out_at_the_pinned_commit(core, manager, summary,
 def test_cloned_registry_pack_is_checked_out_at_the_pinned_commit(core, manager, summary, tmp_path):  # noqa: F811
     commits = repository(tmp_path / 'origin')
 
-    async def install(pack_id, version_spec, **options):
-        subprocess.run(['git', 'clone', '-q', str(tmp_path / 'origin'), tmp_path / pack_id], check=True, capture_output=True)
-        manager.active_nodes[pack_id] = (version_spec, str(tmp_path / pack_id))
+    def clone(url, path, **options):
+        subprocess.run(['git', 'clone', '-q', str(tmp_path / 'origin'), path], check=True, capture_output=True)
         return core.ManagedResult('install-git')
 
-    manager.repo_cnr_map[REPO_URL] = {'id': 'fixture'}
-    manager.install_by_id = AsyncMock(side_effect=install)
+    in_registry(manager)
+    manager.repo_install = clone
 
     assert summary(**pinned(REPO_URL, commits[0])) == ['[ INSTALLED ] fixture']
     assert head(tmp_path / 'fixture') == commits[0]
@@ -265,12 +401,8 @@ def test_install_script_of_a_cloned_pack_runs_also_when_the_commit_cannot_be_che
 def test_install_script_of_a_cloned_registry_pack_runs_also_when_the_commit_cannot_be_checked_out(core, manager, summary, tmp_path):  # noqa: F811
     ran = []
 
-    async def install(pack_id, version_spec, **options):
-        manager.active_nodes[pack_id] = (version_spec, str(tmp_path / pack_id))
-        return core.ManagedResult('install-git').with_postinstall(lambda: ran.append(pack_id) or True)
-
-    manager.repo_cnr_map[REPO_URL] = {'id': 'fixture'}
-    manager.install_by_id = AsyncMock(side_effect=install)
+    in_registry(manager)
+    manager.repo_install = lambda url, path, **options: core.ManagedResult('install-git').with_postinstall(lambda: ran.append(os.path.basename(path)) or True)
 
     assert summary(**pinned(REPO_URL)) == [f'[  FAILED   ] fixture@{COMMIT}']
     assert ran == ['fixture']
@@ -366,11 +498,7 @@ def test_pack_that_fails_at_two_steps_is_listed_once(core, manager, summary, ans
     manager.active_nodes['fixture'] = ('1.0.0', str(tmp_path / 'fixture'))
     in_registry(manager)
     manager.unified_disable = answer('disable', False)
-
-    async def install(pack_id, version_spec, **options):
-        return core.ManagedResult('install-git').fail('failed')
-
-    manager.install_by_id = install
+    manager.repo_install = answer('install-git', False)
 
     assert summary(cnr_custom_nodes={}, **pinned(REPO_URL)) == ['[  FAILED   ] fixture']
 

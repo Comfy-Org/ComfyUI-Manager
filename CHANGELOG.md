@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Fixed
+
+- A snapshot restore clones a git node pack from the url of the snapshot.
+  For a url that the registry knows, it asked for a nightly install by the id
+  of the registry, which takes its url from the node list first: when the
+  node list had another repository under the same name, that one was cloned.
+  The restore no longer reads the node list.
+- A snapshot restore leaves a node pack at the version of the registry that
+  the snapshot names. A node pack that was switched from its clone to a
+  version keeps the clone, disabled, and a snapshot saves both: the restore
+  enabled or cloned the clone and disabled that version. When that version
+  cannot be installed, the clone is restored as before.
+- A clone of a snapshot restore that is refused says why in the log, as
+  `Invalid git url: ...`. The summary said `[  FAILED   ]` with no word of
+  why.
+
 ## [4.4.2] - 2026-11-19
 
 ### Security
