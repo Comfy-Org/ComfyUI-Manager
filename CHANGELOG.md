@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### A nodepack folder with neither `.git` nor `.tracking` is an invalid installation, fixed by reinstalling
+
+A folder in `custom_nodes` with neither `.git` nor `.tracking`, left by an
+install that broke midway or by a download unpacked by hand, was taken for a
+git nodepack: Update All logged `ERROR: An error occurred while updating ...`
+for it, and its nodepack showed as not installed (#3330). It is now an invalid
+installation. Update All leaves it alone, the Custom Nodes Manager marks its
+row `INVALID INSTALLATION ↗` and offers Reinstall, `/customnode/installed`
+lists it with `invalid_installation: true`, and the startup notice names it.
+By its folder name it is enabled, disabled and uninstalled as before.
+
+A reinstall, of any nodepack, keeps the folders it replaces until the new
+installation is in place, and puts them back when the install fails. It
+deleted them first, so a failed download lost the nodepack. `cm-cli reinstall`
+makes the same reinstall and prints `[REINSTALLED]`.
+
+The console line of a failed update says why the update failed.
+
 ### No deprecation warning of aiohttp with `bypass_ssl`
 
 With `bypass_ssl = true`, the fetch of the notice and the fetch of a list
