@@ -489,12 +489,12 @@ async function updateComfyUI() {
 
 	set_inprogress_mode();
 
-	const response = await api.fetchApi('/manager/queue/update_comfyui', { method: 'POST' });
+	const response = await api.fetchApi('/manager/queue/update_comfyui', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 
 	showTerminal();
 
 	is_updating = true;
-	await api.fetchApi('/manager/queue/start', { method: 'POST' });
+	await api.fetchApi('/manager/queue/start', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 }
 
 function showVersionSelectorDialog(versions, current, onSelect) {
@@ -642,20 +642,17 @@ async function switchComfyUI() {
 		}
 
 		showVersionSelectorDialog(versions, obj.current, async (selected_version) => {
-			if(selected_version == 'nightly') {
-				update_policy_chosen = true;
-				update_policy_combo.value = 'nightly-comfyui';
-				api.fetchApi('/manager/policy/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: 'nightly-comfyui' }) });
-			}
-			else {
-				update_policy_chosen = true;
-				update_policy_combo.value = 'stable-comfyui';
-				api.fetchApi('/manager/policy/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: 'stable-comfyui' }) });
-			}
-
 			let response = await api.fetchApi('/comfyui_manager/comfyui_switch_version', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ver: selected_version }), cache: "no-store" });
 			if (response.status == 200) {
+				const update_policy = selected_version == 'nightly' ? 'nightly-comfyui' : 'stable-comfyui';
+				update_policy_chosen = true;
+				update_policy_combo.value = update_policy;
+				api.fetchApi('/manager/policy/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: update_policy }) });
+
 				infoToast(`ComfyUI version is switched to ${selected_version}`);
+			}
+			else if (response.status == 403) {
+				await handle403Response(response);
 			}
 			else {
 				customAlert('Failed to switch ComfyUI version.');
@@ -795,7 +792,7 @@ async function updateAll(update_comfyui) {
 
 	if(update_comfyui) {
 		update_all_button.innerText = "Updating ComfyUI...";
-		await api.fetchApi('/manager/queue/update_comfyui', { method: 'POST' });
+		await api.fetchApi('/manager/queue/update_comfyui', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 	}
 
 	const response = await api.fetchApi('/manager/queue/update_all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: mode }) });
@@ -810,7 +807,7 @@ async function updateAll(update_comfyui) {
 	}
 	else if(response.status == 200) {
 		is_updating = true;
-		await api.fetchApi('/manager/queue/start', { method: 'POST' });
+		await api.fetchApi('/manager/queue/start', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 	}
 }
 
@@ -839,7 +836,7 @@ function restartOrStop() {
 		rebootAPI();
 	}
 	else {
-		api.fetchApi('/manager/queue/reset', { method: 'POST' });
+		api.fetchApi('/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 		infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 	}
 }
@@ -1162,7 +1159,7 @@ class ManagerMenuDialog extends ComfyDialog {
 			share_option_chosen = true;
 			const value = event.target.value;
 			share_option = value;
-			api.fetchApi(`/manager/share_option?value=${value}`);
+			api.fetchApi('/manager/share_option', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value }) });
 			const shareButton = document.getElementById("shareButton");
 			if (value === 'none') {
 				shareButton.style.display = "none";

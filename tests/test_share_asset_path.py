@@ -55,14 +55,15 @@ def load_share_art(monkeypatch, output_dir, temp_dir, os_module: object = os):
 
     source = (GLOB_DIR / "share_3rdparty.py").read_text(encoding="utf-8")
     nodes = [node for node in ast.parse(source).body
-             if isinstance(node, ast.AsyncFunctionDef) and node.name == "share_art"]
-    assert len(nodes) == 1
+             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in ("share_art", "is_matrix_org")]
+    assert len(nodes) == 2
     namespace = {
         "PromptServer": SimpleNamespace(instance=SimpleNamespace(routes=web.RouteTableDef())),
         "folder_paths": SimpleNamespace(get_output_directory=lambda: str(output_dir),
                                         get_temp_directory=lambda: str(temp_dir)),
         "os": os_module, "web": web, "json": json, "mimetypes": mimetypes,
-        "set_matrix_auth": lambda matrix_auth: None,
+        "get_matrix_auth": lambda: None, "set_matrix_auth": lambda matrix_auth: None,
+        "_reject_non_json_content_type": lambda request: None,
     }
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "share_3rdparty.py", "exec"), namespace)
     return namespace["share_art"], uploads
@@ -70,7 +71,7 @@ def load_share_art(monkeypatch, output_dir, temp_dir, os_module: object = os):
 
 def share(share_art, output):
     body = {
-        "matrix_auth": {"homeserver": "matrix.example", "username": "user", "password": "password"},
+        "matrix_auth": {"homeserver": "matrix.org", "username": "user", "password": "password"},
         "share_destinations": ["matrix"], "credits": "", "title": "", "description": "",
         "prompt": {"workflow": {}}, "potential_outputs": [output], "selected_output_index": 0,
     }
@@ -112,7 +113,7 @@ def test_a_file_in_the_directory_is_shared(monkeypatch, dirs, output, content):
     response = share(share_art, output)
 
     assert response.status == 200
-    assert uploads[0] == ("https://matrix.example", content)
+    assert uploads[0] == ("https://matrix.org", content)
 
 
 @pytest.mark.parametrize("output", [

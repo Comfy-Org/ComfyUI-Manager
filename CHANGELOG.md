@@ -2,6 +2,90 @@
 
 ## Unreleased
 
+### Every POST that changes something is taken only as `application/json`, and the share option is saved by POST
+
+A page of another site can make the browser send a GET, and a POST without a
+body and without a Content-Type, for which no preflight is made. The Manager
+routes that take no body (`queue/start`, `queue/reset`, `queue/update_comfyui`,
+`snapshot/save`, `reboot`) now answer 400 unless the request has
+`Content-Type: application/json`, as the routes that read a JSON body do: a
+browser does not send that header to another site without a preflight. The
+share option is saved with `POST /manager/share_option` and a JSON body
+`{"value": ...}`; `GET /manager/share_option` only answers with the saved
+option, and a `value` given to it is ignored. The Manager's own pages send the
+header. A script that calls one of these routes has to send it too, and one
+that saved the share option with `?value=` has to POST.
+
+### The file of the saved Matrix account is readable by its user only
+
+The share dialog saves the Matrix account, with its password, in `matrix_auth`
+in Manager's data directory. The file was written with the default mode of
+new files, which other users of the machine can usually read. It is now written
+with mode `0600`, and a file that is already there gets that mode the next
+time an account is saved.
+
+### The share option that is saved is one of the choices of the share menu
+
+`/manager/share_option` saved any text as the share option. It now saves
+`all`, `none`, `youml` or `matrix`, the choices of the menu, and answers 400
+for another value.
+
+### Restoring a snapshot needs the security level of a switch to an older version
+
+A snapshot restore takes the node packs back to the versions that the
+snapshot recorded, older ones too. `POST /snapshot/restore` needed `middle`, which the
+default `security_level = normal` gives on any listener; a switch of ComfyUI to
+an older version needs `high`. A restore now needs `high` as well: `normal-` or
+lower on a loopback listener, `weak` otherwise. At `normal`, `Restore` in the
+Snapshot Manager is refused; `cm-cli restore-snapshot` is not changed.
+
+### Routes that read a JSON body take it only as `application/json`
+
+A POST route that reads a JSON body parsed it whatever the Content-Type of the
+request. These routes now answer 400 unless the Content-Type is
+`application/json`. The Manager's own scripts send it; a script or tool that
+posts JSON to the Manager without that header has to add it.
+
+### Switching ComfyUI to an older version is held to the security level
+
+Switching the ComfyUI version was not checked against `security_level`. A
+switch to an older release, or to anything that is not a release tag, now needs
+`normal-` or lower when ComfyUI listens on a loopback address, and `weak`
+otherwise; at the default `normal`, `Switch ComfyUI` in the Manager menu
+answers that the security level does not allow it. A switch to `nightly` or to
+a newer release is an update and works at every level, as before. A ComfyUI
+with commits after its release, as on `nightly`, would go back by a switch to
+that release, so that counts as older; in a repository without release tags,
+such as a clone without tags, every version but `nightly` does. The menu
+changes the update policy to that of the chosen version only after the switch
+has happened; it did so before asking for the switch.
+
+### The server no longer returns saved sharing credentials
+
+`GET /manager/get_matrix_auth` answered with the saved Matrix homeserver,
+username and password, to any client that could reach the server. It now answers
+without the password. The share dialog leaves the password field empty for the
+saved account, and the server uses the saved password for the username it was
+saved with; for another account a password has to be typed. An account is saved
+once it has logged in; a share request no longer replaces the saved account
+before that. If others could reach the server while a Matrix password was saved,
+change that password.
+
+Sharing to Matrix logs in to matrix.org, where the share room is, and to no
+other homeserver. The homeserver of the share dialog can no longer be changed, a
+share request that names another homeserver is refused, and an account that was
+saved for another homeserver is not used: an account of matrix.org has to be
+entered. Before, the server logged in to any homeserver that a request named,
+with the password of the request.
+
+The YouML API token is kept in the browser that shares, which is what sends it
+to YouML; the server stored it, and `GET /manager/youml/settings` answered with
+it in the same way. Both `/manager/youml/settings` routes are removed. The token
+has to be entered once more in the YouML share dialog. Delete `.youml` in
+Manager's data directory (`<USER_DIRECTORY>/__manager/`, or
+`<USER_DIRECTORY>/default/ComfyUI-Manager/` on older ComfyUI), and if others
+could reach the server while a token was saved, issue a new token.
+
 ### A setting chosen while the Manager menu is loading it is kept
 
 The Manager menu asks the server for the database mode, the component policy,

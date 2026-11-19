@@ -77,7 +77,7 @@ async function remove_snapshot(target) {
 
 async function save_current_snapshot() {
 	try {
-		const response = await api.fetchApi('/snapshot/save', { method: 'POST', cache: "no-store" });
+		const response = await api.fetchApi('/snapshot/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: "no-store" });
 		app.ui.dialog.close();
 		return true;
 	}

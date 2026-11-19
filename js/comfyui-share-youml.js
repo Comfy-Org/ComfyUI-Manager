@@ -176,25 +176,12 @@ export class YouMLShareDialog extends ComfyDialog {
     this.selectedFile = null;
   }
 
-  async loadToken() {
-    let key = ""
-    try {
-      const response = await api.fetchApi(`/manager/youml/settings`)
-      const settings = await response.json()
-      return settings.token
-    } catch (error) {
-    }
-    return key || "";
+  loadToken() {
+    return localStorage.getItem("youml_token") || "";
   }
 
-  async saveToken(value) {
-    await api.fetchApi(`/manager/youml/settings`, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        token: value
-      })
-    });
+  saveToken(value) {
+    localStorage.setItem("youml_token", value);
   }
 
   createLayout() {
@@ -342,7 +329,7 @@ export class YouMLShareDialog extends ComfyDialog {
 
   async handleShareButtonClick() {
     this.message.textContent = "";
-    await this.saveToken(this.apiTokenInput.value);
+    this.saveToken(this.apiTokenInput.value);
     try {
       this.shareButton.disabled = true;
       this.shareButton.textContent = "Sharing...";
@@ -560,8 +547,7 @@ export class YouMLShareDialog extends ComfyDialog {
     this.message.innerHTML = "";
     this.message.textContent = "";
 
-    const token = await this.loadToken();
-    this.apiTokenInput.value = token;
+    this.apiTokenInput.value = this.loadToken();
     this.uploadedImages = [];
 
     this.element.style.display = "block";

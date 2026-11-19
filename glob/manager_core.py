@@ -3622,6 +3622,11 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
     return not failed and not pips_not_installed
 
 
+def parse_semver(tag_name):
+    match = re.fullmatch(r'v(\d+)\.(\d+)\.(\d+)', tag_name)
+    return tuple(int(x) for x in match.groups()) if match else None
+
+
 def get_comfyui_versions(repo=None):
     repo = repo or git.Repo(comfy_path)
 
@@ -3631,10 +3636,6 @@ def get_comfyui_versions(repo=None):
         repo.remotes[remote_name].fetch()
     except:
         logging.error("[ComfyUI-Manager] Failed to fetch ComfyUI")
-
-    def parse_semver(tag_name):
-        match = re.match(r'^v(\d+)\.(\d+)\.(\d+)$', tag_name)
-        return tuple(int(x) for x in match.groups()) if match else None
 
     def normalize_describe(tag_name):
         if not tag_name:
@@ -3699,6 +3700,24 @@ def get_comfyui_versions(repo=None):
     versions = versions[:6]
 
     return versions, current_tag, latest_tag
+
+
+def is_comfyui_downgrade(tag):
+    if tag == 'nightly':
+        return False
+
+    try:
+        described = git.Repo(comfy_path).git.describe('--tags')
+    except git.GitCommandError:
+        return True
+
+    release, _, commits_after_release = described.partition('-')
+    current = parse_semver(release)
+    target = parse_semver(tag)
+    if current is None or target is None:
+        return True
+
+    return target <= current if commits_after_release else target < current
 
 
 def switch_comfyui(tag):

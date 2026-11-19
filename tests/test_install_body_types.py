@@ -30,7 +30,7 @@ def post(name, body):
         return SimpleNamespace(action="install-git", result=True, target=url, msg="")
 
     namespace = {
-        "web": web, "logging": logging,
+        "web": web, "logging": logging, "_reject_non_json_content_type": lambda request: None,
         "routes": SimpleNamespace(post=lambda path: lambda handler: handler),
         "is_dedicated_install_allowed": lambda flag, listen: True,
         "args": SimpleNamespace(listen="127.0.0.1"),

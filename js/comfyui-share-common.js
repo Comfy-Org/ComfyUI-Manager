@@ -380,7 +380,7 @@ export class ShareDialogChooser extends ComfyDialog {
 }
 export class ShareDialog extends ComfyDialog {
 	static instance = null;
-	static matrix_auth = { homeserver: "matrix.org", username: "", password: "" };
+	static matrix_auth = { homeserver: "matrix.org", username: "" };
 
 	constructor() {
 		super();
@@ -405,9 +405,9 @@ export class ShareDialog extends ComfyDialog {
 		const matrix_destination_checkbox_text = $el("label", {}, [" ComfyUI Matrix server"])
 		this.matrix_destination_checkbox.style.color = "var(--fg-color)";
 
-		this.matrix_homeserver_input = $el("input", { type: 'text', id: "matrix_homeserver", placeholder: "matrix.org", value: ShareDialog.matrix_auth.homeserver || 'matrix.org' }, []);
+		this.matrix_homeserver_input = $el("input", { type: 'text', id: "matrix_homeserver", value: "matrix.org", readOnly: true, title: "The share room is on matrix.org; only an account of matrix.org can share." }, []);
 		this.matrix_username_input = $el("input", { type: 'text', placeholder: "Username", value: ShareDialog.matrix_auth.username || '' }, []);
-		this.matrix_password_input = $el("input", { type: 'password', placeholder: "Password", value: ShareDialog.matrix_auth.password || '' }, []);
+		this.matrix_password_input = $el("input", { type: 'password', placeholder: "Password" }, []);
 
 		this.credits_input = $el("input", {
 			type: "text",
@@ -621,15 +621,14 @@ export class ShareDialog extends ComfyDialog {
 		]);
 
 		// get the user's existing matrix auth
-		ShareDialog.matrix_auth = { homeserver: "matrix.org", username: "", password: "" };
+		ShareDialog.matrix_auth = { homeserver: "matrix.org", username: "" };
 		try {
 			api.fetchApi(`/manager/get_matrix_auth`)
 				.then(response => response.json())
 				.then(data => {
 					ShareDialog.matrix_auth = data;
-					this.matrix_homeserver_input.value = ShareDialog.matrix_auth.homeserver;
 					this.matrix_username_input.value = ShareDialog.matrix_auth.username;
-					this.matrix_password_input.value = ShareDialog.matrix_auth.password;
+					this.matrix_password_input.placeholder = "Saved password (leave empty to use it)";
 				})
 				.catch(error => {
 					// console.log(error);
@@ -651,7 +650,8 @@ export class ShareDialog extends ComfyDialog {
 
 			// if destinations includes matrix, make an api call to /manager/check_matrix to ensure that the user has configured their matrix settings
 			if (destinations.includes("matrix")) {
-				let definedMatrixAuth = !!this.matrix_homeserver_input.value && !!this.matrix_username_input.value && !!this.matrix_password_input.value;
+				const usesSavedPassword = this.matrix_username_input.value == ShareDialog.matrix_auth.username;
+				let definedMatrixAuth = !!this.matrix_username_input.value && (!!this.matrix_password_input.value || usesSavedPassword);
 				if (!definedMatrixAuth) {
 					customAlert("Please set your Matrix account details.");
 					return;
@@ -721,6 +721,7 @@ export class ShareDialog extends ComfyDialog {
 
 			if (response_json.matrix.success) {
 				this.final_message.innerHTML = "Your art has been shared in the ComfyUI Matrix server's #share channel!";
+				ShareDialog.matrix_auth = { homeserver: this.matrix_homeserver_input.value, username: this.matrix_username_input.value };
 			}
 
 			this.final_message.style.color = "green";

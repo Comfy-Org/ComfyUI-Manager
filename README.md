@@ -386,6 +386,8 @@ When you run the `scan.sh` script:
   * `high` level risky features
     * Downloading models that are not in `.safetensors` format and not
       registered in the `default channel` model list
+    * Switch ComfyUI to an older version
+    * Restore Snapshot
     * NOTE: `Install via git url`, `pip install`, and installation of custom nodes
       not registered in the `default channel` are **no longer governed by
       `security_level`** — they are governed by the dedicated install flags
@@ -395,7 +397,7 @@ When you run the `scan.sh` script:
     * Uninstall/Update
     * Installation of custom nodes registered in the `default channel`.
     * Fix custom nodes
-    * Restore/Remove Snapshot
+    * Remove Snapshot
     * Restart
   
   * `low` level risky features

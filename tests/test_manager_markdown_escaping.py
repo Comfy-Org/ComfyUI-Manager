@@ -14,7 +14,7 @@ IMPORT DISCIPLINE (load-bearing, see tests/conftest.py):
   - `glob/manager_server.py` starts a network thread at import and needs the
     ComfyUI stack, so it is NEVER imported. `convert_markdown_to_html` is
     AST-extracted and executed in an isolated namespace instead — the same
-    technique tests/test_csrf_content_type_helper.py already uses in this repo.
+    technique tests/test_json_body_content_type.py already uses in this repo.
 """
 import unittest
 

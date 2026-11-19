@@ -471,7 +471,7 @@ export class CustomNodesManager {
 
 			".cn-manager-stop": {
 				click: () => {
-					api.fetchApi('/manager/queue/reset', { method: 'POST' });
+					api.fetchApi('/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 					infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 				}
 			},
@@ -1423,7 +1423,7 @@ export class CustomNodesManager {
 		let needRestart = false;
 		let errorMsg = "";
 
-		await api.fetchApi('/manager/queue/reset', { method: 'POST' });
+		await api.fetchApi('/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 
 		// Set install_context BEFORE per-item queue enqueue calls so that any
 		// server-side synchronous completion (e.g., sync enable of an inactive
@@ -1476,6 +1476,7 @@ export class CustomNodesManager {
 
 			const res = await api.fetchApi(`/manager/queue/${api_mode}`, {
 				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(data)
 			});
 
@@ -1513,7 +1514,7 @@ export class CustomNodesManager {
 			}
 		}
 		else {
-			await api.fetchApi('/manager/queue/start', { method: 'POST' });
+			await api.fetchApi('/manager/queue/start', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 			this.showStop();
 			showTerminal();
 		}

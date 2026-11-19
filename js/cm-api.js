@@ -48,7 +48,7 @@ async function enableNodePack(target) {
 	// A node pack from the registry is enabled while the install request is handled, and reported then.
 	api.addEventListener("cm-queue-status", listener);
 	try {
-		await api.fetchApi('/manager/queue/reset', { method: 'POST' });
+		await api.fetchApi('/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 
 		const response = await api.fetchApi(`/manager/queue/install`, {
 									method: 'POST',
@@ -70,7 +70,7 @@ async function enableNodePack(target) {
 		}
 
 		started = true;
-		await api.fetchApi('/manager/queue/start', { method: 'POST' });
+		await api.fetchApi('/manager/queue/start', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 
 		// A report that does not reach the page would leave the listener in place, and a later report
 		// for the same row, such as its Disable, would then restart ComfyUI unasked.
@@ -121,7 +121,7 @@ async function tryInstallCustomNode(event) {
 
 		let response;
 		try {
-			response = await api.fetchApi("/manager/reboot", { method: 'POST' });
+			response = await api.fetchApi("/manager/reboot", { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 		}
 		catch(exception) {
 			// The server restarts without answering.

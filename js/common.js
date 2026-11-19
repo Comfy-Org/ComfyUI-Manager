@@ -185,7 +185,7 @@ export async function rebootAPI() {
 	const isConfirmed = await customConfirm("Are you sure you'd like to reboot the server?");
 	if (isConfirmed) {
 		try {
-			const response = await api.fetchApi("/manager/reboot", { method: 'POST' });
+			const response = await api.fetchApi("/manager/reboot", { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 			if (response.status == 403) {
 				await handle403Response(response);
 				return false;
@@ -691,6 +691,7 @@ export async function uninstallNodes(nodeList, options = {}) {
 
 		const res = await api.fetchApi(`/manager/queue/uninstall`, {
 			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(data)
 		});
 

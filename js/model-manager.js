@@ -171,7 +171,7 @@ export class ModelManager {
 
 			".cmm-manager-stop": {
 				click: () => {
-					api.fetchApi('/manager/queue/reset', { method: 'POST' });
+					api.fetchApi('/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 					infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 				}
 			},
@@ -454,7 +454,7 @@ export class ModelManager {
 		let needRefresh = false;
 		let errorMsg = "";
 
-		await api.fetchApi('/manager/queue/reset', { method: 'POST' });
+		await api.fetchApi('/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 
 		let target_items = [];
 
@@ -476,6 +476,7 @@ export class ModelManager {
 
 			const res = await api.fetchApi(`/manager/queue/install_model`, {
 				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(data)
 			});
 
@@ -515,7 +516,7 @@ export class ModelManager {
 			}
 		}
 		else {
-			await api.fetchApi('/manager/queue/start', { method: 'POST' });
+			await api.fetchApi('/manager/queue/start', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 			// The queue can end before this request is answered.
 			if(this.install_context === context) {
 				this.showStop();

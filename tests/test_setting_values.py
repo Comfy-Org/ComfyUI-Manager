@@ -32,6 +32,7 @@ def post(handler, key, body):
     config, written = {key: BEFORE}, []
     namespace = {
         "web": web, "routes": SimpleNamespace(post=lambda path: lambda function: function),
+        "_reject_non_json_content_type": lambda request: None,
         "core": SimpleNamespace(get_config=lambda: config, write_config=lambda: written.append(dict(config))),
     }
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "<setting handlers>", "exec"), namespace)
