@@ -1,5 +1,15 @@
 {
     "custom_nodes": [
+{
+            "author": "AinJuZen",
+            "title": "ComfyUI-ModelMirror",
+            "reference": "https://github.com/AinJuZen/ComfyUI-ModelMirror",
+            "files": [
+                "https://github.com/AinJuZen/ComfyUI-ModelMirror"
+            ],
+            "install_type": "git-clone",
+            "description": "Fills in missing models through a configurable mirror (hf-mirror by default): detects missing model files in the current workflow, resolves each to its official HuggingFace repo by filename, and downloads them into the correct models/ folder with resume support. Writes only inside models/ (validated allowlist, no path traversal). Does not patch any official ComfyUI file."
+        },
         {
             "author": "Carasibana",
             "title": "ComfyUI-SimpleFloatSlider",
