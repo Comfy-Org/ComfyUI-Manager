@@ -1016,6 +1016,9 @@ class PIPFixer:
             logging.error(e)
 
         # restore based on custom list
+        if self.manager_files_path is None:
+            return
+
         pip_auto_fix_path = os.path.join(self.manager_files_path, "pip_auto_fix.list")
         if os.path.exists(pip_auto_fix_path):
             from packaging.specifiers import Specifier  # imported on use, as in parse_pip_spec()

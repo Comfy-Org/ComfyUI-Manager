@@ -10,9 +10,8 @@ quirk the flags rely on stays frozen.
 
 Harness: the child process injects a stub `folder_paths` (routing
 import-time side effects into a tmpdir, and making has_system_user_api()
-True so force_security_level_if_needed does not force 'strong'), prepends
-`glob/` to ITS OWN sys.path (shadowing of stdlib `glob` confined to the
-child), points manager_core.manager_config_path at a tmp config.ini,
+True), prepends `glob/` to ITS OWN sys.path (shadowing of stdlib `glob`
+confined to the child), points manager_core.manager_config_path at a tmp config.ini,
 resets cached_config, runs the scenario, and prints one JSON line for the
 parent to assert.
 """

@@ -125,6 +125,9 @@ model_dir_name_map = {
 
 
 def is_allowed_security_level(level):
+    if not manager_migration.has_system_user_api():
+        return False
+
     if level == 'block':
         return False
     elif level == 'high':
@@ -2159,7 +2162,22 @@ async def default_cache_update():
     logging.info("[ComfyUI-Manager] All startup tasks have been completed.")
 
 
-threading.Thread(target=lambda: asyncio.run(default_cache_update())).start()
+COMFYUI_UPDATE_HANDLERS = {update_comfyui, queue_start, reset_queue, queue_count, get_version, get_notice, get_startup_alerts}
+
+
+@web.middleware
+async def serve_only_comfyui_update(request, handler):
+    matched = request.match_info.handler
+    if matched.__module__ in ('manager_server', 'share_3rdparty') and matched not in COMFYUI_UPDATE_HANDLERS:
+        return security_403_response()
+
+    return await handler(request)
+
+
+if manager_migration.has_system_user_api():
+    threading.Thread(target=lambda: asyncio.run(default_cache_update())).start()
+else:
+    PromptServer.instance.app.middlewares.append(serve_only_comfyui_update)
 
 if not os.path.exists(core.manager_config_path):
     core.get_config()

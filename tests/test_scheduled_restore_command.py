@@ -16,7 +16,7 @@ def restore(tmp_path, monkeypatch, environ):
     scheduled = tmp_path / "restore-snapshot.json"
     scheduled.write_text("{}")
     block = [node for node in ast.parse(PRESTARTUP.read_text(encoding="utf-8")).body
-             if isinstance(node, ast.If) and ast.unparse(node.test) == "os.path.exists(restore_snapshot_path)"]
+             if isinstance(node, ast.If) and "'restore-snapshot'" in ast.unparse(node)]
     assert len(block) == 1
 
     cli_args = types.ModuleType("comfy.cli_args")
@@ -35,7 +35,7 @@ def restore(tmp_path, monkeypatch, environ):
         return 0
 
     exec(compile(ast.Module(body=block, type_ignores=[]), str(PRESTARTUP), "exec"), {
-        "os": os, "sys": sys, "restore_snapshot_path": str(scheduled), "comfy_path": LAUNCHER,
+        "os": os, "sys": sys, "_has_system_user_api": True, "restore_snapshot_path": str(scheduled), "comfy_path": LAUNCHER,
         "cm_cli_path": "cm-cli.py", "custom_nodes_base_path": os.path.join(BASE, "custom_nodes"),
         "folder_paths": types.SimpleNamespace(__file__=os.path.join(COMFY, "folder_paths.py"),
                                               get_user_directory=lambda: os.path.join(BASE, "user")),

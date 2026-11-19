@@ -883,7 +883,7 @@ class UnifiedManager:
         else:
             if os.path.exists(requirements_path) and not no_deps:
                 print("Install: pip packages")
-                pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path)
+                pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path if manager_migration.has_system_user_api() else None)
                 lines = manager_util.robust_readlines(requirements_path)
                 for line in lines:
                     package_name = remap_pip_package(line.strip())
@@ -1744,14 +1744,6 @@ class DirtyTrackingConfig(dict):
     recording `__setitem__` is what makes "only what changed" knowable.
     `update()` is covered too, so a future caller written that way cannot
     lose its change silently.
-
-    The wrapper is applied in `get_config()` AFTER `read_config()` has
-    returned, and that ordering is load-bearing:
-    `manager_migration.force_security_level_if_needed()` mutates the config
-    through a parameter alias from inside BOTH `read_config()` branches. If
-    that mutation were recorded, `security_level` would be dirty before the
-    user does anything, and every write would push the forced value over the
-    user's on-disk one - the exact clobber this tracking exists to remove.
     """
 
     def __init__(self, *args, **kwargs):
@@ -1785,14 +1777,14 @@ def write_config():
     the "stop -> edit -> start" advice in the install-denial messages stays
     correct; what changes is that the edit is no longer destroyed in between.
     """
-    config = configparser.ConfigParser(strict=False)
+    config = configparser.ConfigParser(strict=False, interpolation=None)
     try:
         loaded = config.read(manager_config_path)
     except Exception as e:
         # An unparsable config.ini must not make a settings change raise. Fall
         # back to the pre-merge behaviour and rewrite the file from scratch.
-        print(f"[ComfyUI-Manager] Warning: '{manager_config_path}' could not be parsed ({e}); rewriting it from the current settings.")
-        config = configparser.ConfigParser(strict=False)
+        logging.warning(f"[ComfyUI-Manager] '{manager_config_path}' could not be parsed ({e}); rewriting it from the current settings.")
+        config = configparser.ConfigParser(strict=False, interpolation=None)
     else:
         # `read()` opens each filename inside its own `try/except OSError` and
         # SKIPS the ones it could not open, so a file that exists but denies
@@ -1871,9 +1863,18 @@ def write_config():
         cached.dirty_keys.difference_update(keys)
 
 
+SETTING_VALUES = {
+    'security_level': ('normal', 'strong', 'normal-', 'weak'),
+    'network_mode': ('public', 'private', 'offline'),
+    'db_mode': ('cache', 'local', 'remote'),
+    'update_policy': ('stable-comfyui', 'nightly-comfyui'),
+    'component_policy': ('workflow', 'higher', 'mine'),
+}
+
+
 def read_config():
     try:
-        config = configparser.ConfigParser(strict=False)
+        config = configparser.ConfigParser(strict=False, interpolation=None)
         config.read(manager_config_path)
         default_conf = config['default']
 
@@ -1907,10 +1908,19 @@ def read_config():
                     'allow_pip_install': get_bool('allow_pip_install', False),
                     'allow_flagged_nodepack_install': get_bool('allow_flagged_nodepack_install', False),
                }
-        manager_migration.force_security_level_if_needed(result)
+
+        for key, values in SETTING_VALUES.items():
+            default = values[0]
+            if result[key] not in values:
+                logging.warning(f"[ComfyUI-Manager] {key} = {result[key]!r} in config.ini is not valid; '{default}' is used.")
+                result[key] = default
+
         return result
 
-    except Exception:
+    except Exception as e:
+        if os.path.exists(manager_config_path):
+            logging.warning(f"[ComfyUI-Manager] '{manager_config_path}' could not be read ({e!r}); the default settings are used.")
+
         import importlib.util
         # temporary disable `uv` on Windows by default (https://github.com/Comfy-Org/ComfyUI-Manager/issues/1969)
         manager_util.use_uv = importlib.util.find_spec("uv") is not None and platform.system() != "Windows"
@@ -1939,7 +1949,6 @@ def read_config():
             'allow_pip_install': False,
             'allow_flagged_nodepack_install': False,
         }
-        manager_migration.force_security_level_if_needed(result)
         return result
 
 
@@ -1947,10 +1956,6 @@ def get_config():
     global cached_config
 
     if cached_config is None:
-        # Wrapped HERE, after read_config() has returned: the migration hook it
-        # calls internally mutates the config through a parameter alias, and
-        # that mutation must NOT count as a user change (see
-        # DirtyTrackingConfig).
         cached_config = DirtyTrackingConfig(read_config())
         if cached_config['http_channel_enabled']:
             print("[ComfyUI-Manager] Warning: http channel enabled, make sure server in secure env")
@@ -2144,7 +2149,7 @@ def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=Fa
     else:
         if os.path.exists(requirements_path) and not no_deps:
             print("Install: pip packages")
-            pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path)
+            pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path if manager_migration.has_system_user_api() else None)
             with open(requirements_path, "r") as requirements_file:
                 for line in requirements_file:
                     #handle comments

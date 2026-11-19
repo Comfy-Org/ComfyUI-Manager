@@ -108,7 +108,7 @@ def read_config():
     global default_conf
     try:
         import configparser
-        config = configparser.ConfigParser(strict=False)
+        config = configparser.ConfigParser(strict=False, interpolation=None)
         config.read(manager_config_path)
         default_conf = config['default']
     except Exception:
@@ -141,7 +141,7 @@ check_file_logging()
 
 cm_global.pip_overrides = {}
 
-if os.path.exists(manager_pip_overrides_path):
+if _has_system_user_api and os.path.exists(manager_pip_overrides_path):
     with open(manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
         cm_global.pip_overrides = json.load(json_file)
 
@@ -589,7 +589,7 @@ check_bypass_ssl()
 processed_install = set()
 # Use manager_files_path for consistency (fixes path inconsistency bug)
 script_list_path = os.path.join(manager_files_path, "startup-scripts", "install-scripts.txt")
-pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path)
+pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path if _has_system_user_api else None)
 
 
 def is_installed(name):
@@ -618,7 +618,10 @@ def is_installed(name):
     return True       # prevent downgrade
 
 
-if os.path.exists(restore_snapshot_path):
+if not _has_system_user_api:
+    if os.path.exists(restore_snapshot_path):
+        print("[ComfyUI-Manager] Snapshot restore blocked on old ComfyUI version.")
+elif os.path.exists(restore_snapshot_path):
     try:
         cloned_repos = []
 
@@ -849,6 +852,10 @@ if not _has_system_user_api:
 elif os.path.exists(script_list_path):
     execute_startup_script()
 
+if _has_system_user_api and os.path.exists(os.path.join(folder_paths.get_user_directory(), 'default', 'ComfyUI-Manager', 'config.ini')):
+    print("[ComfyUI-Manager] The legacy config.ini is still there: installing the requirements of ComfyUI.")
+    execute_lazy_install_script(comfy_path, sys.executable)
+
 
 pip_fixer.fix_broken()
 
@@ -878,7 +885,7 @@ if script_executed:
 def check_windows_event_loop_policy():
     try:
         import configparser
-        config = configparser.ConfigParser(strict=False)
+        config = configparser.ConfigParser(strict=False, interpolation=None)
         config.read(manager_config_path)
         default_conf = config['default']
 

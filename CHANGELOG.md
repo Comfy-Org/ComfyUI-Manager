@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+### A failed legacy backup is reported without the text of the error, and leaves no part of a backup
+
+When the legacy directory could not be moved to its backup, the startup notice
+carried the text of the error, which has paths of that directory in it. The
+notice now says only that the backup failed, and the error is in the terminal.
+When the move fails while it copies, the legacy directory is as it was and the
+next start tries again; what was copied is removed, so that the starts do not
+each leave another part of a backup.
+
+### On an old ComfyUI, Manager only updates ComfyUI
+
+On a ComfyUI without the System User API (before 0.3.76), Manager's data
+directory is not protected, so installs are refused there and startup scripts
+are not run. Other requests were still served, and other files of that
+directory were still acted on. Now only the update of ComfyUI is served there:
+every other request to Manager is answered with `comfyui_outdated`. A snapshot
+restore scheduled in that directory is left alone at the start, and the start
+says so; its `pip_auto_fix.list` and `pip_overrides.json` are not applied by
+the start or by the update. Update ComfyUI to use Manager again.
+
+After that update, the first start moves `config.ini` to the protected
+directory. It moved every setting and raised only a security level below
+`normal`. Now it moves the settings that are preferences and leaves behind
+those that permit an install (`allow_git_url_install`, `allow_pip_install`,
+`allow_flagged_nodepack_install`) or change where Manager fetches from
+(`channel_url`, `http_channel_enabled`, `bypass_ssl`, `git_exe`), and any it
+does not know. Those are back at their defaults, and the terminal lists the
+ones that had another value; set them again if you need them. A security level
+that is not a security level is set to `normal` like one below it.
 ### Every POST that changes something is taken only as `application/json`, and the share option is saved by POST
 
 A page of another site can make the browser send a GET, and a POST without a
@@ -269,6 +298,46 @@ When the versions of ComfyUI could not be read, the request for the list ended
 with status 500 and a `TypeError` in the log: the call that logs the cause was
 given an argument it does not take. The cause is logged, and the answer is 400.
 
+### A value of config.ini is plain text, and one that a setting cannot have gives its default
+
+Manager read `%(name)s` in a value of `config.ini` as a reference to another
+setting, and a `%` that is not of that form made the whole file unreadable:
+every setting was then at its default, `security_level` too, and nothing said
+so. A value is now read as it is written; `%%`, which was read as one `%`, is
+now two. `security_level`, `network_mode`, `db_mode`, `update_policy` and
+`component_policy` have their default when `config.ini` gives a value that
+they cannot have, and Manager logs a warning that names it; the other settings
+are read as before, and `config.ini` keeps the value. Before, a
+`security_level` that is not a level refused every action that needs one; now
+it is `normal`. A `config.ini` that cannot be read at all still gives the
+default settings, and is still written anew from them when a setting is
+saved; Manager now logs a warning when it reads one.
+
+### After an update from an old ComfyUI, the requirements of ComfyUI are installed before the node packs are loaded
+
+On Windows, or with `always_lazy_install`, the update of ComfyUI reserves the
+install of its requirements for the next start. On a ComfyUI without the
+System User API that was reserved in the legacy directory, which the updated
+ComfyUI does not read. Manager installed them only at a start that found a
+`config.ini` in both directories, after ComfyUI and the node packs had been
+loaded. It now installs them at the start that still finds the legacy
+`config.ini`, before the node packs are loaded. A ComfyUI that cannot start
+without one of its new requirements does not get as far as Manager, as
+before: install them with `pip install -r requirements.txt` then. The legacy
+directory is moved to `.legacy-manager-backup` as before; a backup that is
+already there is no longer deleted, the new one gets a numbered name, and the
+start reminds of each of them.
+
+### An old ComfyUI no longer leaves `security_level = strong` in config.ini
+
+On a ComfyUI without the System User API, Manager refused installs by changing
+the security level it had read to `strong`. A `config.ini` that Manager
+created there was written with that `strong`, and installs stayed refused
+after ComfyUI was updated. Now Manager does not change the security level:
+the check of the security level refuses on such a ComfyUI, whatever the level
+is. A `config.ini` that already has `security_level = strong` is not changed:
+if you did not choose it, set it to `normal`.
+
 ### Restarting under comfy-cli no longer reports a closed log file
 
 Restarting ComfyUI from the Manager under comfy-cli printed `ValueError: I/O
@@ -505,18 +574,12 @@ allow_pip_install = true
 
 Changes take effect after a **restart** (no hot reload).
 
-#### Residual-risk note — outdated ComfyUI behavior change
+#### Outdated ComfyUI
 
-On outdated ComfyUI versions (no system-user API), the manager previously
-forced `security_level = strong`, which unconditionally denied the
-git-URL/pip install surfaces. After this change those surfaces are governed
-by the new flags instead: an operator who explicitly sets a flag to `true`
-on a **loopback** listener can now perform installs on outdated ComfyUI
-where the forced-strong policy previously denied them. This is an accepted,
-deliberate trade-off: it requires explicit operator opt-in, remains bounded
-to loopback listeners, and the flag-deny path on outdated ComfyUI still
-surfaces the `comfyui_outdated` notice. If you operate an outdated ComfyUI
-deployment, leave both flags at their default `false` and update ComfyUI.
+On outdated ComfyUI versions (no system-user API) the flags do not apply:
+git-URL and pip installs are refused there like every other install, whatever
+the flags and the listener are, and the answer is the `comfyui_outdated`
+notice. Update ComfyUI to use them.
 
 ### Removed share destinations
 
