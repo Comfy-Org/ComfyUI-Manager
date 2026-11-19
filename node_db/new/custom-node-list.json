@@ -1,6 +1,102 @@
 {
     "custom_nodes": [
         {
+            "author": "jutsuhq",
+            "title": "ComfyUI-Higgsfield",
+            "id": "comfyui-higgsfield",
+            "reference": "https://github.com/jutsuhq/ComfyUI-Higgsfield",
+            "files": [
+                "https://github.com/jutsuhq/ComfyUI-Higgsfield"
+            ],
+            "install_type": "git-clone",
+            "description": "Higgsfield API video nodes: Seedance 2.5 and Kling 4.0 (text-to-video and image-to-video) and Genjutsu motion transfer, with your own API key. Each node shows its price and stops before submitting if the estimate is above max_cost_usd."
+        },
+        {
+            "author": "hanshs474",
+            "title": "ComfyUI-movoa",
+            "id": "comfyui-movoa",
+            "reference": "https://github.com/hanshs474/ComfyUI-movoa",
+            "files": [
+                "https://github.com/hanshs474/ComfyUI-movoa"
+            ],
+            "install_type": "git-clone",
+            "description": "Text to video and photo to video with sound via Movoa (movoa.ai). Standard library only; requires a Movoa API key."
+        },
+        {
+            "author": "Iakov Savelev",
+            "title": "Momentum samplers for flow models (EMA momentum, damped extrapolation, any-sampler filter)",
+            "id": "momentum-cfg-samplers-research",
+            "reference": "https://github.com/YakovSava/momentum-cfg-samplers-research",
+            "files": [
+                "https://github.com/YakovSava/momentum-cfg-samplers-research"
+            ],
+            "install_type": "git-clone",
+            "description": "Momentum on the data prediction for DPM-Solver++-style samplers on flow-matching models: a negative coefficient lowers the error at equal step count, a positive one only adds lag. Nodes: Sampler Momentum, Sampler Momentum Filter (wraps any one-evaluation sampler, unevaluated), Sigmas grid; KSampler entries ddim_momentum, dpmpp_2m_sde_damped and <base>_momentumized. Includes a diagnosis of why the 2023 dpmpp_dualsde_momentumized fails on flow models."
+        },
+        {
+            "author": "Iakov Savelev",
+            "title": "Flow-WLS Sampler (regularized multistep, quantization study)",
+            "id": "flow-wls-research",
+            "reference": "https://github.com/YakovSava/flow-wls-research",
+            "files": [
+                "https://github.com/YakovSava/flow-wls-research"
+            ],
+            "install_type": "git-clone",
+            "description": "Nodes: Flow-WLS Sampler and Flow Easy Sampler, regularized multistep integration for flow-matching models, plus the research code of a study of how such samplers behave under FP8/INT4 quantization errors."
+        },
+        {
+            "author": "Iakov Savelev",
+            "title": "Flow-SDE Sampler (curvature- and error-adaptive stochasticity)",
+            "id": "flow-sde-research",
+            "reference": "https://github.com/YakovSava/flow-sde-research",
+            "files": [
+                "https://github.com/YakovSava/flow-sde-research"
+            ],
+            "install_type": "git-clone",
+            "description": "Flow-SDE Sampler node: controls how much noise an SDE sampler injects at each step for flow-matching models at low step counts. Research code; measured on Anima, Flux and MOSS-Image, with mostly negative results documented in the README."
+        },
+        {
+            "author": "Iakov Savelev",
+            "title": "Adaptive-step samplers (SA-Solver stochastic strength, predictor-corrector error estimate)",
+            "id": "adaptive-step-samplers",
+            "reference": "https://github.com/YakovSava/adaptive-step-samplers",
+            "files": [
+                "https://github.com/YakovSava/adaptive-step-samplers"
+            ],
+            "install_type": "git-clone",
+            "description": "Nodes: Adaptive SA Sampler (exposes the stochastic strength and noise window that ComfyUI hardcodes in sa_solver), Adaptive PC Sampler (Adams predictor-corrector with a free local error estimate) and Trajectory Probe (per-step diagnostics). Research code with measurements."
+        },
+        {
+            "author": "BSAI",
+            "title": "BSAI-MiniMAX-H3-Prompt",
+            "reference": "https://github.com/xm6018924/BSAI-MiniMAX-H3-Prompt",
+            "files": [
+                "https://github.com/xm6018924/BSAI-MiniMAX-H3-Prompt"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI custom node for optimizing MiniMax H3 video generation prompts based on the H3 model manual"
+        },
+        {
+            "author": "BSAI",
+            "title": "BSAI_ComfyUI_IndexTTS-2.5",
+            "reference": "https://github.com/xm6018924/BSAI_ComfyUI_IndexTTS-2.5",
+            "files": [
+                "https://github.com/xm6018924/BSAI_ComfyUI_IndexTTS-2.5"
+            ],
+            "install_type": "git-clone",
+            "description": "BSAI ComfyUI IndexTTS-2.5 - Text-to-Speech plugin with auto model download (ModelScope/HuggingFace)"
+        },
+        {
+            "author": "AinJuZen",
+            "title": "ComfyUI-ModelMirror",
+            "reference": "https://github.com/AinJuZen/ComfyUI-ModelMirror",
+            "files": [
+                "https://github.com/AinJuZen/ComfyUI-ModelMirror"
+            ],
+            "install_type": "git-clone",
+            "description": "Fills in missing models through a configurable mirror (hf-mirror by default): detects missing model files in the current workflow, resolves each to its official HuggingFace repo by filename, and downloads them into the correct models/ folder with resume support. Writes only inside models/ (validated allowlist, no path traversal). Does not patch any official ComfyUI file."
+        },
+        {
             "author": "daniel-ang",
             "title": "Torch Legacy",
             "reference": "https://github.com/daniel-ang/ComfyUI-Torch-Legacy",

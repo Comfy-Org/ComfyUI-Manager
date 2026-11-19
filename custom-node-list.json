@@ -1,26 +1,5 @@
 {
     "custom_nodes": [
-{
-            "author": "AinJuZen",
-            "title": "ComfyUI-ModelMirror",
-            "reference": "https://github.com/AinJuZen/ComfyUI-ModelMirror",
-            "files": [
-                "https://github.com/AinJuZen/ComfyUI-ModelMirror"
-            ],
-            "install_type": "git-clone",
-            "description": "Fills in missing models through a configurable mirror (hf-mirror by default): detects missing model files in the current workflow, resolves each to its official HuggingFace repo by filename, and downloads them into the correct models/ folder with resume support. Writes only inside models/ (validated allowlist, no path traversal). Does not patch any official ComfyUI file."
-        },
-        {
-            "author": "jutsuhq",
-            "title": "ComfyUI-Higgsfield",
-            "id": "comfyui-higgsfield",
-            "reference": "https://github.com/jutsuhq/ComfyUI-Higgsfield",
-            "files": [
-                "https://github.com/jutsuhq/ComfyUI-Higgsfield"
-            ],
-            "install_type": "git-clone",
-            "description": "Higgsfield API video nodes: Seedance 2.5 and Kling 4.0 (text-to-video and image-to-video) and Genjutsu motion transfer, with your own API key. Each node shows its price and stops before submitting if the estimate is above max_cost_usd."
-        },
         {
             "author": "Carasibana",
             "title": "ComfyUI-SimpleFloatSlider",
@@ -60635,6 +60614,17 @@
             "description": "Text to animated GIF through the AI GIF Maker API (native GIF generation, not a converted video). Outputs every frame as an IMAGE batch plus the saved .gif. No local GPU; needs an AI GIF Maker API key."
         },
         {
+            "author": "hanshs474",
+            "title": "ComfyUI-movoa",
+            "id": "comfyui-movoa",
+            "reference": "https://github.com/hanshs474/ComfyUI-movoa",
+            "files": [
+                "https://github.com/hanshs474/ComfyUI-movoa"
+            ],
+            "install_type": "git-clone",
+            "description": "Text to video and photo to video with sound via Movoa (movoa.ai). Standard library only; requires a Movoa API key."
+        },
+        {
             "author": "lostmywind",
             "title": "Workflow Doctor",
             "id": "workflow-doctor",
@@ -61564,6 +61554,26 @@
             ],
             "install_type": "git-clone",
             "description": "BSAI H3 upscale 4K - dedicated AI video super-resolution / 4K upscaling plugin for ComfyUI (MiniMax H3, Real-ESRGAN, Tile, FP16)"
+        },
+        {
+            "author": "BSAI",
+            "title": "BSAI_ComfyUI_IndexTTS-2.5",
+            "reference": "https://github.com/xm6018924/BSAI_ComfyUI_IndexTTS-2.5",
+            "files": [
+                "https://github.com/xm6018924/BSAI_ComfyUI_IndexTTS-2.5"
+            ],
+            "install_type": "git-clone",
+            "description": "BSAI ComfyUI IndexTTS-2.5 - Text-to-Speech plugin with auto model download (ModelScope/HuggingFace)"
+        },
+        {
+            "author": "BSAI",
+            "title": "BSAI-MiniMAX-H3-Prompt",
+            "reference": "https://github.com/xm6018924/BSAI-MiniMAX-H3-Prompt",
+            "files": [
+                "https://github.com/xm6018924/BSAI-MiniMAX-H3-Prompt"
+            ],
+            "install_type": "git-clone",
+            "description": "ComfyUI custom node for optimizing MiniMax H3 video generation prompts based on the H3 model manual"
         },
         {
             "author": "Strix-3D",
@@ -62655,6 +62665,27 @@
             "description": "Reproduce torch 2.8.0+cu129 CUDA numerics on newer torch, so MiniMax Music 3 / YuE2 seeds give the same songs as before the torch upgrade."
         },
         {
+            "author": "AinJuZen",
+            "title": "ComfyUI-ModelMirror",
+            "reference": "https://github.com/AinJuZen/ComfyUI-ModelMirror",
+            "files": [
+                "https://github.com/AinJuZen/ComfyUI-ModelMirror"
+            ],
+            "install_type": "git-clone",
+            "description": "Fills in missing models through a configurable mirror (hf-mirror by default): detects missing model files in the current workflow, resolves each to its official HuggingFace repo by filename, and downloads them into the correct models/ folder with resume support. Writes only inside models/ (validated allowlist, no path traversal). Does not patch any official ComfyUI file."
+        },
+        {
+            "author": "jutsuhq",
+            "title": "ComfyUI-Higgsfield",
+            "id": "comfyui-higgsfield",
+            "reference": "https://github.com/jutsuhq/ComfyUI-Higgsfield",
+            "files": [
+                "https://github.com/jutsuhq/ComfyUI-Higgsfield"
+            ],
+            "install_type": "git-clone",
+            "description": "Higgsfield API video nodes: Seedance 2.5 and Kling 4.0 (text-to-video and image-to-video) and Genjutsu motion transfer, with your own API key. Each node shows its price and stops before submitting if the estimate is above max_cost_usd."
+        },
+        {
             "author": "ntdviet",
             "title": "ntdviet/comfyui-ext",
             "reference": "https://github.com/ntdviet/comfyui-ext",
@@ -62872,26 +62903,6 @@
             ],
             "install_type": "unzip",
             "description": "This is a node to convert an image into a CMYK Halftone dot image."
-        },
-{
-            "author": "BSAI",
-            "title": "BSAI_ComfyUI_IndexTTS-2.5",
-            "reference": "https://github.com/xm6018924/BSAI_ComfyUI_IndexTTS-2.5",
-            "files": [
-                "https://github.com/xm6018924/BSAI_ComfyUI_IndexTTS-2.5"
-            ],
-            "install_type": "git-clone",
-            "description": "BSAI ComfyUI IndexTTS-2.5 - Text-to-Speech plugin with auto model download (ModelScope/HuggingFace)"
-        },
-{
-            "author": "BSAI",
-            "title": "BSAI-MiniMAX-H3-Prompt",
-            "reference": "https://github.com/xm6018924/BSAI-MiniMAX-H3-Prompt",
-            "files": [
-                "https://github.com/xm6018924/BSAI-MiniMAX-H3-Prompt"
-            ],
-            "install_type": "git-clone",
-            "description": "ComfyUI custom node for optimizing MiniMax H3 video generation prompts based on the H3 model manual"
         }
     ]
 }
