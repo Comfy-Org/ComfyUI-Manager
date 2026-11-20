@@ -5,6 +5,10 @@ local CONNECT proxy that hands the tunnel for github.com:443 to a local HTTPS se
 holds a "github.com" certificate from a throwaway CA: a machine in the middle, unless the
 case trusts that CA through SSL_CERT_FILE. Nothing leaves 127.0.0.1. A child is needed
 because aiohttp builds its verifying SSL context when it is imported.
+
+The last cases fetch a list through `get_data`, the same way and from a channel without
+TLS. Both fetches are also held to raising no deprecation warning from a line of the
+Manager (#2281).
 """
 import ast
 import asyncio
@@ -17,10 +21,12 @@ import ssl
 import subprocess
 import sys
 from types import SimpleNamespace
+from warnings import catch_warnings, simplefilter
 
 import aiohttp
 import pytest
 from aiohttp import web
+from aiohttp.test_utils import TestServer
 
 from manager_test_utils import GLOB_DIR, load_manager_util
 
@@ -30,6 +36,9 @@ NOTICE_HTML = ('<div class="markdown-body"><p>Served by <b>the test server</b> '
 UNAVAILABLE = "Unable to retrieve Notice"
 TUNNEL = "CONNECT github.com:443 HTTP/1.1"
 OTHER_HOST = "notice-test.example"
+LIST_PATH = "/a-channel/model-list.json"
+LIST = {"models": [{"name": "served by the test server"}]}
+MANAGER_FILES = ("manager_server.py", "manager_util.py")
 
 OPENSSL_CONFIG = """
 [req]
@@ -70,6 +79,17 @@ def load_get_notice(bypass_ssl):
     return namespace["get_notice"]
 
 
+def load_get_data(bypass_ssl):
+    manager_util = load_manager_util()
+    manager_util.bypass_ssl = bypass_ssl
+    return manager_util.get_data
+
+
+def manager_deprecations(caught):
+    return [f"{os.path.basename(w.filename)}: {w.message}" for w in caught
+            if issubclass(w.category, DeprecationWarning) and os.path.basename(w.filename) in MANAGER_FILES]
+
+
 async def _pipe(reader, writer):
     try:
         while data := await reader.read(65536):
@@ -79,13 +99,18 @@ async def _pipe(reader, writer):
         writer.close()
 
 
-async def fetch_notice(certdir, host, bypass_ssl, proxy_mode):
-    """Child process: what `get_notice` answers and logs, and the tunnels the proxy was asked for."""
+async def fetch_in_child(certdir, host, bypass_ssl, proxy_mode, what):
+    """Child process: what `get_notice` answers and logs, or what `get_data` returns, and the tunnels
+    the proxy was asked for."""
     async def notice_page(request):
         return web.Response(text=NOTICE_HTML, content_type="text/html")
 
+    async def list_file(request):
+        return web.json_response(LIST)
+
     upstream = web.Application()
     upstream.router.add_get(NOTICE_PATH, notice_page)
+    upstream.router.add_get(LIST_PATH, list_file)
     runner = web.AppRunner(upstream)
     await runner.setup()
     server_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
@@ -126,11 +151,20 @@ async def fetch_notice(certdir, host, bypass_ssl, proxy_mode):
     handler.emit = lambda record: record.name == "root" and warnings.append(record.getMessage())
     logging.getLogger().addHandler(handler)
 
-    response = await load_get_notice(bypass_ssl)(None)
+    with catch_warnings(record=True) as caught:
+        simplefilter("always")
+        if what == "list":
+            try:
+                result = {"list": await load_get_data(bypass_ssl)(f"https://github.com{LIST_PATH}", silent=True)}
+            except aiohttp.ClientError as e:
+                result = {"error": type(e).__name__}
+        else:
+            response = await load_get_notice(bypass_ssl)(None)
+            result = {"status": response.status, "text": response.text}
     answered.set()
     proxy.close()
     await runner.cleanup()
-    return {"status": response.status, "text": response.text, "tunnels": tunnels, "warnings": warnings}
+    return {**result, "tunnels": tunnels, "warnings": warnings, "deprecations": manager_deprecations(caught)}
 
 
 @pytest.fixture(scope="module")
@@ -156,16 +190,16 @@ def certdir(tmp_path_factory):
     return path
 
 
-def fetch(certdir, host="github.com", trust_ca=False, bypass_ssl=False, proxy_mode="tunnel"):
+def fetch(certdir, host="github.com", trust_ca=False, bypass_ssl=False, proxy_mode="tunnel", what="notice"):
     env = {key: value for key, value in os.environ.items()
            if not key.lower().endswith("_proxy") and key not in ("SSL_CERT_FILE", "SSL_CERT_DIR")}
     env["__COMFYUI_DESKTOP_VERSION__"] = "test"
     if trust_ca:
         env["SSL_CERT_FILE"] = str(certdir / "ca.pem")
     child = subprocess.run(
-        [sys.executable, __file__, str(certdir), host, str(int(bypass_ssl)), proxy_mode],
+        [sys.executable, __file__, str(certdir), host, str(int(bypass_ssl)), proxy_mode, what],
         env=env, capture_output=True, text=True, timeout=60)
-    assert child.returncode == 0, "get_notice raised instead of answering:\n" + child.stderr[-2000:]
+    assert child.returncode == 0, "the fetch raised instead of answering:\n" + child.stderr[-2000:]
     return json.loads(child.stdout.strip().splitlines()[-1])
 
 
@@ -190,6 +224,7 @@ def test_bypass_ssl_accepts_the_untrusted_certificate(certdir):
     assert result["status"] == 200
     assert "<b>the test server</b>" in result["text"]
     assert result["warnings"] == []
+    assert result["deprecations"] == []
 
 
 def test_trusted_certificate_for_another_host_is_rejected(certdir):
@@ -222,5 +257,58 @@ def test_failed_fetch_answers_with_the_unavailable_notice(certdir, proxy_mode, e
     assert_unavailable(result, error)
 
 
+def test_list_from_an_untrusted_certificate_is_rejected(certdir):
+    result = fetch(certdir, what="list")
+
+    assert result["tunnels"] == [TUNNEL]
+    assert result["error"] == "ClientConnectorCertificateError"
+
+
+def test_list_from_a_trusted_certificate_for_another_host_is_rejected(certdir):
+    result = fetch(certdir, host=OTHER_HOST, trust_ca=True, what="list")
+
+    assert result["tunnels"] == [TUNNEL]
+    assert result["error"] == "ClientConnectorCertificateError"
+
+
+def test_list_from_a_ca_trusted_through_ssl_cert_file_is_accepted(certdir):
+    result = fetch(certdir, trust_ca=True, what="list")
+
+    assert result["list"] == LIST
+    assert result["deprecations"] == []
+
+
+def test_bypass_ssl_accepts_the_list_from_the_untrusted_certificate(certdir):
+    result = fetch(certdir, bypass_ssl=True, what="list")
+
+    assert result["tunnels"] == [TUNNEL]
+    assert result["list"] == LIST
+    assert result["deprecations"] == []
+
+
+@pytest.mark.parametrize("bypass_ssl", [False, True], ids=["certificates checked", "bypass_ssl"])
+def test_list_from_a_channel_without_tls_raises_no_deprecation_warning(bypass_ssl, monkeypatch):
+    monkeypatch.setenv("NO_PROXY", "127.0.0.1")
+    monkeypatch.setenv("no_proxy", "127.0.0.1")
+
+    async def fetch_list():
+        async def list_file(request):
+            return web.json_response(LIST)
+
+        channel = web.Application()
+        channel.router.add_get(LIST_PATH, list_file)
+        server = TestServer(channel)
+        await server.start_server()
+        try:
+            with catch_warnings(record=True) as caught:
+                simplefilter("always")
+                fetched = await load_get_data(bypass_ssl)(str(server.make_url(LIST_PATH)), silent=True)
+            return fetched, manager_deprecations(caught)
+        finally:
+            await server.close()
+
+    assert asyncio.run(fetch_list()) == (LIST, [])
+
+
 if __name__ == "__main__":
-    print(json.dumps(asyncio.run(fetch_notice(sys.argv[1], sys.argv[2], sys.argv[3] == "1", sys.argv[4]))))
+    print(json.dumps(asyncio.run(fetch_in_child(sys.argv[1], sys.argv[2], sys.argv[3] == "1", sys.argv[4], sys.argv[5]))))
