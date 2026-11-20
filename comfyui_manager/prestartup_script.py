@@ -279,6 +279,7 @@ try:
             self.is_stdout = is_stdout
             self.encoding = "utf-8"
             self.last_char = ''
+            self.console_is_gone = False
 
         def fileno(self):
             try:
@@ -352,12 +353,29 @@ try:
                     if '100%' in message:
                         self.sync_write(message)
                     else:
-                        write_stderr(message)
-                        original_stderr.flush()
+                        self.write_console(message)
                 else:
                     self.sync_write(message)
             else:
                 self.sync_write(message)
+
+        def write_console(self, message):
+            # A console that is gone does not come back, and ComfyUI's stream keeps every write
+            # it could not flush, so it is not written to again.
+            if self.console_is_gone:
+                return
+
+            try:
+                if self.is_stdout:
+                    write_stdout(message)
+                    original_stdout.flush()
+                else:
+                    write_stderr(message)
+                    original_stderr.flush()
+            except BlockingIOError:
+                pass
+            except OSError:
+                self.console_is_gone = True
 
         def sync_write(self, message, file_only=False):
             with log_lock:
@@ -378,12 +396,7 @@ try:
 
             if not file_only:
                 with std_log_lock:
-                    if self.is_stdout:
-                        write_stdout(message)
-                        original_stdout.flush()
-                    else:
-                        write_stderr(message)
-                        original_stderr.flush()
+                    self.write_console(message)
 
         def flush(self):
             try:
@@ -439,8 +452,12 @@ try:
             try:
                 message = record.getMessage()
             except Exception as e:
-                message = f"<<logging error>>: {record} - {e}"
-                original_stderr.write(message)
+                try:
+                    error = f"{type(e).__name__}: {e}"
+                except Exception:
+                    # an error can carry the message that cannot be turned into text
+                    error = type(e).__name__
+                message = f"<<logging error>>: {record.pathname}:{record.lineno} - {error}"
 
             if is_start_mode:
                 match = re.search(pat_import_fail, message)
