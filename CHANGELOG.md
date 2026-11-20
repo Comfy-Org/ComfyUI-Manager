@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+### A console that is gone does not fail a prompt
+
+A server that was started with pipes for its console goes on running when the
+process that read them exits, and a write to such a pipe fails. The log hook
+of the Manager passed that failure on to whatever had printed: the prompt of a
+node that prints, or of a sampler at its progress bar, ended with
+`BrokenPipeError: [Errno 32] Broken pipe`, on Windows with
+`OSError: [Errno 22] Invalid argument` (#3223). The hook now drops what the
+console does not take and does not write to that console again, and what is
+written still goes to the log file. While stderr is gone, ComfyUI's own log
+handler fails on each record, and Python's report of that failure is now in
+the log file in full, where it broke off after its first line. This is the
+hook of the log file (`file_logging`, on by default): with it off, the streams
+are those of ComfyUI, and the progress bar still fails there.
+
+### A log call that cannot be formatted does not fail its node
+
+A log call that cannot be formatted failed its node in the log handler of the
+Manager, with the exception of the format: `logging.info("value %d", "text")`
+ended the node with `TypeError`. Python's logging only reports such a call
+and goes on. The handler now puts a `<<logging error>>` line with the file
+and the line of the call into the log file, and the node goes on.
+
 ### A snapshot restore installs a git node pack as the snapshot names it
 
 A snapshot names a git node pack by its url. For a url that the registry

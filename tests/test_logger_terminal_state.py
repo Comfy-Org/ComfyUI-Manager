@@ -3,11 +3,15 @@
 A logger that always answered "not a terminal" made colorama, and any other library that
 asks, strip its colors and hide its progress display for the whole session.
 
-The last cases are about what is written once the log file is closed: the restart under
+Other cases are about what is written once the log file is closed: the restart under
 comfy-cli closes it and then exits, and what is logged on the way out must not fail.
 """
 import ast
+import errno
 import io
+import logging
+import os
+import re
 import textwrap
 import threading
 from pathlib import Path
@@ -77,13 +81,103 @@ def close_logs(log_file, log_lock):
     return out.close_log, scope["close_log"]
 
 
+def assigned(name):
+    tree = ast.parse(SOURCE.read_text(encoding="utf-8"))
+    return next(ast.literal_eval(n.value) for n in ast.walk(tree)
+                if isinstance(n, ast.Assign) and [t.id for t in n.targets if isinstance(t, ast.Name)] == [name])
+
+
+def writing_loggers(stdout, stderr, log_file):
+    return loggers(stdout, stderr, log_file=log_file, log_lock=threading.Lock(), std_log_lock=threading.Lock(),
+                   current_timestamp=lambda: "12:00:00", write_stdout=stdout.write, write_stderr=stderr.write,
+                   re=re, pat_tqdm=assigned("pat_tqdm"), message_collapses=[], is_start_mode=False)
+
+
+def recording_stream():
+    written = []
+    return SimpleNamespace(write=written.append, flush=lambda: None), written
+
+
 def writing_logger(log_file):
     """The stderr logger with what its writes need, and the list of what reached the console."""
-    console = []
-    stream = SimpleNamespace(flush=lambda: None)
-    _, err = loggers(stream, stream, log_file=log_file, log_lock=threading.Lock(), std_log_lock=threading.Lock(),
-                     current_timestamp=lambda: "12:00:00", write_stdout=console.append, write_stderr=console.append)
+    stream, console = recording_stream()
+    _, err = writing_loggers(stream, stream, log_file)
     return err, console
+
+
+def logging_handler(console, log_file):
+    source = SOURCE.read_text(encoding="utf-8")
+    node = next(n for n in ast.walk(ast.parse(source)) if isinstance(n, ast.ClassDef) and n.name == "LoggingHandler")
+    _, err = writing_loggers(console, console, log_file)
+    scope = {"logging": logging, "is_start_mode": False, "stderr_wrapper": err, "original_stderr": console}
+    exec(textwrap.dedent("\n".join(source.splitlines()[node.lineno - 1:node.end_lineno])), scope)
+    return scope["LoggingHandler"]()
+
+
+def pipe_without_a_reader(unbuffered):
+    read_end, write_end = os.pipe()
+    os.close(read_end)
+    if unbuffered:
+        return io.TextIOWrapper(io.FileIO(write_end, "w"), encoding="utf-8", write_through=True)
+    return open(write_end, "w", encoding="utf-8")
+
+
+def terminal_that_has_hung_up():
+    if not hasattr(os, "openpty"):
+        pytest.skip("no pseudo-terminal on this platform")
+    master, slave = os.openpty()
+    stream = open(slave, "w", encoding="utf-8")
+    os.close(master)
+    return stream
+
+
+@pytest.fixture(params=["pipe", "unbuffered pipe", "terminal"])
+def console_that_is_gone(request):
+    """A pipe whose reader has exited fails with EPIPE: at the flush, or at the write when the
+    stream is unbuffered, as it is with -u. A terminal that has hung up fails with EIO, at
+    the write of a line, since the stream of a terminal is line-buffered."""
+    if request.param == "terminal":
+        stream = terminal_that_has_hung_up()
+    else:
+        stream = pipe_without_a_reader(unbuffered=request.param == "unbuffered pipe")
+    yield stream
+    try:
+        stream.close()
+    except OSError:
+        pass
+
+
+class CountingWrites:
+    def __init__(self, stream):
+        self.stream = stream
+        self.writes = 0
+
+    def write(self, text):
+        self.writes += 1
+        return self.stream.write(text)
+
+    def flush(self):
+        return self.stream.flush()
+
+
+def run_progress_bar(logger):
+    tqdm = pytest.importorskip("tqdm")
+    for _ in tqdm.tqdm(range(3), file=logger, mininterval=0, miniters=1, disable=False):
+        pass
+
+
+def write_a_line(logger):
+    logger.write("second\n")
+
+
+class Unprintable:
+    def __str__(self):
+        raise RuntimeError("no text for this")
+
+
+class UnprintableWithItsError:
+    def __str__(self):
+        raise RuntimeError(self)
 
 
 @pytest.fixture
@@ -198,3 +292,124 @@ def test_log_file_is_closed_under_the_lock_of_the_writes(which):
 
     # a write checks that the file is open and writes to it under this lock
     assert held == [True]
+
+
+def test_progress_of_a_bar_is_shown_and_only_the_finished_bar_is_logged():
+    log_file = LogFile()
+    logger, console = writing_logger(log_file)
+
+    run_progress_bar(logger)
+
+    shown, logged = "".join(console), "".join(log_file.written)
+    assert "1/3" in shown and "3/3" in shown
+    assert "3/3" in logged and "1/3" not in logged
+
+
+def test_each_logger_writes_to_its_own_console_stream():
+    stdout, on_stdout = recording_stream()
+    stderr, on_stderr = recording_stream()
+    out, err = writing_loggers(stdout, stderr, LogFile())
+
+    out.write("to stdout\n")
+    err.write("to stderr\n")
+    run_progress_bar(err)
+
+    assert on_stdout == ["to stdout\n"]
+    assert on_stderr[0] == "to stderr\n" and "3/3" in "".join(on_stderr)
+
+
+def test_progress_bar_does_not_fail_once_the_console_is_gone(console_that_is_gone):
+    log_file = LogFile()
+    _, logger = writing_loggers(console_that_is_gone, console_that_is_gone, log_file)
+
+    run_progress_bar(logger)
+
+    assert "3/3" in "".join(log_file.written)
+
+
+@pytest.mark.parametrize("which", [0, 1], ids=["stdout", "stderr"])
+def test_text_does_not_fail_and_is_logged_once_the_console_is_gone(console_that_is_gone, which):
+    log_file = LogFile()
+    logger = writing_loggers(console_that_is_gone, console_that_is_gone, log_file)[which]
+
+    logger.write("a line of a node\n")
+
+    assert log_file.written == ["a line of a node\n"]
+
+
+@pytest.mark.parametrize("then", [write_a_line, run_progress_bar], ids=["text", "progress bar"])
+def test_console_that_has_failed_is_not_written_to_again(console_that_is_gone, then):
+    gone = CountingWrites(console_that_is_gone)
+    healthy, shown = recording_stream()
+    out, err = writing_loggers(healthy, gone, LogFile())
+
+    err.write("first\n")
+    then(err)
+    out.write("to stdout\n")
+
+    assert gone.writes == 1
+    assert shown == ["to stdout\n"]
+
+
+def test_console_that_cannot_take_a_write_now_is_written_to_again():
+    taken = []
+
+    def write(text):
+        if not taken:
+            taken.append(None)
+            raise BlockingIOError(errno.EAGAIN, "write could not complete without blocking")
+        taken.append(text)
+
+    console = SimpleNamespace(write=write, flush=lambda: None)
+    out, _ = writing_loggers(console, console, LogFile())
+
+    out.write("dropped\n")
+    out.write("shown\n")
+
+    assert taken == [None, "shown\n"]
+
+
+def test_what_is_written_reaches_a_buffered_console_at_once():
+    behind = io.BytesIO()
+    console = io.TextIOWrapper(behind, encoding="utf-8")
+    out, _ = writing_loggers(console, console, LogFile())
+
+    out.write("a line")
+
+    assert behind.getvalue() == b"a line"
+
+
+def test_text_that_the_console_cannot_encode_fails_as_it_does_without_the_logger():
+    console = io.TextIOWrapper(io.BytesIO(), encoding="utf-8")
+    out, _ = writing_loggers(console, console, LogFile())
+
+    with pytest.raises(UnicodeEncodeError):
+        out.write("half of a surrogate pair \udc80\n")
+
+
+@pytest.mark.parametrize("message, arguments, error", [
+    ("two values %s %s", ("only one",), "TypeError: not enough arguments for format string"),
+    ("%(missing)s", ({"other": 1},), "KeyError: 'missing'"),
+    (Unprintable(), (), "RuntimeError: no text for this"),
+    (UnprintableWithItsError(), (), "RuntimeError"),
+], ids=["too few arguments", "a missing key", "a message that cannot be printed",
+        "a message whose error cannot be printed either"])
+def test_record_that_cannot_be_formatted_is_logged_and_does_not_fail(message, arguments, error):
+    console, shown = recording_stream()
+    log_file = LogFile()
+    handler = logging_handler(console, log_file)
+
+    handler.emit(logging.LogRecord("root", logging.INFO, "a_node.py", 7, message, arguments, None))
+
+    assert len(log_file.written) == 1
+    assert log_file.written[0].endswith(f"<<logging error>>: a_node.py:7 - {error}\n")
+    assert shown == []
+
+
+def test_record_that_cannot_be_formatted_is_logged_and_does_not_fail_once_the_console_is_gone(console_that_is_gone):
+    log_file = LogFile()
+    handler = logging_handler(console_that_is_gone, log_file)
+
+    handler.emit(logging.LogRecord("root", logging.INFO, "a_node.py", 7, "two values\n%s %s", ("only one",), None))
+
+    assert len(log_file.written) == 1 and "a_node.py:7" in log_file.written[0]
