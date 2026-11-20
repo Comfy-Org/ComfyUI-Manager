@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ### Fixed
 
+- No deprecation warning of aiohttp with `bypass_ssl`. With
+  `bypass_ssl = true`, the fetch of the legacy notice and the fetch of a list
+  passed `verify_ssl=False` to aiohttp, which warns that the argument is
+  deprecated: `DeprecationWarning: verify_ssl is deprecated, use ssl=False
+  instead` (#2281). They now pass `ssl=False`. Without `bypass_ssl` nothing
+  changes: the certificate is checked as before.
 - A console that is gone does not fail a prompt. A server that was started
   with pipes for its console goes on running when the process that read them
   exits, and a write to such a pipe fails. The log hook passed that failure
