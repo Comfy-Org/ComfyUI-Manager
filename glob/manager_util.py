@@ -232,12 +232,17 @@ def is_file_created_within_one_day(file_path):
     return time_difference <= 86400
 
 
+def aiohttp_connector():
+    # aiohttp before 3.9.2 reads ssl=True as "do not check", so ssl is passed only to turn the check off
+    return aiohttp.TCPConnector(ssl=False) if bypass_ssl else None
+
+
 async def get_data(uri, silent=False):
     if not silent:
         print(f"FETCH DATA from: {uri}", end="")
 
     if uri.startswith("http"):
-        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=not bypass_ssl)) as session:
+        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp_connector()) as session:
             headers = {
                 'Cache-Control': 'no-cache',
                 'Pragma': 'no-cache',
