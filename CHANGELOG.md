@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ### Fixed
 
+- A console that is gone does not fail a prompt. A server that was started
+  with pipes for its console goes on running when the process that read them
+  exits, and a write to such a pipe fails. The log hook passed that failure
+  on to whatever had printed: the prompt of a node that prints, or of a
+  sampler at its progress bar, ended with
+  `BrokenPipeError: [Errno 32] Broken pipe`, on Windows with
+  `OSError: [Errno 22] Invalid argument` (#3223). The hook now drops what the
+  console does not take and does not write to that console again, and what
+  is written still goes to the log file. A log record that cannot be
+  formatted is no longer written to the console by the Manager, where it
+  could fail the node the same way: for a record that the console shows,
+  Python's logging reports it there already. The line that the Manager puts
+  into the log file for such a record names the file and the line of the
+  call; it named the record itself, which failed the node when the message
+  of the call could not be turned into text. While stderr is gone, ComfyUI's
+  own log handler fails on each record, and Python's report of that failure
+  is now in the log file in full, where it broke off after its first line.
+  This is the hook of the log file (`file_logging`, on by default): with it
+  off, the streams are those of ComfyUI, and the progress bar still fails
+  there.
 - A snapshot restore clones a git node pack from the url of the snapshot.
   For a url that the registry knows, it asked for a nightly install by the id
   of the registry, which takes its url from the node list first: when the
