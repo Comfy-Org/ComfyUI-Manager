@@ -76,12 +76,15 @@ def aria2_find_task(dir: str, filename: str):
 
 
 def aria2_download_url(model_url: str, model_dir: str, filename: str):
-    import manager_core as core
+    try:
+        from comfyui_manager.common import context
+    except ImportError:
+        import manager_core as context
     import tqdm
     import time
 
-    if model_dir.startswith(core.comfy_path):
-        model_dir = model_dir[len(core.comfy_path) :]
+    if model_dir.startswith(context.comfy_path):
+        model_dir = model_dir[len(context.comfy_path) :]
 
     download_dir = model_dir if model_dir.startswith('/') else os.path.join('/models', model_dir)
 
