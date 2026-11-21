@@ -25,6 +25,15 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   installs the installed commit once more from its cache when it has it. A fix
   also installs the requirements that an install, an update or an earlier fix
   of the same session has installed.
+- A fix that failed is reported as failed. A fix of a nodepack that the
+  server is asked for (**Try fix** of the legacy page, a `fix` task of the
+  queue) was reported as a success also when a requirement could not be
+  installed or `install.py` failed: only the log said `install script failed`.
+  Such a fix is now reported as failed. A fix that is reserved for the next
+  start, as on Windows or with `always_lazy_install`, is reported as soon as it
+  is reserved, as before. With `use_unified_resolver` the requirements of a
+  nodepack wait for the next start as well, and the fix answers for
+  `install.py` alone; the legacy core runs them at the fix.
 - No deprecation warning of aiohttp with `bypass_ssl`. With
   `bypass_ssl = true`, the fetch of the legacy notice and the fetch of a list
   passed `verify_ssl=False` to aiohttp, which warns that the argument is
