@@ -18,6 +18,8 @@ loadCss("./custom-nodes-manager.css");
 
 const gridId = "node";
 
+const INVALID_INSTALLATION_GUIDANCE = "This nodepack was not installed through ComfyUI-Manager, or its installation is damaged, so the Manager cannot update it. Reinstalling deletes its folder and installs the nodepack again.";
+
 const pageHtml = `
 <div class="cn-manager cn-manager-dark">
 	<div class="cn-manager-grid"></div>
@@ -254,6 +256,10 @@ export class CustomNodesManager {
 			value: "import-fail",
 			hasData: true
 		}, {
+			label: "Invalid Installation",
+			value: "invalid-installation",
+			hasData: true
+		}, {
 			label: "Not Installed",
 			value: "not-installed",
 			hasData: true
@@ -331,7 +337,8 @@ export class CustomNodesManager {
 
 			"reinstall": {
 				label: "Reinstall",
-				mode: "reinstall"
+				mode: "reinstall",
+				title: INVALID_INSTALLATION_GUIDANCE
 			},
 
 			"install": {
@@ -384,7 +391,8 @@ export class CustomNodesManager {
 
 		return list.map(id => {
 			const bt = buttons[id];
-			return `<button class="cn-btn-${id} cm-ui-button" group="${sanitizeHTML(String(action))}" mode="${bt.mode}">${bt.label}</button>`;
+			const tooltip = bt.title ? ` title="${sanitizeHTML(bt.title)}"` : "";
+			return `<button class="cn-btn-${id} cm-ui-button" group="${sanitizeHTML(String(action))}" mode="${bt.mode}"${tooltip}>${bt.label}</button>`;
 		}).join("");
 	}
 
@@ -713,10 +721,13 @@ export class CustomNodesManager {
 				const container = document.createElement('div');
 
 				if (rowItem.action === 'invalid-installation') {
-					const invalidTag = document.createElement('span');
-					invalidTag.style.color = 'red';
-					invalidTag.innerHTML = '<b>(INVALID)</b>';
-					container.appendChild(invalidTag);
+					const button = document.createElement('button');
+					button.className = 'cn-btn-invalid-installation';
+					button.innerText = 'INVALID INSTALLATION ↗';
+					button.title = INVALID_INSTALLATION_GUIDANCE;
+					button.onclick = () => show_message(`<span style="color: var(--fg-color)"><B>The '${title}' nodepack is an invalid installation.</B><BR><HR><BR>${INVALID_INSTALLATION_GUIDANCE}<BR><BR>To fix it, click <B>Reinstall</B> in the Action column of its row.</span>`);
+					container.appendChild(button);
+					container.appendChild(document.createElement('br'));
 				} else if (rowItem.action === 'import-fail') {
 					const button = document.createElement('button');
 					button.className = 'cn-btn-import-failed';
@@ -1411,7 +1422,8 @@ export class CustomNodesManager {
 		if(mode === "reinstall") {
 			title = title || `${list.length} custom nodes`;
 
-			const confirmed = await customConfirm(`Are you sure reinstall ${title}?`);
+			const what = list.length > 1 ? "their folders and installs the nodepacks" : "its folder and installs the nodepack";
+			const confirmed = await customConfirm(`Reinstall ${title}? This deletes ${what} again.`);
 			if (!confirmed) {
 				return;
 			}
