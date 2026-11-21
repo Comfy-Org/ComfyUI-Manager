@@ -134,5 +134,3 @@ def initialize_environment():
 
     print_comfyui_version()
     setup_environment()
-
-    core.check_invalid_nodes()

@@ -6,6 +6,32 @@ import os
 from .git_utils import get_commit_hash
 
 
+# the reparse tag of a directory junction on Windows (IO_REPARSE_TAG_MOUNT_POINT)
+JUNCTION_REPARSE_TAG = 0xA0000003
+
+
+def is_link(path: str) -> bool:
+    """
+    A symbolic link, or a directory junction on Windows. A junction is told by the reparse tag that os.lstat reads on
+    every Python; os.path.isjunction is new in 3.12.
+    """
+    try:
+        return os.path.islink(path) or getattr(os.lstat(path), 'st_reparse_tag', 0) == JUNCTION_REPARSE_TAG
+    except OSError:
+        return False
+
+
+@dataclass(frozen=True)
+class InvalidInstallation:
+    """What a reload knows of an invalid installation (see InstalledNodePackage.isValid). Which nodepack it is
+    depends on the registry list, so UnifiedManager.invalid_pack_id answers that when it is asked."""
+
+    fullpath: str
+    folder: str                 # its name without a .disabled suffix, as the unknown nodes key it
+    project_name: str | None    # [project].name of its pyproject.toml
+    enabled: bool
+
+
 @dataclass
 class InstalledNodePackage:
     """Information about an installed node package."""
@@ -39,10 +65,16 @@ class InstalledNodePackage:
         return get_commit_hash(self.fullpath)
 
     def isValid(self) -> bool:
-        if self.is_from_cnr:
-            return os.path.exists(os.path.join(self.fullpath, '.tracking'))
+        """False for an invalid installation: a folder with neither .git nor .tracking, so that the Manager can
+        neither update it nor tell its version."""
+        name = os.path.basename(self.fullpath)
+        # Not an installation of a nodepack: the Manager's own folder, a link the user placed on purpose, a hidden
+        # folder (.git, .ipynb_checkpoints, the holding place of a reinstall), what Python or an unzip tool leaves.
+        if ('comfyui-manager' in self.id.lower() or is_link(self.fullpath)
+                or name.startswith('.') or name in ('__MACOSX', '__pycache__')):
+            return True
 
-        return True
+        return os.path.exists(os.path.join(self.fullpath, '.git')) or os.path.exists(os.path.join(self.fullpath, '.tracking'))
 
     @staticmethod
     def from_fullpath(fullpath: str, resolve_from_path) -> InstalledNodePackage:
