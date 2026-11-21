@@ -936,7 +936,9 @@ class UnifiedManager:
         if info is None or not os.path.exists(info[1]):
             return result.fail(f'not found: {node_id}@{version_spec}')
 
-        self.execute_install_script(node_id, info[1], instant_execution=instant_execution, no_deps=no_deps, fixed=set() if fixed is None else fixed)
+        res = self.execute_install_script(node_id, info[1], instant_execution=instant_execution, no_deps=no_deps, fixed=set() if fixed is None else fixed)
+        if not res:
+            return result.fail(f"Failed to execute install script: {node_id}@{version_spec}")
 
         return result
 
