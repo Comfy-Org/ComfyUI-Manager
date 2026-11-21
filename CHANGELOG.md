@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ### Fixed
 
+- A reserved install does not install a URL requirement again. A requirement
+  that is a URL, as `git+https://github.com/owner/repo` or the URL of a wheel,
+  was installed again by every reserved install of its nodepack, and for a
+  repository that is a clone and a build at the start of the server (#3575). On
+  Windows, or with `always_lazy_install`, every install, update and fix that
+  the server is asked for is reserved. The requirement is now skipped when a
+  package installed from that URL is there. It is then left as it is, as a name
+  without a version is: new commits of the repository are not followed.
+- A fix installs a URL requirement again by force. A fix of a nodepack
+  (**Try fix**, `cm-cli fix`) is the way to have a package from a URL
+  installed again. It installs what the package needs now, and then the
+  package itself from its URL, by force and without the cache of pip or uv.
+  When the repository cannot be reached, what is installed is kept, and uv
+  installs the installed commit once more from its cache when it has it. A fix
+  also installs the requirements that an install, an update or an earlier fix
+  of the same session has installed.
 - No deprecation warning of aiohttp with `bypass_ssl`. With
   `bypass_ssl = true`, the fetch of the legacy notice and the fetch of a list
   passed `verify_ssl=False` to aiohttp, which warns that the argument is
