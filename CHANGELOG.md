@@ -22,6 +22,15 @@ installs the installed commit once more from its cache when it has it. A fix
 also installs the requirements that an install, an update or an earlier fix of
 the same session has installed.
 
+### A fix that failed is reported as failed
+
+A fix of a nodepack from the page (**Try fix**) was reported as a success also
+when a requirement could not be installed or `install.py` failed: only the log
+said `install script failed`. Such a fix is now reported as failed, and the
+page shows `An error occurred while fixing '<nodepack>@<version>'.` A fix that
+is reserved for the next start, as on Windows or with `always_lazy_install`,
+is reported as soon as it is reserved, as before.
+
 ### No deprecation warning of aiohttp with `bypass_ssl`
 
 With `bypass_ssl = true`, the fetch of the notice and the fetch of a list
