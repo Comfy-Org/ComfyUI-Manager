@@ -3,8 +3,10 @@ description:
     `manager_util` is the lightest module shared across the prestartup_script, main code, and cm-cli of ComfyUI-Manager.
 """
 import traceback
+import importlib.metadata
 import ipaddress
 import socket
+import urllib.parse
 
 import aiohttp
 import json
@@ -574,6 +576,62 @@ def parse_pip_spec(spec):
     if requirement.url:
         return name, extras, [('@', requirement.url)]
     return name, extras, [(specifier.operator, specifier.version) for specifier in requirement.specifier]
+
+
+def direct_url_repo(url):
+    """The comparable repository identity of a direct-URL / VCS requirement.
+
+    The 'git+' scheme prefix is normalized away, a trailing '.git' and the
+    fragment are dropped, and case is folded. Returns None for anything that
+    is not an http(s)/git/ssh URL, e.g. a local path or a bare package name.
+    """
+    parsed = urllib.parse.urlsplit(str(url).strip())
+    scheme = parsed.scheme.lower()
+    if scheme.startswith("git+"):
+        scheme = scheme[4:]
+    if scheme not in ("http", "https", "ssh", "git"):
+        return None
+    path = parsed.path.lower().strip("/")
+    # pip reads everything after the last '@' of a git URL as the ref
+    # ('git+https://org/repo@v1.0'), so the ref must not take part in the match
+    path = path.rsplit("@", 1)[0]
+    if path.endswith(".git"):
+        path = path[:-4]
+    host = (parsed.hostname or "").lower()
+    if not host or not path:
+        return None
+    return host, path
+
+
+def vcs_requirement_installed(spec):
+    """Whether a direct-URL / VCS requirement is already installed from that source.
+
+    'git+https://…' lines name no distribution — the repo may install a dist
+    whose name differs from the repo name (sam2 installs SAM-2) and may not
+    exist on PyPI at all — so parse_pip_spec returns no name for them and the
+    name-based check cannot see them. pip records the install origin of every
+    such distribution in its dist-info direct_url.json; matching the
+    requirement's repository against those records is how `pip list`
+    identifies VCS installs, and it is what keeps a 'git+https://' line in a
+    pack's requirements.txt from being re-cloned on every startup.
+    """
+    repo = direct_url_repo(spec)
+    if repo is None:
+        return False
+    for dist in importlib.metadata.distributions():
+        try:
+            raw = dist.read_text("direct_url.json")
+        except Exception:
+            continue
+        if not raw:
+            continue
+        try:
+            info = json.loads(raw)
+        except Exception:
+            continue
+        if direct_url_repo(info.get("url", "")) == repo:
+            return True
+    return False
 
 
 def _upper_bound_state(operator, version, installed):

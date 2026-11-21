@@ -626,8 +626,16 @@ def is_installed(name):
         return True
 
     pkg_name, extras, clauses = manager_util.parse_pip_spec(name)
-    if pkg_name is None or extras:
-        return False  # not a plain named requirement, or extras to add: let pip decide
+    if pkg_name is None:
+        # Not a PEP 508 requirement: a bare VCS/direct-URL line
+        # ('git+https://org/repo') names no distribution, so the name-based
+        # check below cannot see it and the requirement would be re-installed
+        # on every startup. Match it against the install origin pip recorded
+        # for each distribution (direct_url.json) instead; anything that is
+        # not a URL still reads as not installed, letting pip decide.
+        return manager_util.vcs_requirement_installed(name)
+    if extras:
+        return False  # extras to add: let pip decide
 
     pkg = manager_util.get_installed_packages().get(pkg_name)
     if pkg is None:
