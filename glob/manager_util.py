@@ -2,6 +2,7 @@
 description:
     `manager_util` is the lightest module shared across the prestartup_script, main code, and cm-cli of ComfyUI-Manager.
 """
+import importlib.metadata
 import traceback
 import ipaddress
 import socket
@@ -23,6 +24,7 @@ import time
 from functools import lru_cache
 from html import escape, unescape
 from html.entities import html5
+from urllib.parse import urlsplit, urlunsplit
 
 
 cache_lock = threading.Lock()
@@ -542,6 +544,7 @@ def normalize_pip_name(name):
 
 _PIP_LINE_TAIL_PATTERN = re.compile(r'\s[#-]')    # a comment or a pip option after the requirement
 _PIP_MALFORMED_PATTERN = re.compile(r'([A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[[^\]]*\]\s*)?[<>=!~(]')
+_PIP_URL_PATTERN = re.compile(r'[A-Za-z][A-Za-z0-9+.-]*://')
 
 
 def parse_pip_spec(spec):
@@ -552,7 +555,8 @@ def parse_pip_spec(spec):
     be parsed has ('?', text); neither can be compared with an installed version. A
     trailing comment, an environment marker and pip options are ignored.
 
-    Returns (None, False, []) when the line does not name a package: URLs, paths and options.
+    A line that is a URL is a direct reference without a name: (None, False, [('@', url)]).
+    Returns (None, False, []) for the other lines that do not name a package: paths and options.
     """
     from packaging.requirements import InvalidRequirement, Requirement
 
@@ -564,6 +568,9 @@ def parse_pip_spec(spec):
     try:
         requirement = Requirement(text)
     except InvalidRequirement:
+        if _PIP_URL_PATTERN.match(text):
+            # pip splits a URL from its environment marker at '; '
+            return None, False, [('@', text.split('; ', 1)[0].rstrip())]
         match = _PIP_MALFORMED_PATTERN.match(text)
         if match is None:
             return None, False, []
@@ -794,6 +801,155 @@ def pip_block_reason(spec, blacklist, downgrade_blacklist):
     if error is not None:
         logging.error("[ComfyUI-Manager] %s", error)
     return 'downgrade blacklisted' if blocked else None
+
+
+def installed_from(url, name=None):
+    """The direct_url.json of the distribution that was installed from the URL of a direct reference, or None.
+
+    A URL gives no name and no version to look up, and pip has to fetch and build it to
+    learn them. pip and uv record where a distribution came from in its direct_url.json
+    (PEP 610), and that record is compared here.
+
+    A VCS URL is met by a distribution from that repository. Without a revision in the
+    URL any commit meets it, and with one the distribution must have been installed with
+    that revision, or be at that commit. The repository is not asked: a branch that has
+    moved on is not followed. Any other URL is met by a distribution from that archive.
+    A distribution from a local directory meets nothing: such a source is edited in
+    place, and pip installs it without a download.
+
+    A record holds the URL without its fragment, and the subdirectory that the fragment
+    names in a key of its own. A git repository is the same with and without '.git'.
+
+    `name` is the normalized name of a requirement that gives one ('name @ url'): only a
+    distribution of that name meets it.
+
+    Only a distribution whose name `get_installed_packages()` lists counts, and only when
+    the distributions of that name agree on the version and on the record. What an install
+    that was cut short leaves behind still has its record: alone its name is not listed,
+    and beside what took its place the two differ, and the installer is left to decide.
+    """
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return None
+    vcs, _, scheme = parts.scheme.rpartition('+')
+    path, revision = parts.path, None
+    if vcs and '@' in path:
+        path, revision = path.rsplit('@', 1)
+    paths = [path]
+    if vcs == 'git':
+        paths.append(path[:-4] if path.endswith('.git') else path + '.git')
+    urls = [urlunsplit((scheme, parts.netloc, path, parts.query, '')) for path in paths]
+    subdirectory = re.search(r'(?:^|&)subdirectory=([^&]*)', parts.fragment)
+    subdirectory = subdirectory.group(1) if subdirectory else None
+
+    listed = get_installed_packages()
+    records, said = {}, {}
+    for distribution in importlib.metadata.distributions():
+        try:
+            metadata = distribution.metadata
+            record = distribution.read_text('direct_url.json')
+            origin = json.loads(record or '{}')
+        except (ValueError, OSError):
+            continue    # cut short, or not text; Python 3.15 raises a FileNotFoundError for a folder without METADATA
+        found = normalize_pip_name(metadata.get('Name') or '')
+        said.setdefault(found, set()).add((metadata.get('Version'), record))    # a set: a folder that is on the path twice is read twice
+        if not isinstance(origin, dict) or origin.get('url') not in urls or origin.get('subdirectory') != subdirectory:
+            continue
+        vcs_info = origin.get('vcs_info')
+        if isinstance(vcs_info, dict):
+            met = vcs_info.get('vcs') == vcs and revision in (None, vcs_info.get('requested_revision'), vcs_info.get('commit_id'))
+        else:
+            met = vcs_info is None and not vcs and 'archive_info' in origin
+        if met and found in listed and name in (None, found):
+            records.setdefault(found, origin)
+    for found, origin in records.items():
+        if len(said[found]) == 1:
+            return origin
+    return None
+
+
+def fix_cmd(requirement):
+    """The pip command with which a fix installs a requirement.
+
+    A direct reference is installed again by force, whatever is installed: nothing but
+    its URL says what it should be. That command is run with `reinstall()`. Any other
+    requirement is installed as an install does it.
+    """
+    cmd = make_pip_cmd(['install', requirement])
+    clauses = parse_pip_spec(requirement)[2]
+    if clauses and clauses[0][0] == '@':
+        # --no-deps: without it every package the distribution needs is installed again as well, torch among them.
+        # The cache is left out: with it uv installs the wheel it has built of the commit before, forced or not, and so
+        # does pip for a name with a commit. uv may link the files to its cache, and keeps none to link to here.
+        uv = 'uv' in cmd[:cmd.index('install')]
+        cmd += ['--force-reinstall', '--no-deps'] + (['--no-cache', '--link-mode', 'copy'] if uv else ['--no-cache-dir'])
+    return cmd
+
+
+def is_reinstall(cmd):
+    """Whether the command is a forced install that `fix_cmd()` built."""
+    requirement = pip_install_requirement(cmd)
+    if requirement is None or '--force-reinstall' not in cmd:
+        return False
+    clauses = parse_pip_spec(requirement)[2]
+    return bool(clauses) and clauses[0][0] == '@'
+
+
+def is_git_remote_usable(url):
+    try:
+        done = subprocess.run(['git', 'ls-remote', url, 'HEAD'], capture_output=True, timeout=30,
+                              env={**os.environ, 'GIT_TERMINAL_PROMPT': '0'})
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return done.returncode == 0
+
+
+def reinstall(cmd, run):
+    """Fix the URL requirement of a forced install that `fix_cmd()` built, and return the exit code.
+
+    `run(cmd)` runs one command and returns its exit code, or raises CalledProcessError
+    for it as the `run_script` of cm-cli does. What it raised is raised again at the
+    end when the fix has failed.
+
+    The requirement is first installed as an install does it. That brings what the
+    distribution at the URL needs now, which the forced install leaves out, and changes
+    nothing when it cannot be had. Then the forced install puts a clean copy from the
+    URL there. If only the forced install fails, what is installed stays and meets the
+    requirement, so the exit code is 0 and the rest of the pack is fixed.
+
+    A cache is used in one case: the first install fails and the repository does not
+    answer. uv is then asked for the commit that `installed_from()` finds installed, from
+    its cache. pip has no option for that.
+    """
+    install = cmd.index('install')
+    base, requirement = cmd[:install + 1], cmd[install + 1]
+    name, _, clauses = parse_pip_spec(requirement)
+    raised = []
+
+    def step(command):
+        # flushed: cm-cli lets the command write to this stdout by itself
+        print(f"\n## ComfyUI-Manager: EXECUTE => {command}", flush=True)
+        try:
+            return run(command)
+        except subprocess.CalledProcessError as error:
+            raised.append(error)
+            return error.returncode
+
+    code = step(base + [requirement])
+    if code == 0:
+        if step(cmd) != 0:
+            print(f"[ComfyUI-Manager] could not install '{requirement}' again by force: what is installed is kept.")
+        return 0
+
+    origin = installed_from(clauses[0][1], name) or {}
+    vcs_info = origin.get('vcs_info')
+    if vcs_info and vcs_info.get('vcs') == 'git' and 'uv' in base and not is_git_remote_usable(origin['url']):
+        subdirectory = f"#subdirectory={origin['subdirectory']}" if 'subdirectory' in origin else ''
+        code = step(base + [f"git+{origin['url']}@{vcs_info.get('commit_id')}{subdirectory}", '--force-reinstall', '--no-deps', '--offline'])
+    if code != 0 and raised:
+        raise raised[0]
+    return code
 
 
 def pip_install_requirement(cmd):
