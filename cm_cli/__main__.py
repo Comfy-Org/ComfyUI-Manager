@@ -264,7 +264,7 @@ def reinstall_node(node_spec_str, is_all=False, cnt_msg=''):
         install_node(node_name, is_all=is_all, cnt_msg=cnt_msg, raise_on_fail=True)
 
 
-def fix_node(node_spec_str, is_all=False, cnt_msg=''):
+def fix_node(node_spec_str, is_all=False, cnt_msg='', fixed=None):
     node_spec = unified_manager.resolve_node_spec(node_spec_str, guess_mode='active')
 
     if node_spec is None:
@@ -279,7 +279,7 @@ def fix_node(node_spec_str, is_all=False, cnt_msg=''):
     node_name, version_spec, _ = node_spec
 
     print(f"{cnt_msg} [   FIXING  ]: {node_name:50}[{version_spec}]")
-    res = unified_manager.unified_fix(node_name, version_spec, no_deps=cmd_ctx.no_deps)
+    res = unified_manager.unified_fix(node_name, version_spec, no_deps=cmd_ctx.no_deps, fixed=fixed)
 
     if not res.result:
         print(f"[bold red]ERROR: f{res.msg}[/bold red]")
@@ -948,7 +948,7 @@ def fix(
         asyncio.run(auto_save_snapshot())
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
-    for_each_nodes(nodes, fix_node, allow_all=True)
+    for_each_nodes(nodes, fix_node, allow_all=True, fixed=set())
 
     _finalize_resolve(pip_fixer, uv_compile)
 

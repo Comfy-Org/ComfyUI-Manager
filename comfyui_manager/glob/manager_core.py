@@ -782,7 +782,7 @@ class UnifiedManager:
         except Exception:
             return version.parse("0.0.0")
 
-    def execute_install_script(self, url, repo_path, instant_execution=False, lazy_mode=False, no_deps=False):
+    def execute_install_script(self, url, repo_path, instant_execution=False, lazy_mode=False, no_deps=False, fixed=None):
         install_script_path = os.path.join(repo_path, "install.py")
         requirements_path = os.path.join(repo_path, "requirements.txt")
 
@@ -798,15 +798,18 @@ class UnifiedManager:
                 print("Install: pip packages")
                 pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), context.comfy_path, context.manager_files_path)
                 lines = manager_util.robust_readlines(requirements_path)
+                # a fix is held back by what the same fix has done, and not by an install or another fix of the session
+                done = self.processed_install if fixed is None else fixed
                 for line in lines:
                     package_name = remap_pip_package(line.strip())
-                    if package_name and not package_name.startswith('#') and package_name not in self.processed_install:
+                    if package_name and not package_name.startswith('#') and package_name not in done:
                         clean_package_name = package_name.split('#')[0].strip()
-                        install_cmd = manager_util.make_pip_cmd(["install", clean_package_name])
+                        install_cmd = manager_util.make_pip_cmd(["install", clean_package_name]) if fixed is None else manager_util.fix_cmd(clean_package_name)
                         if clean_package_name != "" and not clean_package_name.startswith('#'):
                             res = res and try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
                         if res:
                             self.processed_install.add(package_name)
+                            done.add(package_name)
 
                 pip_fixer.fix_broken()
 
@@ -829,9 +832,11 @@ class UnifiedManager:
 
         return True
 
-    def unified_fix(self, node_id, version_spec, instant_execution=False, no_deps=False):
+    def unified_fix(self, node_id, version_spec, instant_execution=False, no_deps=False, fixed=None):
         """
         fix dependencies
+
+        `fixed`: the requirement lines that this fix has done, for a fix of several packs to share
         """
 
         result = ManagedResult('fix')
@@ -844,7 +849,7 @@ class UnifiedManager:
         if info is None or not os.path.exists(info[1]):
             return result.fail(f'not found: {node_id}@{version_spec}')
 
-        self.execute_install_script(node_id, info[1], instant_execution=instant_execution, no_deps=no_deps)
+        self.execute_install_script(node_id, info[1], instant_execution=instant_execution, no_deps=no_deps, fixed=set() if fixed is None else fixed)
 
         return result
 
@@ -1881,8 +1886,11 @@ def try_install_script(url, repo_path, install_cmd, instant_execution=False):
             print(f"[ComfyUI-Manager] skip black listed pip installation: '{requirement}'")
             return True
 
-        print(f"\n## ComfyUI-Manager: EXECUTE => {install_cmd}")
-        code = manager_funcs.run_script(install_cmd, cwd=repo_path)
+        if manager_util.is_reinstall(install_cmd):
+            code = manager_util.reinstall(install_cmd, lambda cmd: manager_funcs.run_script(cmd, cwd=repo_path))
+        else:
+            print(f"\n## ComfyUI-Manager: EXECUTE => {install_cmd}")
+            code = manager_funcs.run_script(install_cmd, cwd=repo_path)
 
         if code != 0:
             if url is None:
