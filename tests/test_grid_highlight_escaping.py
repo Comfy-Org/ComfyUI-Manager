@@ -169,7 +169,12 @@ def test_manager_search_matches_visible_text(page, filename, column, value, quer
     escape_cell = "undefined"
     if filename == "model-manager.js":
         escape_cell = source.split("const escapeCell = ", 1)[1].split(";", 1)[0]
-    page.evaluate("""({init_body, sanitizer, escape_cell, column, value, query}) => {
+    score = "undefined"
+    if "\tcalculateSortScore(" in source:
+        leven = common.split("const levenArray = [];", 1)[1].split("\n}\n", 1)[0].replace("export ", "")
+        method = source.split("\tcalculateSortScore(", 1)[1].split("\n\t}\n", 1)[0]
+        score = "(() => {const levenArray = [];%s\n}\nreturn {calculateSortScore(%s\n}}.calculateSortScore;})()" % (leven, method)
+    page.evaluate("""({init_body, sanitizer, escape_cell, score, column, value, query}) => {
         const sanitizeHTML = new Function('str', sanitizer);
         const escapeCell = new Function('sanitizeHTML', `return (${escape_cell})`)(sanitizeHTML);
         const initGrid = new Function('ManagerGrid', 'createFlyover', 'gridId', 'sanitizeHTML', 'escapeCell',
@@ -177,11 +182,12 @@ def test_manager_search_matches_visible_text(page, filename, column, value, quer
         const element = document.createElement('div');
         element.innerHTML = '<div id="tested-grid" class="cn-manager-grid cmm-manager-grid" style="width:800px;height:300px"></div>';
         document.body.append(element);
-        window.manager = {element, keywords: query, showStatus() {}, handleFlyoverHover() {}, createFlyover: () => ({}), hasAlternatives: () => false};
+        window.manager = {element, keywords: query, showStatus() {}, handleFlyoverHover() {}, createFlyover: () => ({}), hasAlternatives: () => false,
+            calculateSortScore: new Function(`return ${score}`)()};
         initGrid.call(manager);
         manager.grid.setData({columns: [{id: column, name: column}], rows: [{[column]: value}]});
         manager.grid.render();
-    }""", {"init_body": init_body, "sanitizer": sanitizer, "escape_cell": escape_cell,
+    }""", {"init_body": init_body, "sanitizer": sanitizer, "escape_cell": escape_cell, "score": score,
             "column": column, "value": value, "query": query})
     page.wait_for_function("manager.grid.viewRows !== undefined")
     assert page.evaluate("manager.grid.viewRows.length") == 1
