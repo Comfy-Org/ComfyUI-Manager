@@ -138,6 +138,11 @@ def test_a_search_orders_the_rows_by_how_the_keyword_matches(open_grid):
         "face swap", "Face Detailer", "FACE MASK", "face2video", "FaceTools", "Interface Tools"]
 
 
+def test_the_case_of_every_keyword_weighs_less_than_one_match_inside_a_word(open_grid):
+    page = open_grid([pack("face mask toolset"), pack("FACE MASK TOOLS")])
+    assert search(page, "face mask tools") == ["FACE MASK TOOLS", "face mask toolset"]
+
+
 @pytest.mark.parametrize("stars", [9000, 10000, 16860, 150000])
 def test_more_stars_never_lower_a_row(open_grid, stars):
     page = open_grid([pack("Alpha Manager", 120), pack("Beta Manager", stars)])
