@@ -138,9 +138,11 @@ def test_a_search_orders_the_rows_by_how_the_keyword_matches(open_grid):
         "face swap", "Face Detailer", "FACE MASK", "face2video", "FaceTools", "Interface Tools"]
 
 
-def test_the_case_of_every_keyword_weighs_less_than_one_match_inside_a_word(open_grid):
-    page = open_grid([pack("face mask toolset"), pack("FACE MASK TOOLS")])
-    assert search(page, "face mask tools") == ["FACE MASK TOOLS", "face mask toolset"]
+@pytest.mark.parametrize("keywords", ["face mask", "face mask tools", "face mask tools set swap"])
+def test_the_case_of_every_keyword_weighs_less_than_one_match_inside_a_word(open_grid, keywords):
+    # a digit after the keyword is the lightest way of being inside a word
+    page = open_grid([pack(keywords + "2"), pack(keywords.upper())])
+    assert search(page, keywords) == [keywords.upper(), keywords + "2"]
 
 
 @pytest.mark.parametrize("stars", [9000, 10000, 16860, 150000])
