@@ -706,8 +706,8 @@ export class CustomNodesManager {
 				const distances = matches.map(start => {
 					const end = start + len
 					const str = text.slice(start, end);
-					// the case weighs less than any penalty below, so a whole word in another case stays above a match inside a word
-					let distance = 0.4 * leven(key, str) / len;
+					// the case of all keywords together weighs less than one penalty below, so whole words in another case stay above a match inside a word
+					let distance = 0.4 * leven(key, str) / len / keywords.length;
 					const prev = text.slice(start - 1, start);
 					if (prev) {
 						if (/[A-Za-z]/.test(prev)) {
