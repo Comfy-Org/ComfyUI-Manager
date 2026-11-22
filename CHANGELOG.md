@@ -73,6 +73,28 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 - A clone of a snapshot restore that is refused says why in the log, as
   `Invalid git url: ...`. The summary said `[  FAILED   ]` with no word of
   why.
+- A folder in `custom_nodes` with neither `.git` nor `.tracking`, left by an
+  install that broke midway or by a download unpacked by hand, was taken for a
+  git nodepack: Update All logged
+  `ERROR: An error occurred while updating ...` for it, and its nodepack
+  showed as not installed (#3330). It is now an invalid installation. Update
+  All and `cm-cli update all` leave it alone, `/v2/customnode/installed`
+  lists it with `invalid_installation: true`, the legacy node list marks its row
+  `INVALID INSTALLATION ↗` and offers Reinstall, and the startup notice names
+  it. `kind: "reinstall"` in `/v2/manager/queue/task` installs the nodepack
+  again in its place. By its folder name it is enabled, disabled and
+  uninstalled as before.
+- A reinstall, of any nodepack, keeps the folders it replaces until the new
+  installation is in place, and puts them back when the install fails. It
+  deleted them first, so a failed download lost the nodepack.
+  `cm-cli reinstall` makes the same reinstall and prints `[REINSTALLED]`.
+- What is in the way of a reinstall, such as a clone of a fork at the install
+  path or under the name of the nodepack, is moved to
+  `custom_nodes/.disabled/.archived/` and the log says where it is. It is not
+  deleted and no longer loaded, and it goes back when the install fails. The
+  legacy server failed there with `Install path already exists`, and
+  `cm-cli reinstall` deleted it.
+- The console line of a failed update says why the update failed.
 
 ## [4.4.2] - 2026-11-19
 

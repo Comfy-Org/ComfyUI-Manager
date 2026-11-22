@@ -272,7 +272,6 @@ def print_comfyui_version():
 
 
 print_comfyui_version()
-core.check_invalid_nodes()
 
 
 def setup_environment():
@@ -539,7 +538,7 @@ async def task_worker():
                 # None when git_utils.git_url() in manager_core can't determine
                 # the remote URL. Downstream branches at L504/507 already
                 # handle url is None, so we just need a None-safe title.
-                url = core.unified_manager.unknown_active_nodes[node_name][0]
+                url = core.unified_manager.unknown_active_nodes.get(node_name, (None,))[0]
                 title = os.path.basename(url) if url else node_name
             else:
                 url = core.unified_manager.cnr_map[node_name].get('repository')
@@ -561,7 +560,7 @@ async def task_worker():
                     return base_res
 
             base_res['msg'] = res.msg or f"An error occurred while updating '{node_name}'."
-            logging.error(f"\nERROR: An error occurred while updating '{node_name}'. (res.result={res.result}, res.action={res.action})")
+            logging.error(f"\nERROR: An error occurred while updating '{node_name}': {res.msg} (res.result={res.result}, res.action={res.action})")
             return base_res
         except Exception:
             traceback.print_exc()
@@ -992,6 +991,9 @@ async def _update_all(json_data):
             # skip updating comfyui-manager if desktop version
             if os.environ.get('__COMFYUI_DESKTOP_VERSION__'):
                 continue
+
+        if v[1] in core.unified_manager.invalid_installations:
+            continue
 
         update_item = k, k, 'unknown'
         temp_queue_batch.append(("update-main", update_item))
@@ -2056,6 +2058,7 @@ async def default_cache_update():
 
         if core.get_config()['network_mode'] == 'private':
             logging.info("[ComfyUI-Manager] The private comfyregistry is not yet supported in `network_mode=private`.")
+            await core.unified_manager.reload('remote', dont_wait=False, update_cnr_map=False)
         else:
             # load at least once
             await core.unified_manager.reload('remote', dont_wait=False)
@@ -2063,6 +2066,7 @@ async def default_cache_update():
     else:
         await core.unified_manager.reload('remote', dont_wait=False, update_cnr_map=False)
 
+    core.check_invalid_nodes()
     logging.info("[ComfyUI-Manager] All startup tasks have been completed.")
 
 

@@ -9,6 +9,7 @@ from typing import Optional
 
 import typer
 from rich import print
+from rich.markup import escape
 from typing_extensions import List, Annotated
 import re
 import importlib
@@ -75,7 +76,6 @@ def check_comfyui_hash():
 
 
 check_comfyui_hash()  # This is a preparation step for manager_core
-core.check_invalid_nodes()
 
 
 def read_downgrade_blacklist():
@@ -239,29 +239,31 @@ def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
 
 
 def reinstall_node(node_spec_str, is_all=False, cnt_msg=''):
+    repo_url = None
     if core.is_valid_url(node_spec_str):
         # URL-based: resolve_node_spec returns the full URL as node_name,
         # but internal dicts are keyed by repo basename or cnr_id.
         url = node_spec_str.rstrip('/')
         cnr = unified_manager.get_cnr_by_repo(url)
         if cnr:
-            node_id = cnr['id']
-            unified_manager.unified_uninstall(node_id, False)
-            unified_manager.purge_node_state(node_id)
+            node_name, version_spec = cnr['id'], 'nightly'
         else:
-            repo_name = os.path.splitext(os.path.basename(url))[0]
-            unified_manager.unified_uninstall(repo_name, True)
-            unified_manager.purge_node_state(repo_name)
-
-        install_node(node_spec_str, is_all=is_all, cnt_msg=cnt_msg, raise_on_fail=True)
+            node_name, version_spec, repo_url = core.unknown_node_id(url), 'unknown', url
     else:
-        node_spec = unified_manager.resolve_node_spec(node_spec_str)
-        node_name, version_spec, _ = node_spec
+        node_name, version_spec, _ = unified_manager.resolve_node_spec(node_spec_str)
 
-        unified_manager.unified_uninstall(node_name, version_spec == 'unknown')
-        unified_manager.purge_node_state(node_name)
+    res = asyncio.run(unified_manager.reinstall_by_id(node_name, version_spec, cmd_ctx.channel, cmd_ctx.mode, instant_execution=True,
+                                                      no_deps=cmd_ctx.no_deps, repo_url=repo_url))
+    if res.action == 'skip':
+        print(f"{cnt_msg} [   SKIP  ] {node_name:50} => Already installed")
+        return
+    if not res.result:
+        print(f"[bold red]ERROR: An error occurred while reinstalling '{node_name}'.\n{escape(res.msg)}[/bold red]")
+        raise NodeInstallError(node_name)
 
-        install_node(node_name, is_all=is_all, cnt_msg=cnt_msg, raise_on_fail=True)
+    # in capitals, as install_node prints a git install: rich reads a lowercase [nightly] as markup
+    target = res.target.upper() if res.target in ('nightly', 'unknown') else res.target
+    print(f"{cnt_msg} [REINSTALLED] {node_name:50}[{target}]")
 
 
 def fix_node(node_spec_str, is_all=False, cnt_msg='', fixed=None):
@@ -338,8 +340,9 @@ def update_parallel(nodes):
         nodes = []
         for x in unified_manager.active_nodes.keys():
             nodes.append(x)
-        for x in unified_manager.unknown_active_nodes.keys():
-            nodes.append(x+"@unknown")
+        for k, v in unified_manager.unknown_active_nodes.items():
+            if v[1] not in unified_manager.invalid_installations:
+                nodes.append(k+"@unknown")
     else:
         nodes = [x for x in nodes if x.lower() not in ['comfy', 'comfyui']]
 

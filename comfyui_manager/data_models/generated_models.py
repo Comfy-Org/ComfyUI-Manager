@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, RootModel
 
 class OperationType(str, Enum):
     install = "install"
+    reinstall = "reinstall"
     uninstall = "uninstall"
     update = "update"
     update_comfyui = "update-comfyui"
@@ -64,6 +65,10 @@ class ManagerPackInstalled(BaseModel):
         description="The name of the pack if installed from github (author/repo-name format)",
     )
     enabled: bool = Field(..., description="Whether the pack is enabled")
+    invalid_installation: Optional[bool] = Field(
+        None,
+        description='True when the folder has neither .git nor .tracking, so the Manager can neither update it nor tell its version; absent or null otherwise. Its ver is then "unknown" and its cnr_id is the registry id of its pack when the registry list has it, otherwise [project].name of its pyproject.toml in lower case (also while the registry list is still loading), otherwise "". A reinstall task fixes it.',
+    )
 
 
 class SelectedVersion(str, Enum):
