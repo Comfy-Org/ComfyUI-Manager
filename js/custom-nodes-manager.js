@@ -622,7 +622,9 @@ export class CustomNodesManager {
 			rowFilteredSort: () => {
 				if (this.keywords) {
 					return {
-						id: 'sort_score'
+						id: 'sort_score',
+						// rows with the same score stay in the listed order, whatever was searched before
+						comparer: (a, b) => ((b.sort_score ?? 0) - (a.sort_score ?? 0)) || (a.id - b.id)
 					};
 				}
 			},
@@ -659,13 +661,15 @@ export class CustomNodesManager {
 		// debounce for performance
 		clearTimeout(this.timeKeywords);
 		this.timeKeywords = setTimeout(() => {
-			this.grid.hideLoading();
+			if (!this.loading) {
+				this.grid.hideLoading();
+			}
 			const keywords = `${e.target.value}`.trim();
 			if (keywords !== this.keywords) {
 				this.keywords = keywords;
 				if (keywords) {
 					this.grid.removeSortColumn();
-				} else {
+				} else if (!this.grid.sortColumn) {
 					this.grid.sortRows("id", {
 						sortAsc: true
 					});
@@ -702,7 +706,8 @@ export class CustomNodesManager {
 				const distances = matches.map(start => {
 					const end = start + len
 					const str = text.slice(start, end);
-					let distance = leven(key, str);
+					// the case weighs less than any penalty below, so a whole word in another case stays above a match inside a word
+					let distance = 0.4 * leven(key, str) / len;
 					const prev = text.slice(start - 1, start);
 					if (prev) {
 						if (/[A-Za-z]/.test(prev)) {
@@ -721,7 +726,6 @@ export class CustomNodesManager {
 					}
 					return distance;
 				});
-				// console.log(rowItem.title, distances)
 				return {
 					// min
 					distance: Math.min.apply(null, distances)
@@ -739,8 +743,8 @@ export class CustomNodesManager {
 		let distance = Math.min.apply(null, matchedList.map(it => it.distance));
 		// by matched count
 		distance += 1 - matchedList.length / searchableColumns.length;
-		// by stars
-		const stars = Number(rowItem.stars) || 0;
+		// by stars, up to the top of the scale
+		const stars = Math.min(Number(rowItem.stars) || 0, 10000);
 		distance += 1 - stars / 10000;
 		// score
 		return 1 / distance;
@@ -2266,6 +2270,7 @@ export class CustomNodesManager {
 	}
 
 	showLoading() {
+		this.loading = true;
 		this.setDisabled(true);
 		if (this.grid) {
 			this.grid.showLoading();
@@ -2276,6 +2281,7 @@ export class CustomNodesManager {
 	}
 
 	hideLoading() {
+		this.loading = false;
 		this.setDisabled(false);
 		if (this.grid) {
 			this.grid.hideLoading();
