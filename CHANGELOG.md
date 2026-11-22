@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Changed
+
+- A search in the legacy Custom Nodes Manager lists the best matches first.
+  It only filtered the list, so the rows stayed in the listed order and for
+  `face` a nodepack with `Interface` in its title could stand above one with
+  the word `Face` (#1191). The rows of a search are now ordered by a score.
+  A whole word counts more than a part of a word, in whichever searched column
+  matches best, and a match in more columns and more stars raise the score.
+  Rows with the same score stay in the listed order. A search replaces a column
+  sort that was made before it. Clicking a column header during a search sorts
+  by that column, and typing in the search box again goes back to the best
+  matches. Clearing the search box brings back the listed order, or keeps the
+  column sort that was made during the search. The list is filtered 300 ms
+  after the last key. The first click on the Nodes, ★ and Last Update headers
+  sorts from the highest value down.
+
 ### Fixed
 
 - A reserved install does not install a URL requirement again. A requirement
