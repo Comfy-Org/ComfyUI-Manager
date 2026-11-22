@@ -319,7 +319,6 @@ def print_comfyui_version():
 
 core.setup_git_executable()
 print_comfyui_version()
-core.check_invalid_nodes()
 
 # Expand Server api
 
@@ -524,7 +523,7 @@ async def task_worker():
             res = core.unified_manager.unified_update(node_name, node_ver)
 
             if res.ver == 'unknown':
-                url = core.unified_manager.unknown_active_nodes[node_name][0]
+                url = core.unified_manager.unknown_active_nodes.get(node_name, (None,))[0]
                 try:
                     title = os.path.basename(url)
                 except Exception:
@@ -549,7 +548,7 @@ async def task_worker():
                     return base_res
 
             base_res['msg'] = res.msg or f"An error occurred while updating '{node_name}'."
-            logging.error(f"\nERROR: An error occurred while updating '{node_name}'. (res.result={res.result}, res.action={res.action})")
+            logging.error(f"\nERROR: An error occurred while updating '{node_name}': {res.msg} (res.result={res.result}, res.action={res.action})")
             return base_res
         except Exception:
             traceback.print_exc()
@@ -941,6 +940,9 @@ async def update_all(request):
             # skip updating comfyui-manager if desktop version
             if os.environ.get('__COMFYUI_DESKTOP_VERSION__'):
                 continue
+
+        if v[1] in core.unified_manager.invalid_installations:
+            continue
 
         update_item = k, k, 'unknown'
         task_queue.put(("update-main", update_item))
@@ -2154,11 +2156,15 @@ async def default_cache_update():
 
         if core.get_config()['network_mode'] == 'private':
             logging.info("[ComfyUI-Manager] The private comfyregistry is not yet supported in `network_mode=private`.")
+            await core.unified_manager.reload('remote', dont_wait=False, update_cnr_map=False)
         else:
             # load at least once
             await core.unified_manager.reload('remote', dont_wait=False)
             await core.unified_manager.get_custom_nodes(channel_url, 'remote')
+    else:
+        await core.unified_manager.reload('remote', dont_wait=False, update_cnr_map=False)
 
+    core.check_invalid_nodes()
     logging.info("[ComfyUI-Manager] All startup tasks have been completed.")
 
 
