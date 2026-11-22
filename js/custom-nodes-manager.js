@@ -1,49 +1,39 @@
 import { app } from "../../scripts/app.js";
 import { ComfyDialog, $el } from "../../scripts/ui.js";
 import { api } from "../../scripts/api.js";
+import { buildGuiFrameCustomHeader,  createSettingsCombo } from "./comfyui-gui-builder.js";
 
 import {
 	manager_instance, rebootAPI, install_via_git_url,
 	fetchData, md5, icons, show_message, customConfirm, customAlert, customPrompt,
-	sanitizeHTML, infoToast, showTerminal, setNeedRestart,
+	sanitizeHTML, sanitizeUrl, infoToast, showTerminal, setNeedRestart,
 	storeColumnWidth, restoreColumnWidth, getTimeAgo, copyText, loadCss,
-	showPopover, hidePopover, leven
+	showPopover, hidePopover, getWorkflowNodeTypes, findPackageByCnrId, analyzeWorkflowUsage, createFlyover, leven
 } from  "./common.js";
 
 // https://cenfun.github.io/turbogrid/api.html
-import TG from "./turbogrid.esm.js";
+import ManagerGrid from "./manager-grid.js";
 
 loadCss("./custom-nodes-manager.css");
 
 const gridId = "node";
 
+const INVALID_INSTALLATION_GUIDANCE = "This nodepack was not installed through ComfyUI-Manager, or its installation is damaged, so the Manager cannot update it. Reinstalling deletes its folder and installs the nodepack again.";
+
 const pageHtml = `
-<div class="cn-manager-header">
-	<label>Filter
-		<select class="cn-manager-filter"></select>
-	</label>
-	<input class="cn-manager-keywords" type="search" placeholder="Search" />
-	<div class="cn-manager-status"></div>
-	<div class="cn-flex-auto"></div>
-	<div class="cn-manager-channel"></div>
-</div>
-<div class="cn-manager-grid"></div>
-<div class="cn-manager-selection"></div>
-<div class="cn-manager-message"></div>
-<div class="cn-manager-footer">
-	<button class="cn-manager-back">
-		<svg class="arrow-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-			<path d="M2 8H18M2 8L8 2M2 8L8 14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-		</svg>
-		Back
-	</button>
-	<button class="cn-manager-restart">Restart</button>
-	<button class="cn-manager-stop">Stop</button>
-	<div class="cn-flex-auto"></div>
-	<button class="cn-manager-used-in-workflow">Used In Workflow</button>
-	<button class="cn-manager-check-update">Check Update</button>
-	<button class="cn-manager-check-missing">Check Missing</button>
-	<button class="cn-manager-install-url">Install via Git URL</button>
+<div class="cn-manager cn-manager-dark">
+	<div class="cn-manager-grid"></div>
+	<div class="cn-manager-selection"></div>
+	<div class="cn-manager-message"></div>
+	<div class="cn-manager-footer">
+		<button class="cn-manager-restart cm-ui-button">Restart</button>
+		<button class="cn-manager-stop cm-ui-button">Stop</button>
+		<div class="cn-flex-auto"></div>
+		<button class="cn-manager-used-in-workflow cm-ui-button">Used In Workflow</button>
+		<button class="cn-manager-check-update cm-ui-button">Check Update</button>
+		<button class="cn-manager-check-missing cm-ui-button">Check Missing</button>
+		<button class="cn-manager-install-url cm-ui-button">Install via Git URL</button>
+	</div>
 </div>
 `;
 
@@ -54,6 +44,8 @@ const ShowMode = {
 	FAVORITES: "Favorites",
 	ALTERNATIVES: "Alternatives",
 	IN_WORKFLOW: "In Workflow",
+	USED_IN_ANY_WORKFLOW: "Used In Any Workflow",
+	NOT_USED_IN_ANY_WORKFLOW: "Installed and Unused",
 };
 
 export class CustomNodesManager {
@@ -89,11 +81,26 @@ export class CustomNodesManager {
 	}
 
 	init() {
-		this.element = $el("div", {
-			parent: document.body,
-			className: "comfy-modal cn-manager"
-		});
-		this.element.innerHTML = pageHtml;
+		const header = $el("div.cn-manager-header.px-2", {}, [
+			// $el("label", {}, [
+			// 	$el("span", { textContent: "Filter" }),
+			// 	$el("select.cn-manager-filter")
+			// ]),
+			createSettingsCombo("Filter", $el("select.cn-manager-filter")),
+			$el("input.cn-manager-keywords.cm-ui-input", { type: "search", placeholder: "Search" }),
+			$el("div.cn-manager-status"),
+			$el("div.cn-flex-auto"),
+			$el("div.cn-manager-channel")
+		]);
+
+		const frame = buildGuiFrameCustomHeader(
+			'cn-manager-dialog', // dialog id
+			header, // custom header element
+			pageHtml, // dialog content element
+			this
+		);	// send this so we can attach close functions
+
+		this.element = frame;
 		this.element.setAttribute("tabindex", 0);
 		this.element.focus();
 
@@ -249,6 +256,10 @@ export class CustomNodesManager {
 			value: "import-fail",
 			hasData: true
 		}, {
+			label: "Invalid Installation",
+			value: "invalid-installation",
+			hasData: true
+		}, {
 			label: "Not Installed",
 			value: "not-installed",
 			hasData: true
@@ -267,6 +278,14 @@ export class CustomNodesManager {
 		}, {
 			label: "In Workflow",
 			value: ShowMode.IN_WORKFLOW,
+			hasData: false
+		}, {
+			label: "Used In Any Workflow",
+			value: ShowMode.USED_IN_ANY_WORKFLOW,
+			hasData: false
+		}, {
+			label: "Installed and Unused",
+			value: ShowMode.NOT_USED_IN_ANY_WORKFLOW,
 			hasData: false
 		}, {
 			label: "Missing",
@@ -318,7 +337,8 @@ export class CustomNodesManager {
 
 			"reinstall": {
 				label: "Reinstall",
-				mode: "reinstall"
+				mode: "reinstall",
+				title: INVALID_INSTALLATION_GUIDANCE
 			},
 
 			"install": {
@@ -361,18 +381,18 @@ export class CustomNodesManager {
 		}
 
 		let list = installGroups[action];
+		if (!Array.isArray(list)) {
+			return "";
+		}
 
 		if(is_selected_button || rowItem?.version === "unknown") {
 			list = list.filter(it => it !== "switch");
 		}
 
-		if (!list) {
-			return "";
-		}
-
 		return list.map(id => {
 			const bt = buttons[id];
-			return `<button class="cn-btn-${id}" group="${action}" mode="${bt.mode}">${bt.label}</button>`;
+			const tooltip = bt.title ? ` title="${sanitizeHTML(bt.title)}"` : "";
+			return `<button class="cn-btn-${id} cm-ui-button" group="${sanitizeHTML(String(action))}" mode="${bt.mode}"${tooltip}>${bt.label}</button>`;
 		}).join("");
 	}
 
@@ -455,7 +475,7 @@ export class CustomNodesManager {
 
 			".cn-manager-stop": {
 				click: () => {
-					api.fetchApi('/manager/queue/reset');
+					api.fetchApi('/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 					infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 				}
 			},
@@ -511,10 +531,14 @@ export class CustomNodesManager {
 
 	initGrid() {
 		const container = this.element.querySelector(".cn-manager-grid");
-		const grid = new TG.Grid(container);
+		const grid = new ManagerGrid(container);
 		this.grid = grid;
 
-		this.flyover = this.createFlyover(container);
+		this.flyover = createFlyover(container, {
+			enableHover: true,
+			hoverHandler: this.handleFlyoverHover.bind(this),
+			context: this
+		});
 		
 		let prevViewRowsLength = -1;
 		grid.bind('onUpdated', (e, d) => {
@@ -572,6 +596,9 @@ export class CustomNodesManager {
 
 
 		grid.setOption({
+			highlightKeywords: {
+				textGenerator: (row, column) => column === 'author' ? sanitizeHTML(String(row[column] ?? '')) : row[column]
+			},
 			theme: 'dark',
 			selectVisible: true,
 			selectMultiple: true,
@@ -713,7 +740,7 @@ export class CustomNodesManager {
 		// by matched count
 		distance += 1 - matchedList.length / searchableColumns.length;
 		// by stars
-		const stars = TG.Util.toNum(rowItem.stars);
+		const stars = Number(rowItem.stars) || 0;
 		distance += 1 - stars / 10000;
 		// score
 		return 1 / distance;
@@ -756,7 +783,6 @@ export class CustomNodesManager {
 	}
 
 	renderGrid() {
-
 		// update theme
 		const globalStyle = window.getComputedStyle(document.body);
 		this.colorVars = {
@@ -783,7 +809,8 @@ export class CustomNodesManager {
 			id: 'id',
 			name: 'ID',
 			width: 50,
-			align: 'center'
+			align: 'center',
+			formatter: (value) => (value === null || value === undefined) ? value : sanitizeHTML(String(value))
 		}, {
 			id: 'title',
 			name: 'Title',
@@ -795,10 +822,13 @@ export class CustomNodesManager {
 				const container = document.createElement('div');
 
 				if (rowItem.action === 'invalid-installation') {
-					const invalidTag = document.createElement('span');
-					invalidTag.style.color = 'red';
-					invalidTag.innerHTML = '<b>(INVALID)</b>';
-					container.appendChild(invalidTag);
+					const button = document.createElement('button');
+					button.className = 'cn-btn-invalid-installation';
+					button.innerText = 'INVALID INSTALLATION ↗';
+					button.title = INVALID_INSTALLATION_GUIDANCE;
+					button.onclick = () => show_message(`<span style="color: var(--fg-color)"><B>The '${title}' nodepack is an invalid installation.</B><BR><HR><BR>${INVALID_INSTALLATION_GUIDANCE}<BR><BR>To fix it, click <B>Reinstall</B> in the Action column of its row.</span>`);
+					container.appendChild(button);
+					container.appendChild(document.createElement('br'));
 				} else if (rowItem.action === 'import-fail') {
 					const button = document.createElement('button');
 					button.className = 'cn-btn-import-failed';
@@ -809,12 +839,15 @@ export class CustomNodesManager {
 				}
 
 				const link = document.createElement('a');
+				// DOM href takes a validated raw URL, without HTML attribute escaping.
 				if(rowItem.originalData.repository)
-					link.href = rowItem.originalData.repository;
+					link.href = sanitizeUrl(rowItem.originalData.repository);
 				else
-					link.href = rowItem.reference;
+					link.href = sanitizeUrl(rowItem.reference);
 				link.target = '_blank';
+				link.rel = 'noopener noreferrer';
 				link.innerHTML = `<b>${title}</b>`;
+				link.title = rowItem.originalData.id;
 				container.appendChild(link);
 
 				return container;
@@ -830,13 +863,15 @@ export class CustomNodesManager {
 				if(!version) {
 					return;
 				}
+				const safeVersion = sanitizeHTML(String(version));
 				if(rowItem.cnr_latest && version != rowItem.cnr_latest) {
+					const safeLatest = sanitizeHTML(String(rowItem.cnr_latest));
 					if(version == 'nightly') {
-						return `<div>${version}</div><div>[${rowItem.cnr_latest}]</div>`;
+						return `<div>${safeVersion}</div><div>[${safeLatest}]</div>`;
 					}
-					return `<div>${version}</div><div>[↑${rowItem.cnr_latest}]</div>`;
+					return `<div>${safeVersion}</div><div>[↑${safeLatest}]</div>`;
 				}
-				return version;
+				return safeVersion;
 			}
 		}, {
 			id: 'action',
@@ -889,10 +924,11 @@ export class CustomNodesManager {
 			width: 120,
 			classMap: "cn-pack-author", 
 			formatter: (author, rowItem, columnItem) => {
+				const safeAuthor = sanitizeHTML(String(author ?? ''));
 				if (rowItem.trust) {
-					return `<span tooltip="This author has been active for more than six months in GitHub">✅ ${author}</span>`;
+					return `<span title="This author has been active for more than six months in GitHub">✅ ${safeAuthor}</span>`;
 				}
-				return author;
+				return safeAuthor;
 			}
 		}, {
 			id: 'stars',
@@ -907,7 +943,7 @@ export class CustomNodesManager {
 				if (typeof stars === 'number') {
 					return stars.toLocaleString();
 				}
-				return stars;
+				return (stars === null || stars === undefined) ? stars : sanitizeHTML(String(stars));
 			}
 		}, {
 			id: 'last_update',
@@ -922,8 +958,8 @@ export class CustomNodesManager {
 					return 'N/A';
 				}
 				const ago = getTimeAgo(last_update);
-				const short = `${last_update}`.split(' ')[0];
-				return `<span tooltip="${ago}">${short}</span>`;
+				const short = sanitizeHTML(String(last_update).split(' ')[0]);
+				return `<span title="${ago}">${short}</span>`;
 			}
 		}];
 
@@ -1003,7 +1039,7 @@ export class CustomNodesManager {
 		// console.log(nodeItem);
 		const list = [`<div class="cn-preview-header">
 			<div class="cn-preview-dot"></div>
-			<div class="cn-preview-name">${nodeItem.name}</div>
+			<div class="cn-preview-name">${sanitizeHTML(String(nodeItem.name ?? ""))}</div>
 			<div class="cn-pack-badge">Preview</div>
 		</div>`];
 
@@ -1084,7 +1120,7 @@ export class CustomNodesManager {
 			const optional = it.optional ? " cn-preview-optional" : ""
 			return `<div class="cn-preview-input">
 				<div class="cn-preview-dot${optional}" style="background-color:${color}"></div>
-				${it.name}
+				${sanitizeHTML(String(it.name ?? ""))}
 			</div>`;
 		}).join("");
 
@@ -1092,7 +1128,7 @@ export class CustomNodesManager {
 			const color = colorMap[it.type] || "gray";
 			const grid = it.list ? " cn-preview-grid" : "";
 			return `<div class="cn-preview-output">
-				${it.name}
+				${sanitizeHTML(String(it.name ?? ""))}
 				<div class="cn-preview-dot${grid}" style="background-color:${color}"></div>
 			</div>`;
 		}).join("");
@@ -1124,22 +1160,23 @@ export class CustomNodesManager {
 					|| it.type === "MARKDOWN"
 				) {
 					if (value) {
-						value = value.replace(/\r?\n/g, "<br>")
+						// escape first, then allow the <br> this branch adds
+						value = sanitizeHTML(String(value)).replace(/\r?\n/g, "<br>")
 					}
-					list.push(`<div class="cn-preview-string">${value || it.name}</div>`);
+					list.push(`<div class="cn-preview-string">${value || sanitizeHTML(String(it.name ?? ""))}</div>`);
 					return;
 				}
 
 				list.push(`<div class="cn-preview-switch">
-					<div>${it.name}</div>
-					<div class="cn-preview-value">${value}</div>	
+					<div>${sanitizeHTML(String(it.name ?? ""))}</div>
+					<div class="cn-preview-value">${sanitizeHTML(String(value))}</div>
 				</div>`);
 			});
 			list.push(`</div>`);
 		}
 
 		if (nodeItem.description) {
-			list.push(`<div class="cn-preview-description">${nodeItem.description}</div>`)
+			list.push(`<div class="cn-preview-description">${sanitizeHTML(String(nodeItem.description))}</div>`)
 		}
 
 		return list.join("");
@@ -1164,143 +1201,63 @@ export class CustomNodesManager {
 		hidePopover();
 	}
 
-	createFlyover(container) {
-		const $flyover = document.createElement("div");
-		$flyover.className = "cn-flyover";
-		$flyover.innerHTML = `<div class="cn-flyover-header">
-			<div class="cn-flyover-close">${icons.arrowRight}</div>
-			<div class="cn-flyover-title"></div>
-			<div class="cn-flyover-close">${icons.close}</div>
-			</div>
-			<div class="cn-flyover-body"></div>`
-		container.appendChild($flyover);
-
-		const $flyoverTitle = $flyover.querySelector(".cn-flyover-title");
-		const $flyoverBody = $flyover.querySelector(".cn-flyover-body");
-		
-		let width = '50%';
-		let visible = false;
-
-		let timeHide;
-		const closeHandler = (e) => {
-            if ($flyover === e.target || $flyover.contains(e.target)) {
-                return;
-            }
-			clearTimeout(timeHide);
-			timeHide = setTimeout(() => {
-				flyover.hide();
-			}, 100);
-		}
-
-		const hoverHandler = (e) => {
-			if(e.type === "mouseenter") {
-				if(e.target.classList.contains("cn-nodes-name")) {
-					this.showNodePreview(e.target);
-				}
-				return;
-			}
-			this.hideNodePreview();
-		}
-
-		const displayHandler = () => {
-			if (visible) {
-				$flyover.classList.remove("cn-slide-in-right");
-			} else {
-				$flyover.classList.remove("cn-slide-out-right");
-				$flyover.style.width = '0px';
-				$flyover.style.display = "none";
-			}
-		}
-
-		const flyover = {
-			show: (titleHtml, bodyHtml) => {
-				clearTimeout(timeHide);
-				this.element.removeEventListener("click", closeHandler);
-				$flyoverTitle.innerHTML = titleHtml;
-				$flyoverBody.innerHTML = bodyHtml;
-				$flyover.style.display = "block";
-				$flyover.style.width = width;
-				if(!visible) {
-					$flyover.classList.add("cn-slide-in-right");
-				}
-				visible = true;
-				setTimeout(() => {
-					this.element.addEventListener("click", closeHandler);
-				}, 100);
-			},
-			hide: (now) => {
-				visible = false;
-				this.element.removeEventListener("click", closeHandler);
-				if(now) {
-					displayHandler();
-					return;
-				}
-				$flyover.classList.add("cn-slide-out-right");
-			}
-		}
-
-		$flyover.addEventListener("animationend", (e) => {
-			displayHandler();
-		});
-
-		$flyover.addEventListener("mouseenter", hoverHandler, true);
-		$flyover.addEventListener("mouseleave", hoverHandler, true);
-
-		$flyover.addEventListener("click", (e) => {
-
+	handleFlyoverHover(e) {
+		if(e.type === "mouseenter") {
 			if(e.target.classList.contains("cn-nodes-name")) {
-				const nodeName = e.target.innerText;
-				const nodeItem = this.nodeMap[nodeName];
-				if (!nodeItem) {
-					copyText(nodeName).then((res) => {
-						if (res) {
-							e.target.setAttribute("action", "Copied");
-							e.target.classList.add("action");
-							setTimeout(() => {
-								e.target.classList.remove("action");
-								e.target.removeAttribute("action");
-							}, 1000);
-						}
-					});
-					return;
-				}
+				this.showNodePreview(e.target);
+			}
+			return;
+		}
+		this.hideNodePreview();
+	}
 
-				const [x, y, w, h] = app.canvas.ds.visible_area;
-				const dpi = Math.max(window.devicePixelRatio ?? 1, 1);
-				const node = window.LiteGraph?.createNode(
-					nodeItem.name,
-					nodeItem.display_name,
-					{
-						pos: [x + (w-300) / dpi / 2, y]
+	handleFlyoverClick(e) {
+		if(e.target.classList.contains("cn-nodes-name")) {
+			const nodeName = e.target.innerText;
+			const nodeItem = this.nodeMap[nodeName];
+			if (!nodeItem) {
+				copyText(nodeName).then((res) => {
+					if (res) {
+						e.target.setAttribute("action", "Copied");
+						e.target.classList.add("action");
+						setTimeout(() => {
+							e.target.classList.remove("action");
+							e.target.removeAttribute("action");
+						}, 1000);
 					}
-				);
-				if (node) {
-					app.graph.add(node);
-					e.target.setAttribute("action", "Added to Workflow");
-					e.target.classList.add("action");
-					setTimeout(() => {
-						e.target.classList.remove("action");
-						e.target.removeAttribute("action");
-					}, 1000);
-				}
-				
+				});
 				return;
 			}
-			if(e.target.classList.contains("cn-nodes-pack")) {
-				const hash = e.target.getAttribute("hash");
-				const rowItem = this.grid.getRowItemBy("hash", hash);
-				//console.log(rowItem);
-				this.grid.scrollToRow(rowItem);
-				this.addHighlight(rowItem);
-				return;
-			}
-			if(e.target.classList.contains("cn-flyover-close")) {
-				flyover.hide();
-				return;
-			}
-		});
 
-		return flyover;
+			const [x, y, w, h] = app.canvas.ds.visible_area;
+			const dpi = Math.max(window.devicePixelRatio ?? 1, 1);
+			const node = window.LiteGraph?.createNode(
+				nodeItem.name,
+				nodeItem.display_name,
+				{
+					pos: [x + (w-300) / dpi / 2, y]
+				}
+			);
+			if (node) {
+				app.graph.add(node);
+				e.target.setAttribute("action", "Added to Workflow");
+				e.target.classList.add("action");
+				setTimeout(() => {
+					e.target.classList.remove("action");
+					e.target.removeAttribute("action");
+				}, 1000);
+			}
+			
+			return;
+		}
+		if(e.target.classList.contains("cn-nodes-pack")) {
+			const hash = e.target.getAttribute("hash");
+			const rowItem = this.grid.getRowItemBy("hash", hash);
+				//console.log(rowItem);
+			this.grid.scrollToRow(rowItem);
+			this.addHighlight(rowItem);
+			return;
+		}
 	}
 
 	showNodes(d) {
@@ -1312,6 +1269,7 @@ export class CustomNodesManager {
 		const rowItem = d.rowItem;
 		const isNotInstalled = rowItem.action == "not-installed";
 
+		// Pack titles are already escaped by the server.
 		let titleHtml = `<div class="cn-nodes-pack" hash="${rowItem.hash}">${rowItem.title}</div>`;
 		if (isNotInstalled) {
 			titleHtml += '<div class="cn-pack-badge">Not Installed</div>'
@@ -1328,7 +1286,8 @@ export class CustomNodesManager {
 
 			list.push(`<div class="${rowClass}">`);
 			list.push(`<div class="cn-nodes-sn">${i+1}</div>`);
-			list.push(`<div class="cn-nodes-name">${it.name}</div>`);
+			// extName via /customnode/getmappings, no server sanitize: escaped at the sink.
+			list.push(`<div class="cn-nodes-name">${sanitizeHTML(String(it.name))}</div>`);
 
 			if (it.conflicts) {
 				list.push(`<div class="cn-conflicts-list"><div class="cn-nodes-conflict cn-icon">${icons.conflicts}</div><b>Conflict with</b>${it.conflicts.map(c => {
@@ -1450,7 +1409,7 @@ export class CustomNodesManager {
 			return;
 		}
 
-		const selectedMap = {};
+		const selectedMap = Object.create(null);
 		selectedList.forEach(item => {
 			let type = item.action;
 			if (item.restart) {
@@ -1469,7 +1428,7 @@ export class CustomNodesManager {
 		Object.keys(selectedMap).forEach(v => {
 			const filterItem = this.getFilterItem(v);
 			list.push(`<div class="cn-selected-buttons">
-				<span>Selected <b>${selectedMap[v].length}</b> ${filterItem ? filterItem.label : v}</span>
+				<span>Selected <b>${selectedMap[v].length}</b> ${sanitizeHTML(String(filterItem ? filterItem.label : v))}</span>
 				${this.grid.hasMask ? "" : this.getActionButtons(v, null, true)}
 			</div>`);
 		});
@@ -1498,11 +1457,13 @@ export class CustomNodesManager {
 
 		this.showLoading();
 		let res;
+		// defensive: only CNR ids reach here ('unknown' version packs never open this dialog)
+		const encoded_node_id = encodeURIComponent(node_id);
 		if(is_enable) {
-			res = await api.fetchApi(`/customnode/disabled_versions/${node_id}`, { cache: "no-store" });
+			res = await api.fetchApi(`/customnode/disabled_versions/${encoded_node_id}`, { cache: "no-store" });
 		}
 		else {
-			res = await api.fetchApi(`/customnode/versions/${node_id}`, { cache: "no-store" });
+			res = await api.fetchApi(`/customnode/versions/${encoded_node_id}`, { cache: "no-store" });
 		}
 		this.hideLoading();
 
@@ -1514,14 +1475,15 @@ export class CustomNodesManager {
 			let version_cnt = 0;
 
 			if(!is_enable) {
+
+				if(rowItem.cnr_latest != rowItem.originalData.active_version && obj.length > 0) {
+					versions.push('latest');
+				}
+
 				if(rowItem.originalData.active_version != 'nightly') {
 					versions.push('nightly');
 					default_version = 'nightly';
 					version_cnt++;
-				}
-
-				if(rowItem.cnr_latest != rowItem.originalData.active_version && obj.length > 0) {
-					versions.push('latest');
 				}
 			}
 
@@ -1564,7 +1526,8 @@ export class CustomNodesManager {
 		if(mode === "reinstall") {
 			title = title || `${list.length} custom nodes`;
 
-			const confirmed = await customConfirm(`Are you sure reinstall ${title}?`);
+			const what = list.length > 1 ? "their folders and installs the nodepacks" : "its folder and installs the nodepack";
+			const confirmed = await customConfirm(`Reinstall ${title}? This deletes ${what} again.`);
 			if (!confirmed) {
 				return;
 			}
@@ -1576,9 +1539,15 @@ export class CustomNodesManager {
 		let needRestart = false;
 		let errorMsg = "";
 
-		await api.fetchApi('/manager/queue/reset');
+		await api.fetchApi('/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 
+		// Set install_context BEFORE per-item queue enqueue calls so that any
+		// server-side synchronous completion (e.g., sync enable of an inactive
+		// node) that emits cm-queue-status before we return here still finds
+		// install_context populated in onQueueCompleted. target_items is shared
+		// by reference so further pushes below remain visible.
 		let target_items = [];
+		this.install_context = {btn: btn, targets: target_items};
 
 		for (const hash of list) {
 			const item = this.grid.getRowItemBy("hash", hash);
@@ -1623,25 +1592,32 @@ export class CustomNodesManager {
 
 			const res = await api.fetchApi(`/manager/queue/${api_mode}`, {
 				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(data)
 			});
 
 			if (res.status != 200) {
+				// The title is already escaped by populate_markdown.
 				errorMsg = `'${item.title}': `;
 
 				if(res.status == 403) {
-					errorMsg += `This action is not allowed with this security level configuration.\n`;
-				} else if(res.status == 404) {
-					errorMsg += `With the current security level configuration, only custom nodes from the <B>"default channel"</B> can be installed.\n`;
+					try {
+						const data = await res.json();
+						if(data.error === 'comfyui_outdated') {
+							errorMsg += `ComfyUI version is outdated. Please update ComfyUI to use Manager normally.\n`;
+						} else {
+							errorMsg += `This action is not allowed with this security level configuration.\n`;
+						}
+					} catch {
+						errorMsg += `This action is not allowed with this security level configuration.\n`;
+					}
 				} else {
-					errorMsg += await res.text() + '\n';
+					errorMsg += sanitizeHTML(await res.text()) + '\n';
 				}
 
 				break;
 			}
 		}
-
-		this.install_context = {btn: btn, targets: target_items};
 
 		if(errorMsg) {
 			this.showError(errorMsg);
@@ -1654,7 +1630,7 @@ export class CustomNodesManager {
 			}
 		}
 		else {
-			await api.fetchApi('/manager/queue/start');
+			await api.fetchApi('/manager/queue/start', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 			this.showStop();
 			showTerminal();
 		}
@@ -1667,6 +1643,10 @@ export class CustomNodesManager {
 
 			const item = self.grid.getRowItemBy("hash", hash);
 
+			if (!item) {
+				return;
+			}
+
 			item.restart = true;
 			self.restartMap[item.hash] = true;
 			self.grid.updateCell(item, "action");
@@ -1674,45 +1654,82 @@ export class CustomNodesManager {
 		}
 		else if(event.detail.status == 'done') {
 			self.hideStop();
-			self.onQueueCompleted(event.detail);
+			// Await + error logging so any unhandled rejection surfaces to the
+			// console instead of silently swallowing completion finalization
+			// (root cause of disable/enable button staying loading with no toast).
+			try {
+				await self.onQueueCompleted(event.detail);
+			} catch (e) {
+				console.error("[ComfyUI-Manager] onQueueCompleted failed:", e);
+			}
 		}
 	}
 
 	async onQueueCompleted(info) {
+		// `nodepack_result` is a dict serialized from a Python dict, not an array.
+		// `dict.length` is `undefined` and `undefined == 0` is `false`, so the
+		// previous `result.length == 0` guard was a no-op; switch to a correct
+		// empty-check that also tolerates null/undefined.
 		let result = info.nodepack_result;
 
-		if(result.length == 0) {
+		if (!result || Object.keys(result).length === 0) {
 			return;
 		}
 
 		let self = CustomNodesManager.instance;
 
-		if(!self.install_context) {
+		if (!self || !self.install_context) {
 			return;
 		}
 
 		const { target, label, mode } = self.install_context.btn;
-		target.classList.remove("cn-btn-loading");
+		const targets = self.install_context.targets || [];
 
+		// Compute errorMsg upfront so the downstream user-visible finalization
+		// (showRestart / showMessage / infoToast) fires regardless of whether
+		// any DOM-touching step below throws.
 		let errorMsg = "";
-
-		for(let hash in result){
+		for (let hash in result) {
 			let v = result[hash];
-
-			if(v != 'success' && v != 'skip')
-				errorMsg += v+'\n';
+			if (v != 'success' && v != 'skip') {
+				// Escape raw task errors for both HTML message destinations.
+				errorMsg += sanitizeHTML(String(v)) + '\n';
+			}
 		}
 
-		for(let k in self.install_context.targets) {
-			let item = self.install_context.targets[k];
-			self.grid.updateCell(item, "action");
+		// Defensive: `target` may be a detached DOM node (the in_progress
+		// handler's updateCell can re-render the row and replace the button
+		// element). classList.remove on a detached node is a no-op, but we
+		// still guard in case target was torn down entirely.
+		try {
+			if (target && target.classList) {
+				target.classList.remove("cn-btn-loading");
+			}
+		} catch (e) {
+			console.warn("[ComfyUI-Manager] Failed to clear button loading state:", e);
+		}
+
+		// Defensive: grid.updateCell can throw if the item was removed or the
+		// grid was re-rendered between in_progress and done. Do NOT let this
+		// loop abort the completion finalization below — that was the observed
+		// failure mode for disable/enable (no toast, no "restart required"
+		// message).
+		try {
+			for (let k in targets) {
+				let item = targets[k];
+				if (item) {
+					self.grid.updateCell(item, "action");
+				}
+			}
+		} catch (e) {
+			console.warn("[ComfyUI-Manager] Failed to refresh target cells after queue completion:", e);
 		}
 
 		if (errorMsg) {
 			self.showError(errorMsg);
-			show_message("Installation Error:\n"+errorMsg);
+			show_message("Installation Error:\n" + errorMsg);
 		} else {
-			self.showStatus(`${label} ${result.length} custom node(s) successfully`);
+			self.showStatus(`${label} ${Object.keys(result).length} custom node(s) successfully`);
 		}
 
 		self.showRestart();
@@ -1727,17 +1744,35 @@ export class CustomNodesManager {
 	getNodesInWorkflow() {
 		let usedGroupNodes = new Set();
 		let allUsedNodes = {};
+		const visitedGraphs = new Set();
 
-		for(let k in app.graph._nodes) {
-			let node = app.graph._nodes[k];
+		const visitGraph = (graph) => {
+			if (!graph || visitedGraphs.has(graph)) return;
+			visitedGraphs.add(graph);
 
-			if(node.type.startsWith('workflow>')) {
-				usedGroupNodes.add(node.type.slice(9));
-				continue;
+			const nodes = graph._nodes || graph.nodes || [];
+			for(let k in nodes) {
+				let node = nodes[k];
+				if (!node) continue;
+
+				// If it's a SubgraphNode, recurse into its graph and continue searching
+				if (node.isSubgraphNode?.() && node.subgraph) {
+					visitGraph(node.subgraph);
+				}
+
+				if (!node.type) continue;
+
+				// Group nodes / components
+				if(typeof node.type === 'string' && node.type.startsWith('workflow>')) {
+					usedGroupNodes.add(node.type.slice(9));
+					continue;
+				}
+
+				allUsedNodes[node.type] = node;
 			}
+		};
 
-			allUsedNodes[node.type] = node;
-		}
+		visitGraph(app.graph);
 
 		for(let k of usedGroupNodes) {
 			let subnodes = app.graph.extra.groupNodes[k]?.nodes;
@@ -1850,7 +1885,7 @@ export class CustomNodesManager {
 		this.showStatus(`Loading missing nodes (${mode}) ...`);
 		const res = await fetchData(`/customnode/getmappings?mode=${mode}`);
 		if (res.error) {
-			this.showError(`Failed to get custom node mappings: ${res.error}`);
+			this.showError(`Failed to get custom node mappings: ${sanitizeHTML(String(res.error))}`);
 			return;
 		}
 
@@ -1947,7 +1982,10 @@ export class CustomNodesManager {
 		for(let k in allUsedNodes) {
 			var item;
 			if(allUsedNodes[k].properties.cnr_id) {
-				item = this.custom_nodes[allUsedNodes[k].properties.cnr_id];
+				const foundPackage = findPackageByCnrId(allUsedNodes[k].properties.cnr_id, this.custom_nodes, false);
+				if (foundPackage) {
+					item = foundPackage.pack;
+				}
 			}
 			else if(allUsedNodes[k].properties.aux_id) {
 				item = aux_id_to_pack[allUsedNodes[k].properties.aux_id];
@@ -1965,7 +2003,7 @@ export class CustomNodesManager {
 		this.showStatus(`Loading alternatives (${mode}) ...`);
 		const res = await fetchData(`/customnode/alternatives?mode=${mode}`);
 		if (res.error) {
-			this.showError(`Failed to get alternatives: ${res.error}`);
+			this.showError(`Failed to get alternatives: ${sanitizeHTML(String(res.error))}`);
 			return [];
 		}
 
@@ -1981,8 +2019,9 @@ export class CustomNodesManager {
 				continue;
 			}
 
+			// tags (alter-list.json) is not server-transformed, so escape before innerHTML.
 			const tags = `${item.tags}`.split(",").map(tag => {
-				return `<div>${tag.trim()}</div>`;
+				return `<div>${sanitizeHTML(tag.trim())}</div>`;
 			}).join("");
 
 			hashMap[custom_node.hash] = {
@@ -1992,6 +2031,48 @@ export class CustomNodesManager {
 		}
 	
 		return hashMap;
+	}
+
+	async getUsedInAnyWorkflow() {
+		this.showStatus(`Loading workflow usage analysis ...`);
+		
+		const result = await analyzeWorkflowUsage(this.custom_nodes);
+		
+		if (!result.success) {
+			this.showError(`Failed to get workflow data: ${sanitizeHTML(String(result.error))}`);
+			return {};
+		}
+		
+		const hashMap = {};
+		
+		// Convert usage map keys to hash map
+		result.usageMap.forEach((count, packageKey) => {
+			const pack = this.custom_nodes[packageKey];
+			if (pack && pack.hash) {
+				hashMap[pack.hash] = true;
+			}
+		});
+		
+		return hashMap;
+	}
+
+	async getNotUsedInAnyWorkflow() {
+		this.showStatus(`Loading workflow usage analysis ...`);
+		
+		// Get the used packages first using common utility
+		const usedHashMap = await this.getUsedInAnyWorkflow();
+		const notUsedHashMap = {};
+		
+		// Find all installed packages that are NOT in the used list
+		for(let k in this.custom_nodes) {
+			let nodepack = this.custom_nodes[k];
+			// Only consider installed packages
+			if (nodepack.state !== "not-installed" && !usedHashMap[nodepack.hash]) {
+				notUsedHashMap[nodepack.hash] = true;
+			}
+		}
+		
+		return notUsedHashMap;
 	}
 
 	async loadData(show_mode = ShowMode.NORMAL) {
@@ -2029,7 +2110,7 @@ export class CustomNodesManager {
 		this.custom_nodes = node_packs;
 
 		if(this.channel !== 'default') {
-			this.element.querySelector(".cn-manager-channel").innerHTML = `Channel: ${this.channel} (Incomplete list)`;
+			this.element.querySelector(".cn-manager-channel").innerHTML = `Channel: ${sanitizeHTML(String(this.channel))} (Incomplete list)`;
 		}
 
 		for (const k in node_packs) {
@@ -2063,6 +2144,10 @@ export class CustomNodesManager {
 				hashMap = await this.getFavorites();
 			} else if(this.show_mode == ShowMode.IN_WORKFLOW) {
 				hashMap = await this.getNodepackInWorkflow();
+			} else if(this.show_mode == ShowMode.USED_IN_ANY_WORKFLOW) {
+				hashMap = await this.getUsedInAnyWorkflow();
+			} else if(this.show_mode == ShowMode.NOT_USED_IN_ANY_WORKFLOW) {
+				hashMap = await this.getNotUsedInAnyWorkflow();
 			}
 			filterItem.hashMap = hashMap;
 
@@ -2157,6 +2242,7 @@ export class CustomNodesManager {
 
 	// ===========================================================================================
 
+	// Messages accept HTML; see createUIStateManager in common.js.
 	showSelection(msg) {
 		this.element.querySelector(".cn-manager-selection").innerHTML = msg;
 	}

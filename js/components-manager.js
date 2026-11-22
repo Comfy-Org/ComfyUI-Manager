@@ -65,6 +65,10 @@ function storeGroupNode(name, data, register=true) {
 
 export async function load_components() {
 	let data = await api.fetchApi('/manager/component/loads', {method: "POST"});
+	if(data.status != 200) {
+		return;
+	}
+
 	let components = await data.json();
 
 	let start_time = Date.now();
@@ -678,7 +682,7 @@ export class ComponentBuilderDialog extends ComfyDialog {
 
 let orig_handleFile = app.handleFile;
 
-async function handleFile(file) {
+async function handleFile(file, ...args) {
 	if (file.name?.endsWith(".json") || file.name?.endsWith(".pack")) {
 		const reader = new FileReader();
 		reader.onload = async () => {
@@ -694,7 +698,7 @@ async function handleFile(file) {
 				await handle_import_components(jsonContent);
 			}
 			else {
-				orig_handleFile.call(app, file);
+				orig_handleFile.call(app, file, ...args);
 			}
 		};
 		reader.readAsText(file);
@@ -702,7 +706,7 @@ async function handleFile(file) {
 		return;
 	}
 
-	orig_handleFile.call(app, file);
+	orig_handleFile.call(app, file, ...args);
 }
 
 app.handleFile = handleFile;
@@ -780,7 +784,7 @@ export function set_component_policy(v) {
 
 let graphToPrompt = app.graphToPrompt;
 app.graphToPrompt = async function () {
-	let p = await graphToPrompt.call(app);
+	let p = await graphToPrompt.apply(app, arguments);
 	try {
 		let groupNodes = p.workflow.extra?.groupNodes;
 		if(groupNodes) {

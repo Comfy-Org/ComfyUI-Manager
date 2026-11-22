@@ -100,6 +100,19 @@ export function show_message(msg) {
 	app.ui.dialog.element.style.zIndex = 1100;
 }
 
+export async function handle403Response(res, defaultMessage) {
+	try {
+		const data = await res.json();
+		if(data.error === 'comfyui_outdated') {
+			show_message('ComfyUI version is outdated.<BR>Please update ComfyUI to use Manager normally.');
+		} else {
+			show_message(defaultMessage || 'This action is not allowed with this security level configuration.');
+		}
+	} catch {
+		show_message(defaultMessage || 'This action is not allowed with this security level configuration.');
+	}
+}
+
 export async function sleep(ms) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -109,9 +122,9 @@ export async function customConfirm(message) {
 		let res = await
 			window['app'].extensionManager.dialog
 			.confirm({
-				title: 'Confirm',
-				message: message
-			});
+			title: 'Confirm',
+			message: message
+		});
 
 		return res;
 	}
@@ -151,9 +164,9 @@ export async function customPrompt(title, message) {
 		let res = await
 				window['app'].extensionManager.dialog
 				.prompt({
-					title: title,
-					message: message
-				});
+			title: title,
+			message: message
+		});
 
 		return res;
 	}
@@ -163,20 +176,23 @@ export async function customPrompt(title, message) {
 }
 
 
-export function rebootAPI() {
+export async function rebootAPI() {
 	if ('electronAPI' in window) {
 			window.electronAPI.restartApp();
 			return true;
 	}
 
-	customConfirm("Are you sure you'd like to reboot the server?").then((isConfirmed) => {
-		if (isConfirmed) {
-			try {
-				api.fetchApi("/manager/reboot");
+	const isConfirmed = await customConfirm("Are you sure you'd like to reboot the server?");
+	if (isConfirmed) {
+		try {
+			const response = await api.fetchApi("/manager/reboot", { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+			if (response.status == 403) {
+				await handle403Response(response);
+				return false;
 			}
-			catch(exception) {}
 		}
-	});
+		catch(exception) {}
+	}
 
 	return false;
 }
@@ -207,16 +223,19 @@ function isValidURL(url) {
 }
 
 export async function install_pip(packages) {
-	if(packages.includes('&'))
+	if(packages.includes('&')) {
 		app.ui.dialog.show(`Invalid PIP package enumeration: '${packages}'`);
+		return;
+	}
 
 	const res = await api.fetchApi("/customnode/install/pip", {
 		method: "POST",
-		body: packages,
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ packages: packages }),
 	});
 
 	if(res.status == 403) {
-		show_message('This action is not allowed with this security level configuration.');
+		await handle403Response(res, "To use this feature you need BOTH: (1) 'allow_pip_install = true' in config.ini ([default] section), AND (2) ComfyUI launched with a loopback --listen (127.0.0.1 or ::1). Both values are read once at ComfyUI startup, so changing either one needs a restart, done with the server down: stop ComfyUI, change the setting, then start it again.");
 		return;
 	}
 
@@ -247,11 +266,12 @@ export async function install_via_git_url(url, manager_dialog) {
 
 	const res = await api.fetchApi("/customnode/install/git_url", {
 		method: "POST",
-		body: url,
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ url: url }),
 	});
 
 	if(res.status == 403) {
-		show_message('This action is not allowed with this security level configuration.');
+		await handle403Response(res, "To use this feature you need BOTH: (1) 'allow_git_url_install = true' in config.ini ([default] section), AND (2) ComfyUI launched with a loopback --listen (127.0.0.1 or ::1). Both values are read once at ComfyUI startup, so changing either one needs a restart, done with the server down: stop ComfyUI, change the setting, then start it again.");
 		return;
 	}
 
@@ -262,9 +282,9 @@ export async function install_via_git_url(url, manager_dialog) {
 		const self = this;
 
 		rebootButton.addEventListener("click",
-			function() {
-				if(rebootAPI()) {
-					manager_dialog.close();
+			async function() {
+				if(await rebootAPI()) {
+					manager_instance.close();
 				}
 			});
 	}
@@ -456,6 +476,40 @@ export function sanitizeHTML(str) {
 		.replace(/'/g, "&#039;");
 }
 
+// Keep URL handling aligned with glob/manager_util.py; covered by shared cases.
+export const SAFE_URL_SCHEMES = ['http', 'https'];
+const URL_SCHEME_NOISE = /[\x00-\x20\x7f]/g;
+const URL_HEAD_DELIMITERS = ['/', '?', '#'];
+// Match Python str.strip(); JavaScript trim() uses different Unicode whitespace.
+const URL_TRIM = /^[\t-\r\x1c-\x20\x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+|[\t-\r\x1c-\x20\x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+$/g;
+const trimUrl = (value) => value.replace(URL_TRIM, '');
+
+export function sanitizeUrl(url) {
+	const raw = (url === null || url === undefined) ? '' : String(url);
+	const probe = raw.replace(URL_SCHEME_NOISE, '');
+	if (!probe) {
+		return '#';
+	}
+
+	let cut = probe.length;
+	for (const delimiter of URL_HEAD_DELIMITERS) {
+		const found = probe.indexOf(delimiter);
+		if (found !== -1) {
+			cut = Math.min(cut, found);
+		}
+	}
+	const head = probe.slice(0, cut);
+
+	if (head.includes(':')) {
+		return SAFE_URL_SCHEMES.includes(head.split(':', 1)[0].toLowerCase()) ? trimUrl(raw) : '#';
+	}
+
+	return trimUrl(raw);
+}
+
+// Validate the URL, then escape it for a quoted href attribute.
+export const safeHref = (url) => sanitizeHTML(sanitizeUrl(url));
+
 export function showTerminal() {
 	try {
 		const panel = app.extensionManager.bottomPanel;
@@ -643,55 +697,448 @@ export function showPopover(target, text, className, options) {
 	});
 }
 
-let $tooltip;
-export function hideTooltip() {
-	if ($tooltip) {
-		$tooltip.remove();
-		$tooltip = null;
-	}
-}
-export function showTooltip(target, text, className = 'cn-tooltip', styleMap = {}) {
-	if (!$tooltip) {
-		$tooltip = document.createElement("div");
-		$tooltip.className = className;
-		$tooltip.style.cssText = `
-			pointer-events: none;
-			position: fixed;
-			z-index: 10001;
-			padding: 20px;
-			color: #1e1e1e;
-			max-width: 350px;
-			filter: drop-shadow(1px 5px 5px rgb(0 0 0 / 30%));
-			${Object.keys(styleMap).map(k=>k+":"+styleMap[k]+";").join("")}
-		`;
-		document.body.appendChild($tooltip);
+export async function uninstallNodes(nodeList, options = {}) {
+	const {
+		title = `${nodeList.length} custom nodes`,
+		onProgress = () => {},
+		onError = () => {},
+		onSuccess = () => {},
+		channel = 'default',
+		mode = 'default'
+	} = options;
+
+	// Check if queue is busy
+	let stats = await api.fetchApi('/manager/queue/status');
+	stats = await stats.json();
+	if (stats.is_processing) {
+		customAlert(`[ComfyUI-Manager] There are already tasks in progress. Please try again after it is completed. (${stats.done_count}/${stats.total_count})`);
+		return { success: false, error: 'Queue is busy' };
 	}
 
-	$tooltip.innerHTML = text;
-	$tooltip.style.display = "block";
-	renderPopover($tooltip, target, {
-		positions: ['top', 'bottom', 'right', 'center'],
-		bgColor: "#ffffff",
-		borderColor: "#cccccc",
-		borderRadius: 5
+	// Confirmation dialog for uninstall
+	const confirmed = await customConfirm(`Are you sure uninstall ${title}?`);
+	if (!confirmed) {
+		return { success: false, error: 'User cancelled' };
+	}
+
+	let errorMsg = "";
+	let target_items = [];
+
+	await api.fetchApi('/manager/queue/reset');
+
+	for (const nodeItem of nodeList) {
+		target_items.push(nodeItem);
+
+		// Titles are escaped by the caller; the name fallback is a raw pack key.
+		const displayTitle = nodeItem.title || sanitizeHTML(String(nodeItem.name));
+		onProgress(`Uninstall ${displayTitle} ...`);
+
+		const data = nodeItem.originalData || nodeItem;
+		data.channel = channel;
+		data.mode = mode;
+		data.ui_id = nodeItem.hash || md5(nodeItem.name || nodeItem.title);
+
+		const res = await api.fetchApi(`/manager/queue/uninstall`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(data)
+		});
+
+		if (res.status != 200) {
+			errorMsg = `'${displayTitle}': `;
+
+			if (res.status == 403) {
+				errorMsg += `This action is not allowed with this security level configuration.\n`;
+			} else {
+				errorMsg += sanitizeHTML(await res.text()) + '\n';
+			}
+
+			break;
+		}
+	}
+
+	if (errorMsg) {
+		onError(errorMsg);
+		show_message("[Uninstall Errors]\n" + errorMsg);
+		return { success: false, error: errorMsg, targets: target_items };
+	} else {
+		await api.fetchApi('/manager/queue/start');
+		onSuccess(target_items);
+		showTerminal();
+		return { success: true, targets: target_items };
+	}
+}
+
+// ===========================================================================================
+// Workflow Utilities Consolidation
+
+export async function getWorkflowNodeTypes() {
+	try {
+		const res = await fetchData('/customnode/get_node_types_in_workflows');
+		
+		if (res.status === 200) {
+			return { success: true, data: res.data };
+		} else if (res.status === 204) {
+			// No workflows found - return empty list
+			return { success: true, data: [] };
+		} else {
+			return { success: false, error: res.error };
+		}
+	} catch (error) {
+		return { success: false, error: error };
+	}
+}
+
+export function findPackageByCnrId(cnrId, nodePackages, installedOnly = true) {
+	if (!cnrId || !nodePackages) {
+		return null;
+	}
+	
+	// Tier 1: Direct key match
+	if (nodePackages[cnrId]) {
+		const pack = nodePackages[cnrId];
+		if (!installedOnly || pack.state !== "not-installed") {
+			return { key: cnrId, pack: pack };
+		}
+	}
+	
+	// Tier 2: Case-insensitive match
+	const cnrIdLower = cnrId.toLowerCase();
+	for (const packKey of Object.keys(nodePackages)) {
+		if (packKey.toLowerCase() === cnrIdLower) {
+			const pack = nodePackages[packKey];
+			if (!installedOnly || pack.state !== "not-installed") {
+				return { key: packKey, pack: pack };
+			}
+		}
+	}
+	
+	// Tier 3: URL/reference contains match
+	for (const packKey of Object.keys(nodePackages)) {
+		const pack = nodePackages[packKey];
+		
+		// Skip non-installed packages if installedOnly is true
+		if (installedOnly && pack.state === "not-installed") {
+			continue;
+		}
+		
+		// Check if reference URL contains cnr_id
+		if (pack.reference && pack.reference.includes(cnrId)) {
+			return { key: packKey, pack: pack };
+		}
+		
+		// Check if any file URL contains cnr_id
+		if (pack.files && Array.isArray(pack.files)) {
+			for (const fileUrl of pack.files) {
+				if (fileUrl.includes(cnrId)) {
+					return { key: packKey, pack: pack };
+				}
+			}
+		}
+	}
+	
+	return null;
+}
+
+export async function analyzeWorkflowUsage(nodePackages) {
+	const result = await getWorkflowNodeTypes();
+	
+	if (!result.success) {
+		return { success: false, error: result.error };
+	}
+	
+	const workflowNodeList = result.data;
+	const usageMap = new Map();
+	const workflowDetailsMap = new Map();
+	
+	if (workflowNodeList && Array.isArray(workflowNodeList)) {
+		const cnrIdCounts = new Map();
+		const cnrIdToWorkflows = new Map();
+		
+		// Process each workflow
+		workflowNodeList.forEach((workflowObj, workflowIndex) => {
+			if (workflowObj.node_types && Array.isArray(workflowObj.node_types)) {
+				const workflowCnrIds = new Set();
+				
+				// Get workflow filename
+				const workflowFilename = workflowObj.workflow_file_name ||
+										 workflowObj.filename ||
+										 workflowObj.file ||
+										 workflowObj.name ||
+										 workflowObj.path ||
+										 `Workflow ${workflowIndex + 1}`;
+				
+				// Count nodes per cnr_id in this workflow
+				const workflowCnrIdCounts = new Map();
+				workflowObj.node_types.forEach(nodeTypeObj => {
+					const cnrId = nodeTypeObj.cnr_id;
+					
+					if (cnrId && cnrId !== "comfy-core") {
+						// Track unique cnr_ids per workflow
+						workflowCnrIds.add(cnrId);
+						
+						// Count nodes per cnr_id in this specific workflow
+						const workflowNodeCount = workflowCnrIdCounts.get(cnrId) || 0;
+						workflowCnrIdCounts.set(cnrId, workflowNodeCount + 1);
+					}
+				});
+				
+				// Record workflow details for each unique cnr_id found in this workflow
+				workflowCnrIds.forEach(cnrId => {
+					// Count occurrences of this cnr_id across all workflows
+					const currentCount = cnrIdCounts.get(cnrId) || 0;
+					cnrIdCounts.set(cnrId, currentCount + 1);
+					
+					// Track workflow details
+					if (!cnrIdToWorkflows.has(cnrId)) {
+						cnrIdToWorkflows.set(cnrId, []);
+					}
+					cnrIdToWorkflows.get(cnrId).push({
+						filename: workflowFilename,
+						nodeCount: workflowCnrIdCounts.get(cnrId) || 0
+					});
+				});
+			}
+		});
+		
+		// Map cnr_id to installed packages with workflow details
+		cnrIdCounts.forEach((count, cnrId) => {
+			const workflowDetails = cnrIdToWorkflows.get(cnrId) || [];
+			
+			const foundPackage = findPackageByCnrId(cnrId, nodePackages, true);
+			if (foundPackage) {
+				usageMap.set(foundPackage.key, count);
+				workflowDetailsMap.set(foundPackage.key, workflowDetails);
+			}
+		});
+	}
+	
+	return {
+		success: true,
+		usageMap: usageMap,
+		workflowDetailsMap: workflowDetailsMap
+	};
+}
+
+// Size formatting utilities - consolidated from model-manager.js and node-usage-analyzer.js
+export function formatSize(v) {
+	const base = 1000;
+	const units = ['', 'K', 'M', 'G', 'T', 'P'];
+	const space = '';
+	const postfix = 'B';
+	if (v <= 0) {
+		return `0${space}${postfix}`;
+	}
+	for (let i = 0, l = units.length; i < l; i++) {
+		const min = Math.pow(base, i);
+		const max = Math.pow(base, i + 1);
+		if (v > min && v <= max) {
+			const unit = units[i];
+			if (unit) {
+				const n = v / min;
+				const nl = n.toString().split('.')[0].length;
+				const fl = Math.max(3 - nl, 1);
+				v = n.toFixed(fl);
+			}
+			v = v + space + unit + postfix;
+			break;
+		}
+	}
+	return v;
+}
+
+// for size sort
+export function sizeToBytes(v) {
+	if (typeof v === "number") {
+		return v;
+	}
+	if (typeof v === "string") {
+		const n = parseFloat(v);
+		const unit = v.replace(/[0-9.B]+/g, "").trim().toUpperCase();
+		if (unit === "K") {
+			return n * 1000;
+		}
+		if (unit === "M") {
+			return n * 1000 * 1000;
+		}
+		if (unit === "G") {
+			return n * 1000 * 1000 * 1000;
+		}
+		if (unit === "T") {
+			return n * 1000 * 1000 * 1000 * 1000;
+		}
+	}
+	return v;
+}
+
+// Flyover component - consolidated from custom-nodes-manager.js and node-usage-analyzer.js
+export function createFlyover(container, options = {}) {
+	const {
+		enableHover = false,
+		hoverHandler = null,
+		context = null
+	} = options;
+
+	const $flyover = document.createElement("div");
+	$flyover.className = "cn-flyover";
+	$flyover.innerHTML = `<div class="cn-flyover-header">
+		<div class="cn-flyover-close">${icons.arrowRight}</div>
+		<div class="cn-flyover-title"></div>
+		<div class="cn-flyover-close">${icons.close}</div>
+		</div>
+		<div class="cn-flyover-body"></div>`
+	container.appendChild($flyover);
+
+	const $flyoverTitle = $flyover.querySelector(".cn-flyover-title");
+	const $flyoverBody = $flyover.querySelector(".cn-flyover-body");
+	
+	let width = '50%';
+	let visible = false;
+
+	let timeHide;
+	const closeHandler = (e) => {
+		if ($flyover === e.target || $flyover.contains(e.target)) {
+			return;
+		}
+		clearTimeout(timeHide);
+		timeHide = setTimeout(() => {
+			flyover.hide();
+		}, 100);
+	}
+
+	const displayHandler = () => {
+		if (visible) {
+			$flyover.classList.remove("cn-slide-in-right");
+		} else {
+			$flyover.classList.remove("cn-slide-out-right");
+			$flyover.style.width = '0px';
+			$flyover.style.display = "none";
+		}
+	}
+
+	const flyover = {
+		show: (titleHtml, bodyHtml) => {
+			clearTimeout(timeHide);
+			if (context && context.element) {
+				context.element.removeEventListener("click", closeHandler);
+			}
+			$flyoverTitle.innerHTML = titleHtml;
+			$flyoverBody.innerHTML = bodyHtml;
+			$flyover.style.display = "block";
+			$flyover.style.width = width;
+			if(!visible) {
+				$flyover.classList.add("cn-slide-in-right");
+			}
+			visible = true;
+			setTimeout(() => {
+				if (context && context.element) {
+					context.element.addEventListener("click", closeHandler);
+				}
+			}, 100);
+		},
+		hide: (now) => {
+			visible = false;
+			if (context && context.element) {
+				context.element.removeEventListener("click", closeHandler);
+			}
+			if(now) {
+				displayHandler();
+				return;
+			}
+			$flyover.classList.add("cn-slide-out-right");
+		}
+	}
+
+	$flyover.addEventListener("animationend", (e) => {
+		displayHandler();
 	});
+
+	// Add hover handlers if enabled
+	if (enableHover && hoverHandler) {
+		$flyover.addEventListener("mouseenter", hoverHandler, true);
+		$flyover.addEventListener("mouseleave", hoverHandler, true);
+	}
+
+	$flyover.addEventListener("click", (e) => {
+		if(e.target.classList.contains("cn-flyover-close")) {
+			flyover.hide();
+			return;
+		}
+		
+		// Forward other click events to the provided handler or context
+		if (context && context.handleFlyoverClick) {
+			context.handleFlyoverClick(e);
+		}
+	});
+
+	return flyover;
 }
 
-function initTooltip () {
-	const mouseenterHandler = (e) => {
-        const target = e.target;
-        const text = target.getAttribute('tooltip');
-        if (text) {
-            showTooltip(target, text);
-        }
-    };
-	const mouseleaveHandler = (e) => {
-        hideTooltip();
-    };
-	document.body.removeEventListener('mouseenter', mouseenterHandler, true);
-	document.body.removeEventListener('mouseleave', mouseleaveHandler, true);
-	document.body.addEventListener('mouseenter', mouseenterHandler, true);
-    document.body.addEventListener('mouseleave', mouseleaveHandler, true);
-}
+// Message methods accept HTML; callers escape raw data and preserve formatted content.
+export function createUIStateManager(element, selectors) {
+	return {
+		showSelection: (msg) => {
+			const el = element.querySelector(selectors.selection);
+			if (el) el.innerHTML = msg;
+		},
 
-initTooltip();
+		showError: (err) => {
+			const el = element.querySelector(selectors.message);
+			if (el) {
+				const msg = err ? `<font color="red">${err}</font>` : "";
+				el.innerHTML = msg;
+			}
+		},
+
+		showMessage: (msg, color) => {
+			const el = element.querySelector(selectors.message);
+			if (el) {
+				if (color) {
+					msg = `<font color="${color}">${msg}</font>`;
+				}
+				el.innerHTML = msg;
+			}
+		},
+
+		showStatus: (msg, color) => {
+			const el = element.querySelector(selectors.status);
+			if (el) {
+				if (color) {
+					msg = `<font color="${color}">${msg}</font>`;
+				}
+				el.innerHTML = msg;
+			}
+		},
+		
+		showLoading: (grid) => {
+			if (grid) {
+				grid.showLoading();
+				grid.showMask({
+					opacity: 0.05
+				});
+			}
+		},
+		
+		hideLoading: (grid) => {
+			if (grid) {
+				grid.hideLoading();
+				grid.hideMask();
+			}
+		},
+		
+		showRefresh: () => {
+			const el = element.querySelector(selectors.refresh);
+			if (el) el.style.display = "block";
+		},
+		
+		showStop: () => {
+			const el = element.querySelector(selectors.stop);
+			if (el) el.style.display = "block";
+		},
+		
+		hideStop: () => {
+			const el = element.querySelector(selectors.stop);
+			if (el) el.style.display = "none";
+		}
+	};
+}

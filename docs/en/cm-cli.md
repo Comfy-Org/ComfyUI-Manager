@@ -139,7 +139,7 @@ You can set whether to use ComfyUI-Manager solely via CLI.
 `restore-dependencies`
 
 * This command can be used if custom nodes are installed under the `ComfyUI/custom_nodes` path but their dependencies are not installed.
-* It is useful when starting a new cloud instance, like colab, where dependencies need to be reinstalled and installation scripts re-executed.
+* It is useful when starting a new cloud instance, like Colab, where dependencies need to be reinstalled and installation scripts re-executed.
 * It can also be utilized if ComfyUI is reinstalled and only the custom_nodes path has been backed up and restored.
 
 ### 7. Clear

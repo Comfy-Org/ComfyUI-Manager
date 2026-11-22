@@ -1,33 +1,48 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js"
 import { ComfyDialog, $el } from "../../scripts/ui.js";
-import { manager_instance, rebootAPI, show_message } from  "./common.js";
+import { manager_instance, rebootAPI, show_message, handle403Response, loadCss, sanitizeHTML } from  "./common.js";
+import { buildGuiFrame } from "./comfyui-gui-builder.js";
 
+loadCss("./snapshot.css");
+
+// The server gives its reason as plain text, and most refusals carry none.
+// For those, and for the error page of a proxy, show the status line.
+async function failureReason(response) {
+	const plain = (response.headers.get('Content-Type') || '').startsWith('text/plain');
+	const text = plain ? await response.text() : '';
+	return sanitizeHTML(text || `HTTP ${response.status} ${response.statusText}`.trim());
+}
 
 async function restore_snapshot(target) {
 	if(SnapshotManager.instance) {
+		let success = false;
 		try {
-			const response = await api.fetchApi(`/snapshot/restore?target=${target}`, { cache: "no-store" });
+			const response = await api.fetchApi('/snapshot/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: target }), cache: "no-store" });
 
 			if(response.status == 403) {
-				show_message('This action is not allowed with this security level configuration.');
+				await handle403Response(response);
 				return false;
 			}
 
-			if(response.status == 400) {
-				show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+			if(!response.ok) {
+				show_message(`Restore snapshot failed: ${sanitizeHTML(String(target))} / ${await failureReason(response)}`);
+				return false;
 			}
 
 			app.ui.dialog.close();
+			success = true;
 			return true;
 		}
 		catch(exception) {
-			show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+			show_message(`Restore snapshot failed: ${sanitizeHTML(String(target))} / ${sanitizeHTML(String(exception))}`);
 			return false;
 		}
 		finally {
 			await SnapshotManager.instance.invalidateControl();
-			SnapshotManager.instance.updateMessage("<BR>To apply the snapshot, please <button id='cm-reboot-button2' class='cm-small-button'>RESTART</button> ComfyUI. And refresh browser.", 'cm-reboot-button2');
+			if(success) {
+				SnapshotManager.instance.updateMessage("<BR>To apply the snapshot, please <button id='cm-reboot-button2' class='cm-ui-button'>RESTART</button> ComfyUI. And refresh browser.", 'cm-reboot-button2');
+			}
 		}
 	}
 }
@@ -35,22 +50,23 @@ async function restore_snapshot(target) {
 async function remove_snapshot(target) {
 	if(SnapshotManager.instance) {
 		try {
-			const response = await api.fetchApi(`/snapshot/remove?target=${target}`, { cache: "no-store" });
+			const response = await api.fetchApi('/snapshot/remove', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: target }), cache: "no-store" });
 
 			if(response.status == 403) {
-				show_message('This action is not allowed with this security level configuration.');
+				await handle403Response(response);
 				return false;
 			}
 
-			if(response.status == 400) {
-				show_message(`Remove snapshot failed: ${target.title} / ${exception}`);
+			if(!response.ok) {
+				show_message(`Remove snapshot failed: ${sanitizeHTML(String(target))} / ${await failureReason(response)}`);
+				return false;
 			}
 
 			app.ui.dialog.close();
 			return true;
 		}
 		catch(exception) {
-			show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+			show_message(`Remove snapshot failed: ${sanitizeHTML(String(target))} / ${sanitizeHTML(String(exception))}`);
 			return false;
 		}
 		finally {
@@ -61,7 +77,7 @@ async function remove_snapshot(target) {
 
 async function save_current_snapshot() {
 	try {
-		const response = await api.fetchApi('/snapshot/save', { cache: "no-store" });
+		const response = await api.fetchApi('/snapshot/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: "no-store" });
 		app.ui.dialog.close();
 		return true;
 	}
@@ -88,6 +104,8 @@ export class SnapshotManager extends ComfyDialog {
 	message_box = null;
 	data = null;
 
+	content = $el("div.snapshot-manager");
+
 	clear() {
 		this.restore_buttons = [];
 		this.message_box = null;
@@ -96,9 +114,18 @@ export class SnapshotManager extends ComfyDialog {
 
 	constructor(app, manager_dialog) {
 		super();
-		this.manager_dialog = manager_dialog;
+		// this.manager_dialog = manager_dialog;
 		this.search_keyword = '';
-		this.element = $el("div.comfy-modal", { parent: document.body }, []);
+
+		const frame = buildGuiFrame(
+			'snapshot-manager-dialog', // dialog id
+			'Snapshot Manager', // title
+			'i.mdi.mdi-puzzle', // icon class
+			this.content, // dialog content element
+			this
+		);	// send this so we can attach close functions
+
+		this.element = frame;
 	}
 
 	async remove_item() {
@@ -109,7 +136,7 @@ export class SnapshotManager extends ComfyDialog {
 
 	createControls() {
 		return [
-			$el("button.cm-small-button", {
+			$el("button.cm-ui-button", {
 				type: "button",
 				textContent: "Close",
 				onclick: () => { this.close(); }
@@ -120,7 +147,7 @@ export class SnapshotManager extends ComfyDialog {
 	startRestore(target) {
 		const self = SnapshotManager.instance;
 
-		self.updateMessage(`<BR><font color="green">Restore snapshot '${target.name}'</font>`);
+		self.updateMessage(`<BR><font color="green">Restore snapshot '${sanitizeHTML(target.name)}'</font>`);
 
 		for(let i in self.restore_buttons) {
 			self.restore_buttons[i].disabled = true;
@@ -132,8 +159,8 @@ export class SnapshotManager extends ComfyDialog {
 		this.clear();
 		this.data = (await getSnapshotList()).items;
 
-		while (this.element.children.length) {
-			this.element.removeChild(this.element.children[0]);
+		while (this.content.children.length) {
+			this.content.removeChild(this.content.children[0]);
 		}
 
 		await this.createGrid();
@@ -145,8 +172,8 @@ export class SnapshotManager extends ComfyDialog {
 		if(btn_id) {
 			const rebootButton = document.getElementById(btn_id);
 			const self = this;
-			rebootButton.onclick = function() {
-				if(rebootAPI()) {
+			rebootButton.onclick = async function() {
+				if(await rebootAPI()) {
 					self.close();
 					self.manager_dialog.close();
 				}
@@ -201,23 +228,24 @@ export class SnapshotManager extends ComfyDialog {
 				data1.style.textAlign = "center";
 				data1.innerHTML = i+1;
 				var data2 = document.createElement('td');
-				data2.innerHTML = `&nbsp;${data}`;
+				data2.innerHTML = `&nbsp;${sanitizeHTML(data)}`;
 				var data_button = document.createElement('td');
 				data_button.style.textAlign = "center";
+				data_button.className = "data-btns";
 
 				var restoreBtn = document.createElement('button');
+				restoreBtn.className = "snapshot-restore-btn cm-ui-button";
 				restoreBtn.innerHTML = 'Restore';
 				restoreBtn.style.width = "100px";
-				restoreBtn.style.backgroundColor = 'blue';
 
 				restoreBtn.addEventListener('click', function() {
 					restore_snapshot(data);
 				});
 
 				var removeBtn = document.createElement('button');
+				removeBtn.className = "snapshot-remove-btn cm-ui-button";
 				removeBtn.innerHTML = 'Remove';
 				removeBtn.style.width = "100px";
-				removeBtn.style.backgroundColor = 'red';
 
 				removeBtn.addEventListener('click', function() {
 					remove_snapshot(data);
@@ -241,13 +269,14 @@ export class SnapshotManager extends ComfyDialog {
 		let self = this;
 		const panel = document.createElement('div');
 		panel.style.width = "100%";
+		panel.style.height = "100%";
 		panel.appendChild(grid);
 
 		function handleResize() {
 		  const parentHeight = self.element.clientHeight;
 		  const gridHeight = parentHeight - 200;
 
-		  grid.style.height = gridHeight + "px";
+		//   grid.style.height = gridHeight + "px";
 		}
 		window.addEventListener("resize", handleResize);
 
@@ -256,25 +285,17 @@ export class SnapshotManager extends ComfyDialog {
 		grid.style.width = "100%";
 		grid.style.height = "100%";
 		grid.style.overflowY = "scroll";
-		this.element.style.height = "85%";
-		this.element.style.width = "80%";
-		this.element.appendChild(panel);
+
+		this.content.appendChild(panel);
 
 		handleResize();
 	}
 
 	async createBottomControls() {
-		var close_button = document.createElement("button");
-		close_button.className = "cm-small-button";
-		close_button.innerHTML = "Close";
-		close_button.onclick = () => { this.close(); }
-		close_button.style.display = "inline-block";
-
 		var save_button = document.createElement("button");
-		save_button.className = "cm-small-button";
+		save_button.className = "cm-ui-button";
 		save_button.innerHTML = "Save snapshot";
 		save_button.onclick = () => { save_current_snapshot(); }
-		save_button.style.display = "inline-block";
 		save_button.style.horizontalAlign = "right";
 		save_button.style.width = "170px";
 
@@ -282,15 +303,19 @@ export class SnapshotManager extends ComfyDialog {
 		this.message_box.style.height = '60px';
 		this.message_box.style.verticalAlign = 'middle';
 
-		this.element.appendChild(this.message_box);
-		this.element.appendChild(close_button);
-		this.element.appendChild(save_button);
+		const footer = $el("div.snapshot-footer");
+		const spacer = $el("div.cn-flex-auto");
+		footer.appendChild(spacer);
+		footer.appendChild(save_button);
+
+		this.content.appendChild(this.message_box);
+		this.content.appendChild(footer);
 	}
 
 	async show() {
 		try {
 			this.invalidateControl();
-			this.element.style.display = "block";
+			this.element.style.display = "flex";
 			this.element.style.zIndex = 1099;
 		}
 		catch(exception) {

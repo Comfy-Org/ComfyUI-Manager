@@ -37,7 +37,7 @@ find ~/.tmp/default -name "*.py" -print0 | xargs -0 grep -E "crypto|^_A="
 
 echo
 echo CHECK3
-find ~/.tmp/default -name "requirements.txt" | xargs grep "^\s*https\\?:"
-find ~/.tmp/default -name "requirements.txt" | xargs grep "\.whl"
+find ~/.tmp/default -name "requirements.txt" | xargs grep "^\s*[^#]*https\?:"
+find ~/.tmp/default -name "requirements.txt" | xargs grep "^\s*[^#].*\.whl"
 
 echo

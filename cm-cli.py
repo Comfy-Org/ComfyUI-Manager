@@ -9,6 +9,7 @@ from typing import Optional
 
 import typer
 from rich import print
+from rich.markup import escape
 from typing_extensions import List, Annotated
 import re
 import git
@@ -43,9 +44,10 @@ import cnr_utils
 
 comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
 
-cm_global.pip_blacklist = {'torch', 'torchsde', 'torchvision'}
-cm_global.pip_downgrade_blacklist = ['torch', 'torchsde', 'torchvision', 'transformers', 'safetensors', 'kornia']
-cm_global.pip_overrides = {'numpy': 'numpy<2'}
+cm_global.pip_blacklist = {'torch', 'torchaudio', 'torchsde', 'torchvision'}
+cm_global.pip_downgrade_blacklist = ['torch', 'torchaudio', 'torchsde', 'torchvision', 'transformers', 'safetensors', 'kornia']
+
+cm_global.pip_overrides = {}
 
 if os.path.exists(os.path.join(manager_util.comfyui_manager_path, "pip_overrides.json")):
     with open(os.path.join(manager_util.comfyui_manager_path, "pip_overrides.json"), 'r', encoding="UTF-8", errors="ignore") as json_file:
@@ -74,14 +76,13 @@ def check_comfyui_hash():
 
 
 check_comfyui_hash()  # This is a preparation step for manager_core
-core.check_invalid_nodes()
 
 
 def read_downgrade_blacklist():
     try:
         import configparser
-        config = configparser.ConfigParser(strict=False)
-        config.read(core.manager_config.path)
+        config = configparser.ConfigParser(strict=False, interpolation=None)
+        config.read(core.manager_config_path)
         default_conf = config['default']
 
         if 'downgrade_blacklist' in default_conf:
@@ -135,26 +136,25 @@ class Ctx:
         self.no_deps = no_deps
 
     def set_user_directory(self, user_directory):
-        if user_directory is None:
-            return
+        if user_directory is not None:
+            extra_model_paths_yaml = os.path.join(user_directory, 'extra_model_paths.yaml')
+            if os.path.exists(extra_model_paths_yaml):
+                utils.extra_config.load_extra_path_config(extra_model_paths_yaml)
 
-        extra_model_paths_yaml = os.path.join(user_directory, 'extra_model_paths.yaml')
-        if os.path.exists(extra_model_paths_yaml):
-            utils.extra_config.load_extra_path_config(extra_model_paths_yaml)
+            core.update_user_directory(user_directory)
 
-        core.update_user_directory(user_directory)
+            if os.path.exists(core.manager_pip_overrides_path):
+                with open(core.manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
+                    cm_global.pip_overrides = json.load(json_file)
 
-        if os.path.exists(core.manager_pip_overrides_path):
-            with open(core.manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
-                cm_global.pip_overrides = json.load(json_file)
-                cm_global.pip_overrides = {'numpy': 'numpy<2'}
+            if os.path.exists(core.manager_pip_blacklist_path):
+                with open(core.manager_pip_blacklist_path, 'r', encoding="UTF-8", errors="ignore") as f:
+                    for x in f.readlines():
+                        y = x.strip()
+                        if y != '':
+                            cm_global.pip_blacklist.add(y)
 
-        if os.path.exists(core.manager_pip_blacklist_path):
-            with open(core.manager_pip_blacklist_path, 'r', encoding="UTF-8", errors="ignore") as f:
-                for x in f.readlines():
-                    y = x.strip()
-                    if y != '':
-                        cm_global.pip_blacklist.add(y)
+        core.setup_git_executable()
 
     def update_custom_nodes_dir(self, target_dir):
         import folder_paths
@@ -184,13 +184,18 @@ class Ctx:
 cmd_ctx = Ctx()
 
 
-def install_node(node_spec_str, is_all=False, cnt_msg=''):
+def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
+    exit_on_fail = kwargs.get('exit_on_fail', False)
+    print(f"install_node exit on fail:{exit_on_fail}...")
+    
     if core.is_valid_url(node_spec_str):
         # install via urls
         res = asyncio.run(core.gitclone_install(node_spec_str, no_deps=cmd_ctx.no_deps))
         if not res.result:
             print(res.msg)
             print(f"[bold red]ERROR: An error occurred while installing '{node_spec_str}'.[/bold red]")
+            if exit_on_fail:
+                sys.exit(1)
         else:
             print(f"{cnt_msg} [INSTALLED] {node_spec_str:50}")
     else:
@@ -225,18 +230,36 @@ def install_node(node_spec_str, is_all=False, cnt_msg=''):
             print("")
         else:
             print(f"[bold red]ERROR: An error occurred while installing '{node_name}'.\n{res.msg}[/bold red]")
+            if exit_on_fail:
+                sys.exit(1)
 
 
 def reinstall_node(node_spec_str, is_all=False, cnt_msg=''):
-    node_spec = unified_manager.resolve_node_spec(node_spec_str)
+    node_name, version_spec, _ = unified_manager.resolve_node_spec(node_spec_str)
+    repo_url = None
+    if core.is_valid_url(node_name):
+        url = node_name.rstrip('/')
+        cnr = unified_manager.get_cnr_by_repo(url)
+        if cnr:
+            node_name, version_spec, _ = unified_manager.resolve_node_spec(cnr['id'])
+        else:
+            node_name, version_spec, repo_url = core.unknown_node_id(url), 'unknown', url
 
-    node_name, version_spec, _ = node_spec
+    res = asyncio.run(unified_manager.reinstall_by_id(node_name, version_spec, cmd_ctx.channel, cmd_ctx.mode, instant_execution=True,
+                                                      no_deps=cmd_ctx.no_deps, repo_url=repo_url))
+    if res.action == 'skip':
+        print(f"{cnt_msg} [   SKIP  ] {node_name:50} => Already installed")
+        return
+    if not res.result:
+        print(f"[bold red]ERROR: An error occurred while reinstalling '{node_name}'.\n{escape(res.msg)}[/bold red]")
+        return
 
-    unified_manager.unified_uninstall(node_name, version_spec == 'unknown')
-    install_node(node_name, is_all=is_all, cnt_msg=cnt_msg)
+    # in capitals, as install_node prints a git install: rich reads a lowercase [nightly] as markup
+    target = res.target.upper() if res.target in ('nightly', 'unknown') else res.target
+    print(f"{cnt_msg} [REINSTALLED] {node_name:50}[{target}]")
 
 
-def fix_node(node_spec_str, is_all=False, cnt_msg=''):
+def fix_node(node_spec_str, is_all=False, cnt_msg='', fixed=None):
     node_spec = unified_manager.resolve_node_spec(node_spec_str, guess_mode='active')
 
     if node_spec is None:
@@ -251,7 +274,7 @@ def fix_node(node_spec_str, is_all=False, cnt_msg=''):
     node_name, version_spec, _ = node_spec
 
     print(f"{cnt_msg} [   FIXING  ]: {node_name:50}[{version_spec}]")
-    res = unified_manager.unified_fix(node_name, version_spec, no_deps=cmd_ctx.no_deps)
+    res = unified_manager.unified_fix(node_name, version_spec, no_deps=cmd_ctx.no_deps, fixed=fixed)
 
     if not res.result:
         print(f"[bold red]ERROR: f{res.msg}[/bold red]")
@@ -310,8 +333,9 @@ def update_parallel(nodes):
         nodes = []
         for x in unified_manager.active_nodes.keys():
             nodes.append(x)
-        for x in unified_manager.unknown_active_nodes.keys():
-            nodes.append(x+"@unknown")
+        for k, v in unified_manager.unknown_active_nodes.items():
+            if v[1] not in unified_manager.invalid_installations:
+                nodes.append(k+"@unknown")
     else:
         nodes = [x for x in nodes if x.lower() not in ['comfy', 'comfyui']]
 
@@ -586,7 +610,7 @@ def get_all_installed_node_specs():
     return res
 
 
-def for_each_nodes(nodes, act, allow_all=True):
+def for_each_nodes(nodes, act, allow_all=True, **kwargs):
     is_all = False
     if allow_all and 'all' in nodes:
         is_all = True
@@ -598,7 +622,7 @@ def for_each_nodes(nodes, act, allow_all=True):
     i = 1
     for x in nodes:
         try:
-            act(x, is_all=is_all, cnt_msg=f'{i}/{total}')
+            act(x, is_all=is_all, cnt_msg=f'{i}/{total}', **kwargs)
         except Exception as e:
             print(f"ERROR: {e}")
             traceback.print_exc()
@@ -642,13 +666,17 @@ def install(
             None,
             help="user directory"
         ),
+        exit_on_fail: bool = typer.Option(
+            False,
+            help="Exit on failure"
+        )
 ):
     cmd_ctx.set_user_directory(user_directory)
     cmd_ctx.set_channel_mode(channel, mode)
     cmd_ctx.set_no_deps(no_deps)
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, core.manager_files_path)
-    for_each_nodes(nodes, act=install_node)
+    for_each_nodes(nodes, act=install_node, exit_on_fail=exit_on_fail)
     pip_fixer.fix_broken()
 
 
@@ -841,7 +869,7 @@ def fix(
         asyncio.run(auto_save_snapshot())
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, core.manager_files_path)
-    for_each_nodes(nodes, fix_node, allow_all=True)
+    for_each_nodes(nodes, fix_node, allow_all=True, fixed=set())
     pip_fixer.fix_broken()
 
 
@@ -1047,18 +1075,16 @@ def save_snapshot(
 ):
     cmd_ctx.set_user_directory(user_directory)
 
-    if output is None:
-        print("[bold red]ERROR: missing output path[/bold red]")
-        raise typer.Exit(code=1)
-        
-    if(not output.endswith('.json') and not output.endswith('.yaml')):
-        print("[bold red]ERROR: output path should be either '.json' or '.yaml' file.[/bold red]")
-        raise typer.Exit(code=1)
+    if output is not None:
+        if(not output.endswith('.json') and not output.endswith('.yaml')):
+            print("[bold red]ERROR: output path should be either '.json' or '.yaml' file.[/bold red]")
+            raise typer.Exit(code=1)
     
-    dir_path = os.path.dirname(output)
-    if(dir_path != '' and not os.path.exists(dir_path)):
-        print(f"[bold red]ERROR: {output} path not exists.[/bold red]")
-        raise typer.Exit(code=1)
+        dir_path = os.path.dirname(output)
+        
+        if(dir_path != '' and not os.path.exists(dir_path)):
+            print(f"[bold red]ERROR: {output} path not exists.[/bold red]")
+            raise typer.Exit(code=1)
         
     path = asyncio.run(core.save_snapshot_with_postfix('snapshot', output, not full_snapshot))
     print(f"Current snapshot is saved as `{path}`")
@@ -1121,12 +1147,15 @@ def restore_snapshot(
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, core.manager_files_path)
     try:
-        asyncio.run(core.restore_snapshot(snapshot_path, extras))
+        is_restored = asyncio.run(core.restore_snapshot(snapshot_path, extras))
     except Exception:
         print("[bold red]ERROR: Failed to restore snapshot.[/bold red]")
         traceback.print_exc()
         raise typer.Exit(code=1)
     pip_fixer.fix_broken()
+
+    if not is_restored:
+        raise typer.Exit(code=1)
 
 
 @app.command(

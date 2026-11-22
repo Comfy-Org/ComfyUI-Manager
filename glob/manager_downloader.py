@@ -55,7 +55,11 @@ def download_url(model_url: str, model_dir: str, filename: str):
         return aria2_download_url(model_url, model_dir, filename)
     else:
         from torchvision.datasets.utils import download_url as torchvision_download_url
-        return torchvision_download_url(model_url, model_dir, filename)
+        try:
+            return torchvision_download_url(model_url, model_dir, filename)
+        except Exception as e:
+            logging.error(f"[ComfyUI-Manager] Failed to download: {model_url} / {repr(e)}")
+            raise
 
 
 def aria2_find_task(dir: str, filename: str):

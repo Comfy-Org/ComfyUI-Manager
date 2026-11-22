@@ -77,8 +77,8 @@ async def _get_cnr_data(cache_mode=True, dont_wait=True):
             for x in sub_json_obj['nodes']:
                 full_nodes[x['id']] = x
 
-            if page % 5 == 0:
-                print(f"FETCH ComfyRegistry Data: {page}/{sub_json_obj['totalPages']}")
+            # if page % 5 == 0:
+            #    print(f"FETCH ComfyRegistry Data: {page}/{sub_json_obj['totalPages']}")
 
             page += 1
             time.sleep(0.5)
@@ -129,6 +129,7 @@ class NodeVersion:
     id: str
     version: str
     download_url: str
+    status: str = ''
 
 
 def map_node_version(api_node_version):
@@ -160,6 +161,7 @@ def map_node_version(api_node_version):
         download_url=api_node_version.get(
             "downloadUrl", ""
         ),  # Provide a default value if 'downloadUrl' is missing
+        status=api_node_version.get('status', ''),
     )
 
 
@@ -179,9 +181,8 @@ def install_node(node_id, version=None):
     else:
         url = f"{base_url}/nodes/{node_id}/install?version={version}"
 
-    response = requests.get(url)
+    response = requests.get(url, verify=not manager_util.bypass_ssl)
     if response.status_code == 200:
-        # Convert the API response to a NodeVersion object
         return map_node_version(response.json())
     else:
         return None
@@ -190,7 +191,7 @@ def install_node(node_id, version=None):
 def all_versions_of_node(node_id):
     url = f"{base_url}/nodes/{node_id}/versions?statuses=NodeVersionStatusActive&statuses=NodeVersionStatusPending"
 
-    response = requests.get(url)
+    response = requests.get(url, verify=not manager_util.bypass_ssl)
     if response.status_code == 200:
         return response.json()
     else:
@@ -228,6 +229,14 @@ def read_cnr_info(fullpath):
         return None
     except Exception:
         return None  # not valid CNR node pack
+
+
+def read_project_name(fullpath):
+    try:
+        with open(os.path.join(fullpath, 'pyproject.toml'), "r", encoding="utf-8") as f:
+            return toml.load(f)['project']['name'].strip()
+    except Exception:
+        return None
 
 
 def generate_cnr_id(fullpath, cnr_id):

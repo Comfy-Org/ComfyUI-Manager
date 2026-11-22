@@ -1,0 +1,58 @@
+name: Publish to PyPI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - draft-v4
+    paths:
+      - "pyproject.toml"
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'ltdrdata' || github.repository_owner == 'Comfy-Org' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install build twine
+
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(grep -oP 'version = "\K[^"]+' pyproject.toml)
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "Current version: $CURRENT_VERSION"
+
+      - name: Build package
+        run: python -m build
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          files: dist/*
+          tag_name: v${{ steps.current_version.outputs.version }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
+          skip-existing: true
+          verbose: true 

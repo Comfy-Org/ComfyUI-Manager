@@ -11,6 +11,8 @@ import threading
 import re
 import shutil
 import git
+import glob
+import json
 from datetime import datetime
 
 from server import PromptServer
@@ -22,6 +24,7 @@ import asyncio
 import queue
 
 import manager_downloader
+import manager_migration
 
 
 logging.info(f"### Loading: ComfyUI-Manager ({core.version_str})")
@@ -30,12 +33,34 @@ logging.info("[ComfyUI-Manager] network_mode: " + core.get_config()['network_mod
 comfy_ui_hash = "-"
 comfyui_tag = None
 
-SECURITY_MESSAGE_MIDDLE_OR_BELOW = "ERROR: To use this action, a security_level of `middle or below` is required. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
-SECURITY_MESSAGE_NORMAL_MINUS = "ERROR: To use this feature, you must either set '--listen' to a local IP and set the security level to 'normal-' or lower, or set the security level to 'middle' or 'weak'. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_MIDDLE_OR_BELOW = "ERROR: To use this action, security_level must be any value other than 'strong' (allowed: normal, normal-, weak). security_level is read once at ComfyUI startup, so changing it needs a restart, done with the server down: STOP ComfyUI, edit config.ini, then start it again. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_NORMAL_MINUS = "ERROR: To use this feature, you must either set '--listen' to a local IP and set the security level to 'normal-' or lower, or set the security level to 'weak'. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_GENERAL = "ERROR: This installation is not allowed in this security_level. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
-SECURITY_MESSAGE_NORMAL_MINUS_MODEL = "ERROR: Downloading models that are not in '.safetensors' format is only allowed for models registered in the 'default' channel at this security level. If you want to download this model, set the security level to 'normal-' or lower."
+SECURITY_MESSAGE_NORMAL_MINUS_MODEL = "ERROR: Downloading models not in '.safetensors' format is only allowed for models registered in the 'default' channel at this security level. To download this model, set security_level to 'weak' - or to 'normal-' if ComfyUI is listening on a loopback address (--listen 127.0.0.1 or ::1). Both security_level and the listen address are read once at ComfyUI startup, so changing either needs a restart, done with the server down: stop ComfyUI, edit config.ini, then start it again."
+SECURITY_MESSAGE_FLAG_GIT_URL = "ERROR: This action requires BOTH: (1) 'allow_git_url_install = true' in config.ini ([default] section), AND (2) ComfyUI launched with a loopback --listen (127.0.0.1 or ::1) - currently listening on {listen}. BOTH values are read once at ComfyUI startup, so changing either one needs a restart, done with the server down: STOP ComfyUI, change the setting, then start it again. Both are independent of security_level. Reference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_FLAG_PIP = "ERROR: This action requires BOTH: (1) 'allow_pip_install = true' in config.ini ([default] section), AND (2) ComfyUI launched with a loopback --listen (127.0.0.1 or ::1) - currently listening on {listen}. BOTH values are read once at ComfyUI startup, so changing either one needs a restart, done with the server down: STOP ComfyUI, change the setting, then start it again. Both are independent of security_level. Reference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_BLOCKED_RISK = "ERROR: This node pack is classified as blocked-risk and cannot be installed at any security_level. This is not a configuration problem - contact the administrator if you believe the classification is wrong.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 
 routes = PromptServer.instance.routes
+
+
+def has_per_queue_preview():
+    """
+    Check if ComfyUI PR #11261 (per-queue live preview override) is merged
+
+    Returns:
+        bool: True if ComfyUI has per-queue preview feature
+    """
+    try:
+        import latent_preview
+        return hasattr(latent_preview, 'set_preview_method')
+    except ImportError:
+        return False
+
+
+# Detect ComfyUI per-queue preview override feature (PR #11261)
+COMFYUI_HAS_PER_QUEUE_PREVIEW = has_per_queue_preview()
+
 
 def handle_stream(stream, prefix):
     stream.reconfigure(encoding=locale.getpreferredencoding(), errors='replace')
@@ -62,6 +87,19 @@ def is_loopback(address):
     except ValueError:
         return False
 
+
+def is_dedicated_install_allowed(flag_value: bool, listen_address: str) -> bool:
+    """P-direct predicate (adopter-degraded form): flag AND loopback.
+
+    Pure helper for the dedicated install flags
+    (allow_git_url_install / allow_pip_install) — callers pass the
+    flag value from their own config read and the listener address
+    from the CLI arguments (request-time evaluation; the import-time
+    snapshot above is NOT consulted).
+    """
+    return bool(flag_value) and is_loopback(listen_address)
+
+
 is_local_mode = is_loopback(args.listen)
 
 
@@ -87,6 +125,9 @@ model_dir_name_map = {
 
 
 def is_allowed_security_level(level):
+    if not manager_migration.has_system_user_api():
+        return False
+
     if level == 'block':
         return False
     elif level == 'high':
@@ -124,6 +165,9 @@ async def get_risky_level(files, pip_packages):
 
 
 class ManagerFuncsInComfyUI(core.ManagerFuncs):
+    def is_flagged_install_allowed(self):
+        return core.get_config()['allow_flagged_nodepack_install'] or manager_util.is_loopback_listener(args.listen)
+
     def get_current_preview_method(self):
         if args.preview_method == latent_preview.LatentPreviewMethod.Auto:
             return "auto"
@@ -181,16 +225,39 @@ def set_preview_method(method):
     core.get_config()['preview_method'] = method
 
 
-set_preview_method(core.get_config()['preview_method'])
+if COMFYUI_HAS_PER_QUEUE_PREVIEW:
+    logging.info(
+        "[ComfyUI-Manager] ComfyUI per-queue preview override detected (PR #11261). "
+        "Manager's preview method feature is disabled. "
+        "Use ComfyUI's --preview-method CLI option or 'Settings > Execution > Live preview method'."
+    )
+elif args.preview_method == latent_preview.LatentPreviewMethod.NoPreviews:
+    set_preview_method(core.get_config()['preview_method'])
+else:
+    logging.warning(
+        "[ComfyUI-Manager] Since --preview-method is set, "
+        "ComfyUI-Manager's preview method feature will be ignored."
+    )
+
+
+ALLOWED_COMPONENT_POLICIES = ('workflow', 'higher', 'mine')
+ALLOWED_UPDATE_POLICIES = ('stable-comfyui', 'nightly-comfyui')
+ALLOWED_DB_MODES = ('cache', 'local', 'remote')
 
 
 def set_component_policy(mode):
+    if mode not in ALLOWED_COMPONENT_POLICIES:
+        raise ValueError(f"Invalid component_policy {mode!r}; must be one of {ALLOWED_COMPONENT_POLICIES}")
     core.get_config()['component_policy'] = mode
 
 def set_update_policy(mode):
+    if mode not in ALLOWED_UPDATE_POLICIES:
+        raise ValueError(f"Invalid update_policy {mode!r}; must be one of {ALLOWED_UPDATE_POLICIES}")
     core.get_config()['update_policy'] = mode
 
 def set_db_mode(mode):
+    if mode not in ALLOWED_DB_MODES:
+        raise ValueError(f"Invalid db_mode {mode!r}; must be one of {ALLOWED_DB_MODES}")
     core.get_config()['db_mode'] = mode
 
 def print_comfyui_version():
@@ -250,30 +317,47 @@ def print_comfyui_version():
             logging.info("### ComfyUI Revision: UNKNOWN (The currently installed ComfyUI is not a Git repository)")
 
 
+core.setup_git_executable()
 print_comfyui_version()
-core.check_invalid_nodes()
-
-
-
-def setup_environment():
-    git_exe = core.get_config()['git_exe']
-
-    if git_exe != '':
-        git.Git().update_environment(GIT_PYTHON_GIT_EXECUTABLE=git_exe)
-
-
-setup_environment()
 
 # Expand Server api
 
 from aiohttp import web
 import aiohttp
-import json
 import zipfile
 import urllib.request
 
 
-def get_model_dir(data, show_log=False) -> str | None:
+def security_403_response(flag_token=None):
+    """Return appropriate 403 response based on ComfyUI version.
+
+    When `flag_token` is given (dedicated install flag denials), the
+    body names the responsible flag instead of "security_level". The
+    `comfyui_outdated` branch stays the FIRST check regardless, and
+    no-arg callers keep today's body byte-identical.
+    """
+    if not manager_migration.has_system_user_api():
+        return web.json_response({"error": "comfyui_outdated"}, status=403)
+    if flag_token is not None:
+        return web.json_response({"error": flag_token}, status=403)
+    return web.json_response({"error": "security_level"}, status=403)
+
+
+def _reject_non_json_content_type(request):
+    """A page of another origin can make a browser send a POST without a CORS
+    preflight: as a form, or with no Content-Type at all, with or without a body.
+    ``request.json()`` parses a body whatever its Content-Type. The page cannot
+    send application/json without a preflight.
+    """
+    if request.content_type != 'application/json':
+        return web.Response(
+            status=400,
+            text='Invalid Content-Type for this endpoint. Use application/json.',
+        )
+    return None
+
+
+def get_model_dir(data, show_log=False):
     if 'download_model_base' in folder_paths.folder_names_and_paths:
         models_base = folder_paths.folder_names_and_paths['download_model_base'][0][0]
     else:
@@ -403,7 +487,7 @@ async def task_worker():
     global model_result
     global tasks_in_progress
 
-    async def do_install(item) -> str:
+    async def do_install(item, operation) -> str:
         ui_id, node_spec_str, channel, mode, skip_post_install = item
 
         try:
@@ -413,7 +497,10 @@ async def task_worker():
                 return f"Cannot resolve install target: '{node_spec_str}'"
 
             node_name, version_spec, is_specified = node_spec
-            res = await core.unified_manager.install_by_id(node_name, version_spec, channel, mode, return_postinstall=skip_post_install)
+            if operation == 'reinstall':
+                res = await core.unified_manager.reinstall_by_id(node_name, version_spec, channel, mode)
+            else:
+                res = await core.unified_manager.install_by_id(node_name, version_spec, channel, mode, return_postinstall=skip_post_install)
             # discard post install if skip_post_install mode
 
             if res.action not in ['skip', 'enable', 'install-git', 'install-cnr', 'switch-cnr']:
@@ -436,8 +523,11 @@ async def task_worker():
             res = core.unified_manager.unified_update(node_name, node_ver)
 
             if res.ver == 'unknown':
-                url = core.unified_manager.unknown_active_nodes[node_name][0]
-                title = os.path.basename(url)
+                url = core.unified_manager.unknown_active_nodes.get(node_name, (None,))[0]
+                try:
+                    title = os.path.basename(url)
+                except Exception:
+                    title = node_name
             else:
                 url = core.unified_manager.cnr_map[node_name].get('repository')
                 title = core.unified_manager.cnr_map[node_name]['name']
@@ -457,8 +547,8 @@ async def task_worker():
                     base_res['msg'] = 'success'
                     return base_res
 
-            base_res['msg'] = f"An error occurred while updating '{node_name}'."
-            logging.error(f"\nERROR: An error occurred while updating '{node_name}'. (res.result={res.result}, res.action={res.action})")
+            base_res['msg'] = res.msg or f"An error occurred while updating '{node_name}'."
+            logging.error(f"\nERROR: An error occurred while updating '{node_name}': {res.msg} (res.result={res.result}, res.action={res.action})")
             return base_res
         except Exception:
             traceback.print_exc()
@@ -583,7 +673,7 @@ async def task_worker():
                 return 'success'
 
         except Exception as e:
-            logging.error(f"[ComfyUI-Manager] ERROR: {e}", file=sys.stderr)
+            logging.error(f"[ComfyUI-Manager] ERROR: {e}")
 
         return f"Model installation error: {model_url}"
 
@@ -610,8 +700,8 @@ async def task_worker():
             tasks_in_progress.add((kind, item[0]))
 
         try:
-            if kind == 'install':
-                msg = await do_install(item)
+            if kind in ('install', 'reinstall'):
+                msg = await do_install(item, kind)
             elif kind == 'install-model':
                 msg = await do_install_model(item)
             elif kind == 'update':
@@ -695,16 +785,23 @@ async def fetch_customnode_mappings(request):
     return web.json_response(json_obj, content_type='application/json')
 
 
-@routes.get("/customnode/fetch_updates")
+@routes.post("/customnode/fetch_updates")
 async def fetch_updates(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     try:
-        if request.rel_url.query["mode"] == "local":
+        json_data = await request.json()
+        mode = json_data.get("mode", "default")
+
+        if mode == "local":
             channel = 'local'
         else:
             channel = core.get_config()['channel_url']
 
-        await core.unified_manager.reload(request.rel_url.query["mode"])
-        await core.unified_manager.get_custom_nodes(channel, request.rel_url.query["mode"])
+        await core.unified_manager.reload(mode)
+        await core.unified_manager.get_custom_nodes(channel, mode)
 
         res = core.unified_manager.fetch_or_pull_git_repo(is_pull=False)
 
@@ -720,28 +817,114 @@ async def fetch_updates(request):
     except:
         traceback.print_exc()
         return web.Response(status=400)
+    
+@routes.get("/customnode/get_node_types_in_workflows")
+async def get_node_types_in_workflows(request):
+    try:
+        # get our username from the request header
+        user_id = PromptServer.instance.user_manager.get_request_user_id(request)
+
+        # get the base workflow directory (TODO: figure out if non-standard directories are possible, and how to find them)
+        workflow_files_base_path = os.path.abspath(os.path.join(folder_paths.get_user_directory(), user_id, "workflows"))
+
+        logging.debug(f"workflows base path: {workflow_files_base_path}")
+
+        # workflow directory doesn't actually exist, return 204 (No Content)
+        if not os.path.isdir(workflow_files_base_path):
+            logging.debug("workflows base path doesn't exist - nothing to do...")
+            return web.Response(status=204)
+        
+        # get all JSON files under the workflow directory
+        workflow_file_relative_paths: list[str] = glob.glob(pathname="**/*.json", root_dir=workflow_files_base_path, recursive=True)
+
+        logging.debug(f"found the following workflows: {workflow_file_relative_paths}")
+
+        # set up our list of workflow/node-lists
+        workflow_node_mappings: list[dict[str, str | list[str]]] = []
+
+        # iterate over each found JSON file
+        for workflow_file_path in workflow_file_relative_paths:
+
+            try:
+                workflow_file_absolute_path = os.path.abspath(os.path.join(workflow_files_base_path, workflow_file_path))
+                logging.debug(f"starting work on {workflow_file_absolute_path}")
+                # load the JSON file
+                workflow_file_data = json.load(open(workflow_file_absolute_path, "r", encoding="utf-8-sig"))
+
+                # make sure there's a nodes key (otherwise this might not actually be a workflow file)
+                if "nodes" not in workflow_file_data:
+                    logging.warning(f"{workflow_file_path} has no 'nodes' key (possibly invalid?) - skipping...")
+                    # skip to next file
+                    continue
+
+                # now this looks like a valid file, so let's get to work
+                new_mapping = {"workflow_file_name": workflow_file_path}
+                # we can't use an actual set, because you can't use dicts as set members
+                node_set = []
+
+                # iterate over each node in the workflow
+                for node in workflow_file_data["nodes"]:
+                    if "id" not in node:
+                        logging.warning("Found a node with no ID - possibly corrupt/invalid workflow?")
+                        continue
+                    # if there's no type, throw a warning
+                    if "type" not in node:
+                        logging.warning(f"Node type not found in {workflow_file_path} for node ID {node['id']}")
+                        # skip to next node
+                        continue
+
+                    node_data_to_return = {"type": node["type"]}
+                    if "properties" not in node:
+                        logging.warning(f"Node ${node['id']} has no properties field - can't determine cnr_id")
+                    else:
+                        for property_key in ["cnr_id", "ver"]:
+                            if property_key in node["properties"]:
+                                node_data_to_return[property_key] = node["properties"][property_key]                  
+                    
+                    # add it to the list for this workflow
+                    if not node_data_to_return in node_set:
+                        node_set.append(node_data_to_return)
+
+                # annoyingly, Python can't serialize sets to JSON
+                new_mapping["node_types"] = list(node_set)
+                workflow_node_mappings.append(new_mapping)            
+
+            except Exception as e:
+                logging.warning(f"Couldn't open {workflow_file_path}: {e}")
+
+        return web.json_response(workflow_node_mappings, content_type='application/json')
+    
+    except:
+        traceback.print_exc()
+        return web.Response(status=500)
 
 
-@routes.get("/manager/queue/update_all")
+@routes.post("/manager/queue/update_all")
 async def update_all(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
-        return web.Response(status=403)
+        return security_403_response()
 
     with task_worker_lock:
         is_processing = task_worker_thread is not None and task_worker_thread.is_alive()
         if is_processing:
             return web.Response(status=401)
-        
+
     await core.save_snapshot_with_postfix('autosave')
 
-    if request.rel_url.query["mode"] == "local":
+    json_data = await request.json()
+    mode = json_data.get("mode", "default")
+
+    if mode == "local":
         channel = 'local'
     else:
         channel = core.get_config()['channel_url']
 
-    await core.unified_manager.reload(request.rel_url.query["mode"])
-    await core.unified_manager.get_custom_nodes(channel, request.rel_url.query["mode"])
+    await core.unified_manager.reload(mode)
+    await core.unified_manager.get_custom_nodes(channel, mode)
 
     for k, v in core.unified_manager.active_nodes.items():
         if k == 'comfyui-manager':
@@ -758,6 +941,9 @@ async def update_all(request):
             if os.environ.get('__COMFYUI_DESKTOP_VERSION__'):
                 continue
 
+        if v[1] in core.unified_manager.invalid_installations:
+            continue
+
         update_item = k, k, 'unknown'
         task_queue.put(("update-main", update_item))
 
@@ -765,14 +951,22 @@ async def update_all(request):
 
 
 def convert_markdown_to_html(input_text):
+    """Parse source markdown, escaping text and URLs at their HTML boundaries."""
     pattern_a = re.compile(r'\[a/([^]]+)]\(([^)]+)\)')
     pattern_w = re.compile(r'\[w/([^]]+)]')
     pattern_i = re.compile(r'\[i/([^]]+)]')
     pattern_bold = re.compile(r'\*\*([^*]+)\*\*')
     pattern_white = re.compile(r'%%([^*]+)%%')
 
+    # Format link labels separately from URLs; escape URLs when inserted.
+    hrefs = []
+
     def replace_a(match):
-        return f"<a href='{match.group(2)}' target='blank'>{match.group(1)}</a>"
+        # Entities written in the source URL (e.g. &amp;) retain their meaning.
+        url = manager_util.unescape_html_entities(match.group(2))
+        hrefs.append(manager_util.sanitize_url(url))
+        text = manager_util.escape_html_text(match.group(1))
+        return f"<a href='\x00H{len(hrefs) - 1}\x00' target='_blank' rel='noopener noreferrer'>{text}</a>"
 
     def replace_w(match):
         return f"<p class='cm-warn-note'>{match.group(1)}</p>"
@@ -786,20 +980,35 @@ def convert_markdown_to_html(input_text):
     def replace_white(match):
         return f"<font color='white'>{match.group(1)}</font>"
 
-    input_text = input_text.replace('\\[', '&#91;').replace('\\]', '&#93;').replace('<', '&lt;').replace('>', '&gt;')
+    # NUL dropped first so the input cannot forge the href placeholders.
+    input_text = input_text.replace('\x00', '')
+    input_text = input_text.replace('\\[', '&#91;').replace('\\]', '&#93;')
 
-    result_text = re.sub(pattern_a, replace_a, input_text)
+    # Parse links before escaping prose, so generated text entities never enter URLs.
+    parts = []
+    start = 0
+    for match in pattern_a.finditer(input_text):
+        parts.append(manager_util.sanitize_tag(input_text[start:match.start()]))
+        parts.append(replace_a(match))
+        start = match.end()
+    parts.append(manager_util.sanitize_tag(input_text[start:]))
+    result_text = ''.join(parts)
     result_text = re.sub(pattern_w, replace_w, result_text)
     result_text = re.sub(pattern_i, replace_i, result_text)
     result_text = re.sub(pattern_bold, replace_bold, result_text)
     result_text = re.sub(pattern_white, replace_white, result_text)
+    result_text = result_text.replace("\n", "<BR>")
 
-    return result_text.replace("\n", "<BR>")
+    return re.sub(
+        r'\x00H(\d+)\x00',
+        lambda m: manager_util.escape_html_attribute(hrefs[int(m.group(1))]),
+        result_text,
+    )
 
 
 def populate_markdown(x):
     if 'description' in x:
-        x['description'] = convert_markdown_to_html(manager_util.sanitize_tag(x['description']))
+        x['description'] = convert_markdown_to_html(x['description'])
 
     if 'name' in x:
         x['name'] = manager_util.sanitize_tag(x['name'])
@@ -859,7 +1068,7 @@ async def fetch_customnode_list(request):
 
         channel = found
 
-    result = dict(channel=channel, node_packs=node_packs)
+    result = dict(channel=channel, node_packs=node_packs.to_dict())
 
     return web.json_response(result, content_type='application/json')
 
@@ -955,16 +1164,34 @@ async def get_snapshot_list(request):
     return web.json_response({'items': items}, content_type='application/json')
 
 
-@routes.get("/snapshot/remove")
+def get_safe_snapshot_path(target):
+    """
+    Safely construct a snapshot file path, preventing path traversal attacks.
+    """
+    if '/' in target or '\\' in target or '..' in target or '\x00' in target:
+        return None
+    return os.path.join(core.manager_snapshot_path, f"{target}.json")
+
+
+@routes.post("/snapshot/remove")
 async def remove_snapshot(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
-        return web.Response(status=403)
+        return security_403_response()
 
     try:
-        target = request.rel_url.query["target"]
+        json_data = await request.json()
+        target = json_data["target"]
+        path = get_safe_snapshot_path(target)
 
-        path = os.path.join(core.manager_snapshot_path, f"{target}.json")
+        if path is None:
+            logging.error(f"[ComfyUI-Manager] Invalid snapshot target: {target}")
+            return web.Response(text="Invalid snapshot target", status=400)
+
         if os.path.exists(path):
             os.remove(path)
 
@@ -973,16 +1200,25 @@ async def remove_snapshot(request):
         return web.Response(status=400)
 
 
-@routes.get("/snapshot/restore")
+@routes.post("/snapshot/restore")
 async def restore_snapshot(request):
-    if not is_allowed_security_level('middle'):
-        logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
-        return web.Response(status=403)
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
+    if not is_allowed_security_level('high'):
+        logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
+        return security_403_response()
 
     try:
-        target = request.rel_url.query["target"]
+        json_data = await request.json()
+        target = json_data["target"]
+        path = get_safe_snapshot_path(target)
 
-        path = os.path.join(core.manager_snapshot_path, f"{target}.json")
+        if path is None:
+            logging.error(f"[ComfyUI-Manager] Invalid snapshot target: {target}")
+            return web.Response(text="Invalid snapshot target", status=400)
+
         if os.path.exists(path):
             if not os.path.exists(core.manager_startup_script_path):
                 os.makedirs(core.manager_startup_script_path)
@@ -1007,8 +1243,11 @@ async def get_current_snapshot_api(request):
         return web.Response(status=400)
 
 
-@routes.get("/snapshot/save")
+@routes.post("/snapshot/save")
 async def save_snapshot(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
     try:
         await core.save_snapshot_with_postfix('snapshot')
         return web.Response(status=200)
@@ -1037,7 +1276,7 @@ def unzip_install(files):
 
             os.remove(temp_filename)
         except Exception as e:
-            logging.error(f"Install(unzip) error: {url} / {e}", file=sys.stderr)
+            logging.error(f"Install(unzip) error: {url} / {e}")
             return False
 
     logging.info("Installation was successful.")
@@ -1059,7 +1298,7 @@ def copy_install(files, js_path_name=None):
                 download_url(url, path, filename)
 
         except Exception as e:
-            logging.error(f"Install(copy) error: {url} / {e}", file=sys.stderr)
+            logging.error(f"Install(copy) error: {url} / {e}")
             return False
 
     logging.info("Installation was successful.")
@@ -1080,7 +1319,7 @@ def copy_uninstall(files, js_path_name='.'):
             elif os.path.exists(file_path + ".disabled"):
                 os.remove(file_path + ".disabled")
         except Exception as e:
-            logging.error(f"Uninstall(copy) error: {url} / {e}", file=sys.stderr)
+            logging.error(f"Uninstall(copy) error: {url} / {e}")
             return False
 
     logging.info("Uninstallation was successful.")
@@ -1111,7 +1350,7 @@ def copy_set_active(files, is_disable, js_path_name='.'):
             os.rename(current_name, new_name)
 
         except Exception as e:
-            logging.error(f"{action_name}(copy) error: {url} / {e}", file=sys.stderr)
+            logging.error(f"{action_name}(copy) error: {url} / {e}")
 
             return False
 
@@ -1148,6 +1387,10 @@ async def get_disabled_versions(request):
 
 @routes.post("/customnode/import_fail_info")
 async def import_fail_info(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     json_data = await request.json()
 
     if 'cnr_id' in json_data:
@@ -1165,12 +1408,14 @@ async def import_fail_info(request):
 
 @routes.post("/manager/queue/reinstall")
 async def reinstall_custom_node(request):
-    await uninstall_custom_node(request)
-    await install_custom_node(request)
+    return await _queue_node_install(request, "reinstall")
 
 
-@routes.get("/manager/queue/reset")
+@routes.post("/manager/queue/reset")
 async def reset_queue(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
     global task_queue
     task_queue = queue.Queue()
     return web.Response(status=200)
@@ -1193,16 +1438,24 @@ async def queue_count(request):
 
 @routes.post("/manager/queue/install")
 async def install_custom_node(request):
+    return await _queue_node_install(request, "install")
+
+
+async def _queue_node_install(request, operation):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
 
     json_data = await request.json()
 
-    # non-nightly cnr is safe
+    # CNR version status is checked by the worker before installation.
     risky_level = None
     cnr_id = json_data.get('id')
-    skip_post_install = json_data.get('skip_post_install')
+    skip_post_install = False if operation == 'reinstall' else json_data.get('skip_post_install')
 
     git_url = None
 
@@ -1211,6 +1464,26 @@ async def install_custom_node(request):
         if skip_post_install:
             if cnr_id in core.unified_manager.nightly_inactive_nodes or cnr_id in core.unified_manager.cnr_inactive_nodes:
                 core.unified_manager.unified_enable(cnr_id)
+                # Mirror the pair of events (in_progress then done) that the async
+                # task_worker normally emits for queued operations. The in_progress
+                # event is what sets item.restart=true on the client row so the
+                # action cell re-renders as "Restart Required"; without it, the
+                # "Enable" button remains visible after successful enable. The done
+                # event drives the completion UI (toast, restart indicator, button
+                # loading clear).
+                ui_id = json_data.get('ui_id', cnr_id)
+                PromptServer.instance.send_sync(
+                    "cm-queue-status",
+                    {'status': 'in_progress',
+                     'target': ui_id,
+                     'ui_target': 'nodepack_manager',
+                     'total_count': 1, 'done_count': 0})
+                PromptServer.instance.send_sync(
+                    "cm-queue-status",
+                    {'status': 'done',
+                     'nodepack_result': {ui_id: 'success'},
+                     'model_result': {},
+                     'total_count': 1, 'done_count': 1})
                 return web.Response(status=200)
         elif selected_version is None:
             selected_version = 'latest'
@@ -1240,20 +1513,33 @@ async def install_custom_node(request):
         else:
             return web.Response(status=404, text=f"Following node pack doesn't provide `nightly` version: ${git_url}")
 
-    if not is_allowed_security_level(risky_level):
-        logging.error(SECURITY_MESSAGE_GENERAL)
+    if risky_level == 'high':
+        # unknown-URL arm: governed by the dedicated flag predicate
+        # (flag AND loopback, evaluated at request time). The loopback
+        # term is load-bearing here — the 'middle' entry gate above has
+        # no network-position term.
+        if not is_dedicated_install_allowed(core.get_config()['allow_git_url_install'], args.listen):
+            logging.error(SECURITY_MESSAGE_FLAG_GIT_URL.format(listen=args.listen))
+            return web.Response(status=404, text="A security error has occurred. Please check the terminal logs")
+    elif not is_allowed_security_level(risky_level):
+        # 'block' arm stays an unconditional deny (is_allowed_security_level
+        # returns False for 'block'); 'middle'/'low' arms unchanged.
+        logging.error(SECURITY_MESSAGE_BLOCKED_RISK)
         return web.Response(status=404, text="A security error has occurred. Please check the terminal logs")
 
     install_item = json_data.get('ui_id'), node_spec_str, json_data['channel'], json_data['mode'], skip_post_install
-    task_queue.put(("install", install_item))
+    task_queue.put((operation, install_item))
 
     return web.Response(status=200)
 
 
 task_worker_thread:threading.Thread = None
 
-@routes.get("/manager/queue/start")
+@routes.post("/manager/queue/start")
 async def queue_start(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
     global nodepack_result
     global model_result
     global task_worker_thread
@@ -1272,6 +1558,10 @@ async def queue_start(request):
 
 @routes.post("/manager/queue/fix")
 async def fix_custom_node(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_GENERAL)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
@@ -1294,11 +1584,23 @@ async def fix_custom_node(request):
 
 @routes.post("/customnode/install/git_url")
 async def install_custom_node_git_url(request):
-    if not is_allowed_security_level('high'):
-        logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
-        return web.Response(status=403)
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
 
-    url = await request.text()
+    if not is_dedicated_install_allowed(core.get_config()['allow_git_url_install'], args.listen):
+        logging.error(SECURITY_MESSAGE_FLAG_GIT_URL.format(listen=args.listen))
+        return security_403_response(flag_token='allow_git_url_install')
+
+    # A malformed body, a missing 'url' or one that is not a string is a client
+    # error (400), not a 500: don't let it bubble up as a server fault.
+    try:
+        json_data = await request.json()
+        url = json_data['url']
+    except (KeyError, TypeError, ValueError):
+        url = None
+    if not isinstance(url, str):
+        return web.Response(status=400, text="Invalid request body: expected JSON object with a 'url' field")
     res = await core.gitclone_install(url)
 
     if res.action == 'skip':
@@ -1314,11 +1616,21 @@ async def install_custom_node_git_url(request):
 
 @routes.post("/customnode/install/pip")
 async def install_custom_node_pip(request):
-    if not is_allowed_security_level('high'):
-        logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
-        return web.Response(status=403)
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
 
-    packages = await request.text()
+    if not is_dedicated_install_allowed(core.get_config()['allow_pip_install'], args.listen):
+        logging.error(SECURITY_MESSAGE_FLAG_PIP.format(listen=args.listen))
+        return security_403_response(flag_token='allow_pip_install')
+
+    try:
+        json_data = await request.json()
+        packages = json_data['packages']
+    except (KeyError, TypeError, ValueError):
+        packages = None
+    if not isinstance(packages, str):
+        return web.Response(status=400, text="Invalid request body: expected JSON object with a 'packages' field")
     core.pip_install(packages.split(' '))
 
     return web.Response(status=200)
@@ -1326,6 +1638,10 @@ async def install_custom_node_pip(request):
 
 @routes.post("/manager/queue/uninstall")
 async def uninstall_custom_node(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
@@ -1349,6 +1665,10 @@ async def uninstall_custom_node(request):
 
 @routes.post("/manager/queue/update")
 async def update_custom_node(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
@@ -1368,8 +1688,11 @@ async def update_custom_node(request):
     return web.Response(status=200)
 
 
-@routes.get("/manager/queue/update_comfyui")
+@routes.post("/manager/queue/update_comfyui")
 async def update_comfyui(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
     is_stable = core.get_config()['update_policy'] != 'nightly-comfyui'
     task_queue.put(("update-comfyui", ('comfyui', is_stable)))
     return web.Response(status=200)
@@ -1381,26 +1704,39 @@ async def comfyui_versions(request):
         res, current, latest = core.get_comfyui_versions()
         return web.json_response({'versions': res, 'current': current}, status=200, content_type='application/json')
     except Exception as e:
-        logging.error(f"ComfyUI update fail: {e}", file=sys.stderr)
+        logging.error(f"ComfyUI update fail: {e}")
 
     return web.Response(status=400)
 
 
-@routes.get("/comfyui_manager/comfyui_switch_version")
+@routes.post("/comfyui_manager/comfyui_switch_version")
 async def comfyui_switch_version(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     try:
-        if "ver" in request.rel_url.query:
-            core.switch_comfyui(request.rel_url.query['ver'])
+        json_data = await request.json()
+        if "ver" in json_data:
+            if core.is_comfyui_downgrade(json_data['ver']) and not is_allowed_security_level('high'):
+                logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
+                return security_403_response()
+
+            core.switch_comfyui(json_data['ver'])
 
         return web.Response(status=200)
     except Exception as e:
-        logging.error(f"ComfyUI update fail: {e}", file=sys.stderr)
+        logging.error(f"ComfyUI update fail: {e}")
 
     return web.Response(status=400)
 
 
 @routes.post("/manager/queue/disable")
 async def disable_node(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     json_data = await request.json()
 
     node_id = json_data.get('id')
@@ -1422,7 +1758,13 @@ async def check_whitelist_for_model(item):
     json_obj = await core.get_data_by_mode('cache', 'model-list.json')
 
     for x in json_obj.get('models', []):
-        if x['save_path'] == item['save_path'] and x['base'] == item['base'] and x['filename'] == item['filename']:
+        if x['save_path'] == item['save_path'] and x['base'] == item['base'] and x['filename'] == item['filename'] and x.get('url') == item.get('url'):
+            return True
+
+    json_obj = await core.get_data_by_mode('local', 'model-list.json')
+
+    for x in json_obj.get('models', []):
+        if x['save_path'] == item['save_path'] and x['base'] == item['base'] and x['filename'] == item['filename'] and x.get('url') == item.get('url'):
             return True
         
     return False
@@ -1430,6 +1772,10 @@ async def check_whitelist_for_model(item):
 
 @routes.post("/manager/queue/install_model")
 async def install_model(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     json_data = await request.json()
 
     if not is_allowed_security_level('middle'):
@@ -1461,85 +1807,122 @@ async def install_model(request):
 
 
 @routes.get("/manager/preview_method")
-async def preview_method(request):
-    if "value" in request.rel_url.query:
-        set_preview_method(request.rel_url.query['value'])
-        core.write_config()
-    else:
-        return web.Response(text=core.manager_funcs.get_current_preview_method(), status=200)
+async def get_preview_method(request):
+    if COMFYUI_HAS_PER_QUEUE_PREVIEW:
+        return web.Response(text="DISABLED", status=200)
+    return web.Response(text=core.manager_funcs.get_current_preview_method(), status=200)
 
+
+@routes.post("/manager/preview_method")
+async def set_preview_method_handler(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
+    if COMFYUI_HAS_PER_QUEUE_PREVIEW:
+        return web.Response(text="DISABLED", status=403)
+
+    json_data = await request.json()
+    set_preview_method(json_data['value'])
+    core.write_config()
     return web.Response(status=200)
 
 
 @routes.get("/manager/db_mode")
-async def db_mode(request):
-    if "value" in request.rel_url.query:
-        set_db_mode(request.rel_url.query['value'])
-        core.write_config()
-    else:
-        return web.Response(text=core.get_config()['db_mode'], status=200)
+async def get_db_mode(request):
+    return web.Response(text=core.get_config()['db_mode'], status=200)
 
+
+@routes.post("/manager/db_mode")
+async def set_db_mode_handler(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
+    json_data = await request.json()
+    try:
+        set_db_mode(json_data['value'])
+    except (KeyError, TypeError):
+        return web.Response(status=400, text='Invalid request')
+    except ValueError as e:
+        return web.Response(status=400, text=str(e))
+    core.write_config()
     return web.Response(status=200)
 
 
-
 @routes.get("/manager/policy/component")
-async def component_policy(request):
-    if "value" in request.rel_url.query:
-        set_component_policy(request.rel_url.query['value'])
-        core.write_config()
-    else:
-        return web.Response(text=core.get_config()['component_policy'], status=200)
+async def get_component_policy(request):
+    return web.Response(text=core.get_config()['component_policy'], status=200)
 
+
+@routes.post("/manager/policy/component")
+async def set_component_policy_handler(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
+    json_data = await request.json()
+    try:
+        set_component_policy(json_data['value'])
+    except (KeyError, TypeError):
+        return web.Response(status=400, text='Invalid request')
+    except ValueError as e:
+        return web.Response(status=400, text=str(e))
+    core.write_config()
     return web.Response(status=200)
 
 
 @routes.get("/manager/policy/update")
-async def update_policy(request):
-    if "value" in request.rel_url.query:
-        set_update_policy(request.rel_url.query['value'])
-        core.write_config()
-    else:
-        return web.Response(text=core.get_config()['update_policy'], status=200)
+async def get_update_policy(request):
+    return web.Response(text=core.get_config()['update_policy'], status=200)
 
+
+@routes.post("/manager/policy/update")
+async def set_update_policy_handler(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
+    json_data = await request.json()
+    try:
+        set_update_policy(json_data['value'])
+    except (KeyError, TypeError):
+        return web.Response(status=400, text='Invalid request')
+    except ValueError as e:
+        return web.Response(status=400, text=str(e))
+    core.write_config()
     return web.Response(status=200)
 
 
 @routes.get("/manager/channel_url_list")
-async def channel_url_list(request):
+async def get_channel_url_list(request):
     channels = core.get_channel_dict()
-    if "value" in request.rel_url.query:
-        channel_url = channels.get(request.rel_url.query['value'])
-        if channel_url is not None:
-            core.get_config()['channel_url'] = channel_url
-            core.write_config()
-    else:
-        selected = 'custom'
-        selected_url = core.get_config()['channel_url']
+    selected = 'custom'
+    selected_url = core.get_config()['channel_url']
 
-        for name, url in channels.items():
-            if url == selected_url:
-                selected = name
-                break
+    for name, url in channels.items():
+        if url == selected_url:
+            selected = name
+            break
 
-        res = {'selected': selected,
-               'list': core.get_channel_list()}
-        return web.json_response(res, status=200)
+    res = {'selected': selected,
+           'list': core.get_channel_list()}
+    return web.json_response(res, status=200)
 
+
+@routes.post("/manager/channel_url_list")
+async def set_channel_url_list(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
+    json_data = await request.json()
+    channels = core.get_channel_dict()
+    channel_url = channels.get(json_data['value'])
+    if channel_url is not None:
+        core.get_config()['channel_url'] = channel_url
+        core.write_config()
     return web.Response(status=200)
-
-
-def add_target_blank(html_text):
-    pattern = r'(<a\s+href="[^"]*"\s*[^>]*)(>)'
-
-    def add_target(match):
-        if 'target=' not in match.group(1):
-            return match.group(1) + ' target="_blank"' + match.group(2)
-        return match.group(0)
-
-    modified_html = re.sub(pattern, add_target, html_text)
-
-    return modified_html
 
 
 @routes.get("/manager/notice")
@@ -1547,53 +1930,93 @@ async def get_notice(request):
     url = "github.com"
     path = "/ltdrdata/ltdrdata.github.io/wiki/News"
 
-    async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=False)) as session:
-        async with session.get(f"https://{url}{path}") as response:
-            if response.status == 200:
-                # html_content = response.read().decode('utf-8')
-                html_content = await response.text()
+    try:
+        async with aiohttp.ClientSession(trust_env=True, connector=manager_util.aiohttp_connector()) as session:
+            async with session.get(f"https://{url}{path}") as response:
+                if response.status == 200:
+                    # html_content = response.read().decode('utf-8')
+                    html_content = await response.text()
 
-                pattern = re.compile(r'<div class="markdown-body">([\s\S]*?)</div>')
-                match = pattern.search(html_content)
+                    pattern = re.compile(r'<div class="markdown-body">([\s\S]*?)</div>')
+                    match = pattern.search(html_content)
 
-                if match:
-                    markdown_content = match.group(1)
-                    version_tag = os.environ.get('__COMFYUI_DESKTOP_VERSION__')
-                    if version_tag is not None:
-                        markdown_content += f"<HR>ComfyUI: {version_tag} [Desktop]"
-                    else:
-                        version_tag = core.get_comfyui_tag()
-                        if version_tag is None:
-                            markdown_content += f"<HR>ComfyUI: {core.comfy_ui_revision}[{comfy_ui_hash[:6]}]({core.comfy_ui_commit_datetime.date()})"
+                    if match:
+                        # Sanitize remote HTML before appending Manager's version text.
+                        markdown_content = manager_util.sanitize_html_fragment(match.group(1))
+                        version_tag = os.environ.get('__COMFYUI_DESKTOP_VERSION__')
+                        if version_tag is not None:
+                            markdown_content += f"<HR>ComfyUI: {version_tag} [Desktop]"
                         else:
-                            markdown_content += (f"<HR>ComfyUI: {version_tag}<BR>"
-                                                 f"&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;({core.comfy_ui_commit_datetime.date()})")
-                    # markdown_content += f"<BR>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;()"
-                    markdown_content += f"<BR>Manager: {core.version_str}"
+                            version_tag = core.get_comfyui_tag()
+                            if version_tag is None:
+                                markdown_content += f"<HR>ComfyUI: {core.comfy_ui_revision}[{comfy_ui_hash[:6]}]({core.comfy_ui_commit_datetime.date()})"
+                            else:
+                                markdown_content += (f"<HR>ComfyUI: {version_tag}<BR>"
+                                                     f"&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;({core.comfy_ui_commit_datetime.date()})")
+                        # markdown_content += f"<BR>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;()"
+                        markdown_content += f"<BR>Manager: {core.version_str}"
 
-                    markdown_content = add_target_blank(markdown_content)
+                        try:
+                            if '__COMFYUI_DESKTOP_VERSION__' not in os.environ:
+                                if core.comfy_ui_commit_datetime == datetime(1900, 1, 1, 0, 0, 0):
+                                    markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI isn\'t git repo.</P>' + markdown_content
+                                elif core.comfy_ui_required_commit_datetime.date() > core.comfy_ui_commit_datetime.date():
+                                    markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI is too OUTDATED!!!</P>' + markdown_content
+                        except:
+                            pass
 
-                    try:
-                        if '__COMFYUI_DESKTOP_VERSION__' not in os.environ:
-                            if core.comfy_ui_commit_datetime == datetime(1900, 1, 1, 0, 0, 0):
-                                markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI isn\'t git repo.</P>' + markdown_content
-                            elif core.comfy_ui_required_commit_datetime.date() > core.comfy_ui_commit_datetime.date():
-                                markdown_content = '<P style="text-align: center; color:red; background-color:white; font-weight:bold">Your ComfyUI is too OUTDATED!!!</P>' + markdown_content
-                    except:
-                        pass
+                        # Prepend startup notices from manager_migration
+                        for message, level in reversed(manager_migration.startup_notices):
+                            if level == 'error':
+                                style = 'color:red; background-color:white; font-weight:bold'
+                            elif level == 'warning':
+                                style = 'color:orange; background-color:white; font-weight:bold'
+                            else:
+                                style = 'color:blue; background-color:white'
+                            markdown_content = f'<P style="{style}">{message}</P>' + markdown_content
 
-                    return web.Response(text=markdown_content, status=200)
+                        return web.Response(text=markdown_content, status=200)
+                    else:
+                        return web.Response(text="Unable to retrieve Notice", status=200)
                 else:
                     return web.Response(text="Unable to retrieve Notice", status=200)
-            else:
-                return web.Response(text="Unable to retrieve Notice", status=200)
+    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+        logging.warning(f"[ComfyUI-Manager] Unable to retrieve Notice: {type(e).__name__}: {e}")
+        return web.Response(text="Unable to retrieve Notice", status=200)
 
 
-@routes.get("/manager/reboot")
+@routes.get("/manager/startup_alerts")
+async def get_startup_alerts(request):
+    """Return startup alerts for customAlert display on page load.
+
+    Returns JSON array of alerts that should be shown to user immediately.
+    All startup notices (error, warning, info) are returned.
+    """
+    alerts = []
+
+    # Return all startup notices for alert display
+    for message, level in manager_migration.startup_notices:
+        # Convert HTML BR to newlines for customAlert
+        text = message.replace('<BR>', '\n').replace('<br>', '\n')
+        # Add [ComfyUI-Manager] prefix for customAlert (notice board shows in Manager UI anyway)
+        text = text.replace('[Security Alert]', '[ComfyUI-Manager] Security Alert:')
+        text = text.replace('[MIGRATION]', '[ComfyUI-Manager] Migration:')
+        alerts.append({
+            'message': text,
+            'level': level
+        })
+
+    return web.json_response(alerts)
+
+
+@routes.post("/manager/reboot")
 def restart(self):
+    resp = _reject_non_json_content_type(self)
+    if resp is not None:
+        return resp
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
-        return web.Response(status=403)
+        return security_403_response()
 
     try:
         sys.stdout.close_log()
@@ -1609,17 +2032,7 @@ def restart(self):
 
     print("\nRestarting... [Legacy Mode]\n\n")  # This printing should not be logging - that will be ugly
 
-    sys_argv = sys.argv.copy()
-    if '--windows-standalone-build' in sys_argv:
-        sys_argv.remove('--windows-standalone-build')
-
-    if sys_argv[0].endswith("__main__.py"):  # this is a python module
-        module_name = os.path.basename(os.path.dirname(sys_argv[0]))
-        cmds = [sys.executable, '-m', module_name] + sys_argv[1:]
-    elif sys.platform.startswith('win32'):
-        cmds = ['"' + sys.executable + '"', '"' + sys_argv[0] + '"'] + sys_argv[1:]
-    else:
-        cmds = [sys.executable] + sys_argv
+    cmds = manager_util.build_restart_command(sys.argv, drop_args=('--windows-standalone-build',))
 
     print(f"Command: {cmds}", flush=True)
 
@@ -1628,6 +2041,10 @@ def restart(self):
 
 @routes.post("/manager/component/save")
 async def save_component(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     try:
         data = await request.json()
         name = data['name']
@@ -1722,10 +2139,8 @@ async def default_cache_update():
 
             json_obj = await manager_util.get_data(uri, True)
 
-            with manager_util.cache_lock:
-                with open(cache_uri, "w", encoding='utf-8') as file:
-                    json.dump(json_obj, file, indent=4, sort_keys=True)
-                    logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+            if manager_util.write_cache_file(cache_uri, json_obj):
+                logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
         except Exception as e:
             logging.error(f"[ComfyUI-Manager] Failed to perform initial fetching '{filename}': {e}")
             traceback.print_exc()
@@ -1741,15 +2156,34 @@ async def default_cache_update():
 
         if core.get_config()['network_mode'] == 'private':
             logging.info("[ComfyUI-Manager] The private comfyregistry is not yet supported in `network_mode=private`.")
+            await core.unified_manager.reload('remote', dont_wait=False, update_cnr_map=False)
         else:
             # load at least once
             await core.unified_manager.reload('remote', dont_wait=False)
             await core.unified_manager.get_custom_nodes(channel_url, 'remote')
+    else:
+        await core.unified_manager.reload('remote', dont_wait=False, update_cnr_map=False)
 
+    core.check_invalid_nodes()
     logging.info("[ComfyUI-Manager] All startup tasks have been completed.")
 
 
-threading.Thread(target=lambda: asyncio.run(default_cache_update())).start()
+COMFYUI_UPDATE_HANDLERS = {update_comfyui, queue_start, reset_queue, queue_count, get_version, get_notice, get_startup_alerts}
+
+
+@web.middleware
+async def serve_only_comfyui_update(request, handler):
+    matched = request.match_info.handler
+    if matched.__module__ in ('manager_server', 'share_3rdparty') and matched not in COMFYUI_UPDATE_HANDLERS:
+        return security_403_response()
+
+    return await handler(request)
+
+
+if manager_migration.has_system_user_api():
+    threading.Thread(target=lambda: asyncio.run(default_cache_update())).start()
+else:
+    PromptServer.instance.app.middlewares.append(serve_only_comfyui_update)
 
 if not os.path.exists(core.manager_config_path):
     core.get_config()
