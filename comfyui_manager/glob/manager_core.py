@@ -2506,7 +2506,9 @@ async def get_data_by_mode(mode, filename, channel_url=None):
             cache_uri = str(manager_util.simple_hash(uri))+'_'+filename
             cache_uri = os.path.join(manager_util.cache_dir, cache_uri)
 
-            if get_config()['network_mode'] == 'offline' or manager_util.is_manager_pip_package():
+            if get_config()['network_mode'] == 'offline' or (
+                manager_util.is_manager_pip_package() and mode != "remote"
+            ):
                 # offline network mode
                 if os.path.exists(cache_uri):
                     json_obj = await manager_util.get_data(cache_uri)
