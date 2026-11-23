@@ -208,20 +208,25 @@ paths:
         Starts a check in the background that fetches the repositories of the enabled git custom nodes of the list,
         and answers at once. The check reports by the websocket event `cm-check-update`:
         `{status: "in_progress", done_count, total_count}` after each repository, and at the end
-        `{status: "done", updatable}` with the keys of the custom nodes that have an update. While a check runs,
-        no second one is started; its events answer this request too.
+        `{status: "done", updatable, ui_ids}` with the keys of the custom nodes that have an update (`null` when
+        the check failed) and the `ui_id` of every request that this result answers. While a check runs, no second one is started: the custom nodes
+        of this request that the check does not have are added to it, so `total_count` can grow, and its result
+        answers this request too.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [mode]
+              required: [mode, ui_id]
               properties:
                 mode:
                   type: string
                   enum: [cache, local, remote]
                   description: Source mode of the node list
+                ui_id:
+                  type: string
+                  description: Chosen by the client. The `done` event of the check that answers this request names it.
       responses:
         '200':
           description: The check runs

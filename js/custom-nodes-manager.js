@@ -8,7 +8,8 @@ import {
 	fetchData, md5, icons, show_message, customConfirm, customAlert, customPrompt,
 	sanitizeHTML, sanitizeUrl, infoToast, showTerminal, setNeedRestart,
 	storeColumnWidth, restoreColumnWidth, getTimeAgo, copyText, loadCss,
-	showPopover, hidePopover, getWorkflowNodeTypes, findPackageByCnrId, analyzeWorkflowUsage, createFlyover, leven
+	showPopover, hidePopover, getWorkflowNodeTypes, findPackageByCnrId, analyzeWorkflowUsage, createFlyover, leven,
+	generateUUID
 } from  "./common.js";
 
 // https://cenfun.github.io/turbogrid/api.html
@@ -1646,6 +1647,7 @@ export class CustomNodesManager {
 		infoToast('Fetching updated information. This may take some time if many custom nodes are installed.');
 		this.showStatus("Checking updates ...");
 
+		this.checkId = generateUUID();
 		const checked = new Promise(resolve => {
 			this.resumeLoad = resolve;
 		});
@@ -1662,7 +1664,7 @@ export class CustomNodesManager {
 		const { error } = await fetchData('/customnode/check_update', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ mode })
+			body: JSON.stringify({ mode, ui_id: this.checkId })
 		});
 		if(error) {
 			this.resumeLoad?.();
@@ -1676,11 +1678,12 @@ export class CustomNodesManager {
 			return;
 		}
 
-		const { status, done_count, total_count, updatable } = event.detail;
+		const { status, done_count, total_count, updatable, ui_ids } = event.detail;
 		if(status == 'in_progress') {
 			self.showStatus(`Checking updates (${sanitizeHTML(String(done_count))}/${sanitizeHTML(String(total_count))}) ...`);
 		}
-		else if(status == 'done') {
+		// a check that ended before the request of this page reached it does not name the request
+		else if(status == 'done' && ui_ids.includes(self.checkId)) {
 			self.resumeLoad(updatable);
 			self.resumeLoad = undefined;
 		}

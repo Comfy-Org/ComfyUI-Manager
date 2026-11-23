@@ -454,6 +454,9 @@ tasks_in_progress = set()
 task_worker_lock = threading.Lock()
 update_check_done = threading.Event()
 update_check_done.set()
+update_check_lock = threading.Lock()
+update_check_paths = {}
+update_check_ui_ids = set()
 
 async def task_worker():
     global task_queue
@@ -998,6 +1001,7 @@ async def check_update(request):
 
     json_data = await request.json()
     mode = json_data["mode"]
+    ui_id = json_data["ui_id"]
 
     if mode == "local":
         channel = 'local'
@@ -1017,21 +1021,42 @@ async def check_update(request):
             paths[k] = path
 
     def check():
+        fetched = 0
+        updatable = []
+
         def on_fetched(done_count):
             PromptServer.instance.send_sync("cm-check-update",
-                                            {'status': 'in_progress', 'done_count': done_count, 'total_count': len(paths)})
+                                            {'status': 'in_progress', 'done_count': fetched + done_count, 'total_count': len(update_check_paths)})
 
-        try:
-            updatable = core.fetch_git_node_packs(paths, on_fetched)
-        finally:
-            update_check_done.set()
+        while True:
+            with update_check_lock:
+                added = dict(list(update_check_paths.items())[fetched:])
+                if updatable is None or not added:
+                    # under the lock: a request is added to this check, or starts the next one
+                    ui_ids = list(update_check_ui_ids)
+                    update_check_done.set()
+                    break
 
-        PromptServer.instance.send_sync("cm-check-update", {'status': 'done', 'updatable': updatable})
+            try:
+                updatable += core.fetch_git_node_packs(added, on_fetched)
+                fetched += len(added)
+            except Exception:
+                # the pages that wait are told that the check failed
+                traceback.print_exc()
+                updatable = None
 
-    # a check that runs tells its result to whoever waits for one
-    if update_check_done.is_set():
-        update_check_done.clear()
-        threading.Thread(target=check).start()
+        PromptServer.instance.send_sync("cm-check-update", {'status': 'done', 'updatable': updatable, 'ui_ids': ui_ids})
+
+    # a check that runs fetches these too, and its result names the requests that it answers
+    with update_check_lock:
+        if update_check_done.is_set():
+            threading.Thread(target=check).start()
+            update_check_done.clear()
+            update_check_paths.clear()
+            update_check_ui_ids.clear()
+
+        update_check_paths.update(paths)
+        update_check_ui_ids.add(ui_id)
 
     return web.json_response({})
 
