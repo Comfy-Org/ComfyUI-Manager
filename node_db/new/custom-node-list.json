@@ -1,6 +1,16 @@
 {
     "custom_nodes": [
         {
+            "author": "sorryhyun",
+            "title": "Anima Pixel Decoder",
+            "reference": "https://github.com/sorryhyun/ComfyUI-Anima-PixelDecoder",
+            "files": [
+                "https://github.com/sorryhyun/ComfyUI-Anima-PixelDecoder"
+            ],
+            "install_type": "git-clone",
+            "description": "Decode Anima renders straight from the DiT's last-layer features with a 25M-parameter pixel head, in place of VAE Decode: a MODEL tap (works with the stock KSampler and KSampler (Spectrum)) and a decode node that outputs IMAGE. A x2 head file decodes and upscales 2x in one readout. Weights: huggingface.co/sorryhyun/anima-pixel-decoder."
+        },
+        {
             "author": "joykst96",
             "title": "kludge",
             "id": "kludge",
