@@ -676,8 +676,9 @@ async def task_worker():
             kind, item = task_queue.get()
             tasks_in_progress.add((kind, item[0]))
 
-        # a check fetches the repositories that a task works on
-        update_check_done.wait()
+        # a check fetches the repositories of the nodepacks, which a model download and an update of ComfyUI do not touch
+        if kind not in ('install-model', 'update-comfyui'):
+            update_check_done.wait()
 
         try:
             if kind in ('install', 'reinstall'):

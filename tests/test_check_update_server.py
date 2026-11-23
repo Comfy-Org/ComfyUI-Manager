@@ -60,8 +60,17 @@ class Lock:
         if self.after_the_end and update_check_done.is_set():
             self.after_the_end.pop()()
 
+class EndMark(threading.Event):
+    def __init__(self):
+        super().__init__()
+        self.queue_waits = threading.Event()
+
+    def wait(self):
+        self.queue_waits.set()
+        super().wait()
+
 events = []
-update_check_done = threading.Event()
+update_check_done = EndMark()
 update_check_done.set()
 update_check_lock = Lock()
 update_check_paths = {}
@@ -90,19 +99,37 @@ def check_for_updates(mode='cache', ui_id='the page'):
     return {'answer': answer, 'fetched by the request': fetched_by_the_request, 'fetched': sorted(fetched),
             'check': [event for name, event in events if name == 'cm-check-update']}
 
-def run_a_task_of_the_queue():
+DISABLE = ('disable', ('a-row', 'ComfyUI-Foo', False))
+
+def run_the_queue(*tasks):
     order = []
+    config['model_download_by_agent'] = True
+    core.update_path = lambda path: order.append('ComfyUI is updated') or 'skipped'
     manager.unified_disable = lambda node_name, is_unknown: order.append('the task') or True
+    manager.unified_update = lambda node_name, node_ver: order.append('the task') or SimpleNamespace(ver='unknown', result=True, action='skip')
     task_queue = queue.Queue()
-    task_queue.put(('disable', ('a-row', 'ComfyUI-Foo', False)))
+    for task in tasks:
+        task_queue.put(task)
     worker = server_function(
         'task_worker', core=core, logging=logging, traceback=traceback, queue=queue, task_queue=task_queue,
         update_check_done=update_check_done, nodepack_result={}, model_result={}, tasks_in_progress=set(),
-        task_worker_lock=threading.Lock(),
+        task_worker_lock=threading.Lock(), os=os, folder_paths=SimpleNamespace(__file__=str(nodes.parent / 'folder_paths.py')),
+        get_model_path=lambda data: str(nodes.parent / data['filename']),
+        download_url_with_agent=lambda url, path: order.append('the model is downloaded') or True,
+        manager_util=SimpleNamespace(clear_pip_cache=lambda: None),
         PromptServer=SimpleNamespace(instance=SimpleNamespace(send_sync=lambda name, data: None)))
     queue_run = threading.Thread(target=lambda: asyncio.run(worker()), daemon=True)
     queue_run.start()
     return order, queue_run
+
+def run_the_queue_during_a_check(*tasks):
+    update_check_done.clear()
+    order, queue_run = run_the_queue(*tasks)
+    update_check_done.queue_waits.wait(5)
+    order.append('the check ends')
+    update_check_done.set()
+    queue_run.join()
+    return order
 '''
 
 
@@ -288,7 +315,7 @@ failed = [event for name, event in events]
 checks_started = len(started)
 if started:
     started.pop()()
-order, queue_run = run_a_task_of_the_queue()
+order, queue_run = run_the_queue(DISABLE)
 queue_run.join(5)
 emit({'failed': failed, 'checks started': checks_started, 'next': [event for name, event in events[len(failed):]], 'order': order})
 ''')
@@ -298,17 +325,19 @@ emit({'failed': failed, 'checks started': checks_started, 'next': [event for nam
                     'order': ['the task']}
 
 
-def test_a_task_of_the_queue_waits_for_the_check_that_runs():
-    data = run('''
-update_check_done.clear()
-order, queue_run = run_a_task_of_the_queue()
-queue_run.join(0.5)
-order.append('the check ends')
-update_check_done.set()
-queue_run.join()
-emit(order)
-''')
-    assert data == ['the check ends', 'the task']
+@pytest.mark.parametrize('task', [('disable', ('a-row', 'ComfyUI-Foo', False)), ('update-main', ('ComfyUI-Foo', 'ComfyUI-Foo', 'unknown'))],
+                         ids=['disable', 'Update-All'])
+def test_a_task_of_the_queue_waits_for_the_check_that_runs(task):
+    assert run(f'emit(run_the_queue_during_a_check({task!r}))') == ['the check ends', 'the task']
+
+
+@pytest.mark.parametrize('task, work', [
+    (('install-model', ('a-model', {'name': 'a', 'url': 'https://example.invalid/a.safetensors', 'filename': 'a.safetensors'})),
+     'the model is downloaded'),
+    (('update-comfyui', ('comfyui', False)), 'ComfyUI is updated'),
+], ids=['a-model-download', 'an-update-of-ComfyUI'])
+def test_a_model_download_and_an_update_of_ComfyUI_do_not_wait_for_the_check(task, work):
+    assert run(f'emit(run_the_queue_during_a_check({task!r}, DISABLE))') == [work, 'the check ends', 'the task']
 
 
 def test_the_request_that_fetched_inside_itself_is_gone():

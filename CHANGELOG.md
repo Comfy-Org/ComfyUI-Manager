@@ -10,10 +10,11 @@ nothing else, and with many git nodepacks the page gave up after a minute with
 `Failed to get custom node list.` (#3574). The check now runs in the
 background. The page shows `Checking updates (n/total) ...` while the
 repositories are fetched, the server goes on answering, and the nodepacks that
-have an update are listed when the check has ended. A task that is started
-during a check, such as Update All, runs when the check has ended, as before.
-When the connection to the server is lost and comes back during a check, as
-when the server restarts, the page asks for the check again.
+have an update are listed when the check has ended. A task on nodepacks that
+is started during a check, such as Update All, runs when the check has ended,
+as before. A model download and an update of ComfyUI do not wait for it. When
+the connection to the server is lost and comes back during a check, as when
+the server restarts, the page asks for the check again.
 
 A git nodepack that the registry does not know was left out of the check,
 unless the node list gave it an `id` that is its repository name. Every enabled
