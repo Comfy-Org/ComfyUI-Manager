@@ -75,6 +75,8 @@ export class CustomNodesManager {
 		this.init();
 
         api.addEventListener("cm-queue-status", this.onQueueStatus);
+        api.addEventListener("cm-check-update", this.onCheckUpdate);
+        api.addEventListener("reconnected", this.onReconnected);
 		api.getNodeDefs().then(objs => {
 			this.nodeMap = objs;
 		})
@@ -1640,6 +1642,58 @@ export class CustomNodesManager {
 		}
 	}
 
+	async checkUpdate(mode) {
+		infoToast('Fetching updated information. This may take some time if many custom nodes are installed.');
+		this.showStatus("Checking updates ...");
+
+		const checked = new Promise(resolve => {
+			this.resumeLoad = resolve;
+		});
+		await this.askForCheck(mode);
+
+		const updatable = await checked;
+		if(!updatable) {
+			this.showError("Failed to check updates.");
+		}
+		return updatable;
+	}
+
+	async askForCheck(mode) {
+		const { error } = await fetchData('/customnode/check_update', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ mode })
+		});
+		if(error) {
+			this.resumeLoad?.();
+			this.resumeLoad = undefined;
+		}
+	}
+
+	onCheckUpdate(event) {
+		let self = CustomNodesManager.instance;
+		if(!self.resumeLoad) {
+			return;
+		}
+
+		const { status, done_count, total_count, updatable } = event.detail;
+		if(status == 'in_progress') {
+			self.showStatus(`Checking updates (${sanitizeHTML(String(done_count))}/${sanitizeHTML(String(total_count))}) ...`);
+		}
+		else if(status == 'done') {
+			self.resumeLoad(updatable);
+			self.resumeLoad = undefined;
+		}
+	}
+
+	onReconnected() {
+		let self = CustomNodesManager.instance;
+		if(self.resumeLoad) {
+			// the events of a check are not sent again once the connection was lost
+			self.askForCheck(manager_instance.datasrc_combo.value);
+		}
+	}
+
 	async onQueueStatus(event) {
 		let self = CustomNodesManager.instance;
 		if(event.detail.status == 'in_progress' && event.detail.ui_target == 'nodepack_manager') {
@@ -2085,18 +2139,25 @@ export class CustomNodesManager {
 		this.show_mode = show_mode;
 		console.log("Show mode:", show_mode);
 
+		this.resumeLoad = undefined;
+
 		this.showLoading();
 
 		const mode = manager_instance.datasrc_combo.value;
-		this.showStatus(`Loading custom nodes (${mode}) ...`);
 
-		const skip_update = this.show_mode === ShowMode.UPDATE ? "" : "&skip_update=true";
-
-		if(this.show_mode === ShowMode.UPDATE) {
-			infoToast('Fetching updated information. This may take some time if many custom nodes are installed.');
+		let updatable = [];
+		if(show_mode === ShowMode.UPDATE) {
+			updatable = await this.checkUpdate(mode);
+			if(!updatable) {
+				this.hideLoading();
+				return;
+			}
 		}
 
-		const res = await fetchData(`/customnode/getlist?mode=${mode}${skip_update}`);
+		this.showStatus(`Loading custom nodes (${mode}) ...`);
+
+		// a server that was not restarted since its update still fetches every repository without skip_update
+		const res = await fetchData(`/customnode/getlist?mode=${mode}&skip_update=true`);
 		if (res.error) {
 			this.showError("Failed to get custom node list.");
 			this.hideLoading();
@@ -2104,6 +2165,12 @@ export class CustomNodesManager {
 		}
 		
 		const { channel, node_packs } = res.data;
+
+		for(const k of updatable) {
+			if(node_packs[k]) {
+				node_packs[k]['update-state'] = "true";
+			}
+		}
 
 		if(isElectron) {
 			delete node_packs['comfyui-manager'];
