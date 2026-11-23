@@ -384,8 +384,8 @@ Purpose: **feed the Custom Nodes Manager dialog with the list of available + ins
 
 | Scenario | Effect to verify |
 |---|---|
-| Success | Response has `channel` + `node_packs`; each pack includes install state (installed/disabled), stars (github-stats), update availability (if skip_update=false) |
-| skip_update=true | No git fetch performed (check timing / no remote calls) |
+| Success | Response has `channel` + `node_packs`; each pack includes install state (installed/disabled), stars (github-stats), update availability of versioned packs |
+| With or without skip_update | No git fetch performed (check timing / no remote calls) |
 | Channel resolution | Maps URL back to name (default/custom/etc.) |
 
 ### GET /customnode/alternatives (legacy)

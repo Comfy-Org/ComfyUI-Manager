@@ -1,4 +1,6 @@
 import subprocess
+import time
+from unittest.mock import Mock
 
 import pytest
 
@@ -127,6 +129,23 @@ def test_pull_of_a_pack_whose_branch_is_ahead_of_its_remote_is_no_failure(core, 
     core.git_pull(str(pack))
 
     assert head(pack) == tip
+
+
+@pytest.mark.parametrize('core', ['legacy'], indirect=True)
+@pytest.mark.parametrize('where', ['in the server process', 'in the git helper'])
+def test_a_check_of_a_pack_with_an_update_does_not_ask_for_its_install_script(core, request, monkeypatch, tmp_path, origin, where):  # noqa: F811
+    pack = tmp_path / 'pack'
+    monkeypatch.setenv('GIT_COMMITTER_DATE', '@%d +0000' % (time.time() + 86400))
+    git(tmp_path / 'origin', 'commit', '-q', '--allow-empty', '-m', 'a commit dated a day later')
+    monkeypatch.delenv('GIT_COMMITTER_DATE')
+    install_script = Mock(return_value=True)
+    monkeypatch.setattr(core, 'execute_install_script', install_script)
+    if where == 'in the git helper':
+        request.getfixturevalue('helper')
+
+    assert core.git_repo_update_check_with(str(pack)) == (True, True)
+    assert install_script.call_count == 0
+    assert head(pack) != head(tmp_path / 'origin')
 
 
 def library_at_a_commit_away(tmp_path):
