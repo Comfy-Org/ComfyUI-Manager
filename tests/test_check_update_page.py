@@ -19,7 +19,7 @@ ROWS = {
     "versioned-with-update": {"state": "enabled", "version": "1.0.0", "update-state": "true"},
 }
 TAKEN = {"data": {}}
-CHECK = 'POST /v2/customnode/check_update {"mode":"cache"}'
+CHECK = 'POST /v2/customnode/check_update {"mode":"cache","ui_id":"check-1"}'
 LIST = "GET /v2/customnode/getlist?mode=cache&skip_update=true"
 LOADING, LOADED = "loading", "loading ended"
 WAIT = "status: Checking updates ..."
@@ -57,6 +57,8 @@ def run(steps, check_answers=(TAKEN,), ends_before_the_answer=None):
         const CustomNodesManager = {instance: self};
         const manager_instance = {datasrc_combo: {value: 'cache'}};
         const md5 = (text) => 'hash of ' + text;
+        let asked = 0;
+        const generateUUID = () => 'check-' + (++asked);
         const infoToast = () => calls.push('toast');
         const heard = {};
         const api = {addEventListener: (name, listener) => { heard[name] = listener; }};
@@ -112,8 +114,8 @@ def progress(done_count):
     return ["cm-check-update", {"status": "in_progress", "done_count": done_count, "total_count": 2}]
 
 
-def result(*updatable):
-    return ["cm-check-update", {"status": "done", "updatable": list(updatable)}]
+def result(*updatable, of="check-1"):
+    return ["cm-check-update", {"status": "done", "updatable": list(updatable), "ui_ids": ["of another page", of]}]
 
 
 RECONNECTED = ["reconnected", None]
@@ -148,6 +150,27 @@ def test_a_nodepack_that_left_the_list_during_the_check_is_passed_over():
     data = run([["load", "Update"], result("git-b", "uninstalled-meanwhile")])
 
     assert data["steps"][1][-2:] == ["shown as updatable: git-b versioned-with-update", LOADED]
+
+
+def test_the_end_of_a_check_that_does_not_answer_this_page_is_passed_over():
+    data = run([["load", "Update"], result("git-a", of="of a third page"), result("git-b")])
+
+    assert data["steps"][1:] == [[], ["status: Loading custom nodes (cache) ...", LIST,
+                                      "shown as updatable: git-b versioned-with-update", LOADED]]
+
+
+def test_a_check_that_is_asked_for_again_waits_for_its_own_end():
+    data = run([["load", "Update"], ["load", "Update"], result("git-a"), result("git-b", of="check-2")])
+
+    assert data["steps"][1] == [LOADING, "toast", WAIT, CHECK.replace("check-1", "check-2")]
+    assert data["steps"][2:] == [[], ["status: Loading custom nodes (cache) ...", LIST,
+                                      "shown as updatable: git-b versioned-with-update", LOADED]]
+
+
+def test_a_check_that_failed_ends_the_loading_with_an_error():
+    data = run([["load", "Update"], ["cm-check-update", {"status": "done", "updatable": None, "ui_ids": ["check-1"]}]])
+
+    assert data["steps"][1] == ["error: Failed to check updates.", LOADED]
 
 
 def test_the_list_alone_asks_for_no_check():

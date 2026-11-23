@@ -33,16 +33,20 @@ def request(query=None, body=None):
 
 class Fetched(list):
     answers: dict
+    during_a_fetch: list
 
 
 @pytest.fixture
 def fetched(core, custom_nodes, monkeypatch):  # noqa: F811
     names = Fetched()
     names.answers = answers = {}
+    names.during_a_fetch = during_a_fetch = []
 
     def fetch(path):
         name = Path(path).name
         names.append(name)
+        if during_a_fetch:
+            during_a_fetch.pop()()
         if isinstance(answers.get(name), Exception):
             raise answers[name]
         return answers.get(name, (False, True))
@@ -72,22 +76,42 @@ def listed(core, custom_nodes, monkeypatch):  # noqa: F811
     return add
 
 
+class Lock:
+    def __init__(self, update_check_done):
+        self.held = threading.Lock()
+        self.update_check_done = update_check_done
+        self.after_the_end = []
+
+    def __enter__(self):
+        self.held.acquire()
+
+    def __exit__(self, *error):
+        self.held.release()
+        if self.after_the_end and self.update_check_done.is_set():
+            self.after_the_end.pop()()
+
+
 class Checks:
     def __init__(self, core):  # noqa: F811
         self.events = []
         self.started = []
         self.update_check_done = threading.Event()
         self.update_check_done.set()
+        self.update_check_lock = Lock(self.update_check_done)
+        self.thread = lambda target: SimpleNamespace(start=lambda: self.started.append(target))
         self.ask = server(
-            {'check_update'}, core=core, update_check_done=self.update_check_done,
-            threading=SimpleNamespace(Thread=lambda target: SimpleNamespace(start=lambda: self.started.append(target))),
+            {'check_update'}, core=core, update_check_done=self.update_check_done, update_check_lock=self.update_check_lock,
+            update_check_paths={}, update_check_ui_ids=set(), traceback=traceback,
+            threading=SimpleNamespace(Thread=lambda target: self.thread(target)),
             manager_security=SimpleNamespace(reject_non_json_post=lambda request: None),
             web=SimpleNamespace(json_response=lambda data: data),
-            PromptServer=SimpleNamespace(instance=SimpleNamespace(
-                send_sync=lambda name, data: self.events.append((name, data)))))['check_update']
+            PromptServer=SimpleNamespace(instance=SimpleNamespace(send_sync=self.sent)))['check_update']
 
-    def ask_for_a_check(self, mode='cache'):
-        return asyncio.run(self.ask(request(body={'mode': mode})))
+    def sent(self, name, data):
+        self.events.append((name, {key: sorted(value) if isinstance(value, list) else value for key, value in data.items()}))
+
+    def ask_for_a_check(self, mode='cache', ui_id='the page'):
+        return asyncio.run(self.ask(request(body={'mode': mode, 'ui_id': ui_id})))
 
     def ended(self):
         return [event for name, event in self.events if event['status'] == 'done']
@@ -102,8 +126,24 @@ def check_for_updates(core, fetched, mode='cache'):  # noqa: F811
             'check': [event for name, event in checks.events if name == 'cm-check-update']}
 
 
+def run_a_task_of_the_queue(core, monkeypatch, update_check_done):  # noqa: F811
+    order = []
+    monkeypatch.setattr(core.unified_manager, 'unified_disable', lambda node_name, is_unknown: order.append('the task') or True)
+    namespace = server({'task_worker', 'TaskBatch'}, core=core, logging=logging, traceback=traceback,
+                       update_check_done=update_check_done, tasks_in_progress=set(), task_worker_lock=threading.Lock(),
+                       PromptServer=SimpleNamespace(instance=SimpleNamespace(send_sync=lambda name, data: None)))
+    namespace['task_batch_queue'] = deque([namespace['TaskBatch'](None, [('disable', ('a-row', 'ComfyUI-Foo', False))], None)])
+    queue_run = threading.Thread(target=lambda: asyncio.run(namespace['task_worker']()), daemon=True)
+    queue_run.start()
+    return order, queue_run
+
+
 def progress(total):
     return [{'status': 'in_progress', 'done_count': done, 'total_count': total} for done in range(1, total + 1)]
+
+
+def done(updatable, *ui_ids):
+    return {'status': 'done', 'updatable': sorted(updatable), 'ui_ids': sorted(ui_ids or ['the page'])}
 
 
 @pytest.mark.parametrize('query', [{'mode': 'cache'}, {'mode': 'cache', 'skip_update': 'true'}],
@@ -138,9 +178,7 @@ def test_a_check_fetches_the_enabled_git_nodepacks_of_the_list_once_its_request_
     assert data['answer'] == {}
     assert data['fetched by the request'] == []
     assert data['fetched'] == ['ComfyUI-Foo', 'bar-clone']
-    assert data['check'][:-1] == progress(2)
-    assert sorted(data['check'][-1].pop('updatable')) == ['ComfyUI-Bar', 'comfyui-foo']
-    assert data['check'][-1] == {'status': 'done'}
+    assert data['check'] == progress(2) + [done(['ComfyUI-Bar', 'comfyui-foo'])]
 
 
 @pytest.mark.parametrize('shown', ['the local mode', 'https://example.invalid/a-channel'],
@@ -168,7 +206,7 @@ def test_a_nodepack_that_cannot_be_fetched_does_not_end_the_check(core, custom_n
     data = check_for_updates(core, fetched)
 
     assert data['fetched'] == ['ComfyUI-Bar', 'ComfyUI-Foo', 'ComfyUI-Qux']
-    assert data['check'] == progress(3) + [{'status': 'done', 'updatable': ['comfyui-foo']}]
+    assert data['check'] == progress(3) + [done(['comfyui-foo'])]
 
 
 def test_a_check_of_no_nodepack_ends_with_an_empty_result(core, custom_nodes, listed, fetched):  # noqa: F811
@@ -177,7 +215,7 @@ def test_a_check_of_no_nodepack_ends_with_an_empty_result(core, custom_nodes, li
     data = check_for_updates(core, fetched)
 
     assert data['answer'] == {}
-    assert data['check'] == [{'status': 'done', 'updatable': []}]
+    assert data['check'] == [done([])]
 
 
 def test_a_check_that_is_asked_for_while_one_runs_starts_no_second_one(core, custom_nodes, listed, fetched):  # noqa: F811
@@ -185,25 +223,127 @@ def test_a_check_that_is_asked_for_while_one_runs_starts_no_second_one(core, cus
     fetched.answers['ComfyUI-Foo'] = (True, True)
     checks = Checks(core)
 
-    assert [checks.ask_for_a_check(), checks.ask_for_a_check()] == [{}, {}]
+    assert [checks.ask_for_a_check(ui_id='a page'), checks.ask_for_a_check(ui_id='another page')] == [{}, {}]
     assert len(checks.started) == 1
     checks.started.pop()()
-    assert checks.ended() == [{'status': 'done', 'updatable': ['comfyui-foo']}]
+    assert checks.ended() == [done(['comfyui-foo'], 'a page', 'another page')]
     checks.ask_for_a_check()
     assert len(checks.started) == 1
 
 
-def test_a_task_of_the_queue_waits_for_the_check_that_runs(core, custom_nodes, monkeypatch):  # noqa: F811
-    order = []
-    monkeypatch.setattr(core.unified_manager, 'unified_disable', lambda node_name, is_unknown: order.append('the task') or True)
-    update_check_done = threading.Event()
-    namespace = server({'task_worker', 'TaskBatch'}, core=core, logging=logging, traceback=traceback,
-                       update_check_done=update_check_done, tasks_in_progress=set(), task_worker_lock=threading.Lock(),
-                       PromptServer=SimpleNamespace(instance=SimpleNamespace(send_sync=lambda name, data: None)))
-    namespace['task_batch_queue'] = deque([namespace['TaskBatch'](None, [('disable', ('a-row', 'ComfyUI-Foo', False))], None)])
-    queue_run = threading.Thread(target=lambda: asyncio.run(namespace['task_worker']()))
+def test_a_check_that_is_asked_for_while_one_runs_adds_the_nodepacks_that_one_does_not_have(
+        core, custom_nodes, listed, fetched):  # noqa: F811
+    pack(custom_nodes / 'ComfyUI-Foo', git_url=FOO_URL)
+    pack(custom_nodes / 'ComfyUI-Bar', git_url=BAR_URL)
+    listed.others['the local mode'] = [item for item in NODE_LIST if item['title'] == 'ComfyUI-Foo']
+    fetched.answers.update({'ComfyUI-Foo': (True, True), 'ComfyUI-Bar': (True, True)})
+    checks = Checks(core)
 
-    queue_run.start()
+    checks.ask_for_a_check('local', ui_id='a page')
+    fetched.during_a_fetch.append(lambda: checks.ask_for_a_check(ui_id='another page'))
+    checks.started.pop()()
+
+    assert fetched == ['ComfyUI-Foo', 'ComfyUI-Bar']
+    assert checks.started == []
+    assert [event for name, event in checks.events] == [
+        {'status': 'in_progress', 'done_count': 1, 'total_count': 2},
+        {'status': 'in_progress', 'done_count': 2, 'total_count': 2},
+        done(['comfyui-foo', 'ComfyUI-Bar'], 'a page', 'another page')]
+
+
+def test_a_request_that_comes_when_the_check_has_had_its_last_look_is_answered_by_the_next_check(
+        core, custom_nodes, listed, fetched):  # noqa: F811
+    pack(custom_nodes / 'ComfyUI-Foo', git_url=FOO_URL)
+    pack(custom_nodes / 'ComfyUI-Bar', git_url=BAR_URL)
+    listed.others['the local mode'] = [item for item in NODE_LIST if item['title'] == 'ComfyUI-Foo']
+    fetched.answers.update({'ComfyUI-Foo': (True, True), 'ComfyUI-Bar': (True, True)})
+    checks = Checks(core)
+
+    checks.ask_for_a_check('local', ui_id='a page')
+    checks.update_check_lock.after_the_end.append(lambda: checks.ask_for_a_check(ui_id='another page'))
+    checks.started.pop()()
+
+    first = [event for name, event in checks.events]
+    assert first == progress(1) + [done(['comfyui-foo'], 'a page')]
+    assert len(checks.started) == 1
+    assert not checks.update_check_done.is_set()
+
+    del fetched[:]
+    checks.started.pop()()
+
+    assert [event for name, event in checks.events[len(first):]] == progress(2) + [
+        done(['comfyui-foo', 'ComfyUI-Bar'], 'another page')]
+    assert sorted(fetched) == ['ComfyUI-Bar', 'ComfyUI-Foo']
+
+
+def test_a_check_is_not_of_the_requests_of_the_check_before(core, custom_nodes, listed, fetched):  # noqa: F811
+    pack(custom_nodes / 'ComfyUI-Foo', git_url=FOO_URL)
+    pack(custom_nodes / 'ComfyUI-Bar', git_url=BAR_URL)
+    listed.others['the local mode'] = [item for item in NODE_LIST if item['title'] == 'ComfyUI-Foo']
+    checks = Checks(core)
+
+    checks.ask_for_a_check(ui_id='a page')
+    checks.started.pop()()
+    del fetched[:]
+    checks.ask_for_a_check('local', ui_id='another page')
+    checks.started.pop()()
+
+    assert fetched == ['ComfyUI-Foo']
+    assert checks.ended()[-1] == done([], 'another page')
+
+
+def test_a_check_whose_thread_cannot_start_does_not_stand_in_the_way_of_the_next(core, custom_nodes, listed):  # noqa: F811
+    pack(custom_nodes / 'ComfyUI-Foo', git_url=FOO_URL)
+    checks = Checks(core)
+    started_later = checks.thread
+
+    def no_thread(target):
+        raise RuntimeError("can't start new thread")
+
+    checks.thread = no_thread
+    with pytest.raises(RuntimeError):
+        checks.ask_for_a_check()
+    checks.thread = started_later
+    checks.ask_for_a_check()
+
+    assert len(checks.started) == 1
+
+
+def test_a_check_that_fails_tells_the_pages_that_wait_for_it_and_does_not_hold_the_tasks_of_the_queue(
+        core, custom_nodes, listed, monkeypatch):  # noqa: F811
+    pack(custom_nodes / 'ComfyUI-Foo', git_url=FOO_URL)
+
+    checks = Checks(core)
+    during_the_check = [lambda: checks.ask_for_a_check(ui_id='a page that asks during the check')]
+
+    def fails(paths, on_fetched):
+        if during_the_check:
+            during_the_check.pop()()
+        raise RuntimeError("can't start new thread")
+
+    monkeypatch.setattr(core, 'fetch_git_node_packs', fails)
+
+    checks.ask_for_a_check()
+    checks.update_check_lock.after_the_end.append(lambda: checks.ask_for_a_check(ui_id='a page that asks after it'))
+    checks.started.pop()()
+
+    failed = [event for name, event in checks.events]
+    assert failed == [{'status': 'done', 'updatable': None, 'ui_ids': ['a page that asks during the check', 'the page']}]
+    assert len(checks.started) == 1
+
+    checks.started.pop()()
+    order, queue_run = run_a_task_of_the_queue(core, monkeypatch, checks.update_check_done)
+    queue_run.join(5)
+
+    assert [event for name, event in checks.events[len(failed):]] == [
+        {'status': 'done', 'updatable': None, 'ui_ids': ['a page that asks after it']}]
+    assert order == ['the task']
+
+
+def test_a_task_of_the_queue_waits_for_the_check_that_runs(core, custom_nodes, monkeypatch):  # noqa: F811
+    update_check_done = threading.Event()
+
+    order, queue_run = run_a_task_of_the_queue(core, monkeypatch, update_check_done)
     queue_run.join(0.5)
     order.append('the check ends')
     update_check_done.set()
