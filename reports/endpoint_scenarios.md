@@ -297,7 +297,7 @@ Endpoints in this section exist **only in the legacy server** (not registered in
 - **Scenarios**:
   1. Success — starts a background check that fetches the enabled git packs of the list and answers `{}` at once → 200. The check reports by the `cm-check-update` event (`in_progress` with `done_count`/`total_count`, then `done` with `updatable` and the `ui_ids` of the requests it answers)
   2. A check already runs — no second check is started; the nodepacks of this request that the running check does not have are added to it (`total_count` grows), and its `done` names this request too → 200
-  3. A task of the queue that is taken while a check runs waits for the check to end
+  3. A task on nodepacks that the queue takes while a check runs waits for the check to end; a model download and an update of ComfyUI do not wait
   4. The check fails — `done` with `updatable: null` names the requests that waited, and the page shows `Failed to check updates.`
 
 ### GET /v2/customnode/getlist

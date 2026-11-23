@@ -64,6 +64,7 @@ def run(steps, check_answers=(TAKEN,), ends_before_the_answer=None):
         const api = {addEventListener: (name, listener) => { heard[name] = listener; }};
         (function() { %(registrations)s }).call(self);
         const checkAnswers = %(check_answers)s;
+        const answeredLater = [];
         const fetchData = async (route, options = {}) => {
             calls.push((options.method ?? 'GET') + ' ' + route + (options.body ? ' ' + options.body : ''));
             if(!route.endsWith('/check_update')) {
@@ -72,7 +73,8 @@ def run(steps, check_answers=(TAKEN,), ends_before_the_answer=None):
             if(%(ends_before_the_answer)s) {
                 heard['cm-check-update']({detail: %(ends_before_the_answer)s});
             }
-            return checkAnswers.length > 1 ? checkAnswers.shift() : checkAnswers[0];
+            const answer = checkAnswers.length > 1 ? checkAnswers.shift() : checkAnswers[0];
+            return answer == 'later' ? new Promise((resolve) => answeredLater.push(resolve)) : answer;
         };
 
         const settle = async () => {
@@ -85,6 +87,9 @@ def run(steps, check_answers=(TAKEN,), ends_before_the_answer=None):
             calls.length = 0;
             if(kind == 'load') {
                 self.loadData(value);
+            }
+            else if(kind == 'answer') {
+                answeredLater.shift()(value);
             }
             else {
                 await heard[kind]?.({detail: value});
@@ -199,6 +204,14 @@ def test_a_check_that_the_server_does_not_take_after_the_connection_came_back_en
     data = run([["load", "Update"], RECONNECTED, result("git-b")], check_answers=[TAKEN, {"status": 404, "error": "Not Found"}])
 
     assert data["steps"][1:] == [[CHECK, "error: Failed to check updates.", LOADED], []]
+
+
+def test_the_late_failure_of_an_earlier_request_does_not_end_the_check_that_was_asked_for_after_it():
+    data = run([["load", "Update"], ["load", "Update"], ["answer", {"status": 400, "error": "Bad Request"}],
+                result("git-b", of="check-2")], check_answers=["later", TAKEN])
+
+    assert data["steps"][2:] == [[], ["status: Loading custom nodes (cache) ...", LIST,
+                                      "shown as updatable: git-b versioned-with-update", LOADED]]
 
 
 def test_a_check_that_ends_after_another_list_was_opened_leaves_that_list():

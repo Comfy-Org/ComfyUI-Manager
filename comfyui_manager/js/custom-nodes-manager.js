@@ -1735,12 +1735,14 @@ export class CustomNodesManager {
 	}
 
 	async askForCheck(mode) {
+		const ui_id = this.checkId;
 		const { error } = await fetchData('/v2/customnode/check_update', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ mode, ui_id: this.checkId })
+			body: JSON.stringify({ mode, ui_id })
 		});
-		if(error) {
+		// the answer to a request of an earlier check says nothing about the check that is waited for now
+		if(error && ui_id == this.checkId) {
 			this.resumeLoad?.();
 			this.resumeLoad = undefined;
 		}

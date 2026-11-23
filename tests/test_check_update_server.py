@@ -1,6 +1,7 @@
 import ast
 import asyncio
 import logging
+import os
 import threading
 import traceback
 from collections import deque
@@ -126,16 +127,49 @@ def check_for_updates(core, fetched, mode='cache'):  # noqa: F811
             'check': [event for name, event in checks.events if name == 'cm-check-update']}
 
 
-def run_a_task_of_the_queue(core, monkeypatch, update_check_done):  # noqa: F811
+class EndMark(threading.Event):
+    def __init__(self):
+        super().__init__()
+        self.queue_waits = threading.Event()
+
+    def wait(self):
+        self.queue_waits.set()
+        super().wait()
+
+
+DISABLE = ('disable', ('a-row', 'ComfyUI-Foo', False))
+
+
+def run_the_queue(core, monkeypatch, update_check_done, *tasks):  # noqa: F811
     order = []
+    scratch = Path(core.get_default_custom_nodes_path()).parent
+    core.get_config()['model_download_by_agent'] = True
+    monkeypatch.setattr(core, 'update_path', lambda path: order.append('ComfyUI is updated') or 'skipped')
     monkeypatch.setattr(core.unified_manager, 'unified_disable', lambda node_name, is_unknown: order.append('the task') or True)
-    namespace = server({'task_worker', 'TaskBatch'}, core=core, logging=logging, traceback=traceback,
+    monkeypatch.setattr(core.unified_manager, 'unified_enable', lambda cnr_id: order.append('the task'))
+    monkeypatch.setattr(core.unified_manager, 'unified_update', lambda node_name, node_ver: order.append('the task') or SimpleNamespace(
+        ver='unknown', result=True, action='skip'))
+    namespace = server({'task_worker', 'TaskBatch'}, core=core, logging=logging, traceback=traceback, os=os,
+                       folder_paths=SimpleNamespace(__file__=str(scratch / 'folder_paths.py')),
+                       get_model_path=lambda data: str(scratch / data['filename']),
+                       download_url_with_agent=lambda url, path: order.append('the model is downloaded') or True,
+                       manager_util=SimpleNamespace(clear_pip_cache=lambda: None), replaces_cnr_with_nightly=lambda node_id: False,
                        update_check_done=update_check_done, tasks_in_progress=set(), task_worker_lock=threading.Lock(),
                        PromptServer=SimpleNamespace(instance=SimpleNamespace(send_sync=lambda name, data: None)))
-    namespace['task_batch_queue'] = deque([namespace['TaskBatch'](None, [('disable', ('a-row', 'ComfyUI-Foo', False))], None)])
+    namespace['task_batch_queue'] = deque([namespace['TaskBatch'](None, list(tasks), None)])
     queue_run = threading.Thread(target=lambda: asyncio.run(namespace['task_worker']()), daemon=True)
     queue_run.start()
     return order, queue_run
+
+
+def run_the_queue_during_a_check(core, monkeypatch, *tasks):  # noqa: F811
+    update_check_done = EndMark()
+    order, queue_run = run_the_queue(core, monkeypatch, update_check_done, *tasks)
+    update_check_done.queue_waits.wait(5)
+    order.append('the check ends')
+    update_check_done.set()
+    queue_run.join()
+    return order
 
 
 def progress(total):
@@ -332,7 +366,7 @@ def test_a_check_that_fails_tells_the_pages_that_wait_for_it_and_does_not_hold_t
     assert len(checks.started) == 1
 
     checks.started.pop()()
-    order, queue_run = run_a_task_of_the_queue(core, monkeypatch, checks.update_check_done)
+    order, queue_run = run_the_queue(core, monkeypatch, checks.update_check_done, DISABLE)
     queue_run.join(5)
 
     assert [event for name, event in checks.events[len(failed):]] == [
@@ -340,16 +374,19 @@ def test_a_check_that_fails_tells_the_pages_that_wait_for_it_and_does_not_hold_t
     assert order == ['the task']
 
 
-def test_a_task_of_the_queue_waits_for_the_check_that_runs(core, custom_nodes, monkeypatch):  # noqa: F811
-    update_check_done = threading.Event()
+@pytest.mark.parametrize('task', [DISABLE, ('enable', ('a-row', 'comfyui-foo')), ('update-main', ('ComfyUI-Foo', 'ComfyUI-Foo', 'unknown'))],
+                         ids=['disable', 'enable', 'Update-All'])
+def test_a_task_of_the_queue_waits_for_the_check_that_runs(core, custom_nodes, monkeypatch, task):  # noqa: F811
+    assert run_the_queue_during_a_check(core, monkeypatch, task) == ['the check ends', 'the task']
 
-    order, queue_run = run_a_task_of_the_queue(core, monkeypatch, update_check_done)
-    queue_run.join(0.5)
-    order.append('the check ends')
-    update_check_done.set()
-    queue_run.join()
 
-    assert order == ['the check ends', 'the task']
+@pytest.mark.parametrize('task, work', [
+    (('install-model', ('a-model', {'name': 'a', 'url': 'https://example.invalid/a.safetensors', 'filename': 'a.safetensors'})),
+     'the model is downloaded'),
+    (('update-comfyui', ('comfyui', False)), 'ComfyUI is updated'),
+], ids=['a-model-download', 'an-update-of-ComfyUI'])
+def test_a_model_download_and_an_update_of_ComfyUI_do_not_wait_for_the_check(core, custom_nodes, monkeypatch, task, work):  # noqa: F811
+    assert run_the_queue_during_a_check(core, monkeypatch, task, DISABLE) == [work, 'the check ends', 'the task']
 
 
 def test_the_request_that_fetched_inside_itself_is_gone(core, custom_nodes, fetched):  # noqa: F811
