@@ -291,12 +291,21 @@ Endpoints in this section exist **only in the legacy server** (not registered in
   7. `install` with security gate fail → failed set entry
   8. Empty body `{}` → 200 `{failed: []}`
 
+### POST /v2/customnode/check_update
+- **Handler**: `check_update`
+- **Body**: `{mode, ui_id}` (required; `ui_id` is chosen by the client)
+- **Scenarios**:
+  1. Success — starts a background check that fetches the enabled git packs of the list and answers `{}` at once → 200. The check reports by the `cm-check-update` event (`in_progress` with `done_count`/`total_count`, then `done` with `updatable` and the `ui_ids` of the requests it answers)
+  2. A check already runs — no second check is started; the nodepacks of this request that the running check does not have are added to it (`total_count` grows), and its `done` names this request too → 200
+  3. A task on nodepacks that the queue takes while a check runs waits for the check to end; a model download and an update of ComfyUI do not wait
+  4. The check fails — `done` with `updatable: null` names the requests that waited, and the page shows `Failed to check updates.`
+
 ### GET /v2/customnode/getlist
 - **Handler**: `fetch_customnode_list` (L1018)
-- **Query**: `mode` (required), `skip_update?` (bool string)
+- **Query**: `mode` (required), `skip_update?` (not used)
 - **Scenarios**:
-  1. Success — returns `{channel, node_packs}` with installed/update state populated → 200
-  2. `skip_update=true` — skips git update check (faster)
+  1. Success — returns `{channel, node_packs}` with installed state and the update state of versioned packs populated → 200
+  2. With or without `skip_update` — no git fetch; the page marks the git packs that have an update from the result of `POST /v2/customnode/check_update`
   3. Removes comfyui-manager self-entry from results
   4. Channel lookup resolves to 'default'/'custom'/known name
 
@@ -385,7 +394,7 @@ These paths exist in BOTH glob and legacy files (29 endpoints). Semantics are ty
 
 # Deprecated / Removed
 
-- **GET /v2/customnode/fetch_updates** — glob returns 410; legacy still attempts fetch (may succeed but deprecated in concept)
+- **GET /v2/customnode/fetch_updates** — glob and legacy return 410
 - **Individual queue/{install,uninstall,update,fix,disable,reinstall,abort_current}** — removed from legacy in recent work (replaced by queue/batch aggregator)
 - **GET /manager/notice** (v1, no /v2 prefix) — removed from legacy
 
