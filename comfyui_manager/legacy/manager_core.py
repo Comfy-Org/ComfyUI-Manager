@@ -1825,6 +1825,7 @@ def read_config():
             return default_conf[key].lower() == 'true' if key in default_conf else False
 
         manager_util.use_uv = default_conf['use_uv'].lower() == 'true' if 'use_uv' in default_conf else False
+        manager_util.apply_dependency_management_setting(default_conf.get('dependency_management'))
         manager_util.bypass_ssl = get_bool('bypass_ssl', False)
 
         return with_valid_values({

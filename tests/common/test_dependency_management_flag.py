@@ -68,6 +68,13 @@ class DependencyManagementFlagTest(unittest.TestCase):
         # Default must preserve today's behavior.
         self.assertTrue(self._prev)
 
+    def test_environment_is_applied_when_the_module_loads(self):
+        # A cm-cli process loads manager_util without running prestartup_script.
+        for environment, expected in [({"COMFYUI_MANAGER_DEPENDENCY_MANAGEMENT": "off"}, False), ({}, True)]:
+            with self.subTest(environment=environment):
+                with mock.patch.dict(os.environ, environment, clear=True):
+                    self.assertEqual(_import_manager_util().dependency_management_enabled, expected)
+
     def test_pip_fixer_short_circuits_when_disabled(self):
         self.manager_util.dependency_management_enabled = False
 
@@ -141,12 +148,19 @@ class StartupDependencyPolicyTest(unittest.TestCase):
                     self.namespace["read_dependency_management_mode"]()
                 self.assertEqual(self.manager_util.dependency_management_enabled, expected)
 
-    def test_lazy_requirements_are_skipped_when_disabled(self):
+    def test_lazy_requirements_of_a_scheduled_install_still_install_when_disabled(self):
+        # An install or update the user scheduled for the restart is explicit: its requirements are installed.
         self.manager_util.dependency_management_enabled = False
         with tempfile.TemporaryDirectory() as directory:
             Path(directory, "requirements.txt").write_text("example-package==1.0\n")
-            self.namespace["execute_lazy_install_script"](directory, sys.executable)
-        self.namespace["process_wrap"].assert_not_called()
+            with (
+                mock.patch.object(self.manager_util, "robust_readlines", return_value=["example-package==1.0\n"]),
+                mock.patch.object(self.manager_util, "make_pip_cmd", return_value=["pip", "install", "example-package==1.0"]),
+            ):
+                self.namespace["execute_lazy_install_script"](directory, sys.executable)
+            self.namespace["process_wrap"].assert_called_once_with(
+                ["pip", "install", "example-package==1.0"], directory
+            )
 
     def test_lazy_requirements_are_installed_when_enabled(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -169,7 +183,8 @@ class StartupDependencyPolicyTest(unittest.TestCase):
             self.assertEqual(call.args, ([sys.executable, "install.py"], directory))
             self.assertEqual(call.kwargs["env"]["COMFYUI_FOLDERS_BASE_PATH"], self.namespace["comfy_path"])
 
-    def test_disabled_startup_preserves_explicit_resolver_preference(self):
+    def test_disabled_startup_turns_the_resolver_off_so_installs_use_pip(self):
+        # The resolver batch does not run, so an install must not defer its requirements to it.
         self.manager_util.dependency_management_enabled = False
         self.manager_util.use_unified_resolver = True
         _load_startup_nodes(
@@ -177,7 +192,7 @@ class StartupDependencyPolicyTest(unittest.TestCase):
             lambda node: isinstance(node, ast.If)
             and any(isinstance(part, ast.Attribute) and part.attr == "use_unified_resolver" for part in ast.walk(node.test)),
         )
-        self.assertTrue(self.manager_util.use_unified_resolver)
+        self.assertFalse(self.manager_util.use_unified_resolver)
         self.assertFalse(self.namespace["_unified_resolver_succeeded"])
 
 

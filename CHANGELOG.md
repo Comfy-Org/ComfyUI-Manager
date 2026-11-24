@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Added
+
+- `dependency_management = off` turns off the changes that the Manager makes
+  to Python packages on its own. On a Python that cannot be changed, such as
+  one of Nix, Guix or a distribution, the Manager ran pip at every start and
+  after an install. It could uninstall `comfy`, install torch again and
+  install the packages of `pip_auto_fix.list`, and with
+  `use_unified_resolver = True` the startup batch of the resolver installed
+  packages (#2851). With `dependency_management = off` in the `[default]`
+  section of `config.ini`, or `COMFYUI_MANAGER_DEPENDENCY_MANAGEMENT=off`,
+  none of this runs, in the server or in `cm-cli`, and installs use pip for
+  each nodepack in place of the resolver. The environment variable wins over
+  `config.ini`. An install or update that is asked for, also one applied at
+  the next restart, still installs its requirements, and the `install.py` of
+  a nodepack still runs. The setting is on by default, and while it is unset
+  nothing changes.
+
 ## [4.4.3] - 2026-11-24
 
 ### Changed

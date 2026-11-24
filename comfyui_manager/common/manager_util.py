@@ -35,11 +35,10 @@ use_unified_resolver = False
 bypass_ssl = False
 
 # When False, ComfyUI-Manager will not attempt to install, upgrade, or
-# uninstall Python packages on its own (prestartup auto-healing, the unified
-# dependency resolver, and per-node `pip install -r requirements.txt`). This
-# is intended for distro-packaged or otherwise externally-managed Python
-# environments (e.g. Nix, Guix, system package managers, locked-down
-# corporate images) where the interpreter is read-only.
+# uninstall Python packages on its own (prestartup auto-healing and the unified
+# dependency resolver batch). This is intended for distro-packaged or otherwise
+# externally-managed Python environments (e.g. Nix, Guix, system package
+# managers, locked-down corporate images) where the interpreter is read-only.
 #
 # Read-only pip operations (`list`, `freeze`, `show`) still run so the UI,
 # inventory, and security checks keep working.
@@ -56,6 +55,27 @@ def is_off_value(value):
     as "on", so a typo doesn't silently disable dependency management.
     """
     return value.strip().lower() in _OFF_VALUES
+
+
+DEPENDENCY_MANAGEMENT_ENV = 'COMFYUI_MANAGER_DEPENDENCY_MANAGEMENT'
+
+
+def apply_dependency_management_setting(config_value=None):
+    """Set `dependency_management_enabled` from the environment, else from config.ini's value.
+
+    The environment wins over config.ini; with neither, the current value stays. Every process
+    that loads this module (the server, cm-cli, the cm-cli that the startup runs) applies the
+    environment."""
+    global dependency_management_enabled
+    value = os.environ.get(DEPENDENCY_MANAGEMENT_ENV)
+    if value is None:
+        value = config_value
+    if value is not None:
+        dependency_management_enabled = not is_off_value(value)
+    return dependency_management_enabled
+
+
+apply_dependency_management_setting()
 
 
 def is_manager_pip_package():

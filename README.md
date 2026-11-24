@@ -230,9 +230,9 @@ The following settings are applied based on the section marked as `is_default`.
       - offline: An environment that does not use any external connections when using an offline network. (Uses cache if available)
       - personal_cloud: Applies relaxed security features in cloud environments such as Google Colab or Runpod, where strong security is not required.
 
-    * `dependency_management = off` skips PIPFixer auto-healing, the startup unified dependency resolver, and per-node requirements installation during lazy startup processing. Read-only package inventory operations remain available.
+    * `dependency_management = off` skips PIPFixer auto-healing (in the server and in cm-cli) and the startup unified dependency resolver; with the resolver skipped, installs use per-node pip. Read-only package inventory operations remain available.
       - `COMFYUI_MANAGER_DEPENDENCY_MANAGEMENT=on|off` overrides the config setting. `false`, `0`, `no`, and `disabled` also disable it (case-insensitive).
-      - Explicit install/update commands and custom-node `install.py` scripts remain available and can modify the environment. This setting is not a sandbox; externally-managed installations should use `--no-deps` for explicit node operations where supported and provision dependencies separately.
+      - Explicit install/update commands, including those applied at the next restart, and custom-node `install.py` scripts remain available and can modify the environment. This setting is not a sandbox; externally-managed installations should use `--no-deps` for explicit node operations where supported and provision dependencies separately.
 
 
 ## Additional Feature

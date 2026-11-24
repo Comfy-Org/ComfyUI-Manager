@@ -100,14 +100,10 @@ def read_dependency_management_mode():
     # Config: [default] dependency_management = on|off (default on).
     # Env override: COMFYUI_MANAGER_DEPENDENCY_MANAGEMENT=on|off wins over config.
     # `off` opts out of automatic Python-package mutation Manager performs at
-    # startup (PIPFixer auto-heal, unified resolver, per-node pip install).
+    # startup (PIPFixer auto-heal, unified resolver batch).
     # Intended for distro-packaged / externally-managed Python environments
     # where the interpreter is read-only (Nix, Guix, system packages, etc.).
-    env_value = os.environ.get('COMFYUI_MANAGER_DEPENDENCY_MANAGEMENT')
-    if env_value is not None:
-        manager_util.dependency_management_enabled = not manager_util.is_off_value(env_value)
-    elif 'dependency_management' in default_conf:
-        manager_util.dependency_management_enabled = not manager_util.is_off_value(default_conf['dependency_management'])
+    manager_util.apply_dependency_management_setting(default_conf.get('dependency_management'))
 
     if not manager_util.dependency_management_enabled:
         logging.info("[ComfyUI-Manager] dependency management disabled; auto-install/upgrade/uninstall paths will be skipped.")
@@ -661,11 +657,7 @@ def execute_lazy_install_script(repo_path, executable):
     install_script_path = os.path.join(repo_path, "install.py")
     requirements_path = os.path.join(repo_path, "requirements.txt")
 
-    if (
-        os.path.exists(requirements_path)
-        and not _unified_resolver_succeeded
-        and manager_util.dependency_management_enabled
-    ):
+    if os.path.exists(requirements_path) and not _unified_resolver_succeeded:
         # Per-node pip install: only runs if unified resolver is disabled or failed
         print(f"Install: pip packages for '{repo_path}'")
 
@@ -840,7 +832,8 @@ def execute_startup_script():
 # --- Unified dependency resolver: batch resolution at startup ---
 # Runs unconditionally when enabled, independent of install-scripts.txt existence.
 if manager_util.use_unified_resolver and not manager_util.dependency_management_enabled:
-    logging.info("[ComfyUI-Manager] dependency management disabled; skipping unified dependency resolver")
+    logging.info("[ComfyUI-Manager] dependency management disabled; skipping unified dependency resolver, installs use per-node pip")
+    manager_util.use_unified_resolver = False
 elif manager_util.use_unified_resolver:
     try:
         from .common.unified_dep_resolver import (
