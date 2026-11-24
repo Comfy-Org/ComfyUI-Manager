@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### The Share setting None hides the Share button of the top bar
+
+The Share setting of the Manager dialog offers None to hide the Share button.
+It hid only the Share button of the old menu. The Manager also puts a Share
+button into its group of buttons on the top bar of ComfyUI, and that one was
+shown for every value of the setting (#3140). It is now hidden when the
+setting is None, at page load and when the setting is changed to None. A
+change to another value shows it again without a reload. What the button does
+is not changed.
+
 ### Check Update no longer stops the server, and shows how far it is
 
 Check Update in the Custom Nodes Manager fetched every git nodepack inside the
