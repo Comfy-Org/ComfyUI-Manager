@@ -76,21 +76,28 @@ def aria2_find_task(dir: str, filename: str):
 
 
 def aria2_download_url(model_url: str, model_dir: str, filename: str):
-    import manager_core as core
+    try:
+        from comfyui_manager.common import context
+    except ImportError:
+        import manager_core as context
     import tqdm
     import time
 
-    if model_dir.startswith(core.comfy_path):
-        model_dir = model_dir[len(core.comfy_path) :]
+    local_path = os.path.join(model_dir, filename)
+
+    if model_dir.startswith(context.comfy_path):
+        model_dir = model_dir[len(context.comfy_path) :]
 
     download_dir = model_dir if model_dir.startswith('/') else os.path.join('/models', model_dir)
 
     download = aria2_find_task(download_dir, filename)
-    if download is None:
+    if download is not None and download.is_complete and os.path.exists(local_path):
+        return
+    if download is None or not (download.is_active or download.is_waiting):
         options = {'dir': download_dir, 'out': filename}
         download = aria2.add(model_url, options)[0]
 
-    if download.is_active:
+    if download.is_active or download.is_waiting:
         with tqdm.tqdm(
             total=download.total_length,
             bar_format='{l_bar}{bar}{r_bar}',
@@ -98,12 +105,18 @@ def aria2_download_url(model_url: str, model_dir: str, filename: str):
             unit='B',
             unit_scale=True,
         ) as progress_bar:
-            while download.is_active:
+            while download.is_active or download.is_waiting:
                 if progress_bar.total == 0 and download.total_length != 0:
                     progress_bar.reset(download.total_length)
                 progress_bar.update(download.completed_length - progress_bar.n)
                 time.sleep(1)
                 download.update()
+
+    if download.has_failed:
+        raise Exception(f"aria2 failed to download '{model_url}' into '{download_dir}': {download.error_message}")
+    if not os.path.exists(local_path):
+        raise Exception(f"aria2 saved '{filename}' into its '{download_dir}', but the file is not at '{local_path}'. "
+                        "aria2 must see the ComfyUI folder as '/' (see docs/en/use_aria2.md).")
 
 
 def download_url_with_agent(url, save_path):
