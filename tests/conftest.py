@@ -9,8 +9,7 @@ a constructed ``PromptServer``). pytest 8 collects any ancestor
 directory that carries an ``__init__.py`` as a ``Package`` node and
 IMPORTS that ``__init__.py`` during test setup (observed module name:
 ``__init__``). Outside a live ComfyUI process that import can never
-succeed, so EVERY test under tests/ errors at setup — including the
-pre-existing tests/test_csrf_content_type_helper.py — whenever pytest's
+succeed, so EVERY test under tests/ errors at setup whenever pytest's
 rootdir ends up at or above the repo root (e.g. running inside a git
 worktree nested under the parent checkout).
 
@@ -21,7 +20,7 @@ executing the plugin entrypoint. Conftest files load before the setup
 phase, so the stub is always in place in time. This does NOT touch
 production code and does NOT alter what the tests import themselves
 (they use AST-extraction / subprocess isolation per the
-tests/test_csrf_content_type_helper.py precedent — ``glob/`` is never
+tests/test_json_body_content_type.py precedent — ``glob/`` is never
 added to the runner's sys.path).
 """
 import sys

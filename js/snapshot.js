@@ -1,13 +1,22 @@
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js"
 import { ComfyDialog, $el } from "../../scripts/ui.js";
-import { manager_instance, rebootAPI, show_message, handle403Response, loadCss } from  "./common.js";
+import { manager_instance, rebootAPI, show_message, handle403Response, loadCss, sanitizeHTML } from  "./common.js";
 import { buildGuiFrame } from "./comfyui-gui-builder.js";
 
 loadCss("./snapshot.css");
 
+// The server gives its reason as plain text, and most refusals carry none.
+// For those, and for the error page of a proxy, show the status line.
+async function failureReason(response) {
+	const plain = (response.headers.get('Content-Type') || '').startsWith('text/plain');
+	const text = plain ? await response.text() : '';
+	return sanitizeHTML(text || `HTTP ${response.status} ${response.statusText}`.trim());
+}
+
 async function restore_snapshot(target) {
 	if(SnapshotManager.instance) {
+		let success = false;
 		try {
 			const response = await api.fetchApi('/snapshot/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target: target }), cache: "no-store" });
 
@@ -16,20 +25,24 @@ async function restore_snapshot(target) {
 				return false;
 			}
 
-			if(response.status == 400) {
-				show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+			if(!response.ok) {
+				show_message(`Restore snapshot failed: ${sanitizeHTML(String(target))} / ${await failureReason(response)}`);
+				return false;
 			}
 
 			app.ui.dialog.close();
+			success = true;
 			return true;
 		}
 		catch(exception) {
-			show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+			show_message(`Restore snapshot failed: ${sanitizeHTML(String(target))} / ${sanitizeHTML(String(exception))}`);
 			return false;
 		}
 		finally {
 			await SnapshotManager.instance.invalidateControl();
-			SnapshotManager.instance.updateMessage("<BR>To apply the snapshot, please <button id='cm-reboot-button2' class='p-button p-component'>RESTART</button> ComfyUI. And refresh browser.", 'cm-reboot-button2');
+			if(success) {
+				SnapshotManager.instance.updateMessage("<BR>To apply the snapshot, please <button id='cm-reboot-button2' class='cm-ui-button'>RESTART</button> ComfyUI. And refresh browser.", 'cm-reboot-button2');
+			}
 		}
 	}
 }
@@ -44,15 +57,16 @@ async function remove_snapshot(target) {
 				return false;
 			}
 
-			if(response.status == 400) {
-				show_message(`Remove snapshot failed: ${target.title} / ${exception}`);
+			if(!response.ok) {
+				show_message(`Remove snapshot failed: ${sanitizeHTML(String(target))} / ${await failureReason(response)}`);
+				return false;
 			}
 
 			app.ui.dialog.close();
 			return true;
 		}
 		catch(exception) {
-			show_message(`Restore snapshot failed: ${target.title} / ${exception}`);
+			show_message(`Remove snapshot failed: ${sanitizeHTML(String(target))} / ${sanitizeHTML(String(exception))}`);
 			return false;
 		}
 		finally {
@@ -63,7 +77,7 @@ async function remove_snapshot(target) {
 
 async function save_current_snapshot() {
 	try {
-		const response = await api.fetchApi('/snapshot/save', { method: 'POST', cache: "no-store" });
+		const response = await api.fetchApi('/snapshot/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: "no-store" });
 		app.ui.dialog.close();
 		return true;
 	}
@@ -122,7 +136,7 @@ export class SnapshotManager extends ComfyDialog {
 
 	createControls() {
 		return [
-			$el("button.p-button.p-component", {
+			$el("button.cm-ui-button", {
 				type: "button",
 				textContent: "Close",
 				onclick: () => { this.close(); }
@@ -133,7 +147,7 @@ export class SnapshotManager extends ComfyDialog {
 	startRestore(target) {
 		const self = SnapshotManager.instance;
 
-		self.updateMessage(`<BR><font color="green">Restore snapshot '${target.name}'</font>`);
+		self.updateMessage(`<BR><font color="green">Restore snapshot '${sanitizeHTML(target.name)}'</font>`);
 
 		for(let i in self.restore_buttons) {
 			self.restore_buttons[i].disabled = true;
@@ -214,13 +228,13 @@ export class SnapshotManager extends ComfyDialog {
 				data1.style.textAlign = "center";
 				data1.innerHTML = i+1;
 				var data2 = document.createElement('td');
-				data2.innerHTML = `&nbsp;${data}`;
+				data2.innerHTML = `&nbsp;${sanitizeHTML(data)}`;
 				var data_button = document.createElement('td');
 				data_button.style.textAlign = "center";
 				data_button.className = "data-btns";
 
 				var restoreBtn = document.createElement('button');
-				restoreBtn.className = "snapshot-restore-btn p-button p-component";
+				restoreBtn.className = "snapshot-restore-btn cm-ui-button";
 				restoreBtn.innerHTML = 'Restore';
 				restoreBtn.style.width = "100px";
 
@@ -229,7 +243,7 @@ export class SnapshotManager extends ComfyDialog {
 				});
 
 				var removeBtn = document.createElement('button');
-				removeBtn.className = "snapshot-remove-btn p-button p-component";
+				removeBtn.className = "snapshot-remove-btn cm-ui-button";
 				removeBtn.innerHTML = 'Remove';
 				removeBtn.style.width = "100px";
 
@@ -279,7 +293,7 @@ export class SnapshotManager extends ComfyDialog {
 
 	async createBottomControls() {
 		var save_button = document.createElement("button");
-		save_button.className = "p-button p-component";
+		save_button.className = "cm-ui-button";
 		save_button.innerHTML = "Save snapshot";
 		save_button.onclick = () => { save_current_snapshot(); }
 		save_button.style.horizontalAlign = "right";

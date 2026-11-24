@@ -129,8 +129,7 @@ This repository provides Colab notebooks that allow you to install and use Comfy
   ![menu](https://raw.githubusercontent.com/ltdrdata/ComfyUI-extension-tutorials/Main/ComfyUI-Manager/images/topbar.jpg) ![share](https://raw.githubusercontent.com/ltdrdata/ComfyUI-extension-tutorials/Main/ComfyUI-Manager/images/share.jpg) 
 
   * You can share the workflow by clicking the Share button at the bottom of the main menu or selecting Share Output from the Context Menu of the Image node.
-  * Currently, it supports sharing via [https://comfyworkflows.com/](https://comfyworkflows.com/),
-    [https://openart.ai](https://openart.ai/workflows/dev), [https://youml.com](https://youml.com) 
+  * Currently, it supports sharing via [https://youml.com](https://youml.com)
     as well as through the Matrix channel.
 
   ![menu](https://raw.githubusercontent.com/ltdrdata/ComfyUI-extension-tutorials/Main/ComfyUI-Manager/images/share-setting.jpg)
@@ -179,7 +178,7 @@ The following settings are applied based on the section marked as `is_default`.
 * Press the "Restore" button to revert to the installation status of the respective snapshot.
   * However, for custom nodes not managed by Git, snapshot support is incomplete.
 * When you press `Restore`, it will take effect on the next ComfyUI startup.
-  * The selected snapshot file is saved in `<USER_DIRECTORY>/default/ComfyUI-Manager/startup-scripts/restore-snapshot.json`, and upon restarting ComfyUI, the snapshot is applied and then deleted.
+  * The selected snapshot file is saved in `<USER_DIRECTORY>/__manager/startup-scripts/restore-snapshot.json`, and upon restarting ComfyUI, the snapshot is applied and then deleted.
 
 ![model-install-dialog](https://raw.githubusercontent.com/ltdrdata/ComfyUI-extension-tutorials/Main/ComfyUI-Manager/images/snapshot.jpg)
 
@@ -307,6 +306,7 @@ The following settings are applied based on the section marked as `is_default`.
     ```
       downgrade_blacklist = diffusers, kornia
     ```
+    * Names are matched without regard to case or to `-`, `_`, and `.`, so `opencv-python` and `opencv_python` are the same package.
 
 * Custom pip mapping
   * When you create the `pip_overrides.json` file, it changes the installation of specific pip packages to installations defined by the user.
@@ -386,6 +386,8 @@ When you run the `scan.sh` script:
   * `high` level risky features
     * Downloading models that are not in `.safetensors` format and not
       registered in the `default channel` model list
+    * Switch ComfyUI to an older version
+    * Restore Snapshot
     * NOTE: `Install via git url`, `pip install`, and installation of custom nodes
       not registered in the `default channel` are **no longer governed by
       `security_level`** — they are governed by the dedicated install flags
@@ -395,7 +397,7 @@ When you run the `scan.sh` script:
     * Uninstall/Update
     * Installation of custom nodes registered in the `default channel`.
     * Fix custom nodes
-    * Restore/Remove Snapshot
+    * Remove Snapshot
     * Restart
   
   * `low` level risky features
@@ -456,6 +458,51 @@ Changes take effect after a **restart** (no hot reload).
 > install-via-git-URL / pip install, you must opt in explicitly with the flags
 > above. See `CHANGELOG.md` for details, including a behavior note for
 > outdated ComfyUI deployments.
+
+
+### Flagged CNR versions: `allow_flagged_nodepack_install`
+
+Manager checks the version status in the existing CNR install response; no
+additional Registry request is needed. Active versions continue to install
+normally, subject to the existing security policy. Registry refusals (including
+HTTP 404) still prevent installation.
+
+Flagged versions must also satisfy the existing security policy and Registry
+checks. In addition, they require either **all** `--listen` addresses to be
+loopback, such as `127.0.0.1` or `::1`, or the explicit override below.
+A mixed loopback/non-loopback listener is non-local.
+
+For a **trusted private network**, administrators can explicitly allow flagged
+versions on non-loopback listeners:
+
+```ini
+[default]
+allow_flagged_nodepack_install = true
+```
+
+The default is `false`; only the case-insensitive value `true` enables it.
+Restart ComfyUI after editing the setting. This option does not detect private
+networks and is independent of `network_mode`. It does not bypass
+`security_level`, `allow_git_url_install`, or `allow_pip_install`.
+
+When the flagged-version check denies an action, the UI reports that the current
+security configuration does not allow it and directs users to the terminal.
+Only the terminal provides the loopback-only `--listen` examples, the private
+network override setting, and the instruction to restart ComfyUI after changes.
+
+Enabling an already installed version does not query the Registry or reinstall it.
+Older deferred switches without a stored status require loopback-only listeners
+or the override. Otherwise they are rejected without changing the installed pack;
+request the installation again so Manager can check its current Registry status.
+
+The check applies to server-initiated installation, reinstallation, version switches, updates,
+and snapshot restores. A policy refusal preserves the existing nodepack.
+Scheduled version switches save the returned status and check the current
+listener and setting again at startup, before downloading or running scripts.
+Server-scheduled snapshot restores inherit the permission computed from the
+server's current listener and setting. Standalone `cm-cli` commands remain local
+administrator operations and do not use the server listener policy.
+Saved statuses are not refreshed from the Registry.
 
 
 # Disclaimer
