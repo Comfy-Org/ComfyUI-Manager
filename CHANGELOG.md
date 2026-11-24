@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Fixed
+
+- On a Manager installed as a pip package, `cm-cli --mode remote` and the
+  `Channel (remote)` choice of the legacy Manager menu read the lists from the
+  channel, and cache what they read. They read the cached list, or the list
+  that comes with the package when nothing was cached, so a nodepack added to
+  the channel since then was missing (#3590). When the channel cannot be
+  reached, they read the cached list or the one of the package, as before.
+
 ## [4.4.3] - 2026-11-24
 
 ### Changed

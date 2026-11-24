@@ -3,7 +3,8 @@
 The channel is a local HTTP server. The startup cache update and `get_data_by_mode`
 are the real functions of each server, run against a temporary cache directory and a
 temporary bundled list. The Manager is laid out as an installed package, so the lists
-are read from the cache that the startup cache update writes.
+are read from the cache that the startup cache update writes. In `remote` mode the list
+is read from the channel, and the cached list is kept when the channel fails (#3590).
 """
 import asyncio
 import json
@@ -51,12 +52,12 @@ def manager_util(tmp_path, monkeypatch):
     return manager_util
 
 
-def load_server(server, manager_util, channel_url):
+def load_server(server, manager_util, channel_url, network_mode="public"):
     """The startup cache update and `get_data_by_mode` of `server`, set to read `channel_url`."""
     async def loaded(*args, **kwargs):
         pass
 
-    config = {"channel_url": channel_url, "network_mode": "public", "default_cache_as_channel_url": True}
+    config = {"channel_url": channel_url, "network_mode": network_mode, "default_cache_as_channel_url": True}
     core = SimpleNamespace(get_config=lambda: config, refresh_channel_dict=lambda: None, check_invalid_nodes=lambda: None,
                            unified_manager=SimpleNamespace(reload=loaded, get_custom_nodes=loaded))
     remote = SimpleNamespace(remote=SimpleNamespace(value="remote"))
@@ -160,6 +161,38 @@ def test_list_from_the_channel_is_read_from_the_cache(manager_util, server):
         return first, second, channel.requests
 
     assert run(scenario) == (SERVED, SERVED, STARTUP_FILES)
+
+
+@pytest.mark.parametrize("server", SERVERS)
+def test_remote_mode_reads_the_list_from_the_channel(manager_util, server):
+    async def scenario(channel, channel_url):
+        _, get_data_by_mode = load_server(server, manager_util, channel_url)
+        remote = await get_data_by_mode("remote", FILENAME)
+        cached = await get_data_by_mode("cache", FILENAME)
+        return remote, cached, channel.requests
+
+    assert run(scenario) == (SERVED, SERVED, 1)
+
+
+@pytest.mark.parametrize("server", SERVERS)
+@pytest.mark.parametrize("status, text", NOT_JSON)
+def test_remote_mode_keeps_the_cached_list_when_the_channel_fails(manager_util, server, status, text):
+    async def scenario(channel, channel_url):
+        start, get_data_by_mode = load_server(server, manager_util, channel_url)
+        await start()
+        channel.serve(status, text)
+        return await get_data_by_mode("remote", FILENAME), channel.requests
+
+    assert run(scenario) == (SERVED, STARTUP_FILES + 1)
+
+
+@pytest.mark.parametrize("server", SERVERS)
+def test_remote_mode_does_not_ask_the_channel_when_offline(manager_util, server):
+    async def scenario(channel, channel_url):
+        _, get_data_by_mode = load_server(server, manager_util, channel_url, network_mode="offline")
+        return await get_data_by_mode("remote", FILENAME), channel.requests
+
+    assert run(scenario) == (BUNDLED, 0)
 
 
 def test_unreadable_local_file_still_reads_as_empty(manager_util):
