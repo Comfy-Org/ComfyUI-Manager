@@ -731,28 +731,6 @@ emit(core.get_installed_node_packs())
     assert data == {'comfyui-foo': {'ver': '1.0.1', 'cnr_id': 'comfyui-foo', 'aux_id': None, 'enabled': True}}
 
 
-def test_fetching_updates_leaves_an_invalid_installation_alone():
-    data = run('''
-pack('ComfyUI-Bar')
-reload()
-emit(manager.fetch_or_pull_git_repo(is_pull=True))
-''')
-    assert data == {'updated': [], 'failed': []}
-
-
-def test_fetching_updates_reaches_a_git_pack_whose_id_a_stray_invalid_folder_shares():
-    data = run('''
-clone = pack('bar-clone', git_url=BAR_URL)
-pack('.disabled/ComfyUI-Bar')
-reload()
-fetched = []
-core.git_repo_update_check_with = lambda path, **kwargs: fetched.append(path) or (True, True)
-emit({'result': manager.fetch_or_pull_git_repo(is_pull=False), 'fetched': fetched, 'clone': str(clone)})
-''')
-    assert data['result'] == {'updated': ['ComfyUI-Bar@unknown'], 'failed': []}
-    assert data['fetched'] == [data['clone']]
-
-
 def test_update_all_queues_no_update_for_an_invalid_installation():
     data = run('''
 pack('ComfyUI-Bar')

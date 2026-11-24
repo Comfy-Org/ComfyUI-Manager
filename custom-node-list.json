@@ -47906,6 +47906,16 @@
             "description": "DAVE (DC Attenuation for diVersity Enhancement) as a drop-in MODEL patch for Anima / Cosmos-predict2 DiT: recover same-prompt sample diversity by attenuating the DC component of early-mid blocks over the first tau fraction of steps. Self-contained — bundles the shipped block-pool mask, pulls no training-repo code."
         },
         {
+            "author": "sorryhyun",
+            "title": "Anima Pixel Decoder",
+            "reference": "https://github.com/sorryhyun/ComfyUI-Anima-PixelDecoder",
+            "files": [
+                "https://github.com/sorryhyun/ComfyUI-Anima-PixelDecoder"
+            ],
+            "install_type": "git-clone",
+            "description": "Decode Anima renders straight from the DiT's last-layer features with a 25M-parameter pixel head, in place of VAE Decode: a MODEL tap (works with the stock KSampler and KSampler (Spectrum)) and a decode node that outputs IMAGE. A x2 head file decodes and upscales 2x in one readout. Weights: huggingface.co/sorryhyun/anima-pixel-decoder."
+        },
+        {
             "author": "spacewarpstudio",
             "title": "ComfyUI Override Switch",
             "reference": "https://github.com/SpaceWarpStudio/ComfyUI-OverrideSwitch",
