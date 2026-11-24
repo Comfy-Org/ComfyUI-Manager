@@ -87,6 +87,7 @@ from ..common.security_messages import (
     SECURITY_MESSAGE_MIDDLE,
     SECURITY_MESSAGE_MIDDLE_P,
     SECURITY_MESSAGE_HIGH_P,
+    SECURITY_MESSAGE_NORMAL_MINUS_MODEL,
 )
 from .constants import (
     model_dir_name_map,
@@ -133,8 +134,10 @@ def error_response(
 
 
 class ManagerFuncsInComfyUI(core.ManagerFuncs):
-    def is_flagged_install_allowed(self):
-        return core.get_config()['allow_flagged_nodepack_install'] or manager_security.is_loopback_listener(args.listen)
+    def is_flagged_install_allowed(self, node_id):
+        return manager_security.is_cnr_install_allowed(
+            'NodeVersionStatusFlagged', core.get_config()['allow_flagged_nodepack_install'], args.listen,
+            node_id=node_id, manager_files_path=context.manager_files_path)
 
     def run_script(self, cmd, cwd="."):
         if len(cmd) > 0 and cmd[0].startswith("#"):
@@ -347,6 +350,7 @@ class TaskQueue:
         # Force cache refresh for successful pack-modifying operations
         pack_modifying_tasks = {
             OperationType.install.value,
+            OperationType.reinstall.value,
             OperationType.uninstall.value,
             OperationType.enable.value,
             OperationType.disable.value,
@@ -813,11 +817,16 @@ class TaskQueue:
 task_queue = TaskQueue()
 
 
+def replaces_cnr_with_nightly(node_id):
+    unified = core.unified_manager
+    return unified.is_enabled(node_id, 'cnr') and unified.resolve_unspecified_version(node_id, guess_mode='inactive') == 'nightly'
+
+
 async def task_worker():
     logging.debug("[ComfyUI-Manager] Task worker started")
     await core.unified_manager.reload(ManagerDatabaseSource.cache.value)
 
-    async def do_install(params: InstallPackParams) -> str:
+    async def do_install(params: InstallPackParams, operation: str) -> str:
         node_id = params.id
         node_version = params.selected_version
         channel = params.channel
@@ -848,13 +857,18 @@ async def task_worker():
             if not security_utils.is_allowed_security_level(level):
                 logging.error(SECURITY_MESSAGE_MIDDLE_P if level == 'middle+' else SECURITY_MESSAGE_MIDDLE)
                 return OperationResult.failed.value
-            res = await core.unified_manager.install_by_id(
-                node_name,
-                version_spec,
-                channel,
-                mode,
-                return_postinstall=skip_post_install,
-            )  # discard post install if skip_post_install mode
+            if operation == OperationType.reinstall.value:
+                res = await core.unified_manager.reinstall_by_id(
+                    node_name, version_spec, channel, mode
+                )
+            else:
+                res = await core.unified_manager.install_by_id(
+                    node_name,
+                    version_spec,
+                    channel,
+                    mode,
+                    return_postinstall=skip_post_install,
+                )
 
             if res.action not in [
                 "skip",
@@ -878,6 +892,9 @@ async def task_worker():
     async def do_enable(params: EnablePackParams) -> str:
         cnr_id = params.cnr_id
         logging.debug("[ComfyUI-Manager] Enabling node: cnr_id=%s", cnr_id)
+        if replaces_cnr_with_nightly(cnr_id) and not security_utils.is_allowed_security_level('middle+'):
+            logging.error(SECURITY_MESSAGE_MIDDLE_P)
+            return OperationResult.failed.value
         core.unified_manager.unified_enable(cnr_id)
         return OperationResult.success.value
 
@@ -898,7 +915,7 @@ async def task_worker():
                 # the remote URL. Downstream branches at L901/904 already
                 # handle url is None, so we just need a None-safe title.
                 # Harmonized with legacy/manager_server.py equivalent (WI #252).
-                url = core.unified_manager.unknown_active_nodes[node_name][0]
+                url = core.unified_manager.unknown_active_nodes.get(node_name, (None,))[0]
                 title = os.path.basename(url) if url else node_name
             else:
                 url = core.unified_manager.cnr_map[node_name].get("repository")
@@ -921,7 +938,7 @@ async def task_worker():
 
             base_res["msg"] = res.msg or f"An error occurred while updating '{node_name}'."
             logging.error(
-                f"\nERROR: An error occurred while updating '{node_name}'. (res.result={res.result}, res.action={res.action})"
+                f"\nERROR: An error occurred while updating '{node_name}': {res.msg} (res.result={res.result}, res.action={res.action})"
             )
             return base_res
         except Exception:
@@ -935,6 +952,10 @@ async def task_worker():
 
             # Check if this is a version switch operation
             if params.target_version:
+                if core.is_comfyui_downgrade(params.target_version) and not security_utils.is_allowed_security_level('high+'):
+                    logging.error(SECURITY_MESSAGE_HIGH_P)
+                    return OperationResult.failed.value
+
                 # Switch to specific version
                 logging.info(f"Switching ComfyUI to version: {params.target_version}")
                 core.switch_comfyui(params.target_version)
@@ -1058,6 +1079,18 @@ async def task_worker():
 
         json_data = params.model_dump()
 
+        # Checked here, not in a route: queue/install_model and queue/task both end up here.
+        if not await model_utils.check_whitelist_for_model(json_data):
+            logging.error(f"[ComfyUI-Manager] Invalid model install request is detected: {json_data}")
+            return "Invalid model install request is detected"
+
+        if not json_data["filename"].endswith(".safetensors") and not security_utils.is_allowed_security_level("high+"):
+            models_json = await core.get_data_by_mode(ManagerDatabaseSource.cache.value, "model-list.json", "default")
+
+            if not any(x.get("url") == json_data["url"] for x in models_json.get("models", [])):
+                logging.error(SECURITY_MESSAGE_NORMAL_MINUS_MODEL)
+                return "A security error has occurred. Please check the terminal logs"
+
         model_path = model_utils.get_model_path(json_data)
         model_url = json_data.get("url")
 
@@ -1160,8 +1193,8 @@ async def task_worker():
         )
 
         try:
-            if kind == OperationType.install.value:
-                msg = await do_install(item.params)
+            if kind in (OperationType.install.value, OperationType.reinstall.value):
+                msg = await do_install(item.params, kind)
             elif kind == OperationType.enable.value:
                 msg = await do_enable(item.params)
             elif kind == OperationType.install_model.value:
@@ -1241,6 +1274,10 @@ async def queue_task(request) -> web.Response:
     Returns:
         web.Response: HTTP 200 on successful queueing, HTTP 400 on validation error
     """
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     try:
         json_data = await request.json()
         # Validate input using Pydantic model
@@ -1436,7 +1473,7 @@ async def fetch_updates(request):
 
 @routes.post("/v2/manager/queue/update_all")
 async def update_all(request: web.Request) -> web.Response:
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
     try:
@@ -1496,6 +1533,9 @@ async def _update_all(params: UpdateAllQueryParams) -> web.Response:
             if os.environ.get("__COMFYUI_DESKTOP_VERSION__"):
                 continue
 
+        if v[1] in core.unified_manager.invalid_installations:
+            continue
+
         update_task = QueueTaskItem(
             kind=OperationType.update.value,
             ui_id=f"{base_ui_id}_{k}",  # Use client's base ui_id + node name
@@ -1549,7 +1589,7 @@ async def get_snapshot_list(request):
 
 @routes.post("/v2/snapshot/remove")
 async def remove_snapshot(request):
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
     if not security_utils.is_allowed_security_level("middle"):
@@ -1574,11 +1614,11 @@ async def remove_snapshot(request):
 
 @routes.post("/v2/snapshot/restore")
 async def restore_snapshot(request):
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
-    if not security_utils.is_allowed_security_level("middle+"):
-        logging.error(SECURITY_MESSAGE_MIDDLE_P)
+    if not security_utils.is_allowed_security_level("high+"):
+        logging.error(SECURITY_MESSAGE_HIGH_P)
         return web.Response(status=403)
 
     try:
@@ -1619,7 +1659,7 @@ async def get_current_snapshot_api(request):
 
 @routes.post("/v2/snapshot/save")
 async def save_snapshot(request):
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
     try:
@@ -1660,6 +1700,10 @@ def unzip_install(files):
 
 @routes.post("/v2/customnode/import_fail_info")
 async def import_fail_info(request):
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     try:
         json_data = await request.json()
 
@@ -1694,6 +1738,10 @@ async def import_fail_info(request):
 
 @routes.post("/v2/customnode/import_fail_info_bulk")
 async def import_fail_info_bulk(request):
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     try:
         json_data = await request.json()
         
@@ -1755,7 +1803,7 @@ async def import_fail_info_bulk(request):
 
 @routes.post("/v2/manager/queue/reset")
 async def reset_queue(request):
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
     logging.debug("[ComfyUI-Manager] Queue reset requested")
@@ -1818,7 +1866,7 @@ async def queue_count(request):
 
 @routes.post("/v2/manager/queue/start")
 async def queue_start(request):
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
     logging.debug("[ComfyUI-Manager] Queue start requested")
@@ -1835,7 +1883,7 @@ async def queue_start(request):
 @routes.post("/v2/manager/queue/update_comfyui")
 async def update_comfyui(request):
     """Queue a ComfyUI update based on the configured update policy."""
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
     try:
@@ -1845,10 +1893,12 @@ async def update_comfyui(request):
         )
 
         # Check if stable parameter was provided, otherwise use config
-        if query_params.stable is None:
-            is_stable = core.get_config()["update_policy"] != "nightly-comfyui"
-        else:
+        if query_params.stable is not None:
             is_stable = query_params.stable
+        elif query_params.is_stable is not None:
+            is_stable = query_params.is_stable
+        else:
+            is_stable = core.get_config()["update_policy"] not in ("nightly", "nightly-comfyui")
 
         client_id = query_params.client_id
         ui_id = query_params.ui_id
@@ -1886,10 +1936,10 @@ async def comfyui_versions(request):
 
 @routes.post("/v2/comfyui_manager/comfyui_switch_version")
 async def comfyui_switch_version(request):
-    # Body-reading handler — Content-Type gate omitted per
-    # comfyui_manager/common/manager_security.py module policy: a cross-origin
-    # <form method=POST> cannot forge a valid application/json body because
-    # the browser would trigger a CORS preflight that this server refuses.
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     if not security_utils.is_allowed_security_level("high+"):
         logging.error(SECURITY_MESSAGE_HIGH_P)
         return web.Response(status=403)
@@ -1928,6 +1978,10 @@ async def comfyui_switch_version(request):
 
 @routes.post("/v2/manager/queue/install_model")
 async def install_model(request):
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     try:
         json_data = await request.json()
 
@@ -1965,11 +2019,12 @@ async def db_mode(request):
 
 @routes.post("/v2/manager/db_mode")
 async def set_db_mode_api(request):
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     # Config writes are at the same risk tier as uninstall/update — apply the
-    # 'middle' gate consistent with snapshot/remove, etc. Content-Type gate is
-    # NOT applied here: this handler consumes application/json and a
-    # cross-origin <form method=POST> cannot forge that without triggering
-    # CORS preflight (see module docstring in common/manager_security.py).
+    # 'middle' gate consistent with snapshot/remove, etc.
     if not security_utils.is_allowed_security_level("middle"):
         logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403)
@@ -1978,7 +2033,7 @@ async def set_db_mode_api(request):
         environment_utils.set_db_mode(data["value"])
         core.write_config()
         return web.Response(status=200)
-    except (json.JSONDecodeError, KeyError):
+    except (json.JSONDecodeError, KeyError, TypeError):
         return web.Response(status=400, text="Invalid request")
     except ValueError as e:
         return web.Response(status=400, text=str(e))
@@ -1991,7 +2046,10 @@ async def update_policy(request):
 
 @routes.post("/v2/manager/policy/update")
 async def set_update_policy_api(request):
-    # See set_db_mode_api above for gate rationale.
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     if not security_utils.is_allowed_security_level("middle"):
         logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403)
@@ -2000,7 +2058,7 @@ async def set_update_policy_api(request):
         environment_utils.set_update_policy(data["value"])
         core.write_config()
         return web.Response(status=200)
-    except (json.JSONDecodeError, KeyError):
+    except (json.JSONDecodeError, KeyError, TypeError):
         return web.Response(status=400, text="Invalid request")
     except ValueError as e:
         return web.Response(status=400, text=str(e))
@@ -2023,7 +2081,10 @@ async def channel_url_list(request):
 
 @routes.post("/v2/manager/channel_url_list")
 async def set_channel_url(request):
-    # See set_db_mode_api above for gate rationale.
+    rejection = security_utils.reject_non_json_post(request)
+    if rejection is not None:
+        return rejection
+
     if not security_utils.is_allowed_security_level("middle"):
         logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403)
@@ -2048,7 +2109,7 @@ async def set_channel_url(request):
 
 @routes.post("/v2/manager/reboot")
 def restart(request):
-    rejection = security_utils.reject_simple_form_post(request)
+    rejection = security_utils.reject_non_json_post(request)
     if rejection is not None:
         return rejection
     if not security_utils.is_allowed_security_level("middle"):
@@ -2073,17 +2134,9 @@ def restart(request):
         "\nRestarting... [Legacy Mode]\n\n"
     )  # This printing should not be logging - that will be ugly
 
-    sys_argv = sys.argv.copy()
-    if "--windows-standalone-build" in sys_argv:
-        sys_argv.remove("--windows-standalone-build")
-
-    if sys_argv[0].endswith("__main__.py"):  # this is a python module
-        module_name = os.path.basename(os.path.dirname(sys_argv[0]))
-        cmds = [sys.executable, "-m", module_name] + sys_argv[1:]
-    elif sys.platform.startswith("win32"):
-        cmds = ['"' + sys.executable + '"', '"' + sys_argv[0] + '"'] + sys_argv[1:]
-    else:
-        cmds = [sys.executable] + sys_argv
+    cmds = manager_util.build_restart_command(
+        sys.argv, drop_args=("--windows-standalone-build",)
+    )
 
     print(f"Command: {cmds}", flush=True)
 
@@ -2136,10 +2189,8 @@ async def default_cache_update():
 
             json_obj = await manager_util.get_data(uri, True)
 
-            with manager_util.cache_lock:
-                with open(cache_uri, "w", encoding="utf-8") as file:
-                    json.dump(json_obj, file, indent=4, sort_keys=True)
-                    logging.debug(f"[ComfyUI-Manager] default cache updated: {uri}")
+            if manager_util.write_cache_file(cache_uri, json_obj):
+                logging.debug(f"[ComfyUI-Manager] default cache updated: {uri}")
         except Exception as e:
             logging.error(
                 f"[ComfyUI-Manager] Failed to perform initial fetching '{filename}': {e}"
@@ -2159,6 +2210,9 @@ async def default_cache_update():
             logging.info(
                 "[ComfyUI-Manager] The private comfyregistry is not yet supported in `network_mode=private`."
             )
+            await core.unified_manager.reload(
+                ManagerDatabaseSource.remote.value, dont_wait=False, update_cnr_map=False
+            )
         else:
             # load at least once
             await core.unified_manager.reload(
@@ -2172,6 +2226,7 @@ async def default_cache_update():
             ManagerDatabaseSource.remote.value, dont_wait=False, update_cnr_map=False
         )
 
+    core.check_invalid_nodes()
     logging.info("[ComfyUI-Manager] All startup tasks have been completed.")
 
 

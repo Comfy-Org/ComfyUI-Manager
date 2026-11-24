@@ -172,7 +172,7 @@ export function rebootAPI() {
 	customConfirm("Are you sure you'd like to reboot the server?").then((isConfirmed) => {
 		if (isConfirmed) {
 			try {
-				api.fetchApi("/v2/manager/reboot", { method: 'POST' });
+				api.fetchApi("/v2/manager/reboot", { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 			}
 			catch(exception) {}
 		}
@@ -212,7 +212,8 @@ export async function install_pip(packages) {
 
 	const res = await api.fetchApi("/v2/customnode/install/pip", {
 		method: "POST",
-		body: packages,
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ packages: packages }),
 	});
 
 	if(res.status == 403) {
@@ -247,7 +248,8 @@ export async function install_via_git_url(url, manager_dialog) {
 
 	const res = await api.fetchApi("/v2/customnode/install/git_url", {
 		method: "POST",
-		body: url,
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ url: url }),
 	});
 
 	if(res.status == 403) {
@@ -345,6 +347,55 @@ export function md5(inputString) {
 		b=ii(b,c,d,a,x[i+ 9],21, -343485551);a=ad(a,olda);b=ad(b,oldb);c=ad(c,oldc);d=ad(d,oldd);
 	}
 	return rh(a)+rh(b)+rh(c)+rh(d);
+}
+
+const levenArray = [];
+const levenCodeCache = [];
+export const leven = (first, second) => {
+	if (first === second) {
+		return 0;
+	}
+	const swap = first;
+	if (first.length > second.length) {
+		first = second;
+		second = swap;
+	}
+	let firstLength = first.length;
+	let secondLength = second.length;
+	while (firstLength > 0 && (first.charCodeAt(~-firstLength) === second.charCodeAt(~-secondLength))) {
+		firstLength--;
+		secondLength--;
+	}
+	let start = 0;
+	while (start < firstLength && (first.charCodeAt(start) === second.charCodeAt(start))) {
+		start++;
+	}
+	firstLength -= start;
+	secondLength -= start;
+	if (firstLength === 0) {
+		return secondLength;
+	}
+	let bCharacterCode;
+	let result;
+	let temporary;
+	let temporary2;
+	let index = 0;
+	let index2 = 0;
+	while (index < firstLength) {
+		levenCodeCache[index] = first.charCodeAt(start + index);
+		levenArray[index] = ++index;
+	}
+	while (index2 < secondLength) {
+		bCharacterCode = second.charCodeAt(start + index2);
+		temporary = index2++;
+		result = index2;
+		for (index = 0; index < firstLength; index++) {
+			temporary2 = bCharacterCode === levenCodeCache[index] ? temporary : temporary + 1;
+			temporary = levenArray[index];
+			result = levenArray[index] = temporary > result ? (temporary2 > result ? result + 1 : temporary2) : (temporary2 > temporary ? temporary + 1 : temporary2);
+		}
+	}
+	return result;
 }
 
 export async function fetchData(route, options) {

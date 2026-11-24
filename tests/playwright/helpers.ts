@@ -101,19 +101,33 @@ export async function clickMenuButton(page: Page, text: string) {
   await dialog.locator(`button:has-text("${text}")`).click();
 }
 
+/**
+ * Close the toasts of the ComfyUI frontend. One of them, such as the error
+ * `getCanvas: canvas is null` that the frontend can raise while several pages
+ * load at once, can lie over a button of a Manager dialog, and a click on
+ * that button then never arrives.
+ */
+export async function closeToasts(page: Page) {
+  const closeButtons = page.locator('[data-testid="toast"]').getByRole('button', { name: 'Close' });
+  // A closed toast leaves the page and the others move up, so each click is
+  // on the one that is first by then.
+  for (let left = await closeButtons.count(); left > 0; left--) {
+    await closeButtons.first().click({ timeout: 2_000 }).catch(() => {});
+    await expect(closeButtons).toHaveCount(left - 1, { timeout: 2_000 }).catch(() => {});
+  }
+}
+
 /** Close the topmost dialog via its X (close) button or Escape. */
 export async function closeDialog(page: Page) {
-  // Try clicking close buttons on visible dialogs. The manager-menu dialog
-  // (`#cm-manager-dialog`) is a ComfyDialog with `.p-dialog-close-button` (X),
-  // while sub-dialogs use `.cm-close-btn`. Try both.
+  // Every Manager dialog has a `.cm-ui-close` (X). A sub-dialog lies
+  // over the manager-menu dialog (`#cm-manager-dialog`), whose X stays visible
+  // but cannot be clicked then, so the sub-dialogs are tried first.
   for (const sel of [
-    '#cn-manager-dialog button.cm-close-btn',
-    '#cmm-manager-dialog button.cm-close-btn',
-    '#snapshot-manager-dialog button.cm-close-btn',
-    '#cm-manager-dialog button.cm-close-btn',
-    '#cm-manager-dialog .p-dialog-close-button',
-    '.cm-close-btn',
-    '.p-dialog-close-button',
+    '#cn-manager-dialog .cm-ui-close',
+    '#cmm-manager-dialog .cm-ui-close',
+    '#snapshot-manager-dialog .cm-ui-close',
+    '#cm-manager-dialog .cm-ui-close',
+    '.cm-ui-close',
   ]) {
     const btn = page.locator(sel).last();
     if (await btn.isVisible({ timeout: 500 }).catch(() => false)) {

@@ -578,6 +578,28 @@ finally:
         self.assertTrue(p2['detached'])
         self.assertTrue(p2['not_head'])
 
+    def test_checkout_head_by_name(self):
+        # The head of a branch, as get_head_by_name gives it, checks that branch out
+        head = self.head_sha
+        snippet = f"""
+import tempfile, shutil
+dest = tempfile.mkdtemp()
+try:
+    repo = clone_repo(REPO_PATH, os.path.join(dest, 'cloned'))
+    repo.checkout('v1.0.0')
+    repo.checkout(repo.get_head_by_name('master'))
+    result = {{"branch": repo.active_branch_name, "detached": repo.head_is_detached,
+              "at_head": repo.head_commit_hexsha == {head!r}}}
+    repo.close()
+    print(json.dumps(result))
+finally:
+    shutil.rmtree(dest, ignore_errors=True)
+"""
+        gp, p2 = _run_both(snippet, self.repo_path)
+        expected = {"branch": "master", "detached": False, "at_head": True}
+        self.assertEqual(gp, expected)
+        self.assertEqual(p2, expected)
+
     # === checkout_new_branch ===
 
     def test_checkout_new_branch(self):

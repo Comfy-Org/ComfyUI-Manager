@@ -14,6 +14,8 @@
 
 ## Installation
 
+Requires Python 3.10 or newer, matching ComfyUI's minimum Python version.
+
 * When installing the latest ComfyUI, it will be automatically installed as a dependency, so manual installation is no longer necessary.
 
 * Manual installation of the nightly version:
@@ -77,8 +79,7 @@
   ![menu](https://raw.githubusercontent.com/ltdrdata/ComfyUI-extension-tutorials/Main/ComfyUI-Manager/images/topbar.jpg) ![share](https://raw.githubusercontent.com/ltdrdata/ComfyUI-extension-tutorials/Main/ComfyUI-Manager/images/share.jpg) 
 
   * You can share the workflow by clicking the Share button at the bottom of the main menu or selecting Share Output from the Context Menu of the Image node.
-  * Currently, it supports sharing via [https://comfyworkflows.com/](https://comfyworkflows.com/),
-    [https://openart.ai](https://openart.ai/workflows/dev), [https://youml.com](https://youml.com) 
+  * Currently, it supports sharing via [https://youml.com](https://youml.com)
     as well as through the Matrix channel.
 
   ![menu](https://raw.githubusercontent.com/ltdrdata/ComfyUI-extension-tutorials/Main/ComfyUI-Manager/images/share-setting.jpg)
@@ -100,6 +101,7 @@ In `ComfyUI-Manager` V4.0.3b4 and later, configuration files and dynamically gen
 * Configurable pip overrides: `<USER_DIRECTORY>/__manager/pip_overrides.json`
 * Configurable pip blacklist: `<USER_DIRECTORY>/__manager/pip_blacklist.list`
 * Configurable pip auto fix: `<USER_DIRECTORY>/__manager/pip_auto_fix.list`
+* Configurable flagged nodepack whitelist: `<USER_DIRECTORY>/__manager/nodepack-whitelist.list`
 * Saved snapshot files: `<USER_DIRECTORY>/__manager/snapshots`
 * Startup script files: `<USER_DIRECTORY>/__manager/startup-scripts`
 * Component files: `<USER_DIRECTORY>/__manager/components`
@@ -252,6 +254,7 @@ The following settings are applied based on the section marked as `is_default`.
     ```
       downgrade_blacklist = diffusers, kornia
     ```
+    * Names are matched without regard to case or to `-`, `_`, and `.`, so `opencv-python` and `opencv_python` are the same package.
 
 * Custom pip mapping
   * When you create the `pip_overrides.json` file, it changes the installation of specific pip packages to installations defined by the user.
@@ -327,10 +330,10 @@ The security settings are applied based on whether the ComfyUI server's listener
 
 | Risky Level | features                                                                                                                              |
 |-------------|---------------------------------------------------------------------------------------------------------------------------------------|
-| high+       | * **Switch ComfyUI version**<BR>* **Fix nodepack** |
+| high+       | * **Switch ComfyUI version**<BR>* **Restore Snapshot**<BR>* **Fix nodepack** |
 | high        | _(no features at this tier — `Fix nodepack` promoted to `high+` to align the enforcement gate with the `SECURITY_MESSAGE_HIGH_P` log text)_ |
-| middle+     | * Uninstall/Update<BR>* Installation of Git/nightly nodepacks registered in the `default channel`.<BR>* Restore/Remove Snapshot<BR>* Install model |
-| middle      | * Restart<BR>* Installation of CNR release versions (subject to the flagged-version policy below) |
+| middle+     | * Uninstall/Update<BR>* Installation of Git/nightly nodepacks registered in the `default channel`.<BR>* Enabling a disabled nightly in the place of an enabled Registry version.<BR>* Install model |
+| middle      | * Restart<BR>* Remove Snapshot<BR>* Installation of CNR release versions (subject to the flagged-version policy below) |
 | low         | * Update ComfyUI                                                                                                                      |
 
 * **Note**: `Install via git url` and `pip install` are no longer gated by `security_level` — they moved to the dedicated flags `allow_git_url_install` / `allow_pip_install`. Installation of a nodepack registered not in the `default channel` likewise requires `allow_git_url_install` (in addition to the `middle+` level preconditions) instead of a `high+` security level. See the [Dedicated install flags](#dedicated-install-flags-allow_git_url_install--allow_pip_install) subsection below.
@@ -370,16 +373,44 @@ reinstallation checks the target before removing the existing nodepack, and a
 policy refusal preserves the current installation. For flagged-policy denials,
 the UI reports that the current security configuration does not allow the action
 and directs users to the terminal. Only the terminal provides loopback-only
-`--listen` examples, the private network override setting, and restart instructions.
+`--listen` examples, the private network override setting, the pack whitelist,
+and restart instructions.
 
-* Active versions continue through the normal install flow. CNR release installs
-  use the `middle` security level, so they are available on non-local listeners
-  with `security_level = normal`, `normal-`, or `weak`. `strong` still denies
-  these install requests.
+* Active versions continue through the normal install flow. New HTTP requests
+  to install CNR releases use the `middle` security level, so they are available
+  on non-local listeners with `security_level = normal`, `normal-`, or `weak`.
+  `strong` denies these new requests, including requests for whitelisted packs.
 * Flagged versions (`NodeVersionStatusFlagged`) must satisfy the same installation
   conditions as Active versions. In addition, **all** addresses in `--listen`
   must resolve to loopback, such as `127.0.0.1` and `::1`, unless the explicit
-  override below is enabled.
+  override below is enabled or the pack ID is whitelisted.
+* To allow specific packs on any listener without enabling all flagged installs,
+  edit `nodepack-whitelist.list` beside Manager's `config.ini`
+  (normally `<USER_DIRECTORY>/__manager/nodepack-whitelist.list`).
+  At server startup, Manager creates a commented template if the file is missing;
+  existing files are preserved. The template grants no exceptions by default.
+  Enter one Registry pack ID per line:
+
+  ```text
+  # Nodepack whitelist
+  # Add one Registry ID per line; each entry applies to all CNR versions.
+  # Registry IDs are case-insensitive.
+
+  comfyui-impact-pack
+  comfyui-inspire-pack # Inline comments are supported.
+  ```
+
+  Entries are case-insensitive and apply to all CNR versions of that pack. Use
+  Registry IDs, not display names, Git URLs, or `id@version`; wildcards are not
+  expanded. Blank lines and `#` comments are ignored. Delete an entry or comment
+  out its line with `#` to revoke that exception. Manager reads the file
+  for each installation check, so edits and removals apply without restarting.
+  A missing, unreadable, or NUL-containing file grants no whitelist exceptions.
+  If mixed encodings introduce NUL characters, Manager logs a warning to save
+  the file as UTF-8. Whitelist-based permission is logged at WARNING level with
+  the Registry ID, including in snapshot restore children. This records the policy
+  decision, not successful installation. Packs absent from the list continue to
+  use the listener and global option rules.
 * To allow flagged versions on a non-local listener in a **trusted private
   network**, an administrator can explicitly opt in:
 
@@ -395,17 +426,27 @@ and directs users to the terminal. Only the terminal provides loopback-only
   private network. This option does not require `network_mode = private`, and
   `network_mode = personal_cloud` alone does not allow flagged versions.
 * CNR API refusals, including banned or unavailable packages, still prevent
-  installation. This option does not override `security_level = strong` or
-  the separate Git/nightly and pip installation policies.
+  installation. Neither the option nor the whitelist bypasses the `strong`
+  restriction on new HTTP install requests or the separate Git/nightly and pip
+  installation policies.
 * Enabling an already installed version does not query the Registry or reinstall it.
-* Older deferred switches without a stored status require loopback-only listeners
-  or the override. Otherwise they are rejected without changing the installed pack;
-  request the installation again so Manager can check its current Registry status.
+* Older deferred switches without a stored status require loopback-only listeners,
+  the override, or a whitelisted pack ID. Otherwise they are rejected without
+  changing the installed pack; request the installation again so Manager can
+  check its current Registry status.
 * Newly scheduled deferred version switches retain the returned version status
-  and check it against the current listen address and option again at restart.
+  and check it against the current listen address, option, and whitelist again
+  at restart.
   This uses the saved status; it does not query CNR again for later status changes.
   Server-scheduled snapshot restores inherit the permission computed from the
-  server's current listener and setting.
+  server's current listener and setting, and read the whitelist from the server's
+  Manager configuration directory.
+* Startup execution of deferred CNR switches and server-scheduled snapshot
+  restores does not recheck `security_level`. Changing it to `strong` does not
+  cancel previously scheduled work. For example, a flagged version switch
+  scheduled under `normal` can still run after restarting with `strong` if the
+  pack remains whitelisted. The startup flagged-version checks described above
+  still apply. This is existing behavior of scheduled execution.
 * Standalone `cm-cli` commands remain local administrator operations and do not
   use the server listener policy.
 

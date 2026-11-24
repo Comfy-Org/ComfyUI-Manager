@@ -8,7 +8,7 @@ import {
 	fetchData, md5, icons, show_message, customConfirm, customAlert, customPrompt,
 	sanitizeHTML, infoToast, showTerminal, setNeedRestart,
 	storeColumnWidth, restoreColumnWidth, getTimeAgo, copyText, loadCss,
-	showPopover, hidePopover, generateUUID, sanitizeUrl
+	showPopover, hidePopover, generateUUID, sanitizeUrl, leven
 } from  "./common.js";
 
 // Registry titles, names and descriptions are server-escaped; other fields are raw.
@@ -20,19 +20,21 @@ loadCss("./custom-nodes-manager.css");
 
 const gridId = "node";
 
+const INVALID_INSTALLATION_GUIDANCE = "This nodepack was not installed through ComfyUI-Manager, or its installation is damaged, so the Manager cannot update it. Reinstalling deletes its folder and installs the nodepack again.";
+
 const pageHtml = `
 <div class="cn-manager cn-manager-dark">
 	<div class="cn-manager-grid"></div>
 	<div class="cn-manager-selection"></div>
 	<div class="cn-manager-message"></div>
 	<div class="cn-manager-footer">
-		<button class="cn-manager-restart p-button p-component">Restart</button>
-		<button class="cn-manager-stop p-button p-component">Stop</button>
+		<button class="cn-manager-restart cm-ui-button">Restart</button>
+		<button class="cn-manager-stop cm-ui-button">Stop</button>
 		<div class="cn-flex-auto"></div>
-		<button class="cn-manager-used-in-workflow p-button p-component">Used In Workflow</button>
-		<button class="cn-manager-check-update p-button p-component">Check Update</button>
-		<button class="cn-manager-check-missing p-button p-component">Check Missing</button>
-		<button class="cn-manager-install-url p-button p-component">Install via Git URL</button>
+		<button class="cn-manager-used-in-workflow cm-ui-button">Used In Workflow</button>
+		<button class="cn-manager-check-update cm-ui-button">Check Update</button>
+		<button class="cn-manager-check-missing cm-ui-button">Check Missing</button>
+		<button class="cn-manager-install-url cm-ui-button">Install via Git URL</button>
 	</div>
 </div>
 `;
@@ -73,6 +75,8 @@ export class CustomNodesManager {
 		this.init();
 
         api.addEventListener("cm-queue-status", this.onQueueStatus);
+        api.addEventListener("cm-check-update", this.onCheckUpdate);
+        api.addEventListener("reconnected", this.onReconnected);
 		api.getNodeDefs().then(objs => {
 			this.nodeMap = objs;
 		})
@@ -85,7 +89,7 @@ export class CustomNodesManager {
 			// 	$el("select.cn-manager-filter")
 			// ]),
 			createSettingsCombo("Filter", $el("select.cn-manager-filter")),
-			$el("input.cn-manager-keywords.p-inputtext.p-component", { type: "search", placeholder: "Search" }),
+			$el("input.cn-manager-keywords.cm-ui-input", { type: "search", placeholder: "Search" }),
 			$el("div.cn-manager-status"),
 			$el("div.cn-flex-auto"),
 			$el("div.cn-manager-channel")
@@ -254,6 +258,10 @@ export class CustomNodesManager {
 			value: "import-fail",
 			hasData: true
 		}, {
+			label: "Invalid Installation",
+			value: "invalid-installation",
+			hasData: true
+		}, {
 			label: "Not Installed",
 			value: "not-installed",
 			hasData: true
@@ -323,7 +331,8 @@ export class CustomNodesManager {
 
 			"reinstall": {
 				label: "Reinstall",
-				mode: "reinstall"
+				mode: "reinstall",
+				title: INVALID_INSTALLATION_GUIDANCE
 			},
 
 			"install": {
@@ -377,8 +386,9 @@ export class CustomNodesManager {
 
 		return shown.map(id => {
 			const bt = buttons[id];
+			const tooltip = bt.title ? ` title="${sanitizeHTML(bt.title)}"` : "";
 			// `action` is registry-derived and lands in an attribute.
-			return `<button class="cn-btn-${id} p-button p-component" group="${sanitizeHTML(String(action ?? ''))}" mode="${bt.mode}">${bt.label}</button>`;
+			return `<button class="cn-btn-${id} cm-ui-button" group="${sanitizeHTML(String(action ?? ''))}" mode="${bt.mode}"${tooltip}>${bt.label}</button>`;
 		}).join("");
 	}
 
@@ -424,11 +434,7 @@ export class CustomNodesManager {
 
 			".cn-manager-keywords": {
 				input: (e) => {
-					const keywords = `${e.target.value}`.trim();
-					if (keywords !== this.keywords) {
-						this.keywords = keywords;
-						this.updateGrid();
-					}
+					this.onKeywordsChange(e);
 				},
 				focus: (e) => e.target.select()
 			},
@@ -465,7 +471,7 @@ export class CustomNodesManager {
 
 			".cn-manager-stop": {
 				click: () => {
-					api.fetchApi('/v2/manager/queue/reset', { method: 'POST' });
+					api.fetchApi('/v2/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 					infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 				}
 			},
@@ -545,7 +551,7 @@ export class CustomNodesManager {
 
 			this.addHighlight(d.rowItem);
 
-			if (d.columnItem.id === "nodes") {
+			if (d.columnItem && d.columnItem.id === "nodes") {
 				this.showNodes(d);
 				return;
 			}
@@ -605,6 +611,16 @@ export class CustomNodesManager {
 				return autoHeightColumns.includes(columnItem.id)
 			},
 
+			rowFilteredSort: () => {
+				if (this.keywords) {
+					return {
+						id: 'sort_score',
+						// rows with the same score stay in the listed order, whatever was searched before
+						comparer: (a, b) => ((b.sort_score ?? 0) - (a.sort_score ?? 0)) || (a.id - b.id)
+					};
+				}
+			},
+
 			// updateGrid handler for filter and keywords
 			rowFilter: (rowItem) => {
 
@@ -621,10 +637,109 @@ export class CustomNodesManager {
 					}
 				}
 
+				// calculate sort score
+				if (shouldShown && this.keywords) {
+					rowItem.sort_score = this.calculateSortScore(rowItem, searchableColumns);
+				}
+
 				return shouldShown;
 			}
 		});
 
+	}
+
+	onKeywordsChange(e) {
+		this.grid.showLoading();
+		// debounce for performance
+		clearTimeout(this.timeKeywords);
+		this.timeKeywords = setTimeout(() => {
+			if (!this.loading) {
+				this.grid.hideLoading();
+			}
+			const keywords = `${e.target.value}`.trim();
+			if (keywords !== this.keywords) {
+				this.keywords = keywords;
+				if (keywords) {
+					this.grid.removeSortColumn();
+				} else if (!this.grid.sortColumn) {
+					this.grid.sortRows("id", {
+						sortAsc: true
+					});
+				}
+				this.updateGrid();
+			}
+		}, 300);
+	}
+
+	calculateSortScore(rowItem, searchableColumns) {
+		const keywords = this.keywords.split(/\s+/g).filter((s) => s);
+		const lowerKeywords = keywords.map(k => k.toLowerCase());
+		const matchedList = searchableColumns.map(id => {
+			const { highlightKey, textKey } = this.grid.options.highlightKeywords;
+			const highlight = rowItem[`${highlightKey}${id}`];
+			if (!highlight) {
+				return;
+			}
+			const text = `${rowItem[`${textKey}${id}`] || rowItem[id]}`;
+			const lowerText = text.toLowerCase();
+			const matchedItems = keywords.map((key, i) => {
+				// multiple matched
+				const lowerKey = lowerKeywords[i];
+				const len = lowerKey.length;
+				const matches  = [];
+				let index = lowerText.indexOf(lowerKey);
+				while (index !== -1) {
+					matches.push(index);
+					index = lowerText.indexOf(lowerKey, index + len);
+				}
+				if (!matches.length) {
+					return
+				}
+				const distances = matches.map(start => {
+					const end = start + len
+					const str = text.slice(start, end);
+					// the case of all keywords together weighs less than one penalty below, so whole words in another case stay above a match inside a word
+					let distance = 0.4 * leven(key, str) / len / keywords.length;
+					const prev = text.slice(start - 1, start);
+					if (prev) {
+						if (/[A-Za-z]/.test(prev)) {
+							distance += 1;
+						} else if (/[0-9]/.test(prev)) {
+							distance += 0.8;
+						} 
+					}
+					const next = text.slice(end, end + 1);
+					if (next) {
+						if (/[A-Za-z]/.test(next)) {
+							distance += 0.8;
+						} else if (/[0-9]/.test(next)) {
+							distance += 0.5;
+						} 
+					}
+					return distance;
+				});
+				return {
+					// min
+					distance: Math.min.apply(null, distances)
+				}
+			}).filter(it => it);
+			if (matchedItems.length < keywords.length) {
+				return;
+			}
+			return {
+				// avg
+				distance: matchedItems.map(it => it.distance).reduce((p, v) => p + v, 0) / matchedItems.length
+			}
+		}).filter(it => it);
+		// by distance
+		let distance = Math.min.apply(null, matchedList.map(it => it.distance));
+		// by matched count
+		distance += 1 - matchedList.length / searchableColumns.length;
+		// by stars, up to the top of the scale
+		const stars = Math.min(Number(rowItem.stars) || 0, 10000);
+		distance += 1 - stars / 10000;
+		// score
+		return 1 / distance;
 	}
 
 	hasAlternatives() {
@@ -703,10 +818,13 @@ export class CustomNodesManager {
 				const container = document.createElement('div');
 
 				if (rowItem.action === 'invalid-installation') {
-					const invalidTag = document.createElement('span');
-					invalidTag.style.color = 'red';
-					invalidTag.innerHTML = '<b>(INVALID)</b>';
-					container.appendChild(invalidTag);
+					const button = document.createElement('button');
+					button.className = 'cn-btn-invalid-installation';
+					button.innerText = 'INVALID INSTALLATION ↗';
+					button.title = INVALID_INSTALLATION_GUIDANCE;
+					button.onclick = () => show_message(`<span style="color: var(--fg-color)"><B>The '${String(title ?? '')}' nodepack is an invalid installation.</B><BR><HR><BR>${INVALID_INSTALLATION_GUIDANCE}<BR><BR>To fix it, click <B>Reinstall</B> in the Action column of its row.</span>`);
+					container.appendChild(button);
+					container.appendChild(document.createElement('br'));
 				} else if (rowItem.action === 'import-fail') {
 					const button = document.createElement('button');
 					button.className = 'cn-btn-import-failed';
@@ -767,6 +885,7 @@ export class CustomNodesManager {
 			id: "nodes",
 			name: "Nodes",
 			width: 100,
+			sortAsc: false,
 			formatter: (v, rowItem, columnItem) => {
 				if (!rowItem.nodes) {
 					return '';
@@ -807,6 +926,7 @@ export class CustomNodesManager {
 			id: 'stars',
 			name: '★',
 			align: 'center',
+			sortAsc: false,
 			classMap: "cn-pack-stars",
 			formatter: (stars) => {
 				if (stars < 0) {
@@ -822,6 +942,7 @@ export class CustomNodesManager {
 			name: 'Last Update',
 			align: 'center',
 			type: 'date',
+			sortAsc: false,
 			width: 100,
 			classMap: "cn-pack-last-update",
 			formatter: (last_update) => {
@@ -910,7 +1031,7 @@ export class CustomNodesManager {
 		// console.log(nodeItem);
 		const list = [`<div class="cn-preview-header">
 			<div class="cn-preview-dot"></div>
-			<div class="cn-preview-name">${nodeItem.name}</div>
+			<div class="cn-preview-name">${sanitizeHTML(String(nodeItem.name ?? ""))}</div>
 			<div class="cn-pack-badge">Preview</div>
 		</div>`];
 
@@ -991,7 +1112,7 @@ export class CustomNodesManager {
 			const optional = it.optional ? " cn-preview-optional" : ""
 			return `<div class="cn-preview-input">
 				<div class="cn-preview-dot${optional}" style="background-color:${color}"></div>
-				${it.name}
+				${sanitizeHTML(String(it.name ?? ""))}
 			</div>`;
 		}).join("");
 
@@ -999,7 +1120,7 @@ export class CustomNodesManager {
 			const color = colorMap[it.type] || "gray";
 			const grid = it.list ? " cn-preview-grid" : "";
 			return `<div class="cn-preview-output">
-				${it.name}
+				${sanitizeHTML(String(it.name ?? ""))}
 				<div class="cn-preview-dot${grid}" style="background-color:${color}"></div>
 			</div>`;
 		}).join("");
@@ -1031,22 +1152,23 @@ export class CustomNodesManager {
 					|| it.type === "MARKDOWN"
 				) {
 					if (value) {
-						value = value.replace(/\r?\n/g, "<br>")
+						// escape first, then allow the <br> this branch adds
+						value = sanitizeHTML(String(value)).replace(/\r?\n/g, "<br>")
 					}
-					list.push(`<div class="cn-preview-string">${value || it.name}</div>`);
+					list.push(`<div class="cn-preview-string">${value || sanitizeHTML(String(it.name ?? ""))}</div>`);
 					return;
 				}
 
 				list.push(`<div class="cn-preview-switch">
-					<div>${it.name}</div>
-					<div class="cn-preview-value">${value}</div>	
+					<div>${sanitizeHTML(String(it.name ?? ""))}</div>
+					<div class="cn-preview-value">${sanitizeHTML(String(value))}</div>
 				</div>`);
 			});
 			list.push(`</div>`);
 		}
 
 		if (nodeItem.description) {
-			list.push(`<div class="cn-preview-description">${nodeItem.description}</div>`)
+			list.push(`<div class="cn-preview-description">${sanitizeHTML(String(nodeItem.description))}</div>`)
 		}
 
 		return list.join("");
@@ -1468,7 +1590,8 @@ export class CustomNodesManager {
 		if(mode === "reinstall") {
 			title = title || `${list.length} custom nodes`;
 
-			const confirmed = await customConfirm(`Are you sure reinstall ${title}?`);
+			const what = list.length > 1 ? "their folders and installs the nodepacks" : "its folder and installs the nodepack";
+			const confirmed = await customConfirm(`Reinstall ${title}? This deletes ${what} again.`);
 			if (!confirmed) {
 				return;
 			}
@@ -1552,6 +1675,7 @@ export class CustomNodesManager {
 			try {
 				const { data, error } = await fetchData(`/v2/manager/queue/batch`, {
 					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify(batch)
 				});
 				if (error) throw error;
@@ -1593,6 +1717,62 @@ export class CustomNodesManager {
 		}
 	}
 
+	async checkUpdate(mode) {
+		infoToast('Fetching updated information. This may take some time if many custom nodes are installed.');
+		this.showStatus("Checking updates ...");
+
+		this.checkId = generateUUID();
+		const checked = new Promise(resolve => {
+			this.resumeLoad = resolve;
+		});
+		await this.askForCheck(mode);
+
+		const updatable = await checked;
+		if(!updatable) {
+			this.showError("Failed to check updates.");
+		}
+		return updatable;
+	}
+
+	async askForCheck(mode) {
+		const ui_id = this.checkId;
+		const { error } = await fetchData('/v2/customnode/check_update', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ mode, ui_id })
+		});
+		// the answer to a request of an earlier check says nothing about the check that is waited for now
+		if(error && ui_id == this.checkId) {
+			this.resumeLoad?.();
+			this.resumeLoad = undefined;
+		}
+	}
+
+	onCheckUpdate(event) {
+		let self = CustomNodesManager.instance;
+		if(!self.resumeLoad) {
+			return;
+		}
+
+		const { status, done_count, total_count, updatable, ui_ids } = event.detail;
+		if(status == 'in_progress') {
+			self.showStatus(`Checking updates (${sanitizeHTML(String(done_count))}/${sanitizeHTML(String(total_count))}) ...`);
+		}
+		// a check that ended before the request of this page reached it does not name the request
+		else if(status == 'done' && ui_ids.includes(self.checkId)) {
+			self.resumeLoad(updatable);
+			self.resumeLoad = undefined;
+		}
+	}
+
+	onReconnected() {
+		let self = CustomNodesManager.instance;
+		if(self.resumeLoad) {
+			// the events of a check are not sent again once the connection was lost
+			self.askForCheck(manager_instance.datasrc_combo.value);
+		}
+	}
+
 	async onQueueStatus(event) {
 		let self = CustomNodesManager.instance;
 		// If legacy manager front is not open, return early (using new manager front)
@@ -1615,11 +1795,8 @@ export class CustomNodesManager {
 	}
 
 	async onQueueCompleted(info) {
+		// nodepack_result is an object keyed by the id of each task, not an array
 		let result = info.nodepack_result;
-
-		if(result.length == 0) {
-			return;
-		}
 
 		let self = CustomNodesManager.instance;
 
@@ -1648,7 +1825,7 @@ export class CustomNodesManager {
 			self.showError(errorMsg);
 			show_message("Installation Error:\n"+errorMsg);
 		} else {
-			self.showStatus(`${label} ${result.length} custom node(s) successfully`);
+			self.showStatus(`${label} ${Object.keys(result).length} custom node(s) successfully`);
 		}
 
 		self.showRestart();
@@ -1954,18 +2131,25 @@ export class CustomNodesManager {
 		this.show_mode = show_mode;
 		console.log("Show mode:", show_mode);
 
+		this.resumeLoad = undefined;
+
 		this.showLoading();
 
 		const mode = manager_instance.datasrc_combo.value;
-		this.showStatus(`Loading custom nodes (${mode}) ...`);
 
-		const skip_update = this.show_mode === ShowMode.UPDATE ? "" : "&skip_update=true";
-
-		if(this.show_mode === ShowMode.UPDATE) {
-			infoToast('Fetching updated information. This may take some time if many custom nodes are installed.');
+		let updatable = [];
+		if(show_mode === ShowMode.UPDATE) {
+			updatable = await this.checkUpdate(mode);
+			if(!updatable) {
+				this.hideLoading();
+				return;
+			}
 		}
 
-		const res = await fetchData(`/v2/customnode/getlist?mode=${mode}${skip_update}`);
+		this.showStatus(`Loading custom nodes (${mode}) ...`);
+
+		// a server that was not restarted since its update still fetches every repository without skip_update
+		const res = await fetchData(`/v2/customnode/getlist?mode=${mode}&skip_update=true`);
 		if (res.error) {
 			this.showError("Failed to get custom node list.");
 			this.hideLoading();
@@ -1973,6 +2157,12 @@ export class CustomNodesManager {
 		}
 		
 		const { channel, node_packs } = res.data;
+
+		for(const k of updatable) {
+			if(node_packs[k]) {
+				node_packs[k]['update-state'] = "true";
+			}
+		}
 
 		if(isElectron) {
 			delete node_packs['comfyui-manager'];
@@ -2134,6 +2324,7 @@ export class CustomNodesManager {
 	}
 
 	showLoading() {
+		this.loading = true;
 		this.setDisabled(true);
 		if (this.grid) {
 			this.grid.showLoading();
@@ -2144,6 +2335,7 @@ export class CustomNodesManager {
 	}
 
 	hideLoading() {
+		this.loading = false;
 		this.setDisabled(false);
 		if (this.grid) {
 			this.grid.hideLoading();

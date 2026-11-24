@@ -16,8 +16,8 @@
 
 Security-gated endpoints:
 - `middle`: reboot, snapshot/remove, _uninstall_custom_node, _update_custom_node
-- `middle+`: update_all, snapshot/restore, _install_custom_node, _install_model
-- `high+`: comfyui_switch_version, install/git_url, install/pip, non-safetensors model install, _fix_custom_node (raised from `high` to align the gate with the `SECURITY_MESSAGE_HIGH_P` log text — WI-#235; prior `middle` → `high` upgrade was commit `c8992e5d`)
+- `middle+`: update_all, _install_custom_node, _install_model
+- `high+`: comfyui_switch_version, snapshot/restore, `update-comfyui` task with an older `target_version` (glob worker step), install/git_url, install/pip, non-safetensors model install, _fix_custom_node (raised from `high` to align the gate with the `SECURITY_MESSAGE_HIGH_P` log text — WI-#235; prior `middle` → `high` upgrade was commit `c8992e5d`)
 
 ---
 
@@ -188,7 +188,7 @@ Security-gated endpoints:
 
 ### POST /v2/snapshot/restore
 - **Handler**: `restore_snapshot` (L1543)
-- **Security gate**: `middle+` → 403
+- **Security gate**: `high+` → 403
 - **Query**: `target`
 - **Scenarios**:
   1. Success — copies snapshot to startup script path (applied on next reboot) → 200
@@ -291,12 +291,21 @@ Endpoints in this section exist **only in the legacy server** (not registered in
   7. `install` with security gate fail → failed set entry
   8. Empty body `{}` → 200 `{failed: []}`
 
+### POST /v2/customnode/check_update
+- **Handler**: `check_update`
+- **Body**: `{mode, ui_id}` (required; `ui_id` is chosen by the client)
+- **Scenarios**:
+  1. Success — starts a background check that fetches the enabled git packs of the list and answers `{}` at once → 200. The check reports by the `cm-check-update` event (`in_progress` with `done_count`/`total_count`, then `done` with `updatable` and the `ui_ids` of the requests it answers)
+  2. A check already runs — no second check is started; the nodepacks of this request that the running check does not have are added to it (`total_count` grows), and its `done` names this request too → 200
+  3. A task on nodepacks that the queue takes while a check runs waits for the check to end; a model download and an update of ComfyUI do not wait
+  4. The check fails — `done` with `updatable: null` names the requests that waited, and the page shows `Failed to check updates.`
+
 ### GET /v2/customnode/getlist
 - **Handler**: `fetch_customnode_list` (L1018)
-- **Query**: `mode` (required), `skip_update?` (bool string)
+- **Query**: `mode` (required), `skip_update?` (not used)
 - **Scenarios**:
-  1. Success — returns `{channel, node_packs}` with installed/update state populated → 200
-  2. `skip_update=true` — skips git update check (faster)
+  1. Success — returns `{channel, node_packs}` with installed state and the update state of versioned packs populated → 200
+  2. With or without `skip_update` — no git fetch; the page marks the git packs that have an update from the result of `POST /v2/customnode/check_update`
   3. Removes comfyui-manager self-entry from results
   4. Channel lookup resolves to 'default'/'custom'/known name
 
@@ -331,7 +340,7 @@ Endpoints in this section exist **only in the legacy server** (not registered in
 ### POST /v2/customnode/install/git_url
 - **Handler**: `install_custom_node_git_url` (L1502)
 - **Security gate**: `high+` → 403
-- **Body**: plain text URL
+- **Body**: JSON `{"url": ...}`, sent as `application/json`
 - **Scenarios**:
   1. Success install → 200
   2. Already installed (skip action) → 200
@@ -341,7 +350,7 @@ Endpoints in this section exist **only in the legacy server** (not registered in
 ### POST /v2/customnode/install/pip
 - **Handler**: `install_custom_node_pip` (L1522)
 - **Security gate**: `high+` → 403
-- **Body**: plain text space-separated packages
+- **Body**: JSON `{"packages": ...}` (space-separated), sent as `application/json`
 - **Scenarios**:
   1. Success — pip install completes → 200
   2. Security blocked → 403
@@ -378,14 +387,14 @@ These paths exist in BOTH glob and legacy files (29 endpoints). Semantics are ty
 | Level | Glob endpoints | Legacy endpoints |
 |---|---|---|
 | **middle** | snapshot/remove, reboot | snapshot/remove, reboot, _uninstall, _update |
-| **middle+** | update_all, snapshot/restore, install_model | update_all, snapshot/restore, _install_custom_node, _install_model |
-| **high+** | comfyui_switch_version, _fix_custom_node | comfyui_switch_version, install/git_url, install/pip, non-safetensors model install, _fix |
+| **middle+** | update_all, install_model | update_all, _install_custom_node, _install_model |
+| **high+** | comfyui_switch_version, snapshot/restore, `update-comfyui` task with an older `target_version`, _fix_custom_node | comfyui_switch_version, snapshot/restore, install/git_url, install/pip, non-safetensors model install, _fix |
 
 > Note: `_fix` / `_fix_custom_node` security-level history: `middle` → `high` in commit `c8992e5d` (2026-04-04, which also added a previously-missing gate to the legacy handler); subsequent `high` → `high+` in WI-#235 to align the enforcement gate with the `SECURITY_MESSAGE_HIGH_P` log text (and tighten the gate for a state-mutating fix path). README 'Risky Level Table' has been updated in lockstep.
 
 # Deprecated / Removed
 
-- **GET /v2/customnode/fetch_updates** — glob returns 410; legacy still attempts fetch (may succeed but deprecated in concept)
+- **GET /v2/customnode/fetch_updates** — glob and legacy return 410
 - **Individual queue/{install,uninstall,update,fix,disable,reinstall,abort_current}** — removed from legacy in recent work (replaced by queue/batch aggregator)
 - **GET /manager/notice** (v1, no /v2 prefix) — removed from legacy
 
@@ -407,7 +416,7 @@ These paths exist in BOTH glob and legacy files (29 endpoints). Semantics are ty
 | 6 | `/v2/manager/queue/task` | POST | POST (pre-existing) | default | `TestStateChangingEndpointsRejectGet::test_get_is_rejected[/v2/manager/queue/task]` |
 | 7 | `/v2/snapshot/save` | GET | POST | default | `TestStateChangingEndpointsRejectGet::test_get_is_rejected[/v2/snapshot/save]` |
 | 8 | `/v2/snapshot/remove` | GET | POST | middle | `TestStateChangingEndpointsRejectGet::test_get_is_rejected[/v2/snapshot/remove]` |
-| 9 | `/v2/snapshot/restore` | GET | POST | middle+ | `TestStateChangingEndpointsRejectGet::test_get_is_rejected[/v2/snapshot/restore]` |
+| 9 | `/v2/snapshot/restore` | GET | POST | high+ | `TestStateChangingEndpointsRejectGet::test_get_is_rejected[/v2/snapshot/restore]` |
 | 10 | `/v2/manager/reboot` | GET | POST | middle | `TestStateChangingEndpointsRejectGet::test_get_is_rejected[/v2/manager/reboot]` |
 | 11 | `/v2/comfyui_manager/comfyui_switch_version` | GET | POST | high+ | `TestStateChangingEndpointsRejectGet::test_get_is_rejected[/v2/comfyui_manager/comfyui_switch_version]` |
 | 12 | `/v2/manager/db_mode` | GET (dual) | POST (write); GET preserved for read | default | `TestStateChangingEndpointsRejectGet::test_get_is_rejected[/v2/manager/db_mode]` |

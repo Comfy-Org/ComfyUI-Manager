@@ -127,7 +127,7 @@ class TestQueueLifecycle:
         must be 0/False. Any non-zero count here would indicate a leak from an
         earlier test module or a reset-handler regression.
         """
-        resp = requests.post(f"{BASE_URL}/v2/manager/queue/reset", timeout=10)
+        resp = requests.post(f"{BASE_URL}/v2/manager/queue/reset", headers={"Content-Type": "application/json"}, timeout=10)
         assert resp.status_code == 200, (
             f"Queue reset failed with status {resp.status_code}"
         )
@@ -179,13 +179,13 @@ class TestQueueLifecycle:
         `start_worker()` accidentally spawns a hot-loop that never exits.
         """
         # Ensure idle baseline (pending empty before start).
-        requests.post(f"{BASE_URL}/v2/manager/queue/reset", timeout=10)
+        requests.post(f"{BASE_URL}/v2/manager/queue/reset", headers={"Content-Type": "application/json"}, timeout=10)
         pre = requests.get(f"{BASE_URL}/v2/manager/queue/status", timeout=10).json()
         assert pre["pending_count"] == 0, (
             f"Pre-condition: pending_count must be 0 before idle-start test, got {pre['pending_count']}"
         )
 
-        resp = requests.post(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
+        resp = requests.post(f"{BASE_URL}/v2/manager/queue/start", headers={"Content-Type": "application/json"}, timeout=10)
         assert resp.status_code in (200, 201), (
             f"Queue start returned unexpected status {resp.status_code}"
         )
@@ -223,7 +223,7 @@ class TestQueueLifecycle:
         # Reset to clean slate. Note: reset wipes pending/running but not
         # file-based batch history, so we track completion by our OWN ui_id
         # rather than a global done_count which can reflect unrelated tasks.
-        requests.post(f"{BASE_URL}/v2/manager/queue/reset", timeout=10)
+        requests.post(f"{BASE_URL}/v2/manager/queue/reset", headers={"Content-Type": "application/json"}, timeout=10)
 
         UI_ID = "e2e-queue-lifecycle"
         # Queue a lightweight task (install a small CNR package)
@@ -249,7 +249,7 @@ class TestQueueLifecycle:
         )
 
         # Start processing
-        resp = requests.post(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
+        resp = requests.post(f"{BASE_URL}/v2/manager/queue/start", headers={"Content-Type": "application/json"}, timeout=10)
         assert resp.status_code in (200, 201), (
             f"Queue start failed with status {resp.status_code}"
         )
@@ -342,7 +342,7 @@ class TestQueueLifecycle:
             }
             r = requests.post(f"{BASE_URL}/v2/manager/queue/task", json=seed_payload, timeout=10)
             assert r.status_code == 200, f"seed queue/task failed: {r.status_code} {r.text[:200]}"
-            r = requests.post(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
+            r = requests.post(f"{BASE_URL}/v2/manager/queue/start", headers={"Content-Type": "application/json"}, timeout=10)
             assert r.status_code in (200, 201), f"seed queue/start failed: {r.status_code}"
 
             def _seed_done():

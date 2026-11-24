@@ -58,6 +58,7 @@ jobs:
         shell: bash
         env:
           MANAGER_ROOT: ${{ github.workspace }}
+          UV_PYTHON: ${{ matrix.python-version }}
         run: |
           python tests/e2e/scripts/setup_e2e_env.py
 

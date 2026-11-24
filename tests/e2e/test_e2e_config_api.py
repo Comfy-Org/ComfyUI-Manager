@@ -122,7 +122,7 @@ def _assert_config_ini_persists_across_reboot(
     to work.
     """
     try:
-        resp = requests.post(f"{BASE_URL}/v2/manager/reboot", timeout=10)
+        resp = requests.post(f"{BASE_URL}/v2/manager/reboot", headers={"Content-Type": "application/json"}, timeout=10)
         if resp.status_code == 403:
             pytest.skip(
                 "reboot denied by security policy "

@@ -49,6 +49,10 @@ PACK_VERSION = "1.0.1"
 POLL_TIMEOUT = 30       # max seconds to wait for an operation
 POLL_INTERVAL = 0.5     # seconds between polls
 
+# A fresh environment has no cache of the Registry list. Manager fetches the
+# list when the server starts, and an install is refused until it is cached.
+REGISTRY_TIMEOUT = 300
+
 pytestmark = pytest.mark.skipif(
     not E2E_ROOT
     or not os.path.isfile(os.path.join(E2E_ROOT, ".e2e_setup_complete")),
@@ -98,7 +102,7 @@ def _queue_task(task: dict) -> None:
         timeout=10,
     )
     resp.raise_for_status()
-    requests.post(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
+    requests.post(f"{BASE_URL}/v2/manager/queue/start", headers={"Content-Type": "application/json"}, timeout=10)
 
 
 def _remove_pack(name: str) -> None:
@@ -143,6 +147,11 @@ def _wait_for(predicate, timeout=POLL_TIMEOUT, interval=POLL_INTERVAL):
     return False
 
 
+def _registry_list_is_cached() -> bool:
+    cache = os.path.join(COMFYUI_PATH, "user", "__manager", "cache")
+    return os.path.isdir(cache) and any(name.endswith("_nodes.json") for name in os.listdir(cache))
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -152,9 +161,14 @@ def comfyui():
     """Start ComfyUI once for the module, stop after all tests."""
     _remove_pack(PACK_DIR_NAME)
     pid = _start_comfyui()
-    yield pid
-    _stop_comfyui()
-    _remove_pack(PACK_DIR_NAME)
+    try:
+        assert _wait_for(_registry_list_is_cached, timeout=REGISTRY_TIMEOUT), (
+            f"Manager did not cache the Registry list within {REGISTRY_TIMEOUT}s; an install fails without it"
+        )
+        yield pid
+    finally:
+        _stop_comfyui()
+        _remove_pack(PACK_DIR_NAME)
 
 
 # ---------------------------------------------------------------------------

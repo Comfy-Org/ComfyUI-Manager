@@ -9,10 +9,11 @@ class NetworkMode(enum.Enum):
 class SecurityLevel(enum.Enum):
     STRONG = "strong"
     NORMAL = "normal"
-    NORMAL_MINUS = "normal-minus"
+    NORMAL_MINUS = "normal-"
     WEAK = "weak"
 
 class DBMode(enum.Enum):
     LOCAL = "local"
     CACHE = "cache"
+    CHANNEL = "channel"
     REMOTE = "remote"
