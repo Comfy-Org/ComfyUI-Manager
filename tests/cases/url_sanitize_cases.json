@@ -1,0 +1,153 @@
+{
+  "note": "JS<->Python sanitize_url differential case matrix. STRING inputs only: Python str() and JS String() disagree for non-strings, so feeding them would report divergence for something that is not a defect. See the docstring of tests/test_url_sanitize_parity.py.",
+  "provenance": "Handed over by gm3-review: 35 cases built to clear the WI-112 model-manager port, plus 22 built for the WI-120 review (scheme grammar, protocol-relative with userinfo, colons after a delimiter, unicode spaces and RTL override, degenerate schemes, a 500-char path). All 57 agreed on both implementations when handed over -- they are coverage, not known failures.",
+  "type_coercion_warning": {
+    "why": "Python str() and JS String() are NOT equivalent for non-strings. Feeding non-strings into the differential matrix produces FALSE divergence - a guard RED for a non-bug.",
+    "measured": {
+      "1.0": {
+        "py": "1.0",
+        "js": "1"
+      },
+      "True": {
+        "py": "True",
+        "js": "true"
+      },
+      "False": {
+        "py": "False",
+        "js": "false"
+      },
+      "[1,2]": {
+        "py": "[1, 2]",
+        "js": "1,2"
+      },
+      "{}": {
+        "py": "{}",
+        "js": "[object Object]"
+      }
+    },
+    "aligned": {
+      "0": "both '0'",
+      "None/null": "both '#' - explicit null handling in both impls"
+    },
+    "recommendation": "Scope the matrix to STRING inputs and say so in the guard docstring; url is always a string off the JSON payload in practice."
+  },
+  "shared_matrix": [
+    "javascript:a",
+    "JaVaScRiPt:a",
+    "java\tscript:a",
+    "java\nscript:a",
+    "\u0001javascript:a",
+    "   javascript:a",
+    "data:text/html,x",
+    "vbscript:a",
+    "file:///etc/passwd",
+    "about:blank",
+    "blob:http://x",
+    "javascript&#58;a",
+    "javascript&colon;a",
+    "&#x6a;avascript:a",
+    "&#106;avascript:a",
+    "http://e.com",
+    "https://e.com/a?b=1&c=2",
+    "HTTPS://E.COM",
+    "/rel/path",
+    "rel",
+    "#anchor",
+    "//proto/x",
+    "a&b/c",
+    "x&y?z=1",
+    "e.com:8080/p",
+    "foo:bar",
+    ":alert(1)",
+    "",
+    "   ",
+    "https://e.com/x\" onmouseover=\"y",
+    "https://evil.example/a onmouseover=alert(1) x",
+    "\\\\evil.com/x",
+    "/\\evil.com",
+    "\u0000javascript:a",
+    "j\u0000avascript:a",
+    "coap+tcp://h/x",
+    "x-scheme://h",
+    "a.b://h",
+    "a-b://h",
+    "HTTP+S://h",
+    "//user:pass@evil.example/x",
+    "#a:b",
+    "?a=b:c",
+    "/p:q",
+    "http://h/#f:g",
+    "http　://h",
+    "javascript :a",
+    "ja​vascript:a",
+    "ｈｔｔｐ://h",
+    "http://h/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "http://h/‮evil",
+    "http:",
+    "https:",
+    "http:/h",
+    ":",
+    "::",
+    "a::b",
+    "  /rel/path  ",
+    " rel ",
+    "\t#anchor\n",
+    " http://h/x ",
+    "\thttps://h/x\t",
+    "http://h/x﻿",
+    "﻿/rel/path",
+    "https://h/x﻿﻿",
+    "﻿",
+    "  /rel  ﻿",
+    "http://h/x",
+    "http://h/x",
+    "http://h/x\u001c",
+    "http://h/x\u001d",
+    "http://h/x\u001e",
+    "http://h/x\u001f",
+    "/rel/path",
+    "/rel/path\u001c",
+    "https://h/x﻿",
+    "http://h/x ",
+    " http://h/x",
+    "http://h/x ",
+    "http://h/x ",
+    "http://h/x ",
+    "http://h/x ",
+    "http://h/x ",
+    "http://h/x ",
+    "http://h/x ",
+    "http://h/x　",
+    "　/rel",
+    "  /rel  "
+  ],
+  "gap_cases_found_by_enforcement": {
+    "why": "Found by tests/test_url_sanitize_parity.py's own perturbation test, not by review: perturbing the JS scheme-less branch from `return raw.trim()` to `return raw` produced ZERO divergences against the handed-over 57, because every scheme-less case in that set is already trim-clean. The two trim call sites in sanitize_url were therefore unpinned on both sides.",
+    "cases": [
+      "  /rel/path  ",
+      " rel ",
+      "\t#anchor\n",
+      " http://h/x ",
+      "\thttps://h/x\t"
+    ]
+  },
+  "unicode_whitespace_divergence": {
+    "why": "The 62-case matrix had no BOM or unicode-whitespace input, so the two trim call sites in sanitize_url were compared only over inputs whose edges are ASCII. They are NOT equivalent: String.prototype.trim() and str.strip() disagree on six codepoints.",
+    "measured": {
+      "js_strips_python_keeps": [
+        "U+FEFF"
+      ],
+      "python_strips_js_keeps": [
+        "U+001C",
+        "U+001D",
+        "U+001E",
+        "U+001F",
+        "U+0085"
+      ],
+      "method": "enumerated every codepoint below U+110000 on both sides: chr(c).isspace() in Python vs /\\s/-equivalent String.trim() in node; 24 shared, 6 divergent"
+    },
+    "example": "'http://h/x<U+FEFF>' -> python 'http://h/x<U+FEFF>', js 'http://h/x'",
+    "resolution": "ALIGNED, not accepted. glob/manager_util.py is the declared source of truth for this pair (see test_the_guard_goes_red_when_either_allow_list_gains_a_scheme, which names it), so js/common.js stopped delegating to trim() and spells Python's str.strip() set out as URL_TRIM. The divergence is therefore a REGRESSION SHAPE this matrix now catches, not a gap_case.",
+    "scope": "The trim only shapes the RETURNED string for an already-accepted URL. Scheme acceptance is decided on `probe`, which both sides build identically, so no case here changes what is allowed."
+  }
+}

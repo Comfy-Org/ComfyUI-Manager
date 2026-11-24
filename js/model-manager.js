@@ -3,17 +3,27 @@ import { $el } from "../../scripts/ui.js";
 import {
 	manager_instance, rebootAPI,
 	fetchData, md5, icons, show_message, customAlert, infoToast, showTerminal,
-	storeColumnWidth, restoreColumnWidth, loadCss, formatSize, sizeToBytes
+	storeColumnWidth, restoreColumnWidth, loadCss, formatSize, sizeToBytes,
+	sanitizeHTML, safeHref
 } from  "./common.js";
 import { api } from "../../scripts/api.js";
 
 // https://cenfun.github.io/turbogrid/api.html
-import TG from "./turbogrid.esm.js";
+import ManagerGrid from "./manager-grid.js";
 import { buildGuiFrameCustomHeader,  createSettingsCombo } from "./comfyui-gui-builder.js";
 
 loadCss("./model-manager.css");
 
 const gridId = "model";
+
+// Escape raw cells while preserving empty values.
+const escapeCell = (value) => (value === null || value === undefined) ? value : sanitizeHTML(String(value));
+
+// Escape option markup while comparing the original values.
+const renderOptions = (list, current) => list.map(item => {
+	const selected = item.value === current ? " selected" : "";
+	return `<option value="${sanitizeHTML(String(item.value))}"${selected}>${sanitizeHTML(String(item.label))}</option>`;
+}).join("");
 
 const pageHtml = `
 <div class="cmm-manager cmm-manager-dark">
@@ -21,8 +31,8 @@ const pageHtml = `
 	<div class="cmm-manager-selection"></div>
 	<div class="cmm-manager-message"></div>
 	<div class="cmm-manager-footer">
-		<button class="cmm-manager-refresh p-button p-component">Refresh</button>
-		<button class="cmm-manager-stop p-button p-component">Stop</button>
+		<button class="cmm-manager-refresh cm-ui-button">Refresh</button>
+		<button class="cmm-manager-stop cm-ui-button">Stop</button>
 		<div class="cmm-flex-auto"></div>
 	</div>
 </div>
@@ -51,7 +61,7 @@ export class ModelManager {
 			createSettingsCombo("Filter", $el("select.cmm-manager-filter")),
 			createSettingsCombo("Type", $el("select.cmm-manager-type")),
 			createSettingsCombo("Base", $el("select.cmm-manager-base")),
-			$el("input.cmm-manager-keywords.p-inputtext.p-component", { type: "search", placeholder: "Search" }),
+			$el("input.cmm-manager-keywords.cm-ui-input", { type: "search", placeholder: "Search" }),
 			$el("div.cmm-manager-status"),
 			$el("div.cmm-flex-auto")
 		]);
@@ -101,22 +111,13 @@ export class ModelManager {
 
 	updateFilter() {
 		const $filter  = this.element.querySelector(".cmm-manager-filter");
-		$filter.innerHTML = this.filterList.map(item => {
-			const selected = item.value === this.filter ? " selected" : "";
-			return `<option value="${item.value}"${selected}>${item.label}</option>`
-		}).join("");
+		$filter.innerHTML = renderOptions(this.filterList, this.filter);
 
 		const $type  = this.element.querySelector(".cmm-manager-type");
-		$type.innerHTML = this.typeList.map(item => {
-			const selected = item.value === this.type ? " selected" : "";
-			return `<option value="${item.value}"${selected}>${item.label}</option>`
-		}).join("");
+		$type.innerHTML = renderOptions(this.typeList, this.type);
 
 		const $base  = this.element.querySelector(".cmm-manager-base");
-		$base.innerHTML = this.baseList.map(item => {
-			const selected = item.value === this.base ? " selected" : "";
-			return `<option value="${item.value}"${selected}>${item.label}</option>`
-		}).join("");
+		$base.innerHTML = renderOptions(this.baseList, this.base);
 
 	}
 
@@ -170,7 +171,7 @@ export class ModelManager {
 
 			".cmm-manager-stop": {
 				click: () => {
-					api.fetchApi('/manager/queue/reset', { method: 'POST' });
+					api.fetchApi('/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 					infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 				}
 			},
@@ -199,7 +200,7 @@ export class ModelManager {
 
 	initGrid() {
 		const container = this.element.querySelector(".cmm-manager-grid");
-		const grid = new TG.Grid(container);
+		const grid = new ManagerGrid(container);
 		this.grid = grid;
 		
 		grid.bind('onUpdated', (e, d) => {
@@ -227,6 +228,9 @@ export class ModelManager {
         });
 
 		grid.setOption({
+			highlightKeywords: {
+				textGenerator: (row, column) => ['name', 'description'].includes(column) ? row[column] : escapeCell(row[column])
+			},
 			theme: 'dark',
 
 			selectVisible: true,
@@ -325,7 +329,8 @@ export class ModelManager {
 			maxWidth: 500,
 			classMap: 'cmm-node-name',
 			formatter: function(name, rowItem, columnItem, cellNode) {
-				return `<a href=${rowItem.reference} target="_blank"><b>${name}</b></a>`;
+				// Names are server-escaped; raw references need URL and attribute handling.
+				return `<a href="${safeHref(rowItem.reference)}" target="_blank" rel="noopener noreferrer"><b>${name}</b></a>`;
 			}
 		}, {
 			id: 'installed',
@@ -342,7 +347,7 @@ export class ModelManager {
 				if (installed === "True") {
 					return `<div class="cmm-icon-passed">${icons.passed}</div>`;
 				}
-				return `<button class="cmm-btn-install p-button p-component" mode="install">Install</button>`;
+				return `<button class="cmm-btn-install cm-ui-button" mode="install">Install</button>`;
 			}
 		}, {
 			id: 'url',
@@ -351,7 +356,7 @@ export class ModelManager {
 			sortable: false,
 			align: 'center',
 			formatter: (url, rowItem, columnItem) => {
-				return `<a class="cmm-btn-download" title="Download file" href="${url}" target="_blank">${icons.download}</a>`;
+				return `<a class="cmm-btn-download" title="Download file" href="${safeHref(url)}" target="_blank" rel="noopener noreferrer">${icons.download}</a>`;
 			}
 		}, {
 			id: 'size',
@@ -366,11 +371,14 @@ export class ModelManager {
 		}, {
 			id: 'type',
 			name: 'Type',
-			width: 100
+			width: 100,
+			formatter: escapeCell
 		}, {
 			id: 'base',
-			name: 'Base'
+			name: 'Base',
+			formatter: escapeCell
 		}, {
+			// Descriptions are formatted HTML from the server.
 			id: 'description',
 			name: 'Description',
 			width: 400,
@@ -379,11 +387,13 @@ export class ModelManager {
 		}, {
 			id: "save_path",
 			name: 'Save Path',
-			width: 200
+			width: 200,
+			formatter: escapeCell
 		}, {
 			id: 'filename',
 			name: 'Filename',
-			width: 200
+			width: 200,
+			formatter: escapeCell
 		}];
 
 		restoreColumnWidth(gridId, columns);
@@ -415,7 +425,7 @@ export class ModelManager {
 		}
 
 		this.selectedModels = selectedList;
-		this.showSelection(`<span>Selected <b>${selectedList.length}</b> models <button class="cmm-btn-install p-button p-component" mode="install">Install</button>`);
+		this.showSelection(`<span>Selected <b>${selectedList.length}</b> models <button class="cmm-btn-install cm-ui-button" mode="install">Install</button>`);
 	}
 
 	focusInstall(item) {
@@ -444,7 +454,7 @@ export class ModelManager {
 		let needRefresh = false;
 		let errorMsg = "";
 
-		await api.fetchApi('/manager/queue/reset', { method: 'POST' });
+		await api.fetchApi('/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 
 		let target_items = [];
 
@@ -458,6 +468,7 @@ export class ModelManager {
 				});
 			}
 
+			// Model names are already escaped by the server.
 			this.showStatus(`Install ${item.name} ...`);
 
 			const data = item.originalData;
@@ -465,6 +476,7 @@ export class ModelManager {
 
 			const res = await api.fetchApi(`/manager/queue/install_model`, {
 				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(data)
 			});
 
@@ -483,14 +495,15 @@ export class ModelManager {
 						errorMsg += `This action is not allowed with this security level configuration.\n`;
 					}
 				} else {
-					errorMsg += await res.text() + '\n';
+					errorMsg += sanitizeHTML(await res.text()) + '\n';
 				}
 
 				break;
 			}
 		}
 
-		this.install_context = {btn: btn, targets: target_items};
+		const context = {btn: btn, targets: target_items};
+		this.install_context = context;
 
 		if(errorMsg) {
 			this.showError(errorMsg);
@@ -503,8 +516,11 @@ export class ModelManager {
 			}
 		}
 		else {
-			await api.fetchApi('/manager/queue/start', { method: 'POST' });
-			this.showStop();
+			await api.fetchApi('/manager/queue/start', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+			// The queue can end before this request is answered.
+			if(this.install_context === context) {
+				this.showStop();
+			}
 			showTerminal();
 		}
 	}
@@ -524,23 +540,35 @@ export class ModelManager {
 			self.grid.updateRow(item);
 		}
 		else if(event.detail.status == 'done') {
-			self.hideStop();
 			self.onQueueCompleted(event.detail);
 		}
 	}
 
 	async onQueueCompleted(info) {
 		let result = info.model_result;
-
-		if(result.length == 0) {
-			return;
-		}
-
 		let self = ModelManager.instance;
 
 		if(!self.install_context) {
 			return;
 		}
+
+		// model_result is a dict (model hash -> outcome). A queue that ends
+		// without one, such as a node pack install, is not this install's
+		// while tasks are left. With none left, this install is over without
+		// a result, as after a refused request or a queue that was reset.
+		const ended_without_result = !result || Object.keys(result).length === 0;
+
+		if(ended_without_result) {
+			// Another install can start while the server is asked.
+			const context = self.install_context;
+			const stats = await (await api.fetchApi('/manager/queue/status')).json();
+
+			if(stats.total_count > stats.done_count || self.install_context !== context) {
+				return;
+			}
+		}
+
+		self.hideStop();
 
 		let btn = self.install_context.btn;
 
@@ -552,8 +580,9 @@ export class ModelManager {
 		for(let hash in result){
 			let v = result[hash];
 
+			// Escape raw task errors for both HTML message destinations.
 			if(v != 'success')
-				errorMsg += v + '\n';
+				errorMsg += sanitizeHTML(String(v)) + '\n';
 		}
 
 		for(let k in self.install_context.targets) {
@@ -561,11 +590,16 @@ export class ModelManager {
 			self.grid.updateCell(item, "installed");
 		}
 
+		if(ended_without_result) {
+			self.install_context = undefined;
+			return;
+		}
+
 		if (errorMsg) {
 			self.showError(errorMsg);
 			show_message("Installation Error:\n"+errorMsg);
 		} else {
-			self.showStatus(`Install ${result.length} models successfully`);
+			self.showStatus(`Install ${Object.keys(result).length} models successfully`);
 		}
 
 		self.showRefresh();
@@ -670,6 +704,7 @@ export class ModelManager {
 
 	// ===========================================================================================
 
+	// Messages accept HTML; see createUIStateManager in common.js.
 	showSelection(msg) {
 		this.element.querySelector(".cmm-manager-selection").innerHTML = msg;
 	}

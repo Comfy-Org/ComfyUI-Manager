@@ -185,7 +185,7 @@ export async function rebootAPI() {
 	const isConfirmed = await customConfirm("Are you sure you'd like to reboot the server?");
 	if (isConfirmed) {
 		try {
-			const response = await api.fetchApi("/manager/reboot", { method: 'POST' });
+			const response = await api.fetchApi("/manager/reboot", { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 			if (response.status == 403) {
 				await handle403Response(response);
 				return false;
@@ -367,6 +367,63 @@ export function md5(inputString) {
 	return rh(a)+rh(b)+rh(c)+rh(d);
 }
 
+const levenArray = [];
+const levenCodeCache = [];
+export const leven = (first, second) => {
+	if (first === second) {
+		return 0;
+	}
+	const swap = first;
+	if (first.length > second.length) {
+		first = second;
+		second = swap;
+	}
+	let firstLength = first.length;
+	let secondLength = second.length;
+	while (firstLength > 0 && (first.charCodeAt(~-firstLength) === second.charCodeAt(~-secondLength))) {
+		firstLength--;
+		secondLength--;
+	}
+	let start = 0;
+	while (start < firstLength && (first.charCodeAt(start) === second.charCodeAt(start))) {
+		start++;
+	}
+	firstLength -= start;
+	secondLength -= start;
+	if (firstLength === 0) {
+		return secondLength;
+	}
+	let bCharacterCode;
+	let result;
+	let temporary;
+	let temporary2;
+	let index = 0;
+	let index2 = 0;
+	while (index < firstLength) {
+		levenCodeCache[index] = first.charCodeAt(start + index);
+		levenArray[index] = ++index;
+	}
+	while (index2 < secondLength) {
+		bCharacterCode = second.charCodeAt(start + index2);
+		temporary = index2++;
+		result = index2;
+		for (index = 0; index < firstLength; index++) {
+			temporary2 = bCharacterCode === levenCodeCache[index] ? temporary : temporary + 1;
+			temporary = levenArray[index];
+			result = levenArray[index] = temporary > result ? (temporary2 > result ? result + 1 : temporary2) : (temporary2 > temporary ? temporary + 1 : temporary2);
+		}
+	}
+	return result;
+}
+
+export function generateUUID() {
+	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+		const r = Math.random() * 16 | 0;
+		const v = c === 'x' ? r : (r & 0x3 | 0x8);
+		return v.toString(16);
+	});
+}
+
 export async function fetchData(route, options) {
 	let err;
 	const res = await api.fetchApi(route, options).catch(e => {
@@ -426,6 +483,40 @@ export function sanitizeHTML(str) {
 		.replace(/"/g, "&quot;")
 		.replace(/'/g, "&#039;");
 }
+
+// Keep URL handling aligned with glob/manager_util.py; covered by shared cases.
+export const SAFE_URL_SCHEMES = ['http', 'https'];
+const URL_SCHEME_NOISE = /[\x00-\x20\x7f]/g;
+const URL_HEAD_DELIMITERS = ['/', '?', '#'];
+// Match Python str.strip(); JavaScript trim() uses different Unicode whitespace.
+const URL_TRIM = /^[\t-\r\x1c-\x20\x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+|[\t-\r\x1c-\x20\x85\xa0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+$/g;
+const trimUrl = (value) => value.replace(URL_TRIM, '');
+
+export function sanitizeUrl(url) {
+	const raw = (url === null || url === undefined) ? '' : String(url);
+	const probe = raw.replace(URL_SCHEME_NOISE, '');
+	if (!probe) {
+		return '#';
+	}
+
+	let cut = probe.length;
+	for (const delimiter of URL_HEAD_DELIMITERS) {
+		const found = probe.indexOf(delimiter);
+		if (found !== -1) {
+			cut = Math.min(cut, found);
+		}
+	}
+	const head = probe.slice(0, cut);
+
+	if (head.includes(':')) {
+		return SAFE_URL_SCHEMES.includes(head.split(':', 1)[0].toLowerCase()) ? trimUrl(raw) : '#';
+	}
+
+	return trimUrl(raw);
+}
+
+// Validate the URL, then escape it for a quoted href attribute.
+export const safeHref = (url) => sanitizeHTML(sanitizeUrl(url));
 
 export function showTerminal() {
 	try {
@@ -646,7 +737,9 @@ export async function uninstallNodes(nodeList, options = {}) {
 	for (const nodeItem of nodeList) {
 		target_items.push(nodeItem);
 
-		onProgress(`Uninstall ${nodeItem.title || nodeItem.name} ...`);
+		// Titles are escaped by the caller; the name fallback is a raw pack key.
+		const displayTitle = nodeItem.title || sanitizeHTML(String(nodeItem.name));
+		onProgress(`Uninstall ${displayTitle} ...`);
 
 		const data = nodeItem.originalData || nodeItem;
 		data.channel = channel;
@@ -655,11 +748,12 @@ export async function uninstallNodes(nodeList, options = {}) {
 
 		const res = await api.fetchApi(`/manager/queue/uninstall`, {
 			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(data)
 		});
 
 		if (res.status != 200) {
-			errorMsg = `'${sanitizeHTML(String(nodeItem.title || nodeItem.name))}': `;
+			errorMsg = `'${displayTitle}': `;
 
 			if (res.status == 403) {
 				errorMsg += `This action is not allowed with this security level configuration.\n`;
@@ -988,14 +1082,14 @@ export function createFlyover(container, options = {}) {
 	return flyover;
 }
 
-// Shared UI State Methods - consolidated from multiple managers
+// Message methods accept HTML; callers escape raw data and preserve formatted content.
 export function createUIStateManager(element, selectors) {
 	return {
 		showSelection: (msg) => {
 			const el = element.querySelector(selectors.selection);
 			if (el) el.innerHTML = msg;
 		},
-		
+
 		showError: (err) => {
 			const el = element.querySelector(selectors.message);
 			if (el) {
@@ -1003,7 +1097,7 @@ export function createUIStateManager(element, selectors) {
 				el.innerHTML = msg;
 			}
 		},
-		
+
 		showMessage: (msg, color) => {
 			const el = element.querySelector(selectors.message);
 			if (el) {
@@ -1013,7 +1107,7 @@ export function createUIStateManager(element, selectors) {
 				el.innerHTML = msg;
 			}
 		},
-		
+
 		showStatus: (msg, color) => {
 			const el = element.querySelector(selectors.status);
 			if (el) {
