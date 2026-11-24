@@ -2,6 +2,7 @@
 description:
     `manager_util` is the lightest module shared across the prestartup_script, main code, and cm-cli of ComfyUI-Manager.
 """
+import importlib.metadata
 import traceback
 import ipaddress
 import socket
@@ -10,16 +11,20 @@ import aiohttp
 import json
 import threading
 import os
+import shutil
 from datetime import datetime
 import subprocess
+import tempfile
 import sys
 import re
 import logging
 import platform
 import shlex
+import time
 from functools import lru_cache
 from html import escape, unescape
 from html.entities import html5
+from urllib.parse import urlsplit, urlunsplit
 
 
 cache_lock = threading.Lock()
@@ -215,14 +220,23 @@ def simple_hash(input_string):
 
 
 def is_file_created_within_one_day(file_path):
+    # mtime, not ctime: on Windows ctime is the CREATION time, and rewriting
+    # a cache file in place does not change it — after the first day every
+    # rewritten cache was 'expired' forever, so each start and each
+    # fetch_updates refetched the whole registry.
     if not os.path.exists(file_path):
         return False
 
-    file_creation_time = os.path.getctime(file_path)
+    file_modified_time = os.path.getmtime(file_path)
     current_time = datetime.now().timestamp()
-    time_difference = current_time - file_creation_time
+    time_difference = current_time - file_modified_time
 
     return time_difference <= 86400
+
+
+def aiohttp_connector():
+    # aiohttp before 3.9.2 reads ssl=True as "do not check", so ssl is passed only to turn the check off
+    return aiohttp.TCPConnector(ssl=False) if bypass_ssl else None
 
 
 async def get_data(uri, silent=False):
@@ -230,7 +244,7 @@ async def get_data(uri, silent=False):
         print(f"FETCH DATA from: {uri}", end="")
 
     if uri.startswith("http"):
-        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=not bypass_ssl)) as session:
+        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp_connector()) as session:
             headers = {
                 'Cache-Control': 'no-cache',
                 'Pragma': 'no-cache',
@@ -275,14 +289,60 @@ def get_cache_state(uri):
     return "expired"
 
 
+def _atomic_write_json(cache_uri, json_obj):
+    # A kill mid-dump used to leave a truncated cache that parsed as valid
+    # (fresh mtime) but returned {} — or blew up the CNR consumer. Temp file
+    # + os.replace: readers see the old cache or the new one, never a corpse.
+    # Returns whether the cache was replaced: one that stays open elsewhere is
+    # left as it is, with a warning.
+    tmp_uri = f"{cache_uri}.{os.getpid()}.tmp"
+    try:
+        with open(tmp_uri, "w", encoding="utf-8") as file:
+            json.dump(json_obj, file, indent=4, sort_keys=True)
+        try:
+            # the cache keeps the mode it had; a new one gets the default mode
+            if os.path.exists(cache_uri):
+                os.chmod(tmp_uri, os.stat(cache_uri).st_mode & 0o777)
+        except OSError:
+            # a file system that refuses chmod sets the mode itself
+            pass
+        for attempt in range(3):
+            try:
+                os.replace(tmp_uri, cache_uri)
+                return True
+            except OSError as e:
+                # Windows does not replace a file that is open elsewhere. A
+                # reader has it open for a moment only, so try again shortly.
+                refusal = e
+                if attempt < 2:
+                    time.sleep(0.1)
+        # still refused: keep the cache as it is. Writing over it in place
+        # could be cut short, and the caller has the data it fetched anyway.
+        logging.warning(f"[ComfyUI-Manager] The cache could not be replaced and is left as it is: {cache_uri}\n=> {refusal}")
+        return False
+    finally:
+        # gone after a replace; otherwise remove it if nothing holds it open
+        try:
+            os.remove(tmp_uri)
+        except OSError:
+            pass
+
+
 def save_to_cache(uri, json_obj, silent=False):
     cache_uri = get_cache_path(uri)
 
     with cache_lock:
-        with open(cache_uri, "w", encoding='utf-8') as file:
-            json.dump(json_obj, file, indent=4, sort_keys=True)
-            if not silent:
-                logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+        if _atomic_write_json(cache_uri, json_obj) and not silent:
+            logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+
+
+def write_cache_file(cache_uri, json_obj):
+    # for callers that compute their own cache path (get_data_by_mode's
+    # hash_filename scheme differs from get_cache_path) — same atomic
+    # guarantee: readers see the old cache or the new one, never a corpse.
+    # Returns whether the cache was replaced.
+    with cache_lock:
+        return _atomic_write_json(cache_uri, json_obj)
 
 
 async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=False, dont_cache=False):
@@ -306,10 +366,8 @@ async def get_data_with_cache(uri, silent=False, cache_mode=True, dont_wait=Fals
         json_obj = await get_data(uri, silent=silent)
         if not dont_cache:
             with cache_lock:
-                with open(cache_uri, "w", encoding='utf-8') as file:
-                    json.dump(json_obj, file, indent=4, sort_keys=True)
-                    if not silent:
-                        logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+                if _atomic_write_json(cache_uri, json_obj) and not silent:
+                    logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
 
     return json_obj
 
@@ -409,6 +467,70 @@ def extract_package_as_zip(file_path, extract_path):
         return None
 
 
+def is_inside(directory, name):
+    directory = os.path.abspath(directory)
+    try:
+        return os.path.commonpath((directory, os.path.abspath(os.path.join(directory, name)))) == directory
+    except ValueError:
+        # on Windows, a path of another drive
+        return False
+
+
+def switch_package_files(file_path, path):
+    import zipfile
+    try:
+        with zipfile.ZipFile(file_path, "r") as zip_ref:
+            extracted = zip_ref.namelist()
+    except zipfile.BadZipFile:
+        logging.error(f"File '{file_path}' is not a zip or is corrupted.")
+        return None
+
+    with open(os.path.join(path, '.tracking'), 'r', encoding='utf-8') as f:
+        # as the list is written: a name can start or end with a space
+        prev_files = {line.rstrip('\n') for line in f}
+    root = os.path.abspath(path)
+    garbage = prev_files - set(extracted)
+    garbage = [os.path.abspath(os.path.join(root, x)) for x in garbage if is_inside(root, x)]
+
+    for x in garbage:
+        try:
+            if os.path.isfile(x):
+                os.remove(x)
+        except OSError as e:
+            logging.warning(f"[ComfyUI-Manager] A file of the old version is left: {e}")
+
+    folders = set()
+    for x in garbage:
+        while len(x) > len(root):
+            folders.add(x)
+            x = os.path.dirname(x)
+
+    real_root = os.path.realpath(root)
+
+    def reached_without_a_link(x):
+        return os.path.normcase(os.path.realpath(x)) == os.path.normcase(real_root + x[len(root):])
+
+    for x in sorted(folders, key=len, reverse=True):
+        try:
+            if not os.path.isdir(x) or not reached_without_a_link(x):
+                continue
+
+            # the files of a `__pycache__` are caches of the modules that were there, as those of Python and of numba
+            cache = os.path.join(x, '__pycache__')
+            if os.listdir(x) == ['__pycache__'] and reached_without_a_link(cache):
+                for name in os.listdir(cache):
+                    os.remove(os.path.join(cache, name))
+                os.rmdir(cache)
+
+            if not os.listdir(x):
+                os.rmdir(x)
+        except OSError as e:
+            logging.warning(f"[ComfyUI-Manager] A folder of the old version is left: {e}")
+
+    # after the files are removed: two names can be one file, as names that differ in case alone are on Windows
+    return extract_package_as_zip(file_path, path)
+
+
 # The functions below import packaging where they use it: prestartup_script imports this module
 # before its ensure_dependencies() has installed a missing dependency.
 def normalize_pip_name(name):
@@ -422,6 +544,7 @@ def normalize_pip_name(name):
 
 _PIP_LINE_TAIL_PATTERN = re.compile(r'\s[#-]')    # a comment or a pip option after the requirement
 _PIP_MALFORMED_PATTERN = re.compile(r'([A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[[^\]]*\]\s*)?[<>=!~(]')
+_PIP_URL_PATTERN = re.compile(r'[A-Za-z][A-Za-z0-9+.-]*://')
 
 
 def parse_pip_spec(spec):
@@ -432,7 +555,8 @@ def parse_pip_spec(spec):
     be parsed has ('?', text); neither can be compared with an installed version. A
     trailing comment, an environment marker and pip options are ignored.
 
-    Returns (None, False, []) when the line does not name a package: URLs, paths and options.
+    A line that is a URL is a direct reference without a name: (None, False, [('@', url)]).
+    Returns (None, False, []) for the other lines that do not name a package: paths and options.
     """
     from packaging.requirements import InvalidRequirement, Requirement
 
@@ -444,6 +568,9 @@ def parse_pip_spec(spec):
     try:
         requirement = Requirement(text)
     except InvalidRequirement:
+        if _PIP_URL_PATTERN.match(text):
+            # pip splits a URL from its environment marker at '; '
+            return None, False, [('@', text.split('; ', 1)[0].rstrip())]
         match = _PIP_MALFORMED_PATTERN.match(text)
         if match is None:
             return None, False, []
@@ -676,6 +803,155 @@ def pip_block_reason(spec, blacklist, downgrade_blacklist):
     return 'downgrade blacklisted' if blocked else None
 
 
+def installed_from(url, name=None):
+    """The direct_url.json of the distribution that was installed from the URL of a direct reference, or None.
+
+    A URL gives no name and no version to look up, and pip has to fetch and build it to
+    learn them. pip and uv record where a distribution came from in its direct_url.json
+    (PEP 610), and that record is compared here.
+
+    A VCS URL is met by a distribution from that repository. Without a revision in the
+    URL any commit meets it, and with one the distribution must have been installed with
+    that revision, or be at that commit. The repository is not asked: a branch that has
+    moved on is not followed. Any other URL is met by a distribution from that archive.
+    A distribution from a local directory meets nothing: such a source is edited in
+    place, and pip installs it without a download.
+
+    A record holds the URL without its fragment, and the subdirectory that the fragment
+    names in a key of its own. A git repository is the same with and without '.git'.
+
+    `name` is the normalized name of a requirement that gives one ('name @ url'): only a
+    distribution of that name meets it.
+
+    Only a distribution whose name `get_installed_packages()` lists counts, and only when
+    the distributions of that name agree on the version and on the record. What an install
+    that was cut short leaves behind still has its record: alone its name is not listed,
+    and beside what took its place the two differ, and the installer is left to decide.
+    """
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return None
+    vcs, _, scheme = parts.scheme.rpartition('+')
+    path, revision = parts.path, None
+    if vcs and '@' in path:
+        path, revision = path.rsplit('@', 1)
+    paths = [path]
+    if vcs == 'git':
+        paths.append(path[:-4] if path.endswith('.git') else path + '.git')
+    urls = [urlunsplit((scheme, parts.netloc, path, parts.query, '')) for path in paths]
+    subdirectory = re.search(r'(?:^|&)subdirectory=([^&]*)', parts.fragment)
+    subdirectory = subdirectory.group(1) if subdirectory else None
+
+    listed = get_installed_packages()
+    records, said = {}, {}
+    for distribution in importlib.metadata.distributions():
+        try:
+            metadata = distribution.metadata
+            record = distribution.read_text('direct_url.json')
+            origin = json.loads(record or '{}')
+        except (ValueError, OSError):
+            continue    # cut short, or not text; Python 3.15 raises a FileNotFoundError for a folder without METADATA
+        found = normalize_pip_name(metadata.get('Name') or '')
+        said.setdefault(found, set()).add((metadata.get('Version'), record))    # a set: a folder that is on the path twice is read twice
+        if not isinstance(origin, dict) or origin.get('url') not in urls or origin.get('subdirectory') != subdirectory:
+            continue
+        vcs_info = origin.get('vcs_info')
+        if isinstance(vcs_info, dict):
+            met = vcs_info.get('vcs') == vcs and revision in (None, vcs_info.get('requested_revision'), vcs_info.get('commit_id'))
+        else:
+            met = vcs_info is None and not vcs and 'archive_info' in origin
+        if met and found in listed and name in (None, found):
+            records.setdefault(found, origin)
+    for found, origin in records.items():
+        if len(said[found]) == 1:
+            return origin
+    return None
+
+
+def fix_cmd(requirement):
+    """The pip command with which a fix installs a requirement.
+
+    A direct reference is installed again by force, whatever is installed: nothing but
+    its URL says what it should be. That command is run with `reinstall()`. Any other
+    requirement is installed as an install does it.
+    """
+    cmd = make_pip_cmd(['install', requirement])
+    clauses = parse_pip_spec(requirement)[2]
+    if clauses and clauses[0][0] == '@':
+        # --no-deps: without it every package the distribution needs is installed again as well, torch among them.
+        # The cache is left out: with it uv installs the wheel it has built of the commit before, forced or not, and so
+        # does pip for a name with a commit. uv may link the files to its cache, and keeps none to link to here.
+        uv = 'uv' in cmd[:cmd.index('install')]
+        cmd += ['--force-reinstall', '--no-deps'] + (['--no-cache', '--link-mode', 'copy'] if uv else ['--no-cache-dir'])
+    return cmd
+
+
+def is_reinstall(cmd):
+    """Whether the command is a forced install that `fix_cmd()` built."""
+    requirement = pip_install_requirement(cmd)
+    if requirement is None or '--force-reinstall' not in cmd:
+        return False
+    clauses = parse_pip_spec(requirement)[2]
+    return bool(clauses) and clauses[0][0] == '@'
+
+
+def is_git_remote_usable(url):
+    try:
+        done = subprocess.run(['git', 'ls-remote', url, 'HEAD'], capture_output=True, timeout=30,
+                              env={**os.environ, 'GIT_TERMINAL_PROMPT': '0'})
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return done.returncode == 0
+
+
+def reinstall(cmd, run):
+    """Fix the URL requirement of a forced install that `fix_cmd()` built, and return the exit code.
+
+    `run(cmd)` runs one command and returns its exit code, or raises CalledProcessError
+    for it as the `run_script` of cm-cli does. What it raised is raised again at the
+    end when the fix has failed.
+
+    The requirement is first installed as an install does it. That brings what the
+    distribution at the URL needs now, which the forced install leaves out, and changes
+    nothing when it cannot be had. Then the forced install puts a clean copy from the
+    URL there. If only the forced install fails, what is installed stays and meets the
+    requirement, so the exit code is 0 and the rest of the pack is fixed.
+
+    A cache is used in one case: the first install fails and the repository does not
+    answer. uv is then asked for the commit that `installed_from()` finds installed, from
+    its cache. pip has no option for that.
+    """
+    install = cmd.index('install')
+    base, requirement = cmd[:install + 1], cmd[install + 1]
+    name, _, clauses = parse_pip_spec(requirement)
+    raised = []
+
+    def step(command):
+        # flushed: cm-cli lets the command write to this stdout by itself
+        print(f"\n## ComfyUI-Manager: EXECUTE => {command}", flush=True)
+        try:
+            return run(command)
+        except subprocess.CalledProcessError as error:
+            raised.append(error)
+            return error.returncode
+
+    code = step(base + [requirement])
+    if code == 0:
+        if step(cmd) != 0:
+            print(f"[ComfyUI-Manager] could not install '{requirement}' again by force: what is installed is kept.")
+        return 0
+
+    origin = installed_from(clauses[0][1], name) or {}
+    vcs_info = origin.get('vcs_info')
+    if vcs_info and vcs_info.get('vcs') == 'git' and 'uv' in base and not is_git_remote_usable(origin['url']):
+        subdirectory = f"#subdirectory={origin['subdirectory']}" if 'subdirectory' in origin else ''
+        code = step(base + [f"git+{origin['url']}@{vcs_info.get('commit_id')}{subdirectory}", '--force-reinstall', '--no-deps', '--offline'])
+    if code != 0 and raised:
+        raise raised[0]
+    return code
+
+
 def pip_install_requirement(cmd):
     """Return the requirement of a `pip install` command built by `make_pip_cmd()`, or None.
 
@@ -901,6 +1177,9 @@ class PIPFixer:
             logging.error(e)
 
         # restore based on custom list
+        if self.manager_files_path is None:
+            return
+
         pip_auto_fix_path = os.path.join(self.manager_files_path, "pip_auto_fix.list")
         if os.path.exists(pip_auto_fix_path):
             from packaging.specifiers import Specifier  # imported on use, as in parse_pip_spec()
@@ -1021,7 +1300,7 @@ def restore_pip_snapshot(pips, options):
         # try all at once
         res = 1
         try:
-            res = subprocess.check_output(make_pip_cmd(['install'] + non_url))
+            res = subprocess.check_call(make_pip_cmd(['install'] + non_url))
         except Exception:
             pass
 
@@ -1030,7 +1309,7 @@ def restore_pip_snapshot(pips, options):
             for x in non_url:
                 res = 1
                 try:
-                    res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+                    res = subprocess.check_call(make_pip_cmd(['install', '--no-deps', x]))
                 except Exception:
                     pass
 
@@ -1041,7 +1320,7 @@ def restore_pip_snapshot(pips, options):
         for x in non_local_url:
             res = 1
             try:
-                res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+                res = subprocess.check_call(make_pip_cmd(['install', '--no-deps', x]))
             except Exception:
                 pass
 
@@ -1052,7 +1331,7 @@ def restore_pip_snapshot(pips, options):
         for x in local_url:
             res = 1
             try:
-                res = subprocess.check_output(make_pip_cmd(['install', '--no-deps', x]))
+                res = subprocess.check_call(make_pip_cmd(['install', '--no-deps', x]))
             except Exception:
                 pass
 
@@ -1060,3 +1339,42 @@ def restore_pip_snapshot(pips, options):
                 failed.append(x)
 
     print(f"Installation failed for pip packages: {failed}")
+    return failed
+
+
+def which_on_path(name):
+    """
+    the file that the directories of PATH give for the name of a command
+    `shutil.which` looks in the current directory first on Windows, and takes a directory of PATH that is not absolute
+    """
+    names = [name]
+    if os.name == 'nt':
+        extensions = [x for x in os.environ.get('PATHEXT', '.COM;.EXE;.BAT;.CMD').split(os.pathsep) if x]
+        if not name.lower().endswith(tuple(x.lower() for x in extensions)):
+            names = [name + x for x in extensions]
+
+    for directory in os.get_exec_path():
+        for x in names:
+            path = os.path.join(directory, x)
+            if os.path.isabs(directory) and os.path.isfile(path) and os.access(path, os.X_OK):
+                return path
+
+    return None
+
+
+def find_git_executable(git_exe, timeout=10):
+    # a name without a directory is a command of PATH; GitPython would take it as a file of the current directory
+    path = shutil.which(git_exe) if os.path.dirname(git_exe) else which_on_path(git_exe)
+    if path is None:
+        return None
+
+    try:
+        # the answer goes to a file: with a pipe, Windows waits after the time is up for every program that holds the pipe
+        with tempfile.TemporaryFile() as answer:
+            res = subprocess.run([path, 'version'], stdout=answer, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL, timeout=timeout)
+            answer.seek(0)
+            is_git = res.returncode == 0 and answer.read(11) == b'git version'
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    return os.path.abspath(path) if is_git else None

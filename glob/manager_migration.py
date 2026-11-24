@@ -4,8 +4,6 @@ Handles migration from legacy paths to new __manager path structure.
 """
 
 import os
-import sys
-import subprocess
 import configparser
 
 # Startup notices for notice board
@@ -74,20 +72,28 @@ def run_migration_checks(user_dir, manager_files_path):
         warn_outdated_comfyui()
 
 
+LEGACY_BACKUP_NAME = '.legacy-manager-backup'
+
+
 def check_legacy_backup(manager_files_path):
     """Check for legacy backup and notify user to verify and remove it.
 
     This runs on every startup to remind users about pending legacy backup.
     """
-    backup_dir = os.path.join(manager_files_path, '.legacy-manager-backup')
-    if not os.path.exists(backup_dir):
+    if not os.path.isdir(manager_files_path):
+        return
+
+    backup_dirs = [os.path.join(manager_files_path, name) for name in sorted(os.listdir(manager_files_path))
+                   if name.startswith(LEGACY_BACKUP_NAME)]
+    if not backup_dirs:
         return
 
     # Terminal output
     print("\n" + "-"*70)
     print("[ComfyUI-Manager] NOTICE: Legacy backup exists")
     print("  - Your old Manager data was backed up to:")
-    print(f"      {backup_dir}")
+    for backup_dir in backup_dirs:
+        print(f"      {backup_dir}")
     print("  - Please verify and remove it when no longer needed.")
     print("-"*70 + "\n")
 
@@ -118,7 +124,7 @@ def check_suspicious_manager(user_dir):
     if not os.path.exists(config_path):
         return False
 
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(interpolation=None)
     config.read(config_path)
     sec_level = config.get('default', 'security_level', fallback='normal').lower()
 
@@ -149,14 +155,14 @@ def warn_outdated_comfyui():
     # Terminal output
     print("\n" + "!"*70)
     print("[ComfyUI-Manager] ERROR: ComfyUI version is outdated!")
-    print("  - Most operations are blocked for security.")
+    print("  - Every operation but the update of ComfyUI is blocked for security.")
     print("  - ComfyUI update is still allowed.")
     print("  - Please update ComfyUI to use Manager normally.")
     print("!"*70 + "\n")
 
     # Notice board output
     add_startup_notice(
-        "[Security Alert] ComfyUI outdated. Installations blocked (update allowed).<BR>"
+        "[Security Alert] ComfyUI outdated. Everything but its update is blocked.<BR>"
         "Update ComfyUI for normal operation.",
         level='error'
     )
@@ -171,7 +177,6 @@ def migrate_legacy_config(user_dir, manager_files_path):
     Scenarios:
     1. Legacy exists, New doesn't exist → Migrate config.ini
     2. Legacy exists, New exists → First update after upgrade
-       - Run ComfyUI dependency installation
        - Rename legacy to .backup
     3. Legacy doesn't exist → No migration needed
 
@@ -211,6 +216,7 @@ def migrate_legacy_config(user_dir, manager_files_path):
     print(f"  - New: {new_config}")
     print("  - Migrating config.ini only (other files are NOT migrated).")
     print("  - Security level below 'normal' will be raised.")
+    print("  - Settings that permit installs or change the channel are not migrated.")
     print("-"*70 + "\n")
 
     _migrate_config_with_security_check(legacy_config, new_config)
@@ -229,29 +235,12 @@ def _handle_first_update_migration(user_dir, legacy_dir, manager_files_path):
     - ComfyUI was updated (now has System User API)
     - Manager already created __manager on first new run
     - But legacy directory still exists
-
-    Actions:
-    1. Run ComfyUI dependency installation
-    2. Move legacy to __manager/.legacy-manager-backup
     """
     # Terminal output
     print("\n" + "-"*70)
     print("[ComfyUI-Manager] NOTICE: First update after ComfyUI upgrade detected")
     print("  - Both legacy and new directories exist.")
-    print("  - Running ComfyUI dependency installation...")
     print("-"*70 + "\n")
-
-    # Run ComfyUI dependency installation
-    # Path: glob/manager_migration.py → glob → comfyui-manager → custom_nodes → ComfyUI
-    try:
-        comfyui_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        requirements_path = os.path.join(comfyui_path, 'requirements.txt')
-        if os.path.exists(requirements_path):
-            subprocess.run([sys.executable, '-m', 'pip', 'install', '-r', requirements_path],
-                         capture_output=True, check=False)
-            print("[ComfyUI-Manager] ComfyUI dependencies installation completed.")
-    except Exception as e:
-        print(f"[ComfyUI-Manager] WARNING: Failed to install ComfyUI dependencies: {e}")
 
     # Move legacy to backup inside __manager
     _move_legacy_to_backup(legacy_dir, manager_files_path)
@@ -265,11 +254,13 @@ def _move_legacy_to_backup(legacy_dir, manager_files_path):
     """
     import shutil
 
-    backup_dir = os.path.join(manager_files_path, '.legacy-manager-backup')
+    backup_dir = os.path.join(manager_files_path, LEGACY_BACKUP_NAME)
+    count = 1
+    while os.path.exists(backup_dir):
+        count += 1
+        backup_dir = os.path.join(manager_files_path, f'{LEGACY_BACKUP_NAME}-{count}')
 
     try:
-        if os.path.exists(backup_dir):
-            shutil.rmtree(backup_dir)  # Remove old backup if exists
         shutil.move(legacy_dir, backup_dir)
 
         # Terminal output (full paths shown here only)
@@ -287,19 +278,34 @@ def _move_legacy_to_backup(legacy_dir, manager_files_path):
         )
         return backup_dir
     except Exception as e:
-        print(f"[ComfyUI-Manager] WARNING: Failed to backup legacy directory: {e}")
+        copy_failed = isinstance(e, shutil.Error)
+        if copy_failed:
+            shutil.rmtree(backup_dir, ignore_errors=True)
+
+        print(f"[ComfyUI-Manager] WARNING: Failed to backup legacy directory: {str(e)!r}")
         add_startup_notice(
-            f"[MIGRATION] Failed to backup legacy directory: {e}",
+            "[MIGRATION] Failed to backup legacy directory. See terminal for details.",
             level='warning'
         )
         return None
 
 
+# The settings that are carried over from config.ini of the legacy path. That file could be written
+# through ComfyUI's /userdata, so a setting that permits an install or changes where Manager
+# fetches from, and one that is not known here, is left behind.
+MIGRATED_SETTINGS = {
+    'security_level', 'network_mode', 'db_mode', 'preview_method', 'share_option', 'component_policy',
+    'update_policy', 'use_uv', 'file_logging', 'always_lazy_install', 'default_cache_as_channel_url',
+    'model_download_by_agent', 'downgrade_blacklist', 'windows_selector_event_loop_policy',
+}
+
+VALUES_WRITTEN_BY_DEFAULT = {'false', '', 'https://raw.githubusercontent.com/ltdrdata/comfyui-manager/main'}
+
+
 def _migrate_config_with_security_check(legacy_path, new_path):
-    """Migrate legacy config, raising security level only if below default."""
-    config = configparser.ConfigParser()
+    legacy = configparser.ConfigParser(interpolation=None)
     try:
-        config.read(legacy_path)
+        legacy.read(legacy_path)
     except Exception as e:
         print(f"[ComfyUI-Manager] WARNING: Failed to parse config.ini: {e}")
         print("  - Creating fresh config with default settings.")
@@ -308,6 +314,27 @@ def _migrate_config_with_security_check(legacy_path, new_path):
             level='warning'
         )
         return  # Skip migration, let Manager create fresh config
+
+    config = configparser.ConfigParser(interpolation=None)
+    if 'default' in legacy:
+        settings = dict(legacy.items('default'))
+        config['default'] = {key: value for key, value in settings.items() if key in MIGRATED_SETTINGS}
+        not_migrated = sorted(key for key, value in settings.items()
+                              if key not in MIGRATED_SETTINGS and value.lower() not in VALUES_WRITTEN_BY_DEFAULT)
+
+        if not_migrated:
+            print("\n" + "="*70)
+            print("[ComfyUI-Manager] WARNING: Settings not migrated")
+            print(f"  - {not_migrated!r}")
+            print("  - The legacy config.ini was not protected, so these are back at their defaults.")
+            print(f"  - Set them again in {new_path} if you need them.")
+            print("="*70 + "\n")
+
+            add_startup_notice(
+                f"[MIGRATION] Settings of the legacy config.ini that were not migrated: {len(not_migrated)}.<BR>"
+                "That file was not protected, so they are back at their defaults. See terminal for details.",
+                level='warning'
+            )
 
     # Security level hierarchy: strong > normal > normal- > weak
     # Default is 'normal', only raise if below default
@@ -331,26 +358,24 @@ def _migrate_config_with_security_check(legacy_path, new_path):
                 "To prevent unauthorized remote access.",
                 level='warning'
             )
+        elif current_level not in ('strong', 'normal'):
+            config['default']['security_level'] = 'normal'
+
+            print("\n" + "="*70)
+            print("[ComfyUI-Manager] WARNING: Security level adjusted")
+            print(f"  - Previous: {current_level!r} is not a security level → New: 'normal'")
+            print("="*70 + "\n")
+
+            add_startup_notice(
+                "[MIGRATION] The security level of the legacy config.ini was not a security level.<BR>"
+                "It is back at 'normal'. See terminal for details.",
+                level='warning'
+            )
         else:
-            print(f"  - Security level: '{current_level}' (no change needed)")
+            print(f"  - Security level: {current_level!r} (no change needed)")
 
     # Ensure directory exists
     os.makedirs(os.path.dirname(new_path), exist_ok=True)
 
     with open(new_path, 'w') as f:
         config.write(f)
-
-
-def force_security_level_if_needed(config_dict):
-    """Force security level to 'strong' if on old ComfyUI.
-
-    Args:
-        config_dict: Configuration dictionary to modify in-place
-
-    Returns:
-        bool: True if security level was forced
-    """
-    if not has_system_user_api():
-        config_dict['security_level'] = 'strong'
-        return True
-    return False

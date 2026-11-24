@@ -65,6 +65,10 @@ function storeGroupNode(name, data, register=true) {
 
 export async function load_components() {
 	let data = await api.fetchApi('/manager/component/loads', {method: "POST"});
+	if(data.status != 200) {
+		return;
+	}
+
 	let components = await data.json();
 
 	let start_time = Date.now();

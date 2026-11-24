@@ -357,6 +357,7 @@ export class NodeUsageAnalyzer {
 
 			const res = await api.fetchApi(`/manager/queue/install_model`, {
 				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(data)
 			});
 

@@ -2,6 +2,564 @@
 
 ## Unreleased
 
+### Check Update no longer stops the server, and shows how far it is
+
+Check Update in the Custom Nodes Manager fetched every git nodepack inside the
+request for the node list. Until the last fetch had ended the server answered
+nothing else, and with many git nodepacks the page gave up after a minute with
+`Failed to get custom node list.` (#3574). The check now runs in the
+background. The page shows `Checking updates (n/total) ...` while the
+repositories are fetched, the server goes on answering, and the nodepacks that
+have an update are listed when the check has ended. A task on nodepacks that
+is started during a check, such as Update All, runs when the check has ended,
+as before. A model download and an update of ComfyUI do not wait for it. When
+the connection to the server is lost and comes back during a check, as when
+the server restarts, the page asks for the check again.
+
+A git nodepack that the registry does not know was left out of the check,
+unless the node list gave it an `id` that is its repository name. Every enabled
+git nodepack of the list is fetched now, so a check can take longer than
+before.
+
+On Windows, a check that found an update for a git nodepack put the install
+script of that nodepack down to run at the next start, though nothing had been
+updated. A check no longer does that.
+
+`GET /customnode/getlist` no longer fetches, with or without `skip_update`,
+and `POST /customnode/fetch_updates` answers 410. A check is asked for with
+`POST /customnode/check_update` and reports by the `cm-check-update` event.
+
+### A search in the Custom Nodes Manager lists the best matches first
+
+A search in the Custom Nodes Manager only filtered the list. The rows stayed in
+the listed order, so for `face` a nodepack with `Interface` in its title could
+stand above one with the word `Face` (#1191). The rows of a search are now
+ordered by a score. A whole word counts more than a part of a word, in
+whichever searched column matches best, and a match in more columns and more
+stars raise the score. Rows with the same score stay in the listed order.
+
+A search replaces a column sort that was made before it. Clicking a column
+header during a search sorts by that column, and typing in the search box
+again goes back to the best matches. Clearing the search box brings back the
+listed order, or keeps the column sort that was made during the search. The
+list is filtered 300 ms after the last key.
+
+The first click on the Nodes, ★ and Last Update headers now sorts from the
+highest value down.
+
+### A nodepack folder with neither `.git` nor `.tracking` is an invalid installation, fixed by reinstalling
+
+A folder in `custom_nodes` with neither `.git` nor `.tracking`, left by an
+install that broke midway or by a download unpacked by hand, was taken for a
+git nodepack: Update All logged `ERROR: An error occurred while updating ...`
+for it, and its nodepack showed as not installed (#3330). It is now an invalid
+installation. Update All and `cm-cli update all` leave it alone, the Custom
+Nodes Manager marks its row `INVALID INSTALLATION ↗` and offers Reinstall,
+`/customnode/installed` lists it with `invalid_installation: true`, and the
+startup notice names it.
+By its folder name it is enabled, disabled and uninstalled as before.
+
+A reinstall, of any nodepack, keeps the folders it replaces until the new
+installation is in place, and puts them back when the install fails. It
+deleted them first, so a failed download lost the nodepack. `cm-cli reinstall`
+makes the same reinstall and prints `[REINSTALLED]`.
+
+What is in the way of a reinstall, such as a clone of a fork at the install
+path or under the name of the nodepack, is moved to
+`custom_nodes/.disabled/.archived/` and the log says where it is. It is not
+deleted and no longer loaded, and it goes back when the install fails. The
+reinstall failed there with `Install path already exists`.
+
+The console line of a failed update says why the update failed.
+
+### A reserved install does not install a URL requirement again
+
+A requirement that is a URL, as `git+https://github.com/owner/repo` or the URL
+of a wheel, was installed again by every reserved install of its nodepack, and
+for a repository that is a clone and a build at the start of the server
+(#3575). On Windows, or with `always_lazy_install`, every install, update and
+fix that the server is asked for is reserved. The requirement is now skipped
+when a package installed from that URL is there. It is then left as it is, as a
+name without a version is: new commits of the repository are not followed.
+
+### A fix installs a URL requirement again by force
+
+A fix of a nodepack (**Try fix**, `cm-cli fix`) is the way to have a package
+from a URL installed again. It installs what the package needs now, and then
+the package itself from its URL, by force and without the cache of pip or uv.
+When the repository cannot be reached, what is installed is kept, and uv
+installs the installed commit once more from its cache when it has it. A fix
+also installs the requirements that an install, an update or an earlier fix of
+the same session has installed.
+
+### A fix that failed is reported as failed
+
+A fix of a nodepack from the page (**Try fix**) was reported as a success also
+when a requirement could not be installed or `install.py` failed: only the log
+said `install script failed`. Such a fix is now reported as failed, and the
+page shows `An error occurred while fixing '<nodepack>@<version>'.` A fix that
+is reserved for the next start, as on Windows or with `always_lazy_install`,
+is reported as soon as it is reserved, as before.
+
+### No deprecation warning of aiohttp with `bypass_ssl`
+
+With `bypass_ssl = true`, the fetch of the notice and the fetch of a list
+passed `verify_ssl=False` to aiohttp, which warns that the argument is
+deprecated: `DeprecationWarning: verify_ssl is deprecated, use ssl=False
+instead` (#2281). They now pass `ssl=False`. Without `bypass_ssl` nothing
+changes: the certificate is checked as before.
+
+### A console that is gone does not fail a prompt
+
+A server that was started with pipes for its console goes on running when the
+process that read them exits, and a write to such a pipe fails. The log hook
+of the Manager passed that failure on to whatever had printed: the prompt of a
+node that prints, or of a sampler at its progress bar, ended with
+`BrokenPipeError: [Errno 32] Broken pipe`, on Windows with
+`OSError: [Errno 22] Invalid argument` (#3223). The hook now drops what the
+console does not take and does not write to that console again, and what is
+written still goes to the log file. While stderr is gone, ComfyUI's own log
+handler fails on each record, and Python's report of that failure is now in
+the log file in full, where it broke off after its first line. This is the
+hook of the log file (`file_logging`, on by default): with it off, the streams
+are those of ComfyUI, and the progress bar still fails there.
+
+### A log call that cannot be formatted does not fail its node
+
+A log call that cannot be formatted failed its node in the log handler of the
+Manager, with the exception of the format: `logging.info("value %d", "text")`
+ended the node with `TypeError`. Python's logging only reports such a call
+and goes on. The handler now puts a `<<logging error>>` line with the file
+and the line of the call into the log file, and the node goes on.
+
+### A snapshot restore installs a git node pack as the snapshot names it
+
+A snapshot names a git node pack by its url. For a url that the registry
+knows, the restore asked for a nightly install by the id of the registry, and
+that install takes its url from the node list. When the node list had no entry
+for the node pack, as after the list went over to a fork of it, nothing was
+cloned and the summary said `[  FAILED   ]` with no word of why. When the node
+list had another repository under the same name, that one was cloned. The
+restore clones the url of the snapshot, as a nightly install of that node
+pack: a version of the registry that is enabled is disabled first, and the
+node pack is checked out at the commit of the snapshot. The restore no longer
+reads the node list.
+
+A node pack that was switched from its clone to a version of the registry
+keeps the clone, disabled, and a snapshot saves both. The restore enabled or
+cloned the clone and disabled the version that the snapshot names. Such a node
+pack is restored at that version, and its git entry is left alone. When that
+version cannot be installed, the clone is restored as before.
+
+A clone of the restore that is refused says why in the log, as
+`Invalid git url: ...`.
+
+### A failed legacy backup is reported without the text of the error, and leaves no part of a backup
+
+When the legacy directory could not be moved to its backup, the startup notice
+carried the text of the error, which has paths of that directory in it. The
+notice now says only that the backup failed, and the error is in the terminal.
+When the move fails while it copies, the legacy directory is as it was and the
+next start tries again; what was copied is removed, so that the starts do not
+each leave another part of a backup.
+
+### On an old ComfyUI, Manager only updates ComfyUI
+
+On a ComfyUI without the System User API (before 0.3.76), Manager's data
+directory is not protected, so installs are refused there and startup scripts
+are not run. Other requests were still served, and other files of that
+directory were still acted on. Now only the update of ComfyUI is served there:
+every other request to Manager is answered with `comfyui_outdated`. A snapshot
+restore scheduled in that directory is left alone at the start, and the start
+says so; its `pip_auto_fix.list` and `pip_overrides.json` are not applied by
+the start or by the update. Update ComfyUI to use Manager again.
+
+After that update, the first start moves `config.ini` to the protected
+directory. It moved every setting and raised only a security level below
+`normal`. Now it moves the settings that are preferences and leaves behind
+those that permit an install (`allow_git_url_install`, `allow_pip_install`,
+`allow_flagged_nodepack_install`) or change where Manager fetches from
+(`channel_url`, `http_channel_enabled`, `bypass_ssl`, `git_exe`), and any it
+does not know. Those are back at their defaults, and the terminal lists the
+ones that had another value; set them again if you need them. A security level
+that is not a security level is set to `normal` like one below it.
+### Every POST that changes something is taken only as `application/json`, and the share option is saved by POST
+
+A page of another site can make the browser send a GET, and a POST without a
+body and without a Content-Type, for which no preflight is made. The Manager
+routes that take no body (`queue/start`, `queue/reset`, `queue/update_comfyui`,
+`snapshot/save`, `reboot`) now answer 400 unless the request has
+`Content-Type: application/json`, as the routes that read a JSON body do: a
+browser does not send that header to another site without a preflight. The
+share option is saved with `POST /manager/share_option` and a JSON body
+`{"value": ...}`; `GET /manager/share_option` only answers with the saved
+option, and a `value` given to it is ignored. The Manager's own pages send the
+header. A script that calls one of these routes has to send it too, and one
+that saved the share option with `?value=` has to POST.
+
+### The file of the saved Matrix account is readable by its user only
+
+The share dialog saves the Matrix account, with its password, in `matrix_auth`
+in Manager's data directory. The file was written with the default mode of
+new files, which other users of the machine can usually read. It is now written
+with mode `0600`, and a file that is already there gets that mode the next
+time an account is saved.
+
+### The share option that is saved is one of the choices of the share menu
+
+`/manager/share_option` saved any text as the share option. It now saves
+`all`, `none`, `youml` or `matrix`, the choices of the menu, and answers 400
+for another value.
+
+### Restoring a snapshot needs the security level of a switch to an older version
+
+A snapshot restore takes the node packs back to the versions that the
+snapshot recorded, older ones too. `POST /snapshot/restore` needed `middle`, which the
+default `security_level = normal` gives on any listener; a switch of ComfyUI to
+an older version needs `high`. A restore now needs `high` as well: `normal-` or
+lower on a loopback listener, `weak` otherwise. At `normal`, `Restore` in the
+Snapshot Manager is refused; `cm-cli restore-snapshot` is not changed.
+
+### Routes that read a JSON body take it only as `application/json`
+
+A POST route that reads a JSON body parsed it whatever the Content-Type of the
+request. These routes now answer 400 unless the Content-Type is
+`application/json`. The Manager's own scripts send it; a script or tool that
+posts JSON to the Manager without that header has to add it.
+
+### Switching ComfyUI to an older version is held to the security level
+
+Switching the ComfyUI version was not checked against `security_level`. A
+switch to an older release, or to anything that is not a release tag, now needs
+`normal-` or lower when ComfyUI listens on a loopback address, and `weak`
+otherwise; at the default `normal`, `Switch ComfyUI` in the Manager menu
+answers that the security level does not allow it. A switch to `nightly` or to
+a newer release is an update and works at every level, as before. A ComfyUI
+with commits after its release, as on `nightly`, would go back by a switch to
+that release, so that counts as older; in a repository without release tags,
+such as a clone without tags, every version but `nightly` does. The menu
+changes the update policy to that of the chosen version only after the switch
+has happened; it did so before asking for the switch.
+
+### The server no longer returns saved sharing credentials
+
+`GET /manager/get_matrix_auth` answered with the saved Matrix homeserver,
+username and password, to any client that could reach the server. It now answers
+without the password. The share dialog leaves the password field empty for the
+saved account, and the server uses the saved password for the username it was
+saved with; for another account a password has to be typed. An account is saved
+once it has logged in; a share request no longer replaces the saved account
+before that. If others could reach the server while a Matrix password was saved,
+change that password.
+
+Sharing to Matrix logs in to matrix.org, where the share room is, and to no
+other homeserver. The homeserver of the share dialog can no longer be changed, a
+share request that names another homeserver is refused, and an account that was
+saved for another homeserver is not used: an account of matrix.org has to be
+entered. Before, the server logged in to any homeserver that a request named,
+with the password of the request.
+
+The YouML API token is kept in the browser that shares, which is what sends it
+to YouML; the server stored it, and `GET /manager/youml/settings` answered with
+it in the same way. Both `/manager/youml/settings` routes are removed. The token
+has to be entered once more in the YouML share dialog. Delete `.youml` in
+Manager's data directory (`<USER_DIRECTORY>/__manager/`, or
+`<USER_DIRECTORY>/default/ComfyUI-Manager/` on older ComfyUI), and if others
+could reach the server while a token was saved, issue a new token.
+
+### A setting chosen while the Manager menu is loading it is kept
+
+The Manager menu asks the server for the database mode, the component policy,
+the update policy and the share option when it is first opened. A value chosen
+before the answer arrived was saved, but the menu went back to showing the old
+one. The menu keeps the chosen value.
+
+### Setting requests with an unknown value are refused
+
+The routes that set `db_mode`, `update_policy` and `component_policy` stored
+whatever value a request carried and wrote it to `config.ini`. They answer 400
+for a value that is not one of those the Manager's menu offers, and for a JSON
+body without a `value`, which ended with status 500.
+
+### `git_exe` chooses the git executable
+
+The path set as `git_exe` in `config.ini` was read but not used: git commands
+kept running the `git` found on `PATH`. The Manager, cm-cli and the git helper
+now run the configured executable. For the Manager it no longer has to be on
+`PATH`: the Manager also starts when the only git is the one named by
+`git_exe`. cm-cli still needs a git on `PATH` to start.
+
+A value that is not a working git is reported in the log, and the default git
+is used. The value is read as it is written: with a `%` in it, as in a path
+of Windows, the Manager read every setting of `config.ini` as its default.
+`git_exe` is used only when the configuration file is in a protected
+directory, that is with a ComfyUI that has the System User API.
+
+### The commit and the submodules of a git node pack
+
+A snapshot recorded no commit for a git node pack whose refs were packed, as
+after `git gc`. The commit is read from `packed-refs` too. A `HEAD` that is
+not UTF-8, as one that names a branch in another encoding, raised an error
+where the commit of a node pack is read. It is read as bytes now. On Windows
+the commit of a branch whose name is not ASCII, as a Korean one, could be
+unknown as well: the file of the branch is looked for under the name that Git
+for Windows gives it. The commit is read while the Manager is loading, and an
+error there kept the Manager from loading: also for a `.git` with a folder
+where the file of the branch would be, as after
+`git checkout --orphan feature` beside a branch `feature/x`, or with a file
+that cannot be read. The commit of such a node pack is unknown now.
+
+When a snapshot restore checks a git node pack out, its submodules are brought
+to the commits that the commit names, also when the node pack is at the commit
+of the snapshot already. A submodule that was never fetched is then fetched
+too in a node pack that the Manager installed, as the Manager clones a node
+pack with its submodules; in a node pack cloned without them, it is fetched
+only when the node pack itself is checked out.
+
+### A node pack whose `.git/config` cannot be read
+
+The Manager reads the remote url of every installed node pack from its
+`.git/config` while it is loading. A url with a `%`, such as one with `%20`,
+a key without a value, such as `bare` alone, a key on a line that is indented
+more than the one before it, a byte order mark at the start of the file, or
+text that the encoding of the system cannot decode, such as the name of a
+branch in another encoding, raised an error there, and the Manager did not
+load. These files are read now, and for a file that cannot be read the url of
+that node pack is unknown and a warning names the file once.
+
+### An update whose git step fails is a failure, and can be done again
+
+On Windows the pull of an update runs in a helper process, which ended with 0
+when the pull failed, and its result was not read: the update went on to the
+install script and ended as done. The helper ends with 1 now, and the update
+fails.
+
+When the update of its submodules failed, a node pack stayed at the new
+commit: the next update found nothing to do, and the install script of the
+update never ran. The pull is undone, and the submodules that were updated
+before the one that failed go back with it. A node pack with a submodule
+that cannot be fetched at all is not updated until it can.
+
+### A snapshot restore reports what failed, and restores the pinned commit
+
+The summary of a restore listed a node pack as `INSTALLED`, `DISABLED` or
+`ENABLED` without looking at the result of the step: a clone that failed, for
+example because the directory already existed or the url could not be reached,
+was `INSTALLED`. A step that fails is now listed as `FAILED`, and the Manager
+itself is no longer listed as `DISABLED`. A registry that cannot be reached
+ended the restore at the first node pack to install from it, and so did a
+node pack whose directory could not be moved to disable or enable it; such a
+node pack is listed as `FAILED`, and the restore goes on. `cm-cli
+restore-snapshot` ends with 1 when a step failed or a pip package that a
+`--pip-*` option selects was not installed, and a scheduled restore then says
+`Restore snapshot failed.`: it ended with 0. A url of the snapshot that cannot
+be parsed ended the restore as well; the node pack is listed as `FAILED`.
+
+A git node pack that the restore had to clone stayed at the newest commit. It
+is checked out at the commit of the snapshot, and its install script runs after
+that. When the commit cannot be checked out, the install script still runs, at
+the commit the clone is at, and the node pack is listed as `FAILED`. An
+installed git node pack that the registry does not know was checked out only
+when cm-cli was run from `custom_nodes`, as a scheduled restore does; it is
+checked out from any directory.
+
+A git node pack of the registry that was already installed, or that the
+restore enabled, was listed a second time as `SKIPPED`; it is listed once. An
+installed one that is checked out is listed by its name, as the others are: it
+was listed by its path.
+
+A registry node pack that the restore had to install was unpacked, but its
+requirements were not installed and its install script did not run. The
+restore now runs them, and lists the node pack as `FAILED` when they fail.
+
+A requirement or an install script that failed was taken as done until the
+next start: the next node pack that names the requirement skipped it, and
+installing or fixing the node pack again did not run the script. Both are
+tried again. The install script of a git node pack was skipped in the same way
+when it was cloned where another version of the node pack had been installed
+since the start, as a restore does for a snapshot that has both; it runs.
+
+### Install requests with an unusable body are answered with 400
+
+`/customnode/install/git_url` and `/customnode/install/pip` answered 500 when
+the JSON body was not an object, or when `url` or `packages` was not a string.
+They answer 400, as they do for a missing field.
+
+### What is reserved for the next start is written as UTF-8
+
+The install script of an update, the removal of a node pack whose files are in
+use and a switch of version are reserved in a file that the start-up script
+reads as UTF-8, and that was written in the encoding of the system. On Windows
+a path with a character outside ASCII was lost: one that the code page cannot
+write, such as a Korean folder name with code page 1252, raised an error and
+nothing was reserved; one that it can write was read back as another path, and
+what was reserved was not carried out at the next start. The file is written
+as UTF-8.
+
+A switch of version that is carried out at the next start looked for the files
+that the new version no longer has in `custom_nodes` in place of the directory
+of the node pack: they stayed in the node pack, and a file of the same name in
+`custom_nodes` was removed. They are removed from the node pack. A switch of
+version, at the next start or at once, removes the files that the new version
+no longer has before it extracts the archive of the new version: where two
+names are one file, as `./a.py` and `a.py`, or names that differ in case alone
+on Windows, a file of the new version was removed after it was extracted.
+A name of the old list that leads out of the node pack, with `..` or as an
+absolute path, removed a file outside it; nothing is removed for such a name.
+A file that the old version has alone and that cannot be removed, as one that
+another program has open on Windows, is left with a warning, and the switch
+goes on with the files of the new version.
+A folder that the files of the old version left empty, or with nothing but the
+`__pycache__` of Python, stayed, and a file of the new version could not take
+its place; such a folder is removed.
+A node pack whose directory keeps its name is no longer moved onto itself at
+the next start, which Windows refuses while a file in it is open.
+When the switch moves the node pack to another directory, the install script
+of the new version runs there; it was looked for in the directory that the
+node pack was moved from, and did not run.
+
+That list is written as UTF-8 and was read in the encoding of the system. On
+Windows a switch of version of a node pack with a file name that the code page
+of the system cannot decode ended in the middle: the files of the new version
+were unpacked, its install script did not run and the files of the old version
+stayed. The list is read as UTF-8. A name of the list is read as it is written:
+a space at its start or its end was dropped, and the file of the other name was
+the one removed.
+
+### A scheduled snapshot restore works with `--base-directory`
+
+With `--base-directory`, where `custom_nodes` is not inside the ComfyUI
+directory, a snapshot restore scheduled for the next start failed with
+`ModuleNotFoundError: No module named 'utils'`, and the request was dropped.
+The restore now gets the path of ComfyUI, and the user directory and
+`custom_nodes` directory the server uses.
+
+### Console messages show paths, URLs and package names as they are
+
+Manager printed many of its messages through rich, which reads square
+brackets as markup. A package name such as `diffusers[torch]` was shown as
+`diffusers`, a text such as `:100:` as an emoji, and a line longer than the
+console was broken in the middle of a path or a URL. A text with a closing
+tag such as `[/b]` raised `MarkupError` instead of being printed, in the
+middle of the operation that reported it. These messages are now printed as
+they are; numbers and quoted strings keep their colors.
+
+### The list of ComfyUI versions answers a failure with 400 again
+
+When the versions of ComfyUI could not be read, the request for the list ended
+with status 500 and a `TypeError` in the log: the call that logs the cause was
+given an argument it does not take. The cause is logged, and the answer is 400.
+
+### A value of config.ini is plain text, and one that a setting cannot have gives its default
+
+Manager read `%(name)s` in a value of `config.ini` as a reference to another
+setting, and a `%` that is not of that form made the whole file unreadable:
+every setting was then at its default, `security_level` too, and nothing said
+so. A value is now read as it is written; `%%`, which was read as one `%`, is
+now two. `security_level`, `network_mode`, `db_mode`, `update_policy` and
+`component_policy` have their default when `config.ini` gives a value that
+they cannot have, and Manager logs a warning that names it; the other settings
+are read as before, and `config.ini` keeps the value. Before, a
+`security_level` that is not a level refused every action that needs one; now
+it is `normal`. A `config.ini` that cannot be read at all still gives the
+default settings, and is still written anew from them when a setting is
+saved; Manager now logs a warning when it reads one.
+
+### After an update from an old ComfyUI, the requirements of ComfyUI are installed before the node packs are loaded
+
+On Windows, or with `always_lazy_install`, the update of ComfyUI reserves the
+install of its requirements for the next start. On a ComfyUI without the
+System User API that was reserved in the legacy directory, which the updated
+ComfyUI does not read. Manager installed them only at a start that found a
+`config.ini` in both directories, after ComfyUI and the node packs had been
+loaded. It now installs them at the start that still finds the legacy
+`config.ini`, before the node packs are loaded. A ComfyUI that cannot start
+without one of its new requirements does not get as far as Manager, as
+before: install them with `pip install -r requirements.txt` then. The legacy
+directory is moved to `.legacy-manager-backup` as before; a backup that is
+already there is no longer deleted, the new one gets a numbered name, and the
+start reminds of each of them.
+
+### An old ComfyUI no longer leaves `security_level = strong` in config.ini
+
+On a ComfyUI without the System User API, Manager refused installs by changing
+the security level it had read to `strong`. A `config.ini` that Manager
+created there was written with that `strong`, and installs stayed refused
+after ComfyUI was updated. Now Manager does not change the security level:
+the check of the security level refuses on such a ComfyUI, whatever the level
+is. A `config.ini` that already has `security_level = strong` is not changed:
+if you did not choose it, set it to `normal`.
+
+### Restarting under comfy-cli no longer reports a closed log file
+
+Restarting ComfyUI from the Manager under comfy-cli printed `ValueError: I/O
+operation on closed file` on the console. The log file is closed before the
+process exits, and what was logged after that was still written to it.
+
+### Libraries are told whether the console is a terminal
+
+With file logging on, the logger that captures the output answered every
+library that asked that the console was not a terminal. After
+`colorama.init()`, the colors of every `print()` were removed, and tqdm and
+rich took a terminal for a pipe. The logger now answers with the state of the
+real console (#3259, #3423).
+
+### The Model Manager no longer reports an install that did not happen
+
+After the server refused a model install request, the Model Manager kept
+waiting, and the end of the next queue, such as a node pack install, was taken
+for the end of that install: it asked to click Refresh and raised the notice
+that all model downloads were completed, although no model had been installed.
+The end of a queue that carries no model result now returns the dialog to idle
+without a message when no task is left, and leaves a pending install and its
+Stop button alone while tasks are left (#3437).
+
+### A snapshot that cannot be restored or removed says why
+
+When the server refused to restore or remove a snapshot, the Snapshot Manager
+showed `Restore snapshot failed: undefined / ReferenceError: exception is not
+defined`, also for a removal, and after a refused restore it still asked for a
+restart of ComfyUI. An answer with another error status, such as a 502 from a
+proxy, was taken as success. The message now names the snapshot and the reason:
+the server's text when it gives one, and otherwise the status line, such as
+`HTTP 400 Bad Request`. A restart is asked for only after a restore that was
+accepted (#3436).
+
+### The node preview shows a node's definition as text
+
+Hovering over a node name in a pack's node list of the Custom Nodes Manager
+shows a preview of the node: its name, inputs, default values, outputs and
+description. They were inserted as HTML, so text between angle brackets, such
+as a default of `<lora:detail:0.8>`, was missing from the preview, and markup
+in a node definition was rendered. They are now shown as they are written
+(#3434).
+
+### A registry archive that cannot be extracted leaves nothing behind
+
+When the archive of a registry node pack could not be extracted, for instance
+because an entry in it cannot be written, the install ended with an error and
+left the directory it had created for the pack, with the files extracted so
+far, and the downloaded archive in `custom_nodes`. Installing the pack again
+then stopped with `Install path already exists` until the directory was removed
+by hand. The install now reports `Failed to extract archive`, and removes the
+directory and the archive (#3433).
+
+### Cache files are replaced whole, and their age is counted from the last write
+
+The cached channel lists and the registry's node list were written in place. A
+write that stopped part-way, as when the disk is full or the process is killed,
+left a truncated file, which the Manager reads as an empty list. A cache is now
+written beside the file and put in its place in one step, so the file holds the
+previous list or the new one, and it keeps its permission bits. Where the file
+cannot be replaced, as on Windows while another process has it open, the
+replace is tried again for a moment; a file that stays open is left as it is,
+with a warning in the log, and is updated by a later fetch.
+
+The age of a cached list is counted from its last write. It was read from the
+file's creation time, which Windows keeps when a file is rewritten, so a cache
+first created more than a day ago counted as expired however recently it was
+written (#3432).
+
 ### A disabled node pack that another extension asks for is enabled before the restart
 
 When an extension asks through `cm.try-install-custom-node` for a node pack that
@@ -168,18 +726,12 @@ allow_pip_install = true
 
 Changes take effect after a **restart** (no hot reload).
 
-#### Residual-risk note — outdated ComfyUI behavior change
+#### Outdated ComfyUI
 
-On outdated ComfyUI versions (no system-user API), the manager previously
-forced `security_level = strong`, which unconditionally denied the
-git-URL/pip install surfaces. After this change those surfaces are governed
-by the new flags instead: an operator who explicitly sets a flag to `true`
-on a **loopback** listener can now perform installs on outdated ComfyUI
-where the forced-strong policy previously denied them. This is an accepted,
-deliberate trade-off: it requires explicit operator opt-in, remains bounded
-to loopback listeners, and the flag-deny path on outdated ComfyUI still
-surfaces the `comfyui_outdated` notice. If you operate an outdated ComfyUI
-deployment, leave both flags at their default `false` and update ComfyUI.
+On outdated ComfyUI versions (no system-user API) the flags do not apply:
+git-URL and pip installs are refused there like every other install, whatever
+the flags and the listener are, and the answer is the `comfyui_outdated`
+notice. Update ComfyUI to use them.
 
 ### Removed share destinations
 

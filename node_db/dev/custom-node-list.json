@@ -1,6 +1,38 @@
 {
     "custom_nodes": [
         {
+            "author": "Raykosan",
+            "title": "ComfyUI Custom Node Manager [UNSAFE]",
+            "reference": "https://github.com/Raykosan/ComfyUI-Custom-Node-Manager",
+            "files": [
+                "https://github.com/Raykosan/ComfyUI-Custom-Node-Manager"
+            ],
+            "install_type": "git-clone",
+            "description": "Alternative manager for custom_nodes that bypasses ComfyUI Manager restrictions. [w/This nodepack installs any repository from GitHub, GitLab, Bitbucket, Codeberg or Gitea at any version, without the install checks of ComfyUI-Manager.]"
+        },
+        {
+            "author": "ruiqutech",
+            "title": "RuiquNodes for ComfyUI [SECURITY ISSUE]",
+            "id": "RuiquNodes",
+            "reference": "https://github.com/ruiqutech/ComfyUI-RuiquNodes",
+            "files": [
+                "https://github.com/ruiqutech/ComfyUI-RuiquNodes"
+            ],
+            "install_type": "git-clone",
+            "description": "Nodes of EvaluateMultiple1, EvaluateMultiple3...\nSupport the execution of any fragment of Python code, generating multiple outputs from multiple inputs. [w/This nodepack has a remote code execution vulnerability. Its Evaluate nodes run any Python code the workflow supplies, with no restriction, so a workflow you queue, or a request sent to a ComfyUI server reachable from the network, can run any program on the host.]"
+        },
+        {
+            "author": "rohit267",
+            "title": "Champdev Custom Nodes [SECURITY ISSUE]",
+            "id": "champdev",
+            "reference": "https://github.com/rohit267/champdev-comfyui-nodes",
+            "files": [
+                "https://github.com/rohit267/champdev-comfyui-nodes"
+            ],
+            "install_type": "git-clone",
+            "description": "Champdev Custom Nodes. Contains Champdev Save Image/Video, a file manager and a terminal. [w/This nodepack has a remote code execution vulnerability, even when ComfyUI listens only on a loopback address. Once it is loaded, the ComfyUI server serves an interactive OS shell and a file manager, whether or not the nodes are used. The pack sends telemetry, including the password that unlocks them, to the author's server.]"
+        },
+        {
             "author": "magicwang1111",
             "title": "ComfyUI-GPT-image (OpenAI/Relay) [NAME CONFLICT]",
             "id": "comfyui-gpt-image-openai-relay",
@@ -6964,16 +6996,6 @@
             "description": "ComfyUI nodes from [Timesaver](https://github.com/AlexYez/comfyui-timesaver)."
         },
         {
-            "author": "papcorns",
-            "title": "ComfyUI-Papcorns-Node-UploadToGCS",
-            "reference": "https://github.com/papcorns/ComfyUI-Papcorns-Node-UploadToGCS",
-            "files": [
-                "https://github.com/papcorns/ComfyUI-Papcorns-Node-UploadToGCS"
-            ],
-            "install_type": "git-clone",
-            "description": "NODES: Upload Image To GCS"
-        },
-        {
             "author": "ZHO-ZHO-ZHO",
             "title": "Qwen-2.5 in ComfyUI [NAME CONFLICT]",
             "reference": "https://github.com/ZHO-ZHO-ZHO/ComfyUI-Qwen",
@@ -7762,16 +7784,6 @@
             ],
             "install_type": "git-clone",
             "description": "NODES: Eagle Image Node for PNGInfo, SDXL Resolution Presets (ws), SDXL Prompt Styler, SDXL Prompt Styler Advanced"
-        },
-        {
-            "author": "AlejandroTuzzi",
-            "title": "TUZZI-ByPass [WIP]",
-            "reference": "https://github.com/AlejandroTuzzi/TUZZI-ByPass",
-            "files": [
-                "https://github.com/AlejandroTuzzi/TUZZI-ByPass"
-            ],
-            "install_type": "git-clone",
-            "description": "Custom nodes for automated AI pipelines\nNOTE: The files in the repo are not organized."
         },
         {
             "author": "oxysoft",
