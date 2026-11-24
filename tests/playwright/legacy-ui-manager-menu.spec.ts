@@ -56,7 +56,7 @@ test.describe('Manager Menu Dialog', () => {
     // No page.request / page.waitForResponse — pure UI interaction + dialog
     // close-reopen as the persistence proof. networkidle is used only as a
     // settle barrier (wait), never as assertion input. Close via the dialog's
-    // own `.p-dialog-close-button` (X button) because Escape doesn't close
+    // own `.cm-ui-close` (X button) because Escape doesn't close
     // ComfyDialog reliably.
     await openManagerMenu(page);
     const dialog = page.locator('#cm-manager-dialog').first();
@@ -72,7 +72,7 @@ test.describe('Manager Menu Dialog', () => {
       await page.waitForLoadState('networkidle');
 
       // Close + reopen (UI-only persistence proof)
-      await dialog.locator('.p-dialog-close-button').first().click();
+      await dialog.locator('.cm-ui-close').first().click();
       // ComfyDialog.close() sets display:none but keeps the element in DOM,
       // so check visibility (toBeHidden), not presence (toHaveCount 0).
       await expect(page.locator('#cm-manager-dialog').first()).toBeHidden({ timeout: 5_000 });
@@ -106,6 +106,63 @@ test.describe('Manager Menu Dialog', () => {
     }
   });
 
+  for (const setting of [
+    { name: 'DB mode', route: '/v2/manager/db_mode', options: /Cache|Local|Channel/, values: ['local', 'remote'] },
+    { name: 'Update Policy', route: '/v2/manager/policy/update', options: /Stable|Nightly/, values: ['nightly-comfyui', 'stable-comfyui'] },
+    { name: 'Share', route: '/v2/manager/share_option', options: /YouML|Matrix/, values: ['youml', 'matrix'] },
+  ]) {
+    test(`${setting.name}: a choice made while the setting is still loading is kept`, async ({ page }) => {
+      // The dialog asks the server for the setting when it is first opened.
+      // Hold the answer back after the server has given it, choose another
+      // value, then let the answer through. The value that is chosen is not
+      // the first option, which the select shows before the answer and which
+      // a user therefore cannot choose.
+      const reads = (request: { method(): string; url(): string }) =>
+        request.method() === 'GET' && request.url().includes(setting.route);
+      const saves = (request: { method(): string; url(): string }) => request.url().includes(setting.route) && !reads(request);
+      const save = (value: string) =>
+        page.request.post(setting.route, { data: JSON.stringify({ value }), headers: { 'Content-Type': 'application/json' } });
+      const stored = await (await page.request.get(setting.route)).text();
+      const chosen = setting.values.find((value) => value !== stored)!;
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => { release = resolve; });
+      let answered!: () => void;
+      const answer = new Promise<void>((resolve) => { answered = resolve; });
+      await page.route(`**${setting.route}*`, async (route) => {
+        if (!reads(route.request())) {
+          await route.continue();
+          return;
+        }
+        const response = await route.fetch();
+        answered();
+        await held;
+        await route.fulfill({ response });
+      });
+
+      try {
+        await openManagerMenu(page);
+        const combo = page.locator('#cm-manager-dialog').first().locator('select').filter({ hasText: setting.options }).first();
+        // The answer that is held back is one the server gave before the choice.
+        await answer;
+        const saved = page.waitForResponse((response) => saves(response.request()));
+        await combo.selectOption(chosen);
+        await saved;
+
+        const loaded = page.waitForResponse((response) => reads(response.request()));
+        release();
+        await loaded;
+        await page.waitForTimeout(300);
+
+        await expect(combo).toHaveValue(chosen);
+        expect(await (await page.request.get(setting.route)).text()).toBe(chosen);
+      } finally {
+        release();
+        await page.unroute(`**${setting.route}*`);
+        await save(stored);
+      }
+    });
+  }
+
   test('Update Policy dropdown persists via UI (close-reopen verification)', async ({ page }) => {
     // Wave3 WI-U Cluster H target 2: same UI-only pattern as the DB mode test.
     await openManagerMenu(page);
@@ -119,7 +176,7 @@ test.describe('Manager Menu Dialog', () => {
       await policyCombo.selectOption(newValue);
       await page.waitForLoadState('networkidle');
 
-      await dialog.locator('.p-dialog-close-button').first().click();
+      await dialog.locator('.cm-ui-close').first().click();
       // ComfyDialog.close() sets display:none but keeps the element in DOM,
       // so check visibility (toBeHidden), not presence (toHaveCount 0).
       await expect(page.locator('#cm-manager-dialog').first()).toBeHidden({ timeout: 5_000 });
@@ -316,7 +373,7 @@ test.describe('Manager Menu Dialog', () => {
     expect(statusBefore.status()).toBe(200);
     const statusJson = await statusBefore.json();
 
-    const resetResp = await request.post('/v2/manager/queue/reset');
+    const resetResp = await request.post('/v2/manager/queue/reset', { headers: { 'Content-Type': 'application/json' } });
     expect(resetResp.status()).toBe(200);
 
     // Post-check: queue/status still callable (handler released locks

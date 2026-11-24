@@ -93,7 +93,7 @@ def _queue_task(task: dict) -> None:
         timeout=10,
     )
     resp.raise_for_status()
-    requests.post(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
+    requests.post(f"{BASE_URL}/v2/manager/queue/start", headers={"Content-Type": "application/json"}, timeout=10)
 
 
 def _remove_pack(name: str) -> None:
@@ -241,7 +241,7 @@ def _ensure_pack_installed_with_tracking():
 
 def _reset_queue():
     """Reset the queue to clean state."""
-    requests.post(f"{BASE_URL}/v2/manager/queue/reset", timeout=10)
+    requests.post(f"{BASE_URL}/v2/manager/queue/reset", headers={"Content-Type": "application/json"}, timeout=10)
 
 
 def _wait_queue_idle(timeout=POLL_TIMEOUT):
@@ -643,10 +643,10 @@ class TestInstallModel:
                   advances beyond baseline within a bounded timeout)
               (c) optionally, queue/history records a row matching this ui_id
             Download completion to a real model file is NOT an E2E responsibility —
-            it depends on external network + the target URL. The test URL points
-            to example.com, which will not yield a valid safetensors file; the
-            task will still transition through running → history (as failed /
-            trivial-success), which is the E2E-observable we need.
+            it depends on external network + the target URL. The test model is
+            not in the model list, so the worker refuses it without a download;
+            the task still transitions through running → history (as failed),
+            which is the E2E-observable we need.
         """
         _reset_queue()
 
@@ -696,7 +696,7 @@ class TestInstallModel:
             #   - done_count advanced → task already ran to history
             # Either proves the enqueued task left the pending state under
             # worker control. This does NOT assert download success.
-            requests.post(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
+            requests.post(f"{BASE_URL}/v2/manager/queue/start", headers={"Content-Type": "application/json"}, timeout=10)
 
             def _worker_observed_task() -> bool:
                 try:
@@ -827,10 +827,10 @@ class TestUpdateAll:
                 if isinstance(pkg, dict) and pkg.get("enabled", True):
                     active_packs += 1
 
-        # The handler runs reload + get_custom_nodes synchronously, which can
-        # be slow (up to ~2 min on cache-cold runs). Use an explicit long
-        # timeout; a timeout here is a real server-perf regression, NOT
-        # something to hide as a pass.
+        # The handler fetches the whole Registry list before it answers. The
+        # list is fetched 30 nodepacks per page with a pause after each page,
+        # to keep the load on the Registry low: about three minutes for 6,500
+        # nodepacks, and longer as the list grows.
         resp = requests.post(
             f"{BASE_URL}/v2/manager/queue/update_all",
             params={
@@ -838,7 +838,8 @@ class TestUpdateAll:
                 "client_id": "e2e-update-all",
                 "ui_id": "e2e-update-all",
             },
-            timeout=180,
+            headers={"Content-Type": "application/json"},
+            timeout=600,
         )
 
         # Detect expected outcome based on server security configuration.
@@ -875,6 +876,7 @@ class TestUpdateAll:
         """POST /v2/manager/queue/update_all without required params -> 400."""
         resp = requests.post(
             f"{BASE_URL}/v2/manager/queue/update_all",
+            headers={"Content-Type": "application/json"},
             timeout=10,
         )
         assert resp.status_code == 400, (
@@ -903,6 +905,7 @@ class TestUpdateComfyUI:
                 "client_id": "e2e-update-comfyui",
                 "ui_id": "e2e-update-comfyui",
             },
+            headers={"Content-Type": "application/json"},
             timeout=10,
         )
         assert resp.status_code == 200, (
@@ -927,6 +930,7 @@ class TestUpdateComfyUI:
         """POST /v2/manager/queue/update_comfyui without required params -> 400."""
         resp = requests.post(
             f"{BASE_URL}/v2/manager/queue/update_comfyui",
+            headers={"Content-Type": "application/json"},
             timeout=10,
         )
         assert resp.status_code == 400, (
@@ -944,6 +948,7 @@ class TestUpdateComfyUI:
                 "ui_id": "e2e-update-comfyui-stable",
                 "stable": "true",
             },
+            headers={"Content-Type": "application/json"},
             timeout=10,
         )
         assert resp.status_code == 200, (
@@ -961,7 +966,7 @@ class TestUpdateComfyUI:
         # never reaches history (silent empty-history regression). The
         # actual update work will fail fast in E2E (no real git remote),
         # but the task completes and moves to history regardless.
-        requests.post(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
+        requests.post(f"{BASE_URL}/v2/manager/queue/start", headers={"Content-Type": "application/json"}, timeout=10)
         _wait_queue_idle(timeout=POLL_TIMEOUT)
 
         # Try to inspect queued task params via JSON path.

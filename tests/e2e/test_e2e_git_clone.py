@@ -64,11 +64,16 @@ def _cm_cli_path() -> str:
 
 
 def _ensure_cache():
-    """Run cm-cli update-cache (blocking) to populate Manager cache before tests."""
+    """Run cm-cli update-cache (blocking) to populate Manager cache before tests.
+
+    Timeout is generous (600s): update-cache downloads the full DB lists
+    over the network and routinely exceeds 120s on slow links, which used
+    to fail the whole module at setup.
+    """
     env = {**os.environ, "COMFYUI_PATH": COMFYUI_PATH}
     r = subprocess.run(
         [_cm_cli_path(), "update-cache"],
-        capture_output=True, text=True, timeout=120, env=env,
+        capture_output=True, text=True, timeout=600, env=env,
     )
     if r.returncode != 0:
         raise RuntimeError(f"update-cache failed:\n{r.stderr}")
@@ -148,7 +153,7 @@ def _queue_task(task: dict) -> None:
     """Queue a Manager task and start the worker."""
     resp = requests.post(f"{BASE_URL}/v2/manager/queue/task", json=task, timeout=10)
     resp.raise_for_status()
-    requests.post(f"{BASE_URL}/v2/manager/queue/start", timeout=10)
+    requests.post(f"{BASE_URL}/v2/manager/queue/start", headers={"Content-Type": "application/json"}, timeout=10)
 
 
 def _remove_pack(name: str) -> None:

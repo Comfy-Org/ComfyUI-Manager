@@ -17,19 +17,32 @@ Usage:
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
+import sys
 
 import pytest
 import requests
 
 E2E_ROOT = os.environ.get("E2E_ROOT", "")
 COMFYUI_PATH = os.path.join(E2E_ROOT, "comfyui") if E2E_ROOT else ""
+CUSTOM_NODES = os.path.join(COMFYUI_PATH, "custom_nodes") if COMFYUI_PATH else ""
 SCRIPTS_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "scripts"
 )
 
 PORT = 8199
 BASE_URL = f"http://127.0.0.1:{PORT}"
+
+# Seed pack for the `installed` tests — same CNR test package used by
+# test_e2e_endpoint.py / test_e2e_task_operations.py. Installed by the
+# `seed_pack_on_disk` autouse fixture below (this module runs
+# alphabetically BEFORE test_e2e_endpoint.py, so it cannot rely on that
+# module having installed the pack — on a fresh E2E env nothing else
+# seeds it).
+PACK_ID = "ComfyUI_SigmoidOffsetScheduler"
+PACK_DIR_NAME = "ComfyUI_SigmoidOffsetScheduler"
+PACK_VERSION = "1.0.1"
 
 pytestmark = pytest.mark.skipif(
     not E2E_ROOT
@@ -82,6 +95,51 @@ def comfyui():
     pid = _start_comfyui()
     yield pid
     _stop_comfyui()
+
+
+def _pack_exists() -> bool:
+    return os.path.isdir(os.path.join(CUSTOM_NODES, PACK_DIR_NAME))
+
+
+def _cm_cli_path() -> str:
+    if sys.platform == "win32":
+        return os.path.join(E2E_ROOT, "venv", "Scripts", "cm-cli.exe")
+    return os.path.join(E2E_ROOT, "venv", "bin", "cm-cli")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def seed_pack_on_disk():
+    """Ensure the seed pack is on disk BEFORE the server starts.
+
+    The `installed?mode=imported` test asserts against the startup
+    snapshot, which is frozen when the server boots — so the pack must be
+    installed before the module's `comfyui` fixture launches it. Autouse +
+    module scope guarantees this fixture is instantiated ahead of the
+    non-autouse `comfyui` fixture. Installs via cm-cli (no server needed,
+    creates the same CNR `.tracking` layout) and removes the pack on
+    teardown only if this fixture installed it, leaving the environment
+    as found.
+    """
+    installed_by_fixture = False
+    if not _pack_exists():
+        env = {**os.environ, "COMFYUI_PATH": COMFYUI_PATH}
+        r = subprocess.run(
+            [_cm_cli_path(), "install", f"{PACK_ID}@{PACK_VERSION}"],
+            capture_output=True, text=True, timeout=300, env=env,
+        )
+        assert r.returncode == 0 and _pack_exists(), (
+            f"seed fixture failed: cm-cli install {PACK_ID}@{PACK_VERSION} "
+            f"(exit {r.returncode})\nSTDOUT: {r.stdout[-500:]}\n"
+            f"STDERR: {r.stderr[-500:]}"
+        )
+        installed_by_fixture = True
+
+    yield PACK_ID
+
+    if installed_by_fixture:
+        shutil.rmtree(
+            os.path.join(CUSTOM_NODES, PACK_DIR_NAME), ignore_errors=True
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -164,10 +222,11 @@ class TestInstalledPacks:
     def test_installed_returns_dict(self, comfyui):
         """GET /v2/customnode/installed returns dict containing seeded E2E pack with valid per-entry schema.
 
-        WI-M strengthening: previously only dict-type check. The E2E setup
-        seeds `ComfyUI_SigmoidOffsetScheduler` (the test package used across
-        task_operations/endpoint tests); its presence is a hard precondition
-        for most other tests. We now assert it's in the installed dict AND
+        WI-M strengthening: previously only dict-type check. The module's
+        `seed_pack_on_disk` autouse fixture installs
+        `ComfyUI_SigmoidOffsetScheduler` (the test package used across
+        task_operations/endpoint tests) before the server starts.
+        We now assert it's in the installed dict AND
         that its entry has the documented InstalledPack fields
         (cnr_id/ver/enabled). Defeats a regression where `installed` returns
         an empty dict despite packs existing on disk.

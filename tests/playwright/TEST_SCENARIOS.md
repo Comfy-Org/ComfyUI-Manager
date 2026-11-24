@@ -54,7 +54,7 @@ ComfyUI's `api.fetchApi()` automatically prepends the `/api` prefix to every pat
 | 2-3 | Installed filter | Filter → "Installed" | rows ≤ All | Client-side filter |
 | 2-4 | Not Installed filter | Filter → "Not Installed" | rows > 0 | Client-side filter |
 | 2-5 | Import Failed filter | Filter → "Import Failed" | Filter works | Client-side filter |
-| 2-6 | Check Update | "Check Update" button | Filter flips to "Update", API re-called | `GET /api/v2/customnode/getlist?mode=cache` (no `skip_update`) |
+| 2-6 | Check Update | "Check Update" button | Filter flips to "Update", the check runs in the background, the list is loaded when the `cm-check-update` event tells its end | `POST /api/v2/customnode/check_update`, then `GET /api/v2/customnode/getlist?mode=cache&skip_update=true` |
 | 2-7 | Check Missing | "Check Missing" button | Filter flips to "Missing" | `GET /api/v2/customnode/getmappings?mode=cache` |
 | 2-8 | Alternatives filter | Filter → "Alternatives of A1111" | Data loads | `GET /api/customnode/alternatives?mode=cache` |
 
@@ -191,7 +191,7 @@ Note: skipped when no import-failed nodes are present.
 ## Exclusions
 
 - `share_option` — per user instruction
-- **External-service auth/integration** (9 endpoints) — external services are unreachable from E2E
+- **External-service auth/integration** (4 endpoints) — external services are unreachable from E2E
 - **Individual queue endpoints** (6) — unused by JS; delegated internally through `queue/batch`
 - `queue/abort_current` — unused by JS (Stop uses `queue/reset`)
 - `/manager/notice` (v1) — superseded by v2

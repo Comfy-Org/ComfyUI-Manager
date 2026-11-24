@@ -219,7 +219,7 @@ Intent categories used:
 | Success | Recovery: rollback to a known-good state after bad update |
 | Nonexistent | Input resilience |
 | Path traversal | Security boundary |
-| Security denied | Security boundary: middle+ required (restore is destructive) |
+| Security denied | Security boundary: high+ required (restore is destructive) |
 
 ## 1.4 Configuration
 
@@ -313,7 +313,7 @@ Same as db_mode: observability of current policy + user choice to change update 
 | Scenario | Intent |
 |---|---|
 | Success | User capability: populate Custom Nodes Manager dialog with full available pack catalog |
-| skip_update=true | Performance: fast load when user doesn't need remote fetch |
+| With or without skip_update | Performance: the list loads without a remote fetch; a check for updates runs in the background |
 | Channel resolution | Observability: user sees which channel data came from |
 
 ### GET /customnode/alternatives

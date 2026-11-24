@@ -2,10 +2,13 @@
 
 git_helper.py runs as a subprocess on Windows and must NOT import comfyui_manager.
 Tests validate: (1) no forbidden imports via AST, (2) subprocess-level standalone
-execution, (3) get_backup_branch_name behavioural correctness.
+execution, (3) get_backup_branch_name behavioural correctness, for the copy in
+git_helper.py and the copy in timestamp_utils.py that both cores call, (4) the name
+each core gets for a real repository.
 """
 
 import ast
+import importlib.util
 import pathlib
 import subprocess
 import sys
@@ -14,6 +17,14 @@ import textwrap
 import pytest
 
 _GIT_HELPER_PATH = pathlib.Path(__file__).resolve().parents[2] / "comfyui_manager" / "common" / "git_helper.py"
+
+
+def _load_common_module(name):
+    """Load a standalone module of comfyui_manager/common without importing the package."""
+    spec = importlib.util.spec_from_file_location(name, _GIT_HELPER_PATH.with_name(f"{name}.py"))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 # ---------------------------------------------------------------------------
@@ -81,12 +92,25 @@ def test_standalone_subprocess_can_load(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# 3. get_backup_branch_name behavioural tests (function extracted via AST)
+# 3. get_backup_branch_name behavioural tests, for both copies of the function
 # ---------------------------------------------------------------------------
 
-@pytest.fixture(scope="module")
-def _get_backup_branch_name():
-    """Extract and compile get_backup_branch_name from git_helper.py source."""
+@pytest.fixture(params=["git_helper", "timestamp_utils"])
+def _get_backup_branch_name(request, monkeypatch):
+    """Return get_backup_branch_name from git_helper.py or from timestamp_utils.py."""
+    import time
+
+    # Branch setup and the function call must use the same second.
+    strftime = time.strftime
+    fixed_time = time.struct_time((2026, 9, 17, 12, 0, 0, 3, 260, -1))
+    monkeypatch.setattr(time, "strftime", lambda fmt, *args: strftime(fmt, args[0] if args else fixed_time))
+
+    if request.param == "timestamp_utils":
+        timestamp_utils = _load_common_module("timestamp_utils")
+        monkeypatch.setattr(timestamp_utils, "get_timestamp_for_filename", lambda: time.strftime("%Y%m%d_%H%M%S"))
+        return timestamp_utils.get_backup_branch_name
+
+    # git_helper.py runs its command line on import, so the function is compiled from its source.
     source = _GIT_HELPER_PATH.read_text(encoding="utf-8")
     tree = ast.parse(source)
 
@@ -108,21 +132,21 @@ class _FakeHead:
 
 class _FakeRepo:
     def __init__(self, branch_names):
-        self.heads = [_FakeHead(n) for n in branch_names]
+        self._heads = [_FakeHead(n) for n in branch_names]
+
+    def list_heads(self):
+        return self._heads
 
 
 def test_basic_name_format(_get_backup_branch_name):
     import time
-    name = _get_backup_branch_name()
-    assert name.startswith("backup_")
-    expected = f"backup_{time.strftime('%Y%m%d_%H%M%S')}"
-    assert name == expected
+    assert _get_backup_branch_name() == f"backup_{time.strftime('%Y%m%d_%H%M%S')}"
 
 
 def test_no_collision(_get_backup_branch_name):
+    import time
     repo = _FakeRepo(["main", "dev"])
-    name = _get_backup_branch_name(repo)
-    assert name.startswith("backup_")
+    assert _get_backup_branch_name(repo) == f"backup_{time.strftime('%Y%m%d_%H%M%S')}"
 
 
 def test_single_collision(_get_backup_branch_name):
@@ -141,22 +165,16 @@ def test_multi_collision(_get_backup_branch_name):
     assert name == f"backup_{ts}_3"
 
 
-def test_repo_none_returns_base(_get_backup_branch_name):
-    name = _get_backup_branch_name(None)
-    assert name.startswith("backup_")
-
-
-def test_repo_heads_exception_returns_base(_get_backup_branch_name):
-    """When repo.heads raises, fall back to base name without suffix."""
+def test_repo_list_heads_exception_returns_base(_get_backup_branch_name):
+    """When listing branches fails, return the timestamp without a suffix."""
+    import time
 
     class _BrokenRepo:
-        @property
-        def heads(self):
+        def list_heads(self):
             raise RuntimeError("simulated git error")
 
     name = _get_backup_branch_name(_BrokenRepo())
-    assert name.startswith("backup_")
-    assert "_1" not in name  # no suffix — exception path returns base
+    assert name == f"backup_{time.strftime('%Y%m%d_%H%M%S')}"
 
 
 def test_uuid_fallback_on_full_collision(_get_backup_branch_name):
@@ -171,3 +189,33 @@ def test_uuid_fallback_on_full_collision(_get_backup_branch_name):
     # UUID suffix is 6 hex chars
     suffix = name[len(f"backup_{ts}_"):]
     assert len(suffix) == 6, f"Expected 6-char UUID suffix, got: {suffix}"
+
+
+# ---------------------------------------------------------------------------
+# 4. The name each core gets for a real repository
+# ---------------------------------------------------------------------------
+
+def _open_as_legacy_core(path):
+    """The legacy core opens GitPython's git.Repo, which has `heads` and no `list_heads()`."""
+    import git
+    return git.Repo(path)
+
+
+def _open_as_glob_core(path):
+    """The glob core opens the repository through git_compat."""
+    return _load_common_module("git_compat").open_repo(str(path))
+
+
+@pytest.mark.parametrize("open_repo", [_open_as_legacy_core, _open_as_glob_core], ids=["legacy core", "glob core"])
+def test_real_repository_with_a_backup_from_the_same_second(open_repo, tmp_path, monkeypatch):
+    """A backup branch of the same second exists, so the next free name is returned."""
+    git = pytest.importorskip("git")
+    timestamp_utils = _load_common_module("timestamp_utils")
+    monkeypatch.setattr(timestamp_utils, "get_timestamp_for_filename", lambda: "20260917_120000")
+
+    with git.Repo.init(tmp_path) as repo:
+        repo.index.commit("initial")
+        repo.create_head("backup_20260917_120000")
+
+    with open_repo(tmp_path) as repo:
+        assert timestamp_utils.get_backup_branch_name(repo) == "backup_20260917_120000_1"

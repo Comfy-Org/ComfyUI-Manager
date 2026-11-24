@@ -134,6 +134,7 @@ class NodeVersion:
     id: str
     version: str
     download_url: str
+    status: str = ''
 
 
 def map_node_version(api_node_version):
@@ -165,6 +166,7 @@ def map_node_version(api_node_version):
         download_url=api_node_version.get(
             "downloadUrl", ""
         ),  # Provide a default value if 'downloadUrl' is missing
+        status=api_node_version.get('status', ''),
     )
 
 
@@ -237,6 +239,14 @@ def read_cnr_info(fullpath):
         return None  # not valid CNR node pack
 
 
+def read_project_name(fullpath):
+    try:
+        with open(os.path.join(fullpath, 'pyproject.toml'), "r", encoding="utf-8") as f:
+            return toml.load(f)['project']['name'].strip()
+    except Exception:
+        return None
+
+
 def generate_cnr_id(fullpath, cnr_id):
     cnr_id_path = os.path.join(fullpath, '.git', '.cnr-id')
     try:
@@ -257,4 +267,3 @@ def read_cnr_id(fullpath):
         pass
 
     return None
-

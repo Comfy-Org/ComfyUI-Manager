@@ -100,7 +100,7 @@ test.describe('UI-driven install/uninstall', () => {
 
   test('LB1 Install button triggers install effect', async ({ page }) => {
     // Reset queue at start for deterministic done_count baseline in waitForAllDone
-    await page.request.post('/v2/manager/queue/reset');
+    await page.request.post('/v2/manager/queue/reset', { headers: { 'Content-Type': 'application/json' } });
 
     // Precondition: pack must NOT be installed. If the seed pack is already
     // installed (prior pytest runs, pre-seeded E2E environment), the
@@ -128,7 +128,7 @@ test.describe('UI-driven install/uninstall', () => {
         headers: { 'Content-Type': 'application/json' },
       });
       expect(queueResp.ok()).toBe(true);
-      await page.request.post('/v2/manager/queue/start');
+      await page.request.post('/v2/manager/queue/start', { headers: { 'Content-Type': 'application/json' } });
       await waitForAllDone(page, 60_000);
       // Hard fail if setup itself couldn't uninstall the pack
       expect(await isPackInstalled(page)).toBe(false);
@@ -141,16 +141,13 @@ test.describe('UI-driven install/uninstall', () => {
 
     // Wait for grid to populate before applying filter (avoids race on empty grid)
     await expect(page.locator('.tg-body .tg-row').first()).toBeVisible({ timeout: 30_000 });
-    const initialRowCount = await page.locator('.tg-body .tg-row').count();
 
-    // Filter to Not Installed to make install buttons visible. Wait for
-    // filtered row count to actually change (DOM state, not wall-clock).
+    // Filter to Not Installed to make install buttons visible. The grid
+    // renders only the rows in view, so their number does not tell whether
+    // the filter was applied; the search below waits for its own result.
     const filterSelect = page.locator('select.cn-manager-filter').first();
     if (await filterSelect.isVisible().catch(() => false)) {
       await filterSelect.selectOption({ value: 'not-installed' });
-      await expect
-        .poll(async () => page.locator('.tg-body .tg-row').count(), { timeout: 10_000 })
-        .not.toBe(initialRowCount);
     }
 
     // Search for the specific test pack. Wait for search to narrow results.
@@ -198,7 +195,7 @@ test.describe('UI-driven install/uninstall', () => {
 
   test('LB2 Uninstall button triggers uninstall effect', async ({ page }) => {
     // Reset queue at start for deterministic done_count baseline in waitForAllDone
-    await page.request.post('/v2/manager/queue/reset');
+    await page.request.post('/v2/manager/queue/reset', { headers: { 'Content-Type': 'application/json' } });
 
     // Precondition: pack must be installed. Install via API as test SETUP
     // (not verification). This makes LB2 independent of LB1 — hard-failing
@@ -207,7 +204,7 @@ test.describe('UI-driven install/uninstall', () => {
     // is async, so waitForAllDone is still required after queue/start.
     const preinstalled = await isPackInstalled(page);
     if (!preinstalled) {
-      await page.request.post('/v2/manager/queue/reset');
+      await page.request.post('/v2/manager/queue/reset', { headers: { 'Content-Type': 'application/json' } });
       const queueResp = await page.request.post('/v2/manager/queue/batch', {
         data: JSON.stringify({
           batch_id: 'lb2-setup-install',
@@ -225,7 +222,7 @@ test.describe('UI-driven install/uninstall', () => {
       expect(queueResp.ok()).toBe(true);
       const queueBody = await queueResp.json();
       expect(queueBody.failed ?? []).toEqual([]);
-      await page.request.post('/v2/manager/queue/start');
+      await page.request.post('/v2/manager/queue/start', { headers: { 'Content-Type': 'application/json' } });
       // Poll the terminal state directly: isPackInstalled returning true is
       // the unambiguous success signal. Using waitForAllDone here is racy —
       // fast-path installs (pack already on disk / cached CNR artifacts) can

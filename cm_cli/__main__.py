@@ -9,6 +9,7 @@ from typing import Optional
 
 import typer
 from rich import print
+from rich.markup import escape
 from typing_extensions import List, Annotated
 import re
 import importlib
@@ -32,6 +33,7 @@ if not os.path.exists(os.path.join(comfy_path, 'folder_paths.py')):
 
 
 import utils.extra_config
+from comfyui_manager.common.git_compat import setup_git_environment
 from comfyui_manager.common import manager_util
 from comfyui_manager.common import cm_global
 from comfyui_manager.legacy import manager_core as core
@@ -74,13 +76,12 @@ def check_comfyui_hash():
 
 
 check_comfyui_hash()  # This is a preparation step for manager_core
-core.check_invalid_nodes()
 
 
 def read_downgrade_blacklist():
     try:
         import configparser
-        config = configparser.ConfigParser(strict=False)
+        config = configparser.ConfigParser(strict=False, interpolation=None)
         config.read(context.manager_config_path)
         default_conf = config['default']
 
@@ -135,25 +136,25 @@ class Ctx:
         self.no_deps = no_deps
 
     def set_user_directory(self, user_directory):
-        if user_directory is None:
-            return
+        if user_directory is not None:
+            extra_model_paths_yaml = os.path.join(user_directory, 'extra_model_paths.yaml')
+            if os.path.exists(extra_model_paths_yaml):
+                utils.extra_config.load_extra_path_config(extra_model_paths_yaml)
 
-        extra_model_paths_yaml = os.path.join(user_directory, 'extra_model_paths.yaml')
-        if os.path.exists(extra_model_paths_yaml):
-            utils.extra_config.load_extra_path_config(extra_model_paths_yaml)
+            context.update_user_directory(user_directory)
 
-        context.update_user_directory(user_directory)
+            if os.path.exists(context.manager_pip_overrides_path):
+                with open(context.manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
+                    cm_global.pip_overrides = json.load(json_file)
 
-        if os.path.exists(context.manager_pip_overrides_path):
-            with open(context.manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
-                cm_global.pip_overrides = json.load(json_file)
+            if os.path.exists(context.manager_pip_blacklist_path):
+                with open(context.manager_pip_blacklist_path, 'r', encoding="UTF-8", errors="ignore") as f:
+                    for x in f.readlines():
+                        y = x.strip()
+                        if y != '':
+                            cm_global.pip_blacklist.add(y)
 
-        if os.path.exists(context.manager_pip_blacklist_path):
-            with open(context.manager_pip_blacklist_path, 'r', encoding="UTF-8", errors="ignore") as f:
-                for x in f.readlines():
-                    y = x.strip()
-                    if y != '':
-                        cm_global.pip_blacklist.add(y)
+        setup_git_environment(core.get_config()['git_exe'])
 
     def update_custom_nodes_dir(self, target_dir):
         import folder_paths
@@ -238,32 +239,34 @@ def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
 
 
 def reinstall_node(node_spec_str, is_all=False, cnt_msg=''):
+    repo_url = None
     if core.is_valid_url(node_spec_str):
         # URL-based: resolve_node_spec returns the full URL as node_name,
         # but internal dicts are keyed by repo basename or cnr_id.
         url = node_spec_str.rstrip('/')
         cnr = unified_manager.get_cnr_by_repo(url)
         if cnr:
-            node_id = cnr['id']
-            unified_manager.unified_uninstall(node_id, False)
-            unified_manager.purge_node_state(node_id)
+            node_name, version_spec = cnr['id'], 'nightly'
         else:
-            repo_name = os.path.splitext(os.path.basename(url))[0]
-            unified_manager.unified_uninstall(repo_name, True)
-            unified_manager.purge_node_state(repo_name)
-
-        install_node(node_spec_str, is_all=is_all, cnt_msg=cnt_msg, raise_on_fail=True)
+            node_name, version_spec, repo_url = core.unknown_node_id(url), 'unknown', url
     else:
-        node_spec = unified_manager.resolve_node_spec(node_spec_str)
-        node_name, version_spec, _ = node_spec
+        node_name, version_spec, _ = unified_manager.resolve_node_spec(node_spec_str)
 
-        unified_manager.unified_uninstall(node_name, version_spec == 'unknown')
-        unified_manager.purge_node_state(node_name)
+    res = asyncio.run(unified_manager.reinstall_by_id(node_name, version_spec, cmd_ctx.channel, cmd_ctx.mode, instant_execution=True,
+                                                      no_deps=cmd_ctx.no_deps, repo_url=repo_url))
+    if res.action == 'skip':
+        print(f"{cnt_msg} [   SKIP  ] {node_name:50} => Already installed")
+        return
+    if not res.result:
+        print(f"[bold red]ERROR: An error occurred while reinstalling '{node_name}'.\n{escape(res.msg)}[/bold red]")
+        raise NodeInstallError(node_name)
 
-        install_node(node_name, is_all=is_all, cnt_msg=cnt_msg, raise_on_fail=True)
+    # in capitals, as install_node prints a git install: rich reads a lowercase [nightly] as markup
+    target = res.target.upper() if res.target in ('nightly', 'unknown') else res.target
+    print(f"{cnt_msg} [REINSTALLED] {node_name:50}[{target}]")
 
 
-def fix_node(node_spec_str, is_all=False, cnt_msg=''):
+def fix_node(node_spec_str, is_all=False, cnt_msg='', fixed=None):
     node_spec = unified_manager.resolve_node_spec(node_spec_str, guess_mode='active')
 
     if node_spec is None:
@@ -278,7 +281,7 @@ def fix_node(node_spec_str, is_all=False, cnt_msg=''):
     node_name, version_spec, _ = node_spec
 
     print(f"{cnt_msg} [   FIXING  ]: {node_name:50}[{version_spec}]")
-    res = unified_manager.unified_fix(node_name, version_spec, no_deps=cmd_ctx.no_deps)
+    res = unified_manager.unified_fix(node_name, version_spec, no_deps=cmd_ctx.no_deps, fixed=fixed)
 
     if not res.result:
         print(f"[bold red]ERROR: f{res.msg}[/bold red]")
@@ -337,8 +340,9 @@ def update_parallel(nodes):
         nodes = []
         for x in unified_manager.active_nodes.keys():
             nodes.append(x)
-        for x in unified_manager.unknown_active_nodes.keys():
-            nodes.append(x+"@unknown")
+        for k, v in unified_manager.unknown_active_nodes.items():
+            if v[1] not in unified_manager.invalid_installations:
+                nodes.append(k+"@unknown")
     else:
         nodes = [x for x in nodes if x.lower() not in ['comfy', 'comfyui']]
 
@@ -947,7 +951,7 @@ def fix(
         asyncio.run(auto_save_snapshot())
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
-    for_each_nodes(nodes, fix_node, allow_all=True)
+    for_each_nodes(nodes, fix_node, allow_all=True, fixed=set())
 
     _finalize_resolve(pip_fixer, uv_compile)
 
@@ -1212,7 +1216,7 @@ def restore_snapshot(
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
     try:
-        asyncio.run(core.restore_snapshot(snapshot_path, extras))
+        is_restored = asyncio.run(core.restore_snapshot(snapshot_path, extras))
     except Exception:
         print("[bold red]ERROR: Failed to restore snapshot.[/bold red]")
         traceback.print_exc()
@@ -1221,6 +1225,9 @@ def restore_snapshot(
         raise typer.Exit(code=1)
 
     _finalize_resolve(pip_fixer, uv_compile)
+
+    if not is_restored:
+        raise typer.Exit(code=1)
 
 
 @app.command(
@@ -1541,9 +1548,8 @@ async def _force_update_cache(channel):
 
             json_obj = await manager_util.get_data(uri, silent=True)
 
-            with manager_util.cache_lock:
-                with open(cache_uri, "w", encoding='utf-8') as file:
-                    json.dump(json_obj, file, indent=4, sort_keys=True)
+            if not manager_util.write_cache_file(cache_uri, json_obj):
+                raise OSError("the cache file is in use")
 
             print(f"  [CACHED] {filename}")
         except Exception as e:

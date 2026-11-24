@@ -10,15 +10,18 @@
 # script does NOT restore on its own, so fixture teardown MUST cleanup.
 #
 # Why permissive mode is needed:
-# Three endpoints check is_allowed_security_level('high+')
-# (security_utils.py:20-26): at is_local_mode=True (127.0.0.1 listen)
-# the gate requires security_level ∈ {weak, normal-}. Default
-# `security_level = normal` fails, so the POST returns 403.
-#   - wi-014 POST /v2/comfyui_manager/comfyui_switch_version
-#   - wi-037 POST /v2/customnode/install/git_url
-#   - wi-038 POST /v2/customnode/install/pip
-# Setting security_level = normal- allows real E2E execution of these
-# endpoints with fixed, trusted inputs (never test-input-derived URLs).
+#   - wi-014 POST /v2/comfyui_manager/comfyui_switch_version checks
+#     is_allowed_security_level('high+'): at is_local_mode=True
+#     (127.0.0.1 listen) the gate requires security_level ∈ {weak,
+#     normal-}. Default `security_level = normal` fails (403).
+#   - wi-037 POST /v2/customnode/install/git_url and
+#     wi-038 POST /v2/customnode/install/pip are gated by the dedicated
+#     config.ini flags `allow_git_url_install` / `allow_pip_install`
+#     (goal265 / #2962) — independent of security_level, default false
+#     (403).
+# Patching security_level = normal- plus both flags = true allows real
+# E2E execution of these endpoints with fixed, trusted inputs (never
+# test-input-derived URLs).
 #
 # SECURITY NOTE:
 # The endpoints are gated at high+ because they execute arbitrary remote
@@ -39,7 +42,8 @@
 # Exit: 0=ready, 1=timeout/failure
 #
 # Side effect: $E2E_ROOT/comfyui/user/__manager/config.ini gets
-# `security_level = normal-`. The original value is preserved at
+# `security_level = normal-`, `allow_git_url_install = true` and
+# `allow_pip_install = true`. The original config is preserved at
 # config.ini.before-permissive for the fixture to restore on teardown.
 
 set -euo pipefail
@@ -67,5 +71,16 @@ else
     sed -i -E '/^\[default\]/a security_level = normal-' "$CONFIG"
 fi
 echo "[start_comfyui_permissive] Patched security_level = normal- in $CONFIG"
+
+# Patch the dedicated install flags (goal265 / #2962): install/git_url and
+# install/pip are gated by these flags instead of security_level (idempotent).
+for flag in allow_git_url_install allow_pip_install; do
+    if grep -qE "^${flag}\s*=" "$CONFIG"; then
+        sed -i -E "s/^${flag}\s*=.*/${flag} = true/" "$CONFIG"
+    else
+        sed -i -E "/^\[default\]/a ${flag} = true" "$CONFIG"
+    fi
+done
+echo "[start_comfyui_permissive] Patched allow_git_url_install/allow_pip_install = true in $CONFIG"
 
 exec env ENABLE_LEGACY_UI=1 bash "$SCRIPT_DIR/start_comfyui.sh" "$@"
