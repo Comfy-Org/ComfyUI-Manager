@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Changed
+
+- The log file has no color codes of the console. The Manager writes what
+  ComfyUI prints to the console and to the log file, `comfyui.log` in the
+  user directory. The color codes of the console, such as `ESC[32m`, went
+  into the file as well, where an editor or `grep` shows them as text
+  (#3466). They are now left out of the file, and the console keeps its
+  colors. To keep them in the file as before, set
+  `strip_ansi_file_logging = false` in `config.ini`.
+
 ## [4.4.3] - 2026-11-24
 
 ### Changed
