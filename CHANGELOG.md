@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Fixed
+
+- A download through aria2 works again, and an install fails when aria2 does
+  not deliver the file. With `COMFYUI_MANAGER_ARIA2_SERVER` set, every
+  install of a registry nodepack, a version switch reserved for the next
+  start, and a model install from `github.com`, `huggingface.co` or
+  `heibox.uni-heidelberg.de` failed with
+  `ModuleNotFoundError: No module named 'manager_core'` (#3246). These now
+  download through aria2. The install waits while aria2 has the download
+  queued or running, with no time limit. It fails, and the log says why,
+  when aria2 fails the download or the file is not in the models folder
+  once the download has ended. With aria2 in a container that mounts the
+  models folder at `/models`, as `docs/en/use_aria2.md` sets it up, the file
+  is in place and the install succeeds. aria2 on the same machine as ComfyUI
+  is still sent `/models/<folder>`, so there the install fails.
+
 ## [4.4.3] - 2026-11-24
 
 ### Changed
