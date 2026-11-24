@@ -469,11 +469,12 @@ class ClientAnchorAndStateTest(unittest.TestCase):
     @unittest.skipIf(NODE is None, "node is required")
     def test_selection_survives_unrecognised_and_prototype_names(self):
         sanitize = JS.lift_declaration(COMMON, "export function sanitizeHTML(")
+        guidance = _unique_line(JS.text(MANAGER), "const INVALID_INSTALLATION_GUIDANCE =")
         buttons = JS.lift_declaration(MANAGER, "\n\tgetActionButtons(")
         render = JS.lift_declaration(MANAGER, "\n\trenderSelected()")
         for state in ['not-a-known-install-group', 'constructor', '__proto__', TEXT_PAYLOAD, 'enabled']:
             with self.subTest(state=state):
-                result = run_node(sanitize + "\nconst manager = {" + buttons + "," + render + """,
+                result = run_node(sanitize + "\n" + guidance + "\nconst manager = {" + buttons + "," + render + """,
                     grid: {hasMask: false, getSelectedRows: () => [{action: STATE, hash: 'fixture'}]},
                     getFilterItem: () => null,
                     showSelection(html) { this.html = html; }

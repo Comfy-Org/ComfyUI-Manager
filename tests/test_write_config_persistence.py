@@ -40,13 +40,6 @@ Harness: the subprocess-isolated child from `tests/test_install_flags_config.py`
 — stub `folder_paths`, `glob/` on the CHILD's sys.path only, `manager_core`
 imported (NEVER `manager_server`: module level starts a network thread at
 `:2093`), `manager_config_path` pointed at a tmp file, `cached_config` reset.
-
-`force_security_level_if_needed` (MM HAZARD C-1) is NOT stubbed — it runs on
-the real `read_config` path. The `folder_paths` stub supplies a system-user
-directory, so `has_system_user_api()` is True and the function takes its
-no-force branch and returns without mutating. The alias-mutation branch is
-therefore present but not exercised here; the GREEN step must keep it in view
-when it pins the dirty-tracking wrap point.
 """
 import json
 import subprocess

@@ -235,6 +235,7 @@ var switch_comfyui_button = null;
 var update_all_button = null;
 var restart_stop_button = null;
 var update_policy_combo = null;
+var update_policy_chosen = false;
 
 let share_option = 'all';
 const share_options = [
@@ -488,12 +489,12 @@ async function updateComfyUI() {
 
 	set_inprogress_mode();
 
-	const response = await api.fetchApi('/manager/queue/update_comfyui', { method: 'POST' });
+	const response = await api.fetchApi('/manager/queue/update_comfyui', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 
 	showTerminal();
 
 	is_updating = true;
-	await api.fetchApi('/manager/queue/start', { method: 'POST' });
+	await api.fetchApi('/manager/queue/start', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 }
 
 function showVersionSelectorDialog(versions, current, onSelect) {
@@ -641,18 +642,17 @@ async function switchComfyUI() {
 		}
 
 		showVersionSelectorDialog(versions, obj.current, async (selected_version) => {
-			if(selected_version == 'nightly') {
-				update_policy_combo.value = 'nightly-comfyui';
-				api.fetchApi('/manager/policy/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: 'nightly-comfyui' }) });
-			}
-			else {
-				update_policy_combo.value = 'stable-comfyui';
-				api.fetchApi('/manager/policy/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: 'stable-comfyui' }) });
-			}
-
 			let response = await api.fetchApi('/comfyui_manager/comfyui_switch_version', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ver: selected_version }), cache: "no-store" });
 			if (response.status == 200) {
+				const update_policy = selected_version == 'nightly' ? 'nightly-comfyui' : 'stable-comfyui';
+				update_policy_chosen = true;
+				update_policy_combo.value = update_policy;
+				api.fetchApi('/manager/policy/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: update_policy }) });
+
 				infoToast(`ComfyUI version is switched to ${selected_version}`);
+			}
+			else if (response.status == 403) {
+				await handle403Response(response);
 			}
 			else {
 				customAlert('Failed to switch ComfyUI version.');
@@ -665,6 +665,11 @@ async function switchComfyUI() {
 }
 
 async function onQueueStatus(event) {
+	// The buttons exist once the Manager menu has been created; the queue can run before that.
+	if(update_all_button == null) {
+		return;
+	}
+
 	const isElectron = 'electronAPI' in window;
 
 	if(event.detail.status == 'in_progress') {
@@ -787,7 +792,7 @@ async function updateAll(update_comfyui) {
 
 	if(update_comfyui) {
 		update_all_button.innerText = "Updating ComfyUI...";
-		await api.fetchApi('/manager/queue/update_comfyui', { method: 'POST' });
+		await api.fetchApi('/manager/queue/update_comfyui', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 	}
 
 	const response = await api.fetchApi('/manager/queue/update_all', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mode: mode }) });
@@ -802,7 +807,7 @@ async function updateAll(update_comfyui) {
 	}
 	else if(response.status == 200) {
 		is_updating = true;
-		await api.fetchApi('/manager/queue/start', { method: 'POST' });
+		await api.fetchApi('/manager/queue/start', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 	}
 }
 
@@ -831,7 +836,7 @@ function restartOrStop() {
 		rebootAPI();
 	}
 	else {
-		api.fetchApi('/manager/queue/reset', { method: 'POST' });
+		api.fetchApi('/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 		infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 	}
 }
@@ -991,11 +996,14 @@ class ManagerMenuDialog extends ComfyDialog {
 		this.datasrc_combo.appendChild($el('option', { value: 'local', text: 'Local' }, []));
 		this.datasrc_combo.appendChild($el('option', { value: 'remote', text: 'Channel (remote)' }, []));
 
+		// a choice made before the stored value arrives is not to be replaced by it
+		let db_mode_chosen = false;
 		api.fetchApi('/manager/db_mode')
 			.then(response => response.text())
-			.then(data => { this.datasrc_combo.value = data; });
+			.then(data => { if(!db_mode_chosen) this.datasrc_combo.value = data; });
 
 		this.datasrc_combo.addEventListener('change', function (event) {
+			db_mode_chosen = true;
 			api.fetchApi('/manager/db_mode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: event.target.value }) });
 		});
 
@@ -1137,17 +1145,21 @@ class ManagerMenuDialog extends ComfyDialog {
 			share_combo.appendChild($el('option', { value: option[0], text: `${option[1]}` }, []));
 		}
 
+		let share_option_chosen = false;
 		api.fetchApi('/manager/share_option')
 			.then(response => response.text())
 			.then(data => {
-				share_option = to_share_option(data);
-				share_combo.value = share_option;
+				if(!share_option_chosen) {
+					share_option = to_share_option(data);
+					share_combo.value = share_option;
+				}
 			});
 
 		share_combo.addEventListener('change', function (event) {
+			share_option_chosen = true;
 			const value = event.target.value;
 			share_option = value;
-			api.fetchApi(`/manager/share_option?value=${value}`);
+			api.fetchApi('/manager/share_option', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value }) });
 			const shareButton = document.getElementById("shareButton");
 			if (value === 'none') {
 				shareButton.style.display = "none";
@@ -1164,14 +1176,18 @@ class ManagerMenuDialog extends ComfyDialog {
 		component_policy_combo.appendChild($el('option', { value: 'workflow', text: 'Use workflow version' }, []));
 		component_policy_combo.appendChild($el('option', { value: 'higher', text: 'Use higher version' }, []));
 		component_policy_combo.appendChild($el('option', { value: 'mine', text: 'Use my version' }, []));
+		let component_policy_chosen = false;
 		api.fetchApi('/manager/policy/component')
 			.then(response => response.text())
 			.then(data => {
-				component_policy_combo.value = data;
-				set_component_policy(data);
+				if(!component_policy_chosen) {
+					component_policy_combo.value = data;
+					set_component_policy(data);
+				}
 			});
 
 		component_policy_combo.addEventListener('change', function (event) {
+			component_policy_chosen = true;
 			api.fetchApi('/manager/policy/component', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: event.target.value }) });
 			set_component_policy(event.target.value);
 		});
@@ -1187,10 +1203,12 @@ class ManagerMenuDialog extends ComfyDialog {
 		api.fetchApi('/manager/policy/update')
 			.then(response => response.text())
 			.then(data => {
-				update_policy_combo.value = data;
+				if(!update_policy_chosen)
+					update_policy_combo.value = data;
 			});
 
 		update_policy_combo.addEventListener('change', function (event) {
+			update_policy_chosen = true;
 			api.fetchApi('/manager/policy/update', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value: event.target.value }) });
 		});
 

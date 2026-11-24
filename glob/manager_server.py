@@ -34,7 +34,7 @@ comfy_ui_hash = "-"
 comfyui_tag = None
 
 SECURITY_MESSAGE_MIDDLE_OR_BELOW = "ERROR: To use this action, security_level must be any value other than 'strong' (allowed: normal, normal-, weak). security_level is read once at ComfyUI startup, so changing it needs a restart, done with the server down: STOP ComfyUI, edit config.ini, then start it again. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
-SECURITY_MESSAGE_NORMAL_MINUS = "ERROR: To use this feature, you must either set '--listen' to a local IP and set the security level to 'normal-' or lower, or set the security level to 'middle' or 'weak'. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_NORMAL_MINUS = "ERROR: To use this feature, you must either set '--listen' to a local IP and set the security level to 'normal-' or lower, or set the security level to 'weak'. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_GENERAL = "ERROR: This installation is not allowed in this security_level. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
 SECURITY_MESSAGE_NORMAL_MINUS_MODEL = "ERROR: Downloading models not in '.safetensors' format is only allowed for models registered in the 'default' channel at this security level. To download this model, set security_level to 'weak' - or to 'normal-' if ComfyUI is listening on a loopback address (--listen 127.0.0.1 or ::1). Both security_level and the listen address are read once at ComfyUI startup, so changing either needs a restart, done with the server down: stop ComfyUI, edit config.ini, then start it again."
 SECURITY_MESSAGE_FLAG_GIT_URL = "ERROR: This action requires BOTH: (1) 'allow_git_url_install = true' in config.ini ([default] section), AND (2) ComfyUI launched with a loopback --listen (127.0.0.1 or ::1) - currently listening on {listen}. BOTH values are read once at ComfyUI startup, so changing either one needs a restart, done with the server down: STOP ComfyUI, change the setting, then start it again. Both are independent of security_level. Reference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
@@ -125,6 +125,9 @@ model_dir_name_map = {
 
 
 def is_allowed_security_level(level):
+    if not manager_migration.has_system_user_api():
+        return False
+
     if level == 'block':
         return False
     elif level == 'high':
@@ -237,13 +240,24 @@ else:
     )
 
 
+ALLOWED_COMPONENT_POLICIES = ('workflow', 'higher', 'mine')
+ALLOWED_UPDATE_POLICIES = ('stable-comfyui', 'nightly-comfyui')
+ALLOWED_DB_MODES = ('cache', 'local', 'remote')
+
+
 def set_component_policy(mode):
+    if mode not in ALLOWED_COMPONENT_POLICIES:
+        raise ValueError(f"Invalid component_policy {mode!r}; must be one of {ALLOWED_COMPONENT_POLICIES}")
     core.get_config()['component_policy'] = mode
 
 def set_update_policy(mode):
+    if mode not in ALLOWED_UPDATE_POLICIES:
+        raise ValueError(f"Invalid update_policy {mode!r}; must be one of {ALLOWED_UPDATE_POLICIES}")
     core.get_config()['update_policy'] = mode
 
 def set_db_mode(mode):
+    if mode not in ALLOWED_DB_MODES:
+        raise ValueError(f"Invalid db_mode {mode!r}; must be one of {ALLOWED_DB_MODES}")
     core.get_config()['db_mode'] = mode
 
 def print_comfyui_version():
@@ -303,18 +317,8 @@ def print_comfyui_version():
             logging.info("### ComfyUI Revision: UNKNOWN (The currently installed ComfyUI is not a Git repository)")
 
 
+core.setup_git_executable()
 print_comfyui_version()
-core.check_invalid_nodes()
-
-
-def setup_environment():
-    git_exe = core.get_config()['git_exe']
-
-    if git_exe != '':
-        git.Git().update_environment(GIT_PYTHON_GIT_EXECUTABLE=git_exe)
-
-
-setup_environment()
 
 # Expand Server api
 
@@ -339,54 +343,16 @@ def security_403_response(flag_token=None):
     return web.json_response({"error": "security_level"}, status=403)
 
 
-# CORS "simple request" Content-Type set per Fetch spec §3.2.3. Browsers send
-# <form method=POST> submissions with one of these three MIME types and do NOT
-# trigger a CORS preflight, so a malicious cross-origin page can silently POST
-# into state-changing endpoints if we only gate on HTTP method. Blocking these
-# three Content-Types on no-body mutation endpoints forces any non-same-origin
-# POST to use a non-simple Content-Type (e.g. application/json), which triggers
-# a preflight that this server rejects by not advertising an Access-Control-
-# Allow-Origin response.
-_SIMPLE_FORM_CONTENT_TYPES = frozenset({
-    'application/x-www-form-urlencoded',
-    'multipart/form-data',
-    'text/plain',
-})
-
-
-def _reject_simple_form_content_type(request):
-    """Reject Content-Types that enable preflight-less <form method=POST> CSRF.
-
-    Applied ONLY to POST handlers that act before consuming a request body:
-    the ones that take no body (e.g., /snapshot/save,
-    /manager/queue/{reset,start,update_comfyui}, /manager/reboot) and
-    /manager/queue/update_all, which writes the autosave snapshot before it
-    reads its body. These are vulnerable to cross-origin <form method=POST>
-    attacks because the handler acts without parsing any body —
-    the attacker needs no ability to forge a valid payload, only to point a
-    hidden form at the URL.
-
-    Handlers that read a body via ``await request.json()`` before doing
-    anything else are NOT gated here: their cross-origin protection is
-    ComfyUI's origin middleware, not this gate.
-
-    DO NOT add this gate to handlers that read the body first — UX-breaking.
-    DO NOT remove this gate from the handlers above — this is the bypass vector.
-
-    aiohttp's ``request.content_type`` normalizes the header (lower-cases,
-    strips parameters), so ``multipart/form-data; boundary=----X`` is compared
-    as ``multipart/form-data``.
-
-    Returns:
-        web.Response(status=400) when the request has a simple-form
-        Content-Type that must be rejected. None when the request is allowed
-        to proceed (no Content-Type, application/json, or any non-simple
-        Content-Type).
+def _reject_non_json_content_type(request):
+    """A page of another origin can make a browser send a POST without a CORS
+    preflight: as a form, or with no Content-Type at all, with or without a body.
+    ``request.json()`` parses a body whatever its Content-Type. The page cannot
+    send application/json without a preflight.
     """
-    if request.content_type in _SIMPLE_FORM_CONTENT_TYPES:
+    if request.content_type != 'application/json':
         return web.Response(
             status=400,
-            text='Invalid Content-Type for this endpoint. Use application/json or omit body.',
+            text='Invalid Content-Type for this endpoint. Use application/json.',
         )
     return None
 
@@ -557,7 +523,7 @@ async def task_worker():
             res = core.unified_manager.unified_update(node_name, node_ver)
 
             if res.ver == 'unknown':
-                url = core.unified_manager.unknown_active_nodes[node_name][0]
+                url = core.unified_manager.unknown_active_nodes.get(node_name, (None,))[0]
                 try:
                     title = os.path.basename(url)
                 except Exception:
@@ -582,7 +548,7 @@ async def task_worker():
                     return base_res
 
             base_res['msg'] = res.msg or f"An error occurred while updating '{node_name}'."
-            logging.error(f"\nERROR: An error occurred while updating '{node_name}'. (res.result={res.result}, res.action={res.action})")
+            logging.error(f"\nERROR: An error occurred while updating '{node_name}': {res.msg} (res.result={res.result}, res.action={res.action})")
             return base_res
         except Exception:
             traceback.print_exc()
@@ -821,6 +787,10 @@ async def fetch_customnode_mappings(request):
 
 @routes.post("/customnode/fetch_updates")
 async def fetch_updates(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     try:
         json_data = await request.json()
         mode = json_data.get("mode", "default")
@@ -931,9 +901,7 @@ async def get_node_types_in_workflows(request):
 
 @routes.post("/manager/queue/update_all")
 async def update_all(request):
-    # Keep this gate first: a form POST is refused before this handler does
-    # anything. The autosave snapshot below is written before the body is read.
-    resp = _reject_simple_form_content_type(request)
+    resp = _reject_non_json_content_type(request)
     if resp is not None:
         return resp
     if not is_allowed_security_level('middle'):
@@ -972,6 +940,9 @@ async def update_all(request):
             # skip updating comfyui-manager if desktop version
             if os.environ.get('__COMFYUI_DESKTOP_VERSION__'):
                 continue
+
+        if v[1] in core.unified_manager.invalid_installations:
+            continue
 
         update_item = k, k, 'unknown'
         task_queue.put(("update-main", update_item))
@@ -1204,6 +1175,10 @@ def get_safe_snapshot_path(target):
 
 @routes.post("/snapshot/remove")
 async def remove_snapshot(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
         return security_403_response()
@@ -1227,8 +1202,12 @@ async def remove_snapshot(request):
 
 @routes.post("/snapshot/restore")
 async def restore_snapshot(request):
-    if not is_allowed_security_level('middle'):
-        logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
+    if not is_allowed_security_level('high'):
+        logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
         return security_403_response()
 
     try:
@@ -1266,7 +1245,7 @@ async def get_current_snapshot_api(request):
 
 @routes.post("/snapshot/save")
 async def save_snapshot(request):
-    resp = _reject_simple_form_content_type(request)
+    resp = _reject_non_json_content_type(request)
     if resp is not None:
         return resp
     try:
@@ -1297,7 +1276,7 @@ def unzip_install(files):
 
             os.remove(temp_filename)
         except Exception as e:
-            logging.error(f"Install(unzip) error: {url} / {e}", file=sys.stderr)
+            logging.error(f"Install(unzip) error: {url} / {e}")
             return False
 
     logging.info("Installation was successful.")
@@ -1319,7 +1298,7 @@ def copy_install(files, js_path_name=None):
                 download_url(url, path, filename)
 
         except Exception as e:
-            logging.error(f"Install(copy) error: {url} / {e}", file=sys.stderr)
+            logging.error(f"Install(copy) error: {url} / {e}")
             return False
 
     logging.info("Installation was successful.")
@@ -1340,7 +1319,7 @@ def copy_uninstall(files, js_path_name='.'):
             elif os.path.exists(file_path + ".disabled"):
                 os.remove(file_path + ".disabled")
         except Exception as e:
-            logging.error(f"Uninstall(copy) error: {url} / {e}", file=sys.stderr)
+            logging.error(f"Uninstall(copy) error: {url} / {e}")
             return False
 
     logging.info("Uninstallation was successful.")
@@ -1371,7 +1350,7 @@ def copy_set_active(files, is_disable, js_path_name='.'):
             os.rename(current_name, new_name)
 
         except Exception as e:
-            logging.error(f"{action_name}(copy) error: {url} / {e}", file=sys.stderr)
+            logging.error(f"{action_name}(copy) error: {url} / {e}")
 
             return False
 
@@ -1408,6 +1387,10 @@ async def get_disabled_versions(request):
 
 @routes.post("/customnode/import_fail_info")
 async def import_fail_info(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     json_data = await request.json()
 
     if 'cnr_id' in json_data:
@@ -1430,7 +1413,7 @@ async def reinstall_custom_node(request):
 
 @routes.post("/manager/queue/reset")
 async def reset_queue(request):
-    resp = _reject_simple_form_content_type(request)
+    resp = _reject_non_json_content_type(request)
     if resp is not None:
         return resp
     global task_queue
@@ -1459,6 +1442,10 @@ async def install_custom_node(request):
 
 
 async def _queue_node_install(request, operation):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
@@ -1550,7 +1537,7 @@ task_worker_thread:threading.Thread = None
 
 @routes.post("/manager/queue/start")
 async def queue_start(request):
-    resp = _reject_simple_form_content_type(request)
+    resp = _reject_non_json_content_type(request)
     if resp is not None:
         return resp
     global nodepack_result
@@ -1571,6 +1558,10 @@ async def queue_start(request):
 
 @routes.post("/manager/queue/fix")
 async def fix_custom_node(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_GENERAL)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
@@ -1593,20 +1584,22 @@ async def fix_custom_node(request):
 
 @routes.post("/customnode/install/git_url")
 async def install_custom_node_git_url(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     if not is_dedicated_install_allowed(core.get_config()['allow_git_url_install'], args.listen):
         logging.error(SECURITY_MESSAGE_FLAG_GIT_URL.format(listen=args.listen))
         return security_403_response(flag_token='allow_git_url_install')
 
-    # Read the body as JSON (not raw text): a cross-origin <form method=POST>
-    # cannot forge an application/json body without a CORS preflight, which this
-    # server does not answer — same body-handler convention as every other
-    # request.json() route (see _reject_simple_form_content_type docstring).
-    # A malformed body or a missing 'url' is a client error (400), not a 500:
-    # don't let JSONDecodeError/KeyError bubble up as a server fault.
+    # A malformed body, a missing 'url' or one that is not a string is a client
+    # error (400), not a 500: don't let it bubble up as a server fault.
     try:
         json_data = await request.json()
         url = json_data['url']
-    except (KeyError, ValueError):
+    except (KeyError, TypeError, ValueError):
+        url = None
+    if not isinstance(url, str):
         return web.Response(status=400, text="Invalid request body: expected JSON object with a 'url' field")
     res = await core.gitclone_install(url)
 
@@ -1623,17 +1616,20 @@ async def install_custom_node_git_url(request):
 
 @routes.post("/customnode/install/pip")
 async def install_custom_node_pip(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     if not is_dedicated_install_allowed(core.get_config()['allow_pip_install'], args.listen):
         logging.error(SECURITY_MESSAGE_FLAG_PIP.format(listen=args.listen))
         return security_403_response(flag_token='allow_pip_install')
 
-    # JSON body (not raw text) for the same preflight-forcing reason as
-    # /customnode/install/git_url above; malformed body or missing 'packages'
-    # is a 400, not a 500.
     try:
         json_data = await request.json()
         packages = json_data['packages']
-    except (KeyError, ValueError):
+    except (KeyError, TypeError, ValueError):
+        packages = None
+    if not isinstance(packages, str):
         return web.Response(status=400, text="Invalid request body: expected JSON object with a 'packages' field")
     core.pip_install(packages.split(' '))
 
@@ -1642,6 +1638,10 @@ async def install_custom_node_pip(request):
 
 @routes.post("/manager/queue/uninstall")
 async def uninstall_custom_node(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
@@ -1665,6 +1665,10 @@ async def uninstall_custom_node(request):
 
 @routes.post("/manager/queue/update")
 async def update_custom_node(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     if not is_allowed_security_level('middle'):
         logging.error(SECURITY_MESSAGE_MIDDLE_OR_BELOW)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
@@ -1686,7 +1690,7 @@ async def update_custom_node(request):
 
 @routes.post("/manager/queue/update_comfyui")
 async def update_comfyui(request):
-    resp = _reject_simple_form_content_type(request)
+    resp = _reject_non_json_content_type(request)
     if resp is not None:
         return resp
     is_stable = core.get_config()['update_policy'] != 'nightly-comfyui'
@@ -1700,27 +1704,39 @@ async def comfyui_versions(request):
         res, current, latest = core.get_comfyui_versions()
         return web.json_response({'versions': res, 'current': current}, status=200, content_type='application/json')
     except Exception as e:
-        logging.error(f"ComfyUI update fail: {e}", file=sys.stderr)
+        logging.error(f"ComfyUI update fail: {e}")
 
     return web.Response(status=400)
 
 
 @routes.post("/comfyui_manager/comfyui_switch_version")
 async def comfyui_switch_version(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     try:
         json_data = await request.json()
         if "ver" in json_data:
+            if core.is_comfyui_downgrade(json_data['ver']) and not is_allowed_security_level('high'):
+                logging.error(SECURITY_MESSAGE_NORMAL_MINUS)
+                return security_403_response()
+
             core.switch_comfyui(json_data['ver'])
 
         return web.Response(status=200)
     except Exception as e:
-        logging.error(f"ComfyUI update fail: {e}", file=sys.stderr)
+        logging.error(f"ComfyUI update fail: {e}")
 
     return web.Response(status=400)
 
 
 @routes.post("/manager/queue/disable")
 async def disable_node(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     json_data = await request.json()
 
     node_id = json_data.get('id')
@@ -1756,6 +1772,10 @@ async def check_whitelist_for_model(item):
 
 @routes.post("/manager/queue/install_model")
 async def install_model(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     json_data = await request.json()
 
     if not is_allowed_security_level('middle'):
@@ -1795,6 +1815,10 @@ async def get_preview_method(request):
 
 @routes.post("/manager/preview_method")
 async def set_preview_method_handler(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     if COMFYUI_HAS_PER_QUEUE_PREVIEW:
         return web.Response(text="DISABLED", status=403)
 
@@ -1811,8 +1835,17 @@ async def get_db_mode(request):
 
 @routes.post("/manager/db_mode")
 async def set_db_mode_handler(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     json_data = await request.json()
-    set_db_mode(json_data['value'])
+    try:
+        set_db_mode(json_data['value'])
+    except (KeyError, TypeError):
+        return web.Response(status=400, text='Invalid request')
+    except ValueError as e:
+        return web.Response(status=400, text=str(e))
     core.write_config()
     return web.Response(status=200)
 
@@ -1824,8 +1857,17 @@ async def get_component_policy(request):
 
 @routes.post("/manager/policy/component")
 async def set_component_policy_handler(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     json_data = await request.json()
-    set_component_policy(json_data['value'])
+    try:
+        set_component_policy(json_data['value'])
+    except (KeyError, TypeError):
+        return web.Response(status=400, text='Invalid request')
+    except ValueError as e:
+        return web.Response(status=400, text=str(e))
     core.write_config()
     return web.Response(status=200)
 
@@ -1837,8 +1879,17 @@ async def get_update_policy(request):
 
 @routes.post("/manager/policy/update")
 async def set_update_policy_handler(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     json_data = await request.json()
-    set_update_policy(json_data['value'])
+    try:
+        set_update_policy(json_data['value'])
+    except (KeyError, TypeError):
+        return web.Response(status=400, text='Invalid request')
+    except ValueError as e:
+        return web.Response(status=400, text=str(e))
     core.write_config()
     return web.Response(status=200)
 
@@ -1861,6 +1912,10 @@ async def get_channel_url_list(request):
 
 @routes.post("/manager/channel_url_list")
 async def set_channel_url_list(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     json_data = await request.json()
     channels = core.get_channel_dict()
     channel_url = channels.get(json_data['value'])
@@ -1876,7 +1931,7 @@ async def get_notice(request):
     path = "/ltdrdata/ltdrdata.github.io/wiki/News"
 
     try:
-        async with aiohttp.ClientSession(trust_env=True, connector=aiohttp.TCPConnector(verify_ssl=not manager_util.bypass_ssl)) as session:
+        async with aiohttp.ClientSession(trust_env=True, connector=manager_util.aiohttp_connector()) as session:
             async with session.get(f"https://{url}{path}") as response:
                 if response.status == 200:
                     # html_content = response.read().decode('utf-8')
@@ -1956,7 +2011,7 @@ async def get_startup_alerts(request):
 
 @routes.post("/manager/reboot")
 def restart(self):
-    resp = _reject_simple_form_content_type(self)
+    resp = _reject_non_json_content_type(self)
     if resp is not None:
         return resp
     if not is_allowed_security_level('middle'):
@@ -1986,6 +2041,10 @@ def restart(self):
 
 @routes.post("/manager/component/save")
 async def save_component(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
     try:
         data = await request.json()
         name = data['name']
@@ -2080,10 +2139,8 @@ async def default_cache_update():
 
             json_obj = await manager_util.get_data(uri, True)
 
-            with manager_util.cache_lock:
-                with open(cache_uri, "w", encoding='utf-8') as file:
-                    json.dump(json_obj, file, indent=4, sort_keys=True)
-                    logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
+            if manager_util.write_cache_file(cache_uri, json_obj):
+                logging.info(f"[ComfyUI-Manager] default cache updated: {uri}")
         except Exception as e:
             logging.error(f"[ComfyUI-Manager] Failed to perform initial fetching '{filename}': {e}")
             traceback.print_exc()
@@ -2099,15 +2156,34 @@ async def default_cache_update():
 
         if core.get_config()['network_mode'] == 'private':
             logging.info("[ComfyUI-Manager] The private comfyregistry is not yet supported in `network_mode=private`.")
+            await core.unified_manager.reload('remote', dont_wait=False, update_cnr_map=False)
         else:
             # load at least once
             await core.unified_manager.reload('remote', dont_wait=False)
             await core.unified_manager.get_custom_nodes(channel_url, 'remote')
+    else:
+        await core.unified_manager.reload('remote', dont_wait=False, update_cnr_map=False)
 
+    core.check_invalid_nodes()
     logging.info("[ComfyUI-Manager] All startup tasks have been completed.")
 
 
-threading.Thread(target=lambda: asyncio.run(default_cache_update())).start()
+COMFYUI_UPDATE_HANDLERS = {update_comfyui, queue_start, reset_queue, queue_count, get_version, get_notice, get_startup_alerts}
+
+
+@web.middleware
+async def serve_only_comfyui_update(request, handler):
+    matched = request.match_info.handler
+    if matched.__module__ in ('manager_server', 'share_3rdparty') and matched not in COMFYUI_UPDATE_HANDLERS:
+        return security_403_response()
+
+    return await handler(request)
+
+
+if manager_migration.has_system_user_api():
+    threading.Thread(target=lambda: asyncio.run(default_cache_update())).start()
+else:
+    PromptServer.instance.app.middlewares.append(serve_only_comfyui_update)
 
 if not os.path.exists(core.manager_config_path):
     core.get_config()

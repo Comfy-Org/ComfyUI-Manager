@@ -178,7 +178,7 @@ The following settings are applied based on the section marked as `is_default`.
 * Press the "Restore" button to revert to the installation status of the respective snapshot.
   * However, for custom nodes not managed by Git, snapshot support is incomplete.
 * When you press `Restore`, it will take effect on the next ComfyUI startup.
-  * The selected snapshot file is saved in `<USER_DIRECTORY>/default/ComfyUI-Manager/startup-scripts/restore-snapshot.json`, and upon restarting ComfyUI, the snapshot is applied and then deleted.
+  * The selected snapshot file is saved in `<USER_DIRECTORY>/__manager/startup-scripts/restore-snapshot.json`, and upon restarting ComfyUI, the snapshot is applied and then deleted.
 
 ![model-install-dialog](https://raw.githubusercontent.com/ltdrdata/ComfyUI-extension-tutorials/Main/ComfyUI-Manager/images/snapshot.jpg)
 
@@ -306,6 +306,7 @@ The following settings are applied based on the section marked as `is_default`.
     ```
       downgrade_blacklist = diffusers, kornia
     ```
+    * Names are matched without regard to case or to `-`, `_`, and `.`, so `opencv-python` and `opencv_python` are the same package.
 
 * Custom pip mapping
   * When you create the `pip_overrides.json` file, it changes the installation of specific pip packages to installations defined by the user.
@@ -385,6 +386,8 @@ When you run the `scan.sh` script:
   * `high` level risky features
     * Downloading models that are not in `.safetensors` format and not
       registered in the `default channel` model list
+    * Switch ComfyUI to an older version
+    * Restore Snapshot
     * NOTE: `Install via git url`, `pip install`, and installation of custom nodes
       not registered in the `default channel` are **no longer governed by
       `security_level`** — they are governed by the dedicated install flags
@@ -394,7 +397,7 @@ When you run the `scan.sh` script:
     * Uninstall/Update
     * Installation of custom nodes registered in the `default channel`.
     * Fix custom nodes
-    * Restore/Remove Snapshot
+    * Remove Snapshot
     * Restart
   
   * `low` level risky features

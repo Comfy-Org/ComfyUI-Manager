@@ -185,7 +185,7 @@ export async function rebootAPI() {
 	const isConfirmed = await customConfirm("Are you sure you'd like to reboot the server?");
 	if (isConfirmed) {
 		try {
-			const response = await api.fetchApi("/manager/reboot", { method: 'POST' });
+			const response = await api.fetchApi("/manager/reboot", { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 			if (response.status == 403) {
 				await handle403Response(response);
 				return false;
@@ -365,6 +365,55 @@ export function md5(inputString) {
 		b=ii(b,c,d,a,x[i+ 9],21, -343485551);a=ad(a,olda);b=ad(b,oldb);c=ad(c,oldc);d=ad(d,oldd);
 	}
 	return rh(a)+rh(b)+rh(c)+rh(d);
+}
+
+const levenArray = [];
+const levenCodeCache = [];
+export const leven = (first, second) => {
+	if (first === second) {
+		return 0;
+	}
+	const swap = first;
+	if (first.length > second.length) {
+		first = second;
+		second = swap;
+	}
+	let firstLength = first.length;
+	let secondLength = second.length;
+	while (firstLength > 0 && (first.charCodeAt(~-firstLength) === second.charCodeAt(~-secondLength))) {
+		firstLength--;
+		secondLength--;
+	}
+	let start = 0;
+	while (start < firstLength && (first.charCodeAt(start) === second.charCodeAt(start))) {
+		start++;
+	}
+	firstLength -= start;
+	secondLength -= start;
+	if (firstLength === 0) {
+		return secondLength;
+	}
+	let bCharacterCode;
+	let result;
+	let temporary;
+	let temporary2;
+	let index = 0;
+	let index2 = 0;
+	while (index < firstLength) {
+		levenCodeCache[index] = first.charCodeAt(start + index);
+		levenArray[index] = ++index;
+	}
+	while (index2 < secondLength) {
+		bCharacterCode = second.charCodeAt(start + index2);
+		temporary = index2++;
+		result = index2;
+		for (index = 0; index < firstLength; index++) {
+			temporary2 = bCharacterCode === levenCodeCache[index] ? temporary : temporary + 1;
+			temporary = levenArray[index];
+			result = levenArray[index] = temporary > result ? (temporary2 > result ? result + 1 : temporary2) : (temporary2 > temporary ? temporary + 1 : temporary2);
+		}
+	}
+	return result;
 }
 
 export async function fetchData(route, options) {
@@ -691,6 +740,7 @@ export async function uninstallNodes(nodeList, options = {}) {
 
 		const res = await api.fetchApi(`/manager/queue/uninstall`, {
 			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify(data)
 		});
 

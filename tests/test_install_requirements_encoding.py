@@ -32,6 +32,7 @@ def load_execute_install_script(manager_util, calls):
         "sys": sys,
         "open": ansi_open,
         "manager_util": manager_util,
+        "manager_migration": types.SimpleNamespace(has_system_user_api=lambda: False),
         "remap_pip_package": lambda name: name,
         "try_install_script": lambda url, repo_path, cmd, instant_execution=False: calls.append(cmd),
         "comfy_path": "",

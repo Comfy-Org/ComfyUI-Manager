@@ -2,6 +2,50 @@
   "models": [
 
     {
+      "name": "sam3.1_multiplex_fp16.safetensors",
+      "type": "sam3.1",
+      "base": "SAM",
+      "save_path": "checkpoints",
+      "description": "Segment Anything SAM 3.1 model (multiplex, fp16), repackaged for ComfyUI by Comfy-Org",
+      "reference": "https://huggingface.co/Comfy-Org/sam3.1",
+      "filename": "sam3.1_multiplex_fp16.safetensors",
+      "url": "https://huggingface.co/Comfy-Org/sam3.1/resolve/main/checkpoints/sam3.1_multiplex_fp16.safetensors",
+      "size": "1.75GB"
+    },
+    {
+      "name": "ViT-H SAM model (safetensors)",
+      "type": "sam",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segment Anything SAM model (ViT-H) in the safetensors format, from Kornia",
+      "reference": "https://huggingface.co/kornia/sam",
+      "filename": "sam_vit_h_4b8939.safetensors",
+      "url": "https://huggingface.co/kornia/sam/resolve/main/sam_vit_h_4b8939.safetensors",
+      "size": "2.56GB"
+    },
+    {
+      "name": "ViT-L SAM model (safetensors)",
+      "type": "sam",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segment Anything SAM model (ViT-L) in the safetensors format, from Kornia",
+      "reference": "https://huggingface.co/kornia/sam",
+      "filename": "sam_vit_l_0b3195.safetensors",
+      "url": "https://huggingface.co/kornia/sam/resolve/main/sam_vit_l_0b3195.safetensors",
+      "size": "1.25GB"
+    },
+    {
+      "name": "ViT-B SAM model (safetensors)",
+      "type": "sam",
+      "base": "SAM",
+      "save_path": "sams",
+      "description": "Segment Anything SAM model (ViT-B) in the safetensors format, from Kornia",
+      "reference": "https://huggingface.co/kornia/sam",
+      "filename": "sam_vit_b_01ec64.safetensors",
+      "url": "https://huggingface.co/kornia/sam/resolve/main/sam_vit_b_01ec64.safetensors",
+      "size": "375.0MB"
+    },
+    {
       "name": "LTX-2.5 22B IC-LoRA Alpha-Gen",
       "type": "lora",
       "base": "LTX-2.5",
