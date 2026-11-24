@@ -419,7 +419,8 @@ class HtmlByDesignSinkTest(unittest.TestCase):
             "node-usage-analyzer.js": common | {
                 "errorMsg = `'${sanitizeHTML(String(item.name))}': `;", queue_error,
             },
-            "common.js": common | {"errorMsg = `'${displayTitle}': `;"},
+            "common.js": common | {"errorMsg = `'${displayTitle}': `;",
+                                   "errorMsg = `Couldn't start the uninstall queue (HTTP ${startRes.status}). Nothing was uninstalled.\\n`;"},
         }
         mutations = re.compile(r"(?<![\w$.])errorMsg\s*(?:[+*/%&|^?-]*=(?!=)|\+\+|--)[^;]*;")
         for name, statements in expected.items():
