@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### An install from a Git URL installs the dependencies when Windows cannot read `requirements.txt`
+
+An install of a nodepack from a Git URL (**Install via Git URL**,
+`cm-cli install <URL>`, `cm-cli install-deps`) read its `requirements.txt` in
+the encoding of the locale, which on Windows is the ANSI code page. A UTF-8
+file with a Chinese or Korean comment failed with `UnicodeDecodeError`, and
+the nodepack was cloned without its dependencies (#3520). When the locale
+cannot read the file, the install now reads it in the encoding that `chardet`
+names, if every line is printable ASCII outside its comment. Otherwise, as
+for a file that is not text or a requirement with a non-ASCII path, it fails
+with the same error as before. Such a failure no longer installs the lines in
+front of the byte it fails on.
+
 ### Check Update no longer stops the server, and shows how far it is
 
 Check Update in the Custom Nodes Manager fetched every git nodepack inside the

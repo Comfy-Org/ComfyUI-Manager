@@ -17,6 +17,7 @@ import subprocess
 import tempfile
 import sys
 import re
+import codecs
 import logging
 import platform
 import shlex
@@ -1247,6 +1248,52 @@ def robust_readlines(fullpath):
 
         print(f"[ComfyUI-Manager] Failed to recognize encoding for: {fullpath}")
         return []
+
+
+_PRINTABLE_ASCII = re.compile(r'[\t-\r -~]*')
+_PRINTABLE_ASCII_BYTES = bytes(range(0x09, 0x0e)) + bytes(range(0x20, 0x7f))
+_WIDE_UNICODE_CODECS = ('utf-16', 'utf-16-le', 'utf-16-be', 'utf-32', 'utf-32-le', 'utf-32-be')
+
+
+def _is_ascii_compatible_or_wide_unicode(encoding):
+    try:
+        codec = codecs.lookup(encoding)
+        if codec.name in _WIDE_UNICODE_CODECS:
+            return True
+        return codec.decode(_PRINTABLE_ASCII_BYTES)[0] == _PRINTABLE_ASCII_BYTES.decode('ascii')
+    except (LookupError, UnicodeDecodeError):
+        return False
+
+
+def _hands_pip_only_ascii(line):
+    before_comment = line.split('#')[0]
+    return before_comment.isspace() or _PRINTABLE_ASCII.fullmatch(before_comment) is not None
+
+
+def read_requirements_lines(fullpath):
+    try:
+        with open(fullpath, "r") as f:
+            return f.readlines()
+    except UnicodeDecodeError:
+        import chardet
+        with open(fullpath, "rb") as f:
+            encoding = chardet.detect(f.read())['encoding']
+
+        lines = None
+        if encoding is not None and _is_ascii_compatible_or_wide_unicode(encoding):
+            try:
+                with open(fullpath, "r", encoding=encoding) as f:
+                    lines = f.readlines()
+            except UnicodeDecodeError:
+                pass
+
+        if lines:
+            # chardet 7.1.0 names UTF-16-LE for a UTF-16 file with a byte order mark, which then stays in the text
+            lines[0] = lines[0].lstrip('\ufeff')
+
+        if lines is None or not all(_hands_pip_only_ascii(line) for line in lines):
+            raise
+        return lines
 
 
 def build_restart_command(argv, drop_args=()):
