@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [4.4.3] - 2026-11-24
+
 ### Changed
 
 - A search in the legacy Custom Nodes Manager lists the best matches first.
@@ -24,6 +26,35 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   sorts from the highest value down.
 
 ### Fixed
+
+- Check Update in the legacy Custom Nodes Manager no longer stops the server,
+  and shows how far it is. It fetched every git nodepack inside the request
+  for the node list. Until the last fetch had ended the server answered
+  nothing else, and with many git nodepacks the page gave up after a minute
+  with `Failed to get custom node list.` (#3574). The check now runs in the
+  background. The page shows `Checking updates (n/total) ...` while the
+  repositories are fetched, the server goes on answering, and the nodepacks
+  that have an update are listed when the check has ended. A task on
+  nodepacks that is started during a check, such as Update All, runs when the
+  check has ended, as before. A model download and an update of ComfyUI do
+  not wait for it. When the connection to the server is lost and comes back
+  during a check, as when the server restarts, the page asks for the check
+  again.
+
+  A git nodepack that the registry does not know was left out of the check,
+  unless the node list gave it an `id` that is its repository name. Every
+  enabled git nodepack of the list is fetched now, so a check can take longer
+  than before.
+
+  On Windows, a check that found an update for a git nodepack put the
+  install script of that nodepack down to run at the next start, though
+  nothing had been updated. A check no longer does that.
+
+  `GET /v2/customnode/getlist` no longer fetches, with or without
+  `skip_update`, and `GET /v2/customnode/fetch_updates` of the legacy server
+  answers 410, as that of the new one does. A check is asked for with
+  `POST /v2/customnode/check_update` of the legacy server and reports by the
+  `cm-check-update` event.
 
 - A reserved install does not install a URL requirement again. A requirement
   that is a URL, as `git+https://github.com/owner/repo` or the URL of a wheel,
@@ -824,6 +855,7 @@ programmatic clients.
   perform the change from a trusted entry point. Read access via `GET` is
   unaffected.
 
+[4.4.3]: https://github.com/Comfy-Org/ComfyUI-Manager/compare/v4.4.2...v4.4.3
 [4.4.2]: https://github.com/Comfy-Org/ComfyUI-Manager/compare/v4.4.1...v4.4.2
 [4.4.1]: https://github.com/Comfy-Org/ComfyUI-Manager/compare/v4.4...v4.4.1
 [4.4]: https://github.com/Comfy-Org/ComfyUI-Manager/compare/v4.3...v4.4

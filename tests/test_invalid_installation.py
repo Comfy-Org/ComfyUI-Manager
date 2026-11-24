@@ -558,6 +558,7 @@ def test_the_notice_tells_the_folders_that_a_reinstall_which_did_not_finish_kept
     assert files(tmp_path) == before
 
 
+@pytest.mark.parametrize('core', ['glob'], indirect=True)
 def test_fetching_updates_leaves_an_invalid_installation_alone(core, custom_nodes, capsys):
     pack(custom_nodes / 'ComfyUI-Bar')
     manager = reload(core)
@@ -566,6 +567,7 @@ def test_fetching_updates_leaves_an_invalid_installation_alone(core, custom_node
     assert 'Traceback' not in capsys.readouterr().err
 
 
+@pytest.mark.parametrize('core', ['glob'], indirect=True)
 def test_fetching_updates_reaches_a_git_pack_whose_id_a_stray_invalid_folder_shares(core, custom_nodes, monkeypatch):
     clone = pack(custom_nodes / 'bar-clone', git_url=BAR_URL)
     pack(custom_nodes / '.disabled/ComfyUI-Bar')

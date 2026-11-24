@@ -513,8 +513,8 @@ All verification here assumes Playwright UI interaction as the Action. Effect is
 - **Observable**: UI grid rows
 - **Assertion**: rows > 0; each row has Title + Installed/Not-Installed state + Install/Uninstall button
 
-### Goal LG2 — skip_update=true optimizes loading
-- **Action (UI)**: open dialog with flag set (URL param or setting)
+### Goal LG2 — the list loads without a git fetch
+- **Action (UI)**: open dialog (with or without `skip_update`)
 - **Observable**: loading time; network log
 - **Assertion**: no git fetch calls; load time < N seconds
 
