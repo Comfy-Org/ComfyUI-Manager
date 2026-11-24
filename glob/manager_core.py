@@ -472,10 +472,11 @@ class UnifiedManager:
             # 4. Fail
 
             if node_name in self.cnr_map:
-                latest = self.get_from_cnr_inactive_nodes(node_name)
+                versions = self.cnr_inactive_nodes.get(node_name)
 
-                if latest is not None:
-                    version_spec = str(latest[0])
+                if versions:
+                    # the key itself, which callers look up: str() of the parsed version can differ ('1.0.0b0' for '1.0.0-beta')
+                    version_spec = max(versions, key=self.safe_version)
                 else:
                     if node_name in self.nightly_inactive_nodes:
                         version_spec = "nightly"
@@ -1062,11 +1063,12 @@ class UnifiedManager:
 
         if version_spec is None:
             version_spec = self.resolve_unspecified_version(node_id, guess_mode='inactive')
-            if version_spec is None:
-                return result.fail(f'Specified inactive node not exists: {node_id}')
 
         if self.is_enabled(node_id, version_spec):
             return ManagedResult('skip').with_msg('Already enabled')
+
+        if version_spec is None:
+            return result.fail(f'Specified inactive node not exists: {node_id}')
 
         if not self.is_disabled(node_id, version_spec):
             return ManagedResult('skip').with_msg('Not installed')
@@ -1108,6 +1110,9 @@ class UnifiedManager:
 
         if from_path is None or not os.path.exists(from_path):
             return result.fail(f'Specified inactive node path not exists: {from_path}')
+
+        if os.path.lexists(to_path):
+            return result.fail(f'Install path already exists: {to_path}')
 
         # move from disk
         shutil.move(from_path, to_path)
@@ -1502,6 +1507,8 @@ class UnifiedManager:
 
         repo_url = None
         if version_spec is None:
+            if node_id in self.cnr_map:
+                self.forget_folders([x for x in self.cnr_inactive_nodes.get(node_id, {}).values() if not os.path.exists(x)])
             if self.is_enabled(node_id):
                 return ManagedResult('skip')
             elif self.is_disabled(node_id):
@@ -1546,7 +1553,9 @@ class UnifiedManager:
 
         if self.is_disabled(node_id, "cnr"):
             # enable and switch version if cnr is disabled (not specified version)
-            self.unified_enable(node_id, "cnr")
+            enabled = self.unified_enable(node_id, "cnr")
+            if not enabled.result:
+                return enabled
             return self._cnr_switch_version(node_id, node_info, instant_execution, no_deps, return_postinstall)
 
         if self.is_enabled(node_id, "cnr"):

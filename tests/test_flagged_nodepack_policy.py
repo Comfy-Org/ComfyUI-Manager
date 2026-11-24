@@ -273,6 +273,246 @@ print(json.dumps({'disabled': disabled, 'ok': result.result, 'action': result.ac
                     'active_ok': True, 'old_path': False, 'downloads': 0}
 
 
+# The version of a disabled pack as it is read from disk; packaging writes the pre-release as '1.0.0b0'.
+DISABLED_VERSIONS = ['1.0.0', '1.0.0-beta']
+
+
+@pytest.mark.parametrize('key', DISABLED_VERSIONS)
+def test_install_without_version_restores_the_disabled_version(key):
+    data = run(f'''
+status = 'NodeVersionStatusActive'
+installed = nodes / '.disabled/fixture@1_0_0'
+installed.mkdir(parents=True)
+(installed / '__init__.py').write_text('v1')
+(installed / '.tracking').write_text('__init__.py')
+manager.cnr_map['fixture'] = {{'id': 'fixture', 'latest_version': {{'version': '2.0.0'}}}}
+manager.cnr_inactive_nodes['fixture'] = {{{key!r}: str(installed)}}
+result = asyncio.run(manager.install_by_id('fixture', instant_execution=True))
+f = nodes / 'fixture/__init__.py'
+print(json.dumps({{'ok': result.result, 'action': result.action, 'content': f.read_text() if f.exists() else None,
+    'downloads': core.manager_downloader.download_url.call_count, 'queries': get.call_count}}))
+''')
+    assert data == {'ok': True, 'action': 'enable', 'content': 'v1', 'downloads': 0, 'queries': 0}
+
+
+@pytest.mark.parametrize('key', DISABLED_VERSIONS)
+def test_enable_button_restores_the_disabled_version(key):
+    data = run(f'''
+import ast
+from aiohttp import web
+source = pathlib.Path(core.__file__).with_name('manager_server.py').read_text(encoding='utf-8')
+handler = [node for node in ast.parse(source).body
+           if isinstance(node, ast.AsyncFunctionDef) and node.name == '_queue_node_install']
+events = []
+namespace = {{'core': core, 'web': web, 'logging': logging, 'os': os,
+    '_reject_non_json_content_type': lambda request: None, 'is_allowed_security_level': lambda level: True,
+    'PromptServer': SimpleNamespace(instance=SimpleNamespace(send_sync=lambda event, data: events.append(data)))}}
+exec(compile(ast.Module(body=handler, type_ignores=[]), 'manager_server.py', 'exec'), namespace)
+installed = nodes / '.disabled/fixture@1_0_0'
+installed.mkdir(parents=True)
+(installed / '__init__.py').write_text('v1')
+manager.cnr_map['fixture'] = {{'id': 'fixture'}}
+manager.cnr_inactive_nodes['fixture'] = {{{key!r}: str(installed)}}
+# what the Enable button of the Custom Nodes Manager sends for the version picked in its dialog
+body = {{'id': 'fixture', 'version': {key!r}, 'selected_version': {key!r}, 'channel': 'default', 'mode': 'cache',
+    'ui_id': 'row', 'skip_post_install': True}}
+response = asyncio.run(namespace['_queue_node_install'](SimpleNamespace(json=AsyncMock(return_value=body)), 'install'))
+f = nodes / 'fixture/__init__.py'
+print(json.dumps({{'status': response.status,
+    'reported': [event['nodepack_result'] for event in events if event['status'] == 'done'],
+    'content': f.read_text() if f.exists() else None, 'downloads': core.manager_downloader.download_url.call_count}}))
+''')
+    assert data == {'status': 200, 'reported': [{'row': 'success'}], 'content': 'v1', 'downloads': 0}
+
+
+def test_enable_button_answers_success_for_an_enabled_pack_that_the_registry_data_does_not_list():
+    data = run('''
+import ast
+from aiohttp import web
+source = pathlib.Path(core.__file__).with_name('manager_server.py').read_text(encoding='utf-8')
+handler = [node for node in ast.parse(source).body
+           if isinstance(node, ast.AsyncFunctionDef) and node.name == '_queue_node_install']
+events = []
+namespace = {'core': core, 'web': web, 'logging': logging, 'os': os,
+    '_reject_non_json_content_type': lambda request: None, 'is_allowed_security_level': lambda level: True,
+    'PromptServer': SimpleNamespace(instance=SimpleNamespace(send_sync=lambda event, data: events.append(data)))}
+exec(compile(ast.Module(body=handler, type_ignores=[]), 'manager_server.py', 'exec'), namespace)
+enabled, disabled = nodes / 'fixture', nodes / '.disabled/fixture@0_9_0'
+for folder, version in ((enabled, '1.0.0'), (disabled, '0.9.0')):
+    folder.mkdir(parents=True)
+    (folder / '__init__.py').write_text(version)
+manager.active_nodes['fixture'] = ('1.0.0', str(enabled))
+manager.cnr_inactive_nodes['fixture'] = {'0.9.0': str(disabled)}
+body = {'id': 'fixture', 'version': '1.0.0', 'selected_version': '0.9.0', 'channel': 'default', 'mode': 'cache',
+    'ui_id': 'row', 'skip_post_install': True}
+response = asyncio.run(namespace['_queue_node_install'](SimpleNamespace(json=AsyncMock(return_value=body)), 'install'))
+print(json.dumps({'status': response.status,
+    'reported': [event['nodepack_result'] for event in events if event['status'] == 'done'],
+    'enabled': (enabled / '__init__.py').read_text(), 'disabled': (disabled / '__init__.py').read_text()}))
+''')
+    assert data == {'status': 200, 'reported': [{'row': 'success'}], 'enabled': '1.0.0', 'disabled': '0.9.0'}
+
+
+@pytest.mark.parametrize('exit_on_fail', [False, True])
+@pytest.mark.parametrize('spec', ['fixture@1.0.0'])
+def test_cli_install_reports_an_enable_that_failed(spec, exit_on_fail):
+    data = run(f'''
+import ast, rich.console
+installed = nodes / '.disabled/fixture@1_0_0'
+manager.cnr_map['fixture'] = {{'id': 'fixture', 'latest_version': {{'version': '2.0.0'}}}}
+# read as disabled, then the folder was removed before the install
+manager.cnr_inactive_nodes['fixture'] = {{'1.0.0': str(installed)}}
+source = (pathlib.Path(core.__file__).parent.parent / 'cm-cli.py').read_text(encoding='utf-8')
+found = [node for node in ast.parse(source).body if isinstance(node, ast.FunctionDef) and node.name == 'install_node']
+out = io.StringIO()
+scope = {{'core': core, 'unified_manager': manager, 'asyncio': asyncio, 'sys': sys,
+    'print': rich.console.Console(file=out, width=1000, color_system=None).print,
+    'cmd_ctx': SimpleNamespace(channel='default', mode='cache', no_deps=False)}}
+exec(compile(ast.Module(found, []), 'cm-cli.py', 'exec'), scope)
+try:
+    scope['install_node']({spec!r}, cnt_msg='1/1', exit_on_fail={exit_on_fail!r})
+    code = None
+except SystemExit as e:
+    code = e.code
+printed = out.getvalue().replace(str(installed), '<folder>').splitlines()[1:]
+print(json.dumps({{'printed': printed, 'exit': code, 'downloads': core.manager_downloader.download_url.call_count}}))
+''')
+    assert data == {'printed': ["ERROR: An error occurred while installing 'fixture'.",
+                                'Specified inactive node path not exists: <folder>'],
+                    'exit': 1 if exit_on_fail else None, 'downloads': 0}
+
+
+FOLDER_TAKERS = ['a clone of a fork', 'a registry copy of another nodepack', 'a file', 'a link to a checkout of a fork',
+                 'a dangling link']
+
+# custom_nodes/fixture is taken by something the scan does not record as fixture, beside a disabled copy of fixture
+TAKEN_FOLDER = '''
+import ast, rich.console
+URL = 'https://github.com/owner/fixture'
+async def get_cnr_data(*args, **kwargs):
+    return [{'id': 'fixture', 'name': 'Fixture', 'repository': URL, 'publisher': {'name': 'owner'},
+             'latest_version': {'version': '2.0.0'}},
+            {'id': 'other-pack', 'name': 'Other', 'repository': 'https://github.com/owner/other-pack',
+             'publisher': {'name': 'owner'}, 'latest_version': {'version': '3.0.0'}}]
+cnr_utils.get_cnr_data = get_cnr_data
+status = 'NodeVersionStatusActive'
+async def get_data_by_mode(*args, **kwargs):
+    return {'custom_nodes': []}
+core.get_data_by_mode = get_data_by_mode
+sys.modules['folder_paths'].get_folder_paths = lambda name: [str(nodes)]
+def pack(folder, name, version):
+    folder.mkdir(parents=True)
+    (folder / '__init__.py').write_text(f'{name} {version}')
+    (folder / '.tracking').write_text('__init__.py\\npyproject.toml\\n')
+    (folder / 'pyproject.toml').write_text(f'[project]\\nname = "{name}"\\nversion = "{version}"\\n')
+def clone(folder, url):
+    (folder / '.git').mkdir(parents=True)
+    (folder / '.git/config').write_text(f'[remote "origin"]\\n\\turl = {url}\\n')
+    (folder / '__init__.py').write_text(f'clone of {url}')
+    return folder
+pack(nodes / '.disabled/fixture@1_0_0', 'fixture', '1.0.0')
+taken, elsewhere = nodes / 'fixture', pathlib.Path(tmp) / 'elsewhere'
+if TAKEN_BY == 'a clone of a fork':
+    clone(taken, 'https://github.com/someone/fixture-fork')
+elif TAKEN_BY == 'a registry copy of another nodepack':
+    pack(taken, 'other-pack', '3.0.0')
+elif TAKEN_BY == 'a file':
+    taken.write_text('a file of the user')
+elif TAKEN_BY == 'a link to a checkout of a fork':
+    taken.symlink_to(clone(elsewhere / 'checkout', 'https://github.com/someone/fixture-fork'), target_is_directory=True)
+else:
+    taken.symlink_to(elsewhere / 'missing', target_is_directory=True)
+asyncio.run(manager.reload('cache', dont_wait=False))
+def on_disk():
+    root = pathlib.Path(tmp)
+    return sorted((str(x.relative_to(root)), os.readlink(x) if x.is_symlink() else x.read_text()) for x in root.rglob('*')
+                  if x.is_symlink() or (x.is_file() and ('custom_nodes' in x.parts or 'elsewhere' in x.parts)))
+before = on_disk()
+'''
+
+
+@pytest.mark.parametrize('exit_on_fail', [False, True])
+@pytest.mark.parametrize('spec', ['fixture', 'fixture@1.0.0', 'fixture@2.0.0', 'https://github.com/owner/fixture'])
+@pytest.mark.parametrize('taken_by', FOLDER_TAKERS)
+def test_cli_install_leaves_the_disabled_copy_when_its_folder_is_taken(taken_by, spec, exit_on_fail):
+    data = run(f'TAKEN_BY = {taken_by!r}\n' + TAKEN_FOLDER + f'''
+source = (pathlib.Path(core.__file__).parent.parent / 'cm-cli.py').read_text(encoding='utf-8')
+found = [node for node in ast.parse(source).body if isinstance(node, ast.FunctionDef) and node.name == 'install_node']
+out = io.StringIO()
+scope = {{'core': core, 'unified_manager': manager, 'asyncio': asyncio, 'sys': sys,
+    'print': rich.console.Console(file=out, width=1000, color_system=None).print,
+    'cmd_ctx': SimpleNamespace(channel='default', mode='cache', no_deps=False)}}
+exec(compile(ast.Module(found, []), 'cm-cli.py', 'exec'), scope)
+try:
+    scope['install_node']({spec!r}, cnt_msg='1/1', exit_on_fail={exit_on_fail!r})
+    code = None
+except SystemExit as e:
+    code = e.code
+printed = [line for line in out.getvalue().replace(str(taken), '<folder>').splitlines()[1:] if not line.startswith('Install: ')]
+print(json.dumps({{'printed': printed, 'exit': code, 'unchanged': on_disk() == before,
+    'downloads': core.manager_downloader.download_url.call_count}}))
+''')
+    failed = "ERROR: An error occurred while installing '%s'." % spec.split('@')[0]
+    printed = ['Install path already exists: <folder>', failed] if '://' in spec else [failed, 'Install path already exists: <folder>']
+    assert data == {'printed': printed, 'exit': 1 if exit_on_fail else None, 'unchanged': True, 'downloads': 0}
+
+
+@pytest.mark.parametrize('taken_by', FOLDER_TAKERS)
+def test_enable_button_leaves_the_disabled_copy_when_its_folder_is_taken(taken_by):
+    data = run(f'TAKEN_BY = {taken_by!r}\n' + TAKEN_FOLDER + '''
+from aiohttp import web
+source = pathlib.Path(core.__file__).with_name('manager_server.py').read_text(encoding='utf-8')
+handler = [node for node in ast.parse(source).body
+           if isinstance(node, ast.AsyncFunctionDef) and node.name == '_queue_node_install']
+events = []
+namespace = {'core': core, 'web': web, 'logging': logging, 'os': os,
+    '_reject_non_json_content_type': lambda request: None, 'is_allowed_security_level': lambda level: True,
+    'PromptServer': SimpleNamespace(instance=SimpleNamespace(send_sync=lambda event, data: events.append(data)))}
+exec(compile(ast.Module(body=handler, type_ignores=[]), 'manager_server.py', 'exec'), namespace)
+body = {'id': 'fixture', 'version': '1.0.0', 'selected_version': '1.0.0', 'channel': 'default', 'mode': 'cache',
+    'ui_id': 'row', 'skip_post_install': True}
+response = asyncio.run(namespace['_queue_node_install'](SimpleNamespace(json=AsyncMock(return_value=body)), 'install'))
+print(json.dumps({'status': response.status, 'unchanged': on_disk() == before,
+    'reported': [{k: v.replace(str(taken), '<folder>') for k, v in event['nodepack_result'].items()}
+                 for event in events if event['status'] == 'done']}))
+''')
+    assert data == {'status': 200, 'unchanged': True, 'reported': [{'row': 'Install path already exists: <folder>'}]}
+
+
+def test_cli_install_enables_the_disabled_copy_that_is_left_when_another_was_removed_after_the_scan():
+    data = run('''
+import ast, shutil, rich.console
+status = 'NodeVersionStatusActive'
+async def get_cnr_data(*args, **kwargs):
+    return [{'id': 'fixture', 'name': 'Fixture', 'repository': 'https://github.com/owner/fixture',
+             'publisher': {'name': 'owner'}, 'latest_version': {'version': '2.0.0'}}]
+cnr_utils.get_cnr_data = get_cnr_data
+sys.modules['folder_paths'].get_folder_paths = lambda name: [str(nodes)]
+for version in ('0.9.0', '1.0.0'):
+    folder = nodes / ('.disabled/fixture@' + version.replace('.', '_'))
+    folder.mkdir(parents=True)
+    (folder / '__init__.py').write_text(version)
+    (folder / '.tracking').write_text('__init__.py\\npyproject.toml\\n')
+    (folder / 'pyproject.toml').write_text(f'[project]\\nname = "fixture"\\nversion = "{version}"\\n')
+asyncio.run(manager.reload('cache', dont_wait=False))
+# another process removes the newest disabled copy after the scan
+shutil.rmtree(nodes / '.disabled/fixture@1_0_0')
+source = (pathlib.Path(core.__file__).parent.parent / 'cm-cli.py').read_text(encoding='utf-8')
+found = [node for node in ast.parse(source).body if isinstance(node, ast.FunctionDef) and node.name == 'install_node']
+out = io.StringIO()
+scope = {'core': core, 'unified_manager': manager, 'asyncio': asyncio, 'sys': sys,
+    'print': rich.console.Console(file=out, width=1000, color_system=None).print,
+    'cmd_ctx': SimpleNamespace(channel='default', mode='cache', no_deps=False)}
+exec(compile(ast.Module(found, []), 'cm-cli.py', 'exec'), scope)
+scope['install_node']('fixture', cnt_msg='1/1')
+enabled = nodes / 'fixture/__init__.py'
+print(json.dumps({'printed': [' '.join(line.split()) for line in out.getvalue().splitlines()[1:]],
+    'enabled': enabled.read_text() if enabled.exists() else None,
+    'downloads': core.manager_downloader.download_url.call_count}))
+''')
+    assert data == {'printed': ['1/1 [ ENABLED ] fixture'], 'enabled': '0.9.0', 'downloads': 0}
+
+
 def test_reinstall_stops_when_the_installed_folder_cannot_be_moved_aside():
     data = run('''
 status = 'NodeVersionStatusActive'

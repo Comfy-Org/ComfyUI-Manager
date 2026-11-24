@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+### An install of a disabled registry nodepack enables it, and a failed Enable is reported as failed
+
+An install without a version did not see a registry nodepack that was
+disabled: with the nodepack disabled at 1.0.0 and the registry at 2.0.0,
+`cm-cli install <id>` downloaded 2.0.0 over it. It now enables 1.0.0, with no
+download. **Enable** in the Custom Nodes Manager and `cm-cli enable` did
+nothing for a nodepack disabled at a version such as `1.0.0-beta`, and now
+enable it.
+
+**Enable** reported success whatever happened, so a nodepack that the
+registry data does not list, or whose folder was gone, stayed disabled while
+the page asked for a restart (#3469, #3528). The page now shows the reason,
+such as `Specified inactive node path not exists: ...`. `cm-cli install` prints
+`[ ENABLED ]` only for an enable that succeeded. A failed one prints
+`ERROR: An error occurred while installing '<id>'.` with the reason, and
+`--exit-on-fail` exits with 1.
+
+When something else was at `custom_nodes/<id>`, such as a clone of a fork,
+**Enable**, `cm-cli install` and an install by the repository URL moved the
+disabled copy into it. **Enable**, an install of the disabled version and an
+install by the repository URL then reported success. A file or a dangling link
+there failed the install with `[Errno 17] File exists`. These and
+**Switch Ver** now refuse with `Install path already exists: <path>` and leave
+what is there untouched.
+
 ### Check Update no longer stops the server, and shows how far it is
 
 Check Update in the Custom Nodes Manager fetched every git nodepack inside the
