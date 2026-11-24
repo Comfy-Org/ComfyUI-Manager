@@ -52,7 +52,7 @@ def print(*objects, sep=" ", end="\n", file=None):
     console.print(*objects, sep=sep, end=end, markup=False, emoji=False, soft_wrap=True)
 
 
-version_code = [3, 43, 2]
+version_code = [3, 43, 3]
 version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' if len(version_code) > 2 else '')
 
 
