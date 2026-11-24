@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### A nodepack that only the registry lists shows Update when the registry has a newer version
+
+A nodepack that is in the registry and not in the node list never showed
+**Update** in the Custom Nodes Manager, and the Update filter did not list it,
+even when the registry had a newer version (#3220, #3261). The row showed
+**Try update**, which did update it, but nothing said that an update was
+there. Such a row now shows **Update**, and the Update filter lists it. A
+nodepack installed as nightly gets no **Update** this way, as for a nodepack
+of the node list. When such a nodepack failed to import and has a newer
+version, its row shows **Update** in place of `IMPORT FAILED ↗` and
+**Try fix**, as the row of a nodepack of the node list already did. The
+Import Failed filter still lists it.
+
 ### Check Update no longer stops the server, and shows how far it is
 
 Check Update in the Custom Nodes Manager fetched every git nodepack inside the

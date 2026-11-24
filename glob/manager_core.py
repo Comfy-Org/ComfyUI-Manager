@@ -3344,8 +3344,8 @@ async def get_unified_total_nodes(channel, mode, regsitry_cache_mode='cache'):
             if cnr_id in unified_manager.active_nodes:
                 # installed
                 state = 'enabled'
-                updatable = unified_manager.is_updatable(cnr_id)
                 active_version = unified_manager.active_nodes[cnr['id']][0]
+                updatable = active_version != 'nightly' and unified_manager.is_updatable(cnr_id)
                 ver = active_version
 
                 if cm_global.try_call(api="cm.is_import_failed_extension", name=unified_manager.active_nodes[cnr_id][1]):
@@ -3368,6 +3368,8 @@ async def get_unified_total_nodes(channel, mode, regsitry_cache_mode='cache'):
             item = dict(author=author, title=title, reference=reference, repository=repository, install_type=install_type,
                         description=description, state=state, updatable=updatable, version=ver)
 
+            item['update-state'] = 'true' if updatable else 'false'
+            
             if active_version:
                 item['active_version'] = active_version
 
