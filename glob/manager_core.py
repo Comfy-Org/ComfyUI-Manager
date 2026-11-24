@@ -2318,8 +2318,7 @@ def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=Fa
         if os.path.exists(requirements_path) and not no_deps:
             print("Install: pip packages")
             pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path if manager_migration.has_system_user_api() else None)
-            for line in manager_util.robust_readlines(requirements_path):
-                #handle comments
+            for line in manager_util.read_requirements_lines(requirements_path):
                 if '#' in line:
                     if line.strip()[0] == '#':
                         print("Line is comment...skipping")
