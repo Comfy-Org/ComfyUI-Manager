@@ -87,10 +87,11 @@ def assigned(name):
                 if isinstance(n, ast.Assign) and [t.id for t in n.targets if isinstance(t, ast.Name)] == [name])
 
 
-def writing_loggers(stdout, stderr, log_file):
+def writing_loggers(stdout, stderr, log_file, strip=True):
     return loggers(stdout, stderr, log_file=log_file, log_lock=threading.Lock(), std_log_lock=threading.Lock(),
                    current_timestamp=lambda: "12:00:00", write_stdout=stdout.write, write_stderr=stderr.write,
-                   re=re, pat_tqdm=assigned("pat_tqdm"), message_collapses=[], is_start_mode=False)
+                   re=re, pat_tqdm=assigned("pat_tqdm"), pat_ansi=assigned("pat_ansi"),
+                   strip_ansi_file_logging=strip, message_collapses=[], is_start_mode=False)
 
 
 def recording_stream():
@@ -98,10 +99,10 @@ def recording_stream():
     return SimpleNamespace(write=written.append, flush=lambda: None), written
 
 
-def writing_logger(log_file):
+def writing_logger(log_file, strip=True):
     """The stderr logger with what its writes need, and the list of what reached the console."""
     stream, console = recording_stream()
-    _, err = writing_loggers(stream, stream, log_file)
+    _, err = writing_loggers(stream, stream, log_file, strip)
     return err, console
 
 
@@ -268,6 +269,20 @@ def test_open_log_file_gets_what_is_written():
 
     assert log_file.written == ["first\n", "[12:00:00] logged only\n"]
     assert console == ["first\n"]
+
+
+@pytest.mark.parametrize("strip, file_text", [
+    (True, "colored\n"),
+    (False, "\x1b[32mcolored\x1b[0m\n"),
+])
+def test_file_logging_strips_ansi_codes_and_the_console_keeps_them(strip, file_text):
+    log_file = LogFile()
+    logger, console = writing_logger(log_file, strip)
+
+    logger.sync_write("\x1b[32mcolored\x1b[0m\n")
+
+    assert log_file.written == [file_text]
+    assert console == ["\x1b[32mcolored\x1b[0m\n"]
 
 
 def test_closed_log_file_is_left_alone():
