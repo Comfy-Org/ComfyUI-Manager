@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### The Node Usage Analyzer counts the nodes inside subgraphs, and Uninstall Selected uninstalls
+
+The Node Usage Analyzer counted only the nodes at the top of a workflow, not
+those inside a subgraph, and left out a workflow that had a `null` node. A
+nodepack that was used only there showed 0 workflows and was offered for
+uninstall. The nodes of every subgraph are now counted, and a workflow with
+a malformed node is counted without that node (#3285). A node whose `cnr_id`
+is not text stopped the whole count with
+`TypeError: cnrId.toLowerCase is not a function`. Such a `cnr_id` is now left
+out.
+
+**Uninstall Selected** uninstalled nothing. The page said to restart ComfyUI,
+and the uninstalls ran at the next Update All, where a nodepack that only the
+registry lists failed with `An error occurred while uninstalling 'None'.` The
+uninstalls now run at once. When the queue cannot be started, the page says
+`Couldn't start the uninstall queue (HTTP <status>). Nothing was
+uninstalled.`, and the uninstalls still run at the next Update All, as
+before.
+
 ### Check Update no longer stops the server, and shows how far it is
 
 Check Update in the Custom Nodes Manager fetched every git nodepack inside the

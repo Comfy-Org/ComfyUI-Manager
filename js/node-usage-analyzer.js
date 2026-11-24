@@ -101,7 +101,7 @@ export class NodeUsageAnalyzer {
 
 			".nu-manager-stop": {
 				click: () => {
-					api.fetchApi('/manager/queue/reset', { method: 'POST' });
+					api.fetchApi('/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 					infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 				}
 			},
@@ -340,7 +340,7 @@ export class NodeUsageAnalyzer {
 		let needRefresh = false;
 		let errorMsg = "";
 
-		await api.fetchApi('/manager/queue/reset', { method: 'POST' });
+		await api.fetchApi('/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 
 		let target_items = [];
 
@@ -388,7 +388,7 @@ export class NodeUsageAnalyzer {
 			}
 		}
 		else {
-			await api.fetchApi('/manager/queue/start', { method: 'POST' });
+			await api.fetchApi('/manager/queue/start', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 			this.ui.showStop();
 			showTerminal();
 		}

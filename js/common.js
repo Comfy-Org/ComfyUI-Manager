@@ -732,7 +732,7 @@ export async function uninstallNodes(nodeList, options = {}) {
 	let errorMsg = "";
 	let target_items = [];
 
-	await api.fetchApi('/manager/queue/reset', { method: 'POST' });
+	await api.fetchApi('/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 
 	for (const nodeItem of nodeList) {
 		target_items.push(nodeItem);
@@ -774,7 +774,7 @@ export async function uninstallNodes(nodeList, options = {}) {
 		// worker, leaving every queued uninstall sitting untouched in the queue
 		// 200 = worker started, 201 = a worker was already running and will pick up
 		// the items just queued - both mean the uninstall is under way
-		const startRes = await api.fetchApi('/manager/queue/start', { method: 'POST' });
+		const startRes = await api.fetchApi('/manager/queue/start', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 		if (startRes.status !== 200 && startRes.status !== 201) {
 			errorMsg = `Couldn't start the uninstall queue (HTTP ${startRes.status}). Nothing was uninstalled.\n`;
 			onError(errorMsg);
