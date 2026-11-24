@@ -1166,6 +1166,10 @@ class ManagerMenuDialog extends ComfyDialog {
 			} else {
 				shareButton.style.display = "inline-block";
 			}
+			const newMenuShareButton = document.getElementById("cmNewMenuShareButton");
+			if (newMenuShareButton) {
+				newMenuShareButton.style.display = value === 'none' ? 'none' : '';
+			}
 		});
 
 		const shareSetttingItem = createSettingsCombo("Share", share_combo);
@@ -1566,6 +1570,7 @@ app.registerExtension({
 		try {
 			// new style Manager buttons
 			// unload models button into new style Manager button
+			let newMenuShareButton = null;
 			let cmGroup = new (await import("../../scripts/ui/components/buttonGroup.js")).ComfyButtonGroup(
 				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
 					icon: "puzzle",
@@ -1605,7 +1610,7 @@ app.registerExtension({
 					},
 					tooltip: "Free model and node cache"
 				}).element,
-				new(await import("../../scripts/ui/components/button.js")).ComfyButton({
+				(newMenuShareButton = new(await import("../../scripts/ui/components/button.js")).ComfyButton({
 					icon: "share",
 					action: () => {
 						if (share_option === 'matrix') {
@@ -1622,9 +1627,11 @@ app.registerExtension({
 						ShareDialogChooser.instance.show();
 					},
 					tooltip: "Share"
-				}).element
+				}).element)
 			);
 
+			newMenuShareButton.id = "cmNewMenuShareButton";
+			newMenuShareButton.style.display = share_option === 'none' ? 'none' : '';
 			app.menu?.settingsGroup.element.before(cmGroup.element);
 		}
 		catch(exception) {
