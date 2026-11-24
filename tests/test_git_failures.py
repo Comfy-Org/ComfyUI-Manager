@@ -4,7 +4,7 @@ from test_install_flags_config import _run_child
 
 
 PRELUDE = '''
-import asyncio, os, pathlib, subprocess
+import asyncio, os, pathlib, subprocess, time
 from unittest.mock import AsyncMock, Mock
 core = manager_core
 tmp = pathlib.Path(tmp)
@@ -81,6 +81,22 @@ def test_pull_that_fails_at_the_submodules_leaves_the_pack_at_its_commit():
 
 def test_pull_of_the_git_helper_that_fails_is_a_failure():
     assert run("core.platform.system = lambda: 'Windows'\n" + PULL_TWICE) == PULLED
+
+
+WHERE = pytest.mark.parametrize('where', ['', "core.platform.system = lambda: 'Windows'\n"], ids=['in the server process', 'in the git helper'])
+
+
+@WHERE
+def test_a_check_of_a_pack_with_an_update_does_not_ask_for_its_install_script(where):
+    assert run(where + '''
+away.rename(library)
+os.environ['GIT_COMMITTER_DATE'] = '@%d +0000' % (time.time() + 86400)
+git(origin, 'commit', '-q', '--allow-empty', '-m', 'a commit dated a day later')
+del os.environ['GIT_COMMITTER_DATE']
+state = core.git_repo_update_check_with(str(pack))
+print()
+print(json.dumps({'state': list(state), 'install scripts': core.execute_install_script.call_count, 'updated': head(pack) == head(origin)}))
+''') == {'state': [True, True], 'install scripts': 0, 'updated': False}
 
 
 LIBRARY_NOT_CLONED = '''
