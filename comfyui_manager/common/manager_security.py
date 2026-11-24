@@ -1,23 +1,13 @@
 """Security helpers for CSRF protection and Content-Type gating.
 
-reject_simple_form_post() is applied ONLY to POST handlers that do not consume
-a request body (e.g., snapshot/save, queue/reset, queue/start, reboot). These
-are vulnerable to cross-origin <form method=POST> attacks because the server
-accepts the request without parsing any body — the attacker needs no ability
-to forge a valid payload, only to point a hidden form at the URL.
-
-Handlers that DO read a body via ``await request.json()`` (install/git_url,
-install/pip, queue/install_model, db_mode POST, policy/update POST,
-channel_url_list POST, queue/batch, queue/task, import_fail_info, etc.) are
-NOT gated here — a cross-origin <form method=POST> cannot forge a valid JSON
-body because the browser refuses to send ``application/json`` without a CORS
-preflight, which this server rejects by not responding with an appropriate
-Access-Control-Allow-Origin.
-
-DO NOT add the gate to body-reading handlers (redundant + UX-breaking).
-DO NOT remove the gate from no-body handlers (this is the bypass vector).
+reject_non_json_post() is applied to every POST handler that changes something.
+A page of another origin can make a browser send a POST without a CORS
+preflight: as a form, or with no Content-Type at all, with or without a body.
+``request.json()`` parses a body whatever its Content-Type. The page cannot
+send ``application/json`` without a preflight.
 """
 
+import logging
 import os
 from enum import Enum
 from typing import Optional
@@ -27,45 +17,33 @@ from aiohttp import web
 is_personal_cloud_mode = False
 handler_policy = {}
 
+FLAGGED_NODEPACK_WHITELIST_FILE = 'nodepack-whitelist.list'
 
-# CORS "simple request" Content-Type set per Fetch spec §3.2.3. Browsers send
-# <form method=POST> submissions with one of these three MIME types and do NOT
-# trigger a CORS preflight, so a malicious cross-origin page can silently POST
-# into state-changing endpoints if we only gate on HTTP method. Blocking these
-# three Content-Types on our mutation endpoints forces any non-same-origin POST
-# to use a non-simple Content-Type (e.g. application/json), which triggers a
-# preflight that this server rejects (no Access-Control-Allow-Origin response).
-_SIMPLE_FORM_CONTENT_TYPES = frozenset({
-    'application/x-www-form-urlencoded',
-    'multipart/form-data',
-    'text/plain',
-})
+FLAGGED_NODEPACK_INSTALL_ERROR = (
+    'This action is not allowed by the current security configuration. '
+    'See the terminal for details.'
+)
+FLAGGED_NODEPACK_INSTALL_GUIDANCE = (
+    'Installation of this flagged CNR version is blocked. To satisfy the additional '
+    'flagged-version requirement, choose one of the following:\n'
+    '1. Run ComfyUI with loopback-only listeners, for example --listen 127.0.0.1 '
+    'or --listen ::1. All configured listen addresses must be loopback.\n'
+    '   Do not use bare --listen or any non-loopback address, such as 0.0.0.0 or ::.\n'
+    '2. For a trusted private network, set allow_flagged_nodepack_install = true '
+    'in the [default] section of ComfyUI-Manager\'s config.ini.\n'
+    '3. To allow specific packs, add their Registry pack IDs (case-insensitive), one per line, '
+    f'to {FLAGGED_NODEPACK_WHITELIST_FILE} beside ComfyUI-Manager\'s config.ini. '
+    'Whitelist changes apply to subsequent installations without a restart.\n'
+    'Restart ComfyUI after changing the listener or config.ini. '
+    'All other installation security checks still apply.'
+)
 
 
-def reject_simple_form_post(request) -> Optional[web.Response]:
-    """Reject Content-Types that enable preflight-less <form method=POST> CSRF.
-
-    These 3 MIME types are the complete CORS "simple request" Content-Type set
-    (Fetch spec §3.2.3 "CORS-safelisted request-header"). Blocking them
-    eliminates the <form method=POST> cross-origin CSRF vector, because any
-    other Content-Type triggers a browser-enforced CORS preflight — and this
-    server does not answer preflights with ``Access-Control-Allow-Origin``,
-    effectively blocking cross-origin requests that use non-simple types.
-
-    Returns:
-        web.Response(status=400) when the request has a simple-form
-        Content-Type that must be rejected. None when the request is allowed
-        to proceed (no body, application/json, or any non-simple Content-Type).
-
-    Note:
-        aiohttp's ``request.content_type`` normalizes the header (lower-cases,
-        strips parameters), so a ``multipart/form-data; boundary=----X`` header
-        is compared as ``multipart/form-data``.
-    """
-    if request.content_type in _SIMPLE_FORM_CONTENT_TYPES:
+def reject_non_json_post(request) -> Optional[web.Response]:
+    if request.content_type != 'application/json':
         return web.Response(
             status=400,
-            text='Invalid Content-Type for this endpoint. Use application/json or omit body.',
+            text='Invalid Content-Type for this endpoint. Use application/json.',
         )
     return None
 
@@ -81,6 +59,85 @@ def is_loopback(address):
         return ipaddress.ip_address(address).is_loopback
     except ValueError:
         return False
+
+
+def is_loopback_listener(listen_address: Optional[str]) -> bool:
+    """All addresses bound by --listen must resolve exclusively to loopback."""
+    import socket
+
+    if not isinstance(listen_address, str) or not listen_address:
+        return False
+    for address in listen_address.split(','):
+        address = address.strip()
+        if not address:
+            return False
+        if is_loopback(address):
+            continue
+        try:
+            resolved = socket.getaddrinfo(address, None, type=socket.SOCK_STREAM)
+        except OSError:
+            return False
+        if not resolved or any(not is_loopback(item[4][0]) for item in resolved):
+            return False
+    return True
+
+
+def ensure_nodepack_whitelist(manager_files_path):
+    """Create a commented template without replacing an existing whitelist."""
+    path = os.path.join(manager_files_path, FLAGGED_NODEPACK_WHITELIST_FILE)
+    try:
+        os.makedirs(manager_files_path, exist_ok=True)
+        with open(path, 'x', encoding='utf-8') as file:
+            file.write(
+                '# Allow selected flagged CNR nodepacks on non-local listeners.\n'
+                '# One Registry ID per line; IDs are case-insensitive and apply to all versions.\n'
+                '# Blank lines and # comments are ignored. Changes apply without restarting.\n'
+                '# Other installation security checks still apply.\n'
+                '#\n'
+                '# Example entries (commented out; uncomment to allow):\n'
+                '# comfyui-impact-pack\n'
+                '# comfyui-inspire-pack # Optional inline comment\n'
+            )
+    except OSError as exc:
+        if isinstance(exc, FileExistsError) and os.path.isfile(path):
+            return
+        logging.warning('[ComfyUI-Manager] Cannot create nodepack whitelist %s: %s', path, exc)
+
+
+def is_flagged_nodepack_whitelisted(node_id: str, manager_files_path) -> bool:
+    """Match a whole Registry ID, ignoring case, in the current Manager whitelist."""
+    if not manager_files_path:
+        return False
+    path = os.path.join(manager_files_path, FLAGGED_NODEPACK_WHITELIST_FILE)
+    try:
+        with open(path, encoding='utf-8-sig') as file:
+            contents = file.read()
+        if '\x00' in contents:
+            raise UnicodeError('NUL characters found; save the file as UTF-8')
+        entries = (line.split('#', 1)[0].strip() for line in contents.split('\n'))
+        if node_id.lower() in {entry.lower() for entry in entries if entry}:
+            logging.warning('[ComfyUI-Manager] CNR installation of %r permitted by nodepack whitelist (%s).', node_id, path)
+            return True
+        return False
+    except FileNotFoundError:
+        return False
+    except (OSError, UnicodeError) as exc:
+        logging.warning('[ComfyUI-Manager] Cannot read flagged nodepack whitelist %s: %s', path, exc)
+        return False
+
+
+def is_cnr_install_allowed(
+    status: str, allow_flagged: bool, listen_address: Optional[str], *,
+    node_id: Optional[str] = None, manager_files_path=None,
+) -> bool:
+    """Flagged versions require loopback, explicit permission, or a whitelisted ID.
+
+    Restore children pass their parent's resolved permission and no listener.
+    """
+    return (status != 'NodeVersionStatusFlagged'
+            or bool(allow_flagged)
+            or is_loopback_listener(listen_address)
+            or (node_id is not None and is_flagged_nodepack_whitelisted(node_id, manager_files_path)))
 
 
 def is_dedicated_install_allowed(flag_value: bool, listen_address: str, network_mode: str) -> bool:

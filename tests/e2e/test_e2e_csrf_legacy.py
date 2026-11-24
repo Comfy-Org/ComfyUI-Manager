@@ -182,14 +182,14 @@ class TestLegacyCsrfPostWorks:
 
     def test_queue_reset_post_works(self, comfyui_legacy):
         """POST queue/reset should succeed (the same path rejects GET)."""
-        resp = requests.post(f"{BASE_URL}/v2/manager/queue/reset", timeout=10)
+        resp = requests.post(f"{BASE_URL}/v2/manager/queue/reset", headers={"Content-Type": "application/json"}, timeout=10)
         assert resp.status_code == 200, (
             f"POST queue/reset should succeed, got {resp.status_code}: {resp.text[:200]}"
         )
 
     def test_snapshot_save_post_works(self, comfyui_legacy):
         """POST snapshot/save should succeed on legacy."""
-        resp = requests.post(f"{BASE_URL}/v2/snapshot/save", timeout=30)
+        resp = requests.post(f"{BASE_URL}/v2/snapshot/save", headers={"Content-Type": "application/json"}, timeout=30)
         assert resp.status_code == 200, (
             f"POST snapshot/save should succeed, got {resp.status_code}: {resp.text[:200]}"
         )
@@ -201,6 +201,7 @@ class TestLegacyCsrfPostWorks:
                 requests.post(
                     f"{BASE_URL}/v2/snapshot/remove",
                     params={"target": items[0]},
+                    headers={"Content-Type": "application/json"},
                     timeout=10,
                 )
 
@@ -280,11 +281,10 @@ class TestLegacyIsLegacyManagerUIReturnsTrue:
 # Content-Type gate — legacy-side parity with test_e2e_csrf.py
 # ---------------------------------------------------------------------------
 #
-# The 9 legacy handlers mirrored from glob each call
-# manager_security.reject_simple_form_post() before their security-level
-# check. This suite verifies the legacy route table enforces the same
-# CORS-simple-request Content-Type rejection contract.
-LEGACY_FORM_REJECTED_POST_ENDPOINTS = [
+# A page of another origin can make a browser send a POST without a CORS
+# preflight: as a form, or with no Content-Type at all, with or without a body.
+# It cannot send application/json without a preflight.
+LEGACY_BODYLESS_POST_ENDPOINTS = [
     "/v2/manager/queue/update_all",
     "/v2/snapshot/remove",
     "/v2/snapshot/restore",
@@ -293,57 +293,46 @@ LEGACY_FORM_REJECTED_POST_ENDPOINTS = [
     "/v2/manager/queue/start",
     "/v2/manager/queue/update_comfyui",
     # "/v2/comfyui_manager/comfyui_switch_version"  — removed in WI #258:
-    # migrated from query-string to JSON body on legacy + glob in parallel,
-    # body-reading handler is not Content-Type-gated (see module policy in
-    # common/manager_security.py).
+    # migrated from query-string to JSON body on legacy + glob in parallel.
     "/v2/manager/reboot",
 ]
 
-LEGACY_SIMPLE_FORM_CONTENT_TYPES = [
+LEGACY_NOT_JSON_CONTENT_TYPES = [
+    None,
     "application/x-www-form-urlencoded",
     "multipart/form-data; boundary=----WebKitFormBoundaryTest",
     "text/plain",
 ]
 
 
-class TestLegacyFormContentTypeRejected:
-    """Legacy counterpart to TestFormContentTypeRejected in test_e2e_csrf.py.
-
-    Matrix: 9 endpoints × 3 Content-Types = 27 assertions against the legacy
-    route table.
-    """
-
+class TestLegacyContentTypeThatIsNotJsonRejected:
     @pytest.mark.parametrize(
         "content_type",
-        LEGACY_SIMPLE_FORM_CONTENT_TYPES,
-        ids=["urlencoded", "multipart", "textplain"],
+        LEGACY_NOT_JSON_CONTENT_TYPES,
+        ids=["none", "urlencoded", "multipart", "textplain"],
     )
     @pytest.mark.parametrize(
         "path",
-        LEGACY_FORM_REJECTED_POST_ENDPOINTS,
-        ids=LEGACY_FORM_REJECTED_POST_ENDPOINTS,
+        LEGACY_BODYLESS_POST_ENDPOINTS,
+        ids=LEGACY_BODYLESS_POST_ENDPOINTS,
     )
-    def test_form_content_type_rejected(
+    def test_content_type_that_is_not_json_rejected(
         self, comfyui_legacy, path, content_type
     ):
-        """POST with a simple-form Content-Type must be rejected with 400
-        on the legacy route table as well."""
         resp = requests.post(
             f"{BASE_URL}{path}",
-            headers={"Content-Type": content_type},
+            headers={} if content_type is None else {"Content-Type": content_type},
             data="",
             timeout=10,
         )
         assert resp.status_code == 400, (
-            f"CSRF FORM-POST GATE BYPASS (legacy): POST {path} with "
+            f"CSRF GATE BYPASS (legacy): POST {path} with "
             f"Content-Type={content_type!r} returned {resp.status_code} "
             f"(expected 400): {resp.text[:200]}"
         )
 
 
-class TestLegacyNoBodyPostStillAccepted:
-    """Positive control for the legacy route table: bare POST still works."""
-
+class TestLegacyJsonPostWithoutBodyAccepted:
     @pytest.mark.parametrize(
         "path",
         [
@@ -353,13 +342,11 @@ class TestLegacyNoBodyPostStillAccepted:
         ],
         ids=["queue-reset", "queue-start", "snapshot-save"],
     )
-    def test_no_body_post_still_accepted(self, comfyui_legacy, path):
-        """Bare POST (no Content-Type, no body) must not hit the gate on
-        legacy either."""
-        resp = requests.post(f"{BASE_URL}{path}", timeout=30)
+    def test_json_post_without_body_accepted(self, comfyui_legacy, path):
+        resp = requests.post(f"{BASE_URL}{path}", headers={"Content-Type": "application/json"}, timeout=30)
         if resp.status_code == 400:
             assert "Invalid Content-Type for this endpoint" not in resp.text, (
-                f"POST {path} (bare, legacy) hit the form-content-type gate: "
+                f"POST {path} (application/json, legacy) hit the content-type gate: "
                 f"{resp.text[:200]}"
             )
 

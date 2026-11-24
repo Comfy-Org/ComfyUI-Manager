@@ -43,7 +43,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _install_flags_testutil import import_context, import_reader  # noqa: E402
 
-FLAG_KEYS = ("allow_git_url_install", "allow_pip_install")
+FLAG_KEYS = ("allow_git_url_install", "allow_pip_install", "allow_flagged_nodepack_install")
 READERS = ("glob", "legacy")
 
 
@@ -169,7 +169,8 @@ def test_sc21_write_config_round_trips_both_flags(
     ini = _write_ini(
         tmp_path,
         "[default]\nsecurity_level = normal\n"
-        "allow_git_url_install = true\nallow_pip_install = true\n",
+        "allow_git_url_install = true\nallow_pip_install = true\n"
+        "allow_flagged_nodepack_install = true\n",
     )
     point_config(ini)
 

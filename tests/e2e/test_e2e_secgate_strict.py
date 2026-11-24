@@ -10,7 +10,7 @@ without elevating the security_level to STRONG.
 
 The 4 T2 SECGATE-PENDING Goals at middle/middle+ that depend on this harness:
   - SR4 (snapshot/remove, gate=middle)        ← THIS PoC
-  - SR6 (snapshot/restore, gate=middle+)      ← follow-up
+  - SR6 (snapshot/restore, gate=high+)        ← follow-up
   - V5  (manager/reboot, gate=middle)         ← follow-up
   - UA2 (manager/queue/update_all, gate=middle+) ← follow-up
 
@@ -156,6 +156,7 @@ class TestSecurityGate403_SR4:
             resp = requests.post(
                 f"{BASE_URL}/v2/snapshot/remove",
                 params={"target": seed_name},
+                headers={"Content-Type": "application/json"},
                 timeout=10,
             )
 

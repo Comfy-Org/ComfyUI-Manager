@@ -5,7 +5,7 @@ from comfyui_manager.common.manager_security import (
     is_loopback,
     is_safe_path_target,
     get_safe_file_path,
-    reject_simple_form_post,
+    reject_non_json_post,
 )
 
 # Re-export for backward compatibility
@@ -13,7 +13,7 @@ __all__ = [
     'is_loopback',
     'is_safe_path_target',
     'get_safe_file_path',
-    'reject_simple_form_post',
+    'reject_non_json_post',
     'is_allowed_security_level',
     'get_risky_level',
 ]

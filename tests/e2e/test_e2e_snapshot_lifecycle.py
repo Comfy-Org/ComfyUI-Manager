@@ -181,7 +181,7 @@ class TestSnapshotLifecycle:
         if os.path.isdir(SNAPSHOT_DIR):
             files_before = {f for f in os.listdir(SNAPSHOT_DIR) if f.endswith(".json")}
 
-        resp = requests.post(f"{BASE_URL}/v2/snapshot/save", timeout=30)
+        resp = requests.post(f"{BASE_URL}/v2/snapshot/save", headers={"Content-Type": "application/json"}, timeout=30)
         assert resp.status_code == 200, (
             f"Snapshot save failed with status {resp.status_code}"
         )
@@ -251,7 +251,7 @@ class TestSnapshotLifecycle:
         asserts. Does not depend on prior tests in this module.
         """
         # SETUP: create a snapshot so we have a deterministic target
-        save_resp = requests.post(f"{BASE_URL}/v2/snapshot/save", timeout=30)
+        save_resp = requests.post(f"{BASE_URL}/v2/snapshot/save", headers={"Content-Type": "application/json"}, timeout=30)
         assert save_resp.status_code == 200, "setup save failed"
 
         # Find the newly created snapshot by diffing against pre-save list
@@ -267,6 +267,7 @@ class TestSnapshotLifecycle:
         resp = requests.post(
             f"{BASE_URL}/v2/snapshot/remove",
             params={"target": target},
+            headers={"Content-Type": "application/json"},
             timeout=10,
         )
         assert resp.status_code == 200, (
@@ -290,6 +291,7 @@ class TestSnapshotLifecycle:
         resp = requests.post(
             f"{BASE_URL}/v2/snapshot/remove",
             params={"target": "nonexistent_snapshot_99999"},
+            headers={"Content-Type": "application/json"},
             timeout=10,
         )
         # Server returns 200 even when file doesn't exist (no-op behavior)
@@ -317,6 +319,7 @@ class TestSnapshotLifecycle:
             resp = requests.post(
                 f"{BASE_URL}/v2/snapshot/remove",
                 params={"target": target},
+                headers={"Content-Type": "application/json"},
                 timeout=10,
             )
             assert resp.status_code == 400, (

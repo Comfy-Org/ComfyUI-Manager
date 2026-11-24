@@ -1,12 +1,14 @@
 """Cross-platform E2E environment setup for ComfyUI + Manager.
 
 Creates an isolated ComfyUI installation with ComfyUI-Manager for E2E testing.
-Idempotent: skips setup if marker file and key artifacts already exist.
+Idempotent: skips setup if marker, key artifacts, and a supported venv already exist.
+uv reads the Manager project's Python requirement when creating a venv.
 
 Input env vars:
     E2E_ROOT       — target directory (required)
     MANAGER_ROOT   — manager repo root (default: auto-detected)
     COMFYUI_BRANCH — ComfyUI branch to clone (default: master)
+    UV_PYTHON      — optional uv Python request for a new venv
 
 Output (last line of stdout):
     E2E_ROOT=/path/to/environment
@@ -46,6 +48,18 @@ def run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(cmd, check=True, **kwargs)
 
 
+def check_python_version(python: str) -> None:
+    try:
+        version = subprocess.check_output(
+            [python, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"],
+            text=True,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError) as exc:
+        die(f"Cannot run venv Python: {python}: {exc}. Recreate the E2E environment with Python 3.10+.")
+    if tuple(map(int, version.split("."))) < (3, 10):
+        die(f"Python 3.10+ required, found {version} ({python}). Recreate the E2E environment.")
+
+
 def detect_manager_root() -> Path:
     """Walk up from this script to find pyproject.toml."""
     d = Path(__file__).resolve().parent
@@ -69,7 +83,7 @@ def venv_bin(root: Path, name: str) -> str:
     return str(root / "venv" / "bin" / name)
 
 
-def is_already_setup(root: Path, manager_root: Path) -> bool:
+def is_already_setup(root: Path) -> bool:
     marker = root / ".e2e_setup_complete"
     comfyui = root / "comfyui"
     venv = root / "venv"
@@ -119,7 +133,9 @@ def main() -> None:
     branch = os.environ.get("COMFYUI_BRANCH", "master")
 
     # Idempotency
-    if is_already_setup(root, manager_root):
+    if (root / "venv").is_dir():
+        check_python_version(venv_python(root))
+    if is_already_setup(root):
         log("Environment already set up (marker file exists). Skipping.")
         print(f"E2E_ROOT={root}")
         return
@@ -138,7 +154,8 @@ def main() -> None:
         log("Step 2/7: venv already exists, skipping")
     else:
         log("Step 2/7: Creating virtual environment...")
-        run(["uv", "venv", str(venv_dir)])
+        run(["uv", "venv", "--project", str(manager_root), str(venv_dir)])
+        check_python_version(venv_python(root))
 
     py = venv_python(root)
 

@@ -3,17 +3,22 @@ import { $el } from "../../scripts/ui.js";
 import { 
 	manager_instance, rebootAPI, 
 	fetchData, md5, icons, show_message, customAlert, infoToast, showTerminal,
-	storeColumnWidth, restoreColumnWidth, loadCss, generateUUID
+	storeColumnWidth, restoreColumnWidth, loadCss, generateUUID,
+	sanitizeHTML, sanitizeUrl
 } from  "./common.js";
+
+// Model names and descriptions are server-escaped; other fields are raw.
+
 import { api } from "../../scripts/api.js";
 
 // https://cenfun.github.io/turbogrid/api.html
-import TG from "./turbogrid.esm.js";
+import ManagerGrid from "./manager-grid.js";
 import { buildGuiFrameCustomHeader,  createSettingsCombo } from "./comfyui-gui-builder.js";
 
 loadCss("./model-manager.css");
 
 const gridId = "model";
+const escapeCell = (value) => sanitizeHTML(String(value ?? ""));
 
 const pageHtml = `
 <div class="cmm-manager cmm-manager-dark">
@@ -21,8 +26,8 @@ const pageHtml = `
 	<div class="cmm-manager-selection"></div>
 	<div class="cmm-manager-message"></div>
 	<div class="cmm-manager-footer">
-		<button class="cmm-manager-refresh p-button p-component">Refresh</button>
-		<button class="cmm-manager-stop p-button p-component">Stop</button>
+		<button class="cmm-manager-refresh cm-ui-button">Refresh</button>
+		<button class="cmm-manager-stop cm-ui-button">Stop</button>
 		<div class="cmm-flex-auto"></div>
 	</div>
 </div>
@@ -41,6 +46,9 @@ export class ModelManager {
 		this.base = '';
 		this.keywords = '';
 
+		// Installs that are waiting for the end of their batch, by batch id
+		this.install_contexts = new Map();
+
 		this.init();
 
 		api.addEventListener("cm-queue-status", this.onQueueStatus);
@@ -51,7 +59,7 @@ export class ModelManager {
 			createSettingsCombo("Filter", $el("select.cmm-manager-filter")),
 			createSettingsCombo("Type", $el("select.cmm-manager-type")),
 			createSettingsCombo("Base", $el("select.cmm-manager-base")),
-			$el("input.cmm-manager-keywords.p-inputtext.p-component", { type: "search", placeholder: "Search" }),
+			$el("input.cmm-manager-keywords.cm-ui-input", { type: "search", placeholder: "Search" }),
 			$el("div.cmm-manager-status"),
 			$el("div.cmm-flex-auto")
 		]);
@@ -101,22 +109,17 @@ export class ModelManager {
 
 	updateFilter() {
 		const $filter  = this.element.querySelector(".cmm-manager-filter");
-		$filter.innerHTML = this.filterList.map(item => {
-			const selected = item.value === this.filter ? " selected" : "";
-			return `<option value="${item.value}"${selected}>${item.label}</option>`
-		}).join("");
+		const option = (item, current) => {
+			const selected = item.value === current ? " selected" : "";
+			return `<option value="${sanitizeHTML(String(item.value ?? ''))}"${selected}>${sanitizeHTML(String(item.label ?? ''))}</option>`;
+		};
+		$filter.innerHTML = this.filterList.map(item => option(item, this.filter)).join("");
 
 		const $type  = this.element.querySelector(".cmm-manager-type");
-		$type.innerHTML = this.typeList.map(item => {
-			const selected = item.value === this.type ? " selected" : "";
-			return `<option value="${item.value}"${selected}>${item.label}</option>`
-		}).join("");
+		$type.innerHTML = this.typeList.map(item => option(item, this.type)).join("");
 
 		const $base  = this.element.querySelector(".cmm-manager-base");
-		$base.innerHTML = this.baseList.map(item => {
-			const selected = item.value === this.base ? " selected" : "";
-			return `<option value="${item.value}"${selected}>${item.label}</option>`
-		}).join("");
+		$base.innerHTML = this.baseList.map(item => option(item, this.base)).join("");
 
 	}
 
@@ -170,7 +173,7 @@ export class ModelManager {
 
 			".cmm-manager-stop": {
 				click: () => {
-					api.fetchApi('/v2/manager/queue/reset', { method: 'POST' });
+					api.fetchApi('/v2/manager/queue/reset', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
 					infoToast('Cancel', 'Remaining tasks will stop after completing the current task.');
 				}
 			},
@@ -199,7 +202,7 @@ export class ModelManager {
 
 	initGrid() {
 		const container = this.element.querySelector(".cmm-manager-grid");
-		const grid = new TG.Grid(container);
+		const grid = new ManagerGrid(container);
 		this.grid = grid;
 		
 		grid.bind('onUpdated', (e, d) => {
@@ -227,6 +230,9 @@ export class ModelManager {
         });
 
 		grid.setOption({
+			highlightKeywords: {
+				textGenerator: (row, column) => ['name', 'description'].includes(column) ? row[column] : escapeCell(row[column])
+			},
 			theme: 'dark',
 
 			selectVisible: true,
@@ -325,7 +331,12 @@ export class ModelManager {
 			maxWidth: 500,
 			classMap: 'cmm-node-name',
 			formatter: function(name, rowItem, columnItem, cellNode) {
-				return `<a href=${rowItem.reference} target="_blank"><b>${name}</b></a>`;
+				// Names are server-escaped; raw references need URL and attribute handling.
+				const href = sanitizeUrl(rowItem.reference);
+				if (!href) {
+					return `<b>${String(name ?? '')}</b>`;
+				}
+				return `<a href="${sanitizeHTML(href)}" target="_blank" rel="noopener noreferrer"><b>${String(name ?? '')}</b></a>`;
 			}
 		}, {
 			id: 'installed',
@@ -342,7 +353,7 @@ export class ModelManager {
 				if (installed === "True") {
 					return `<div class="cmm-icon-passed">${icons.passed}</div>`;
 				}
-				return `<button class="cmm-btn-install p-button p-component" mode="install">Install</button>`;
+				return `<button class="cmm-btn-install cm-ui-button" mode="install">Install</button>`;
 			}
 		}, {
 			id: 'url',
@@ -351,7 +362,11 @@ export class ModelManager {
 			sortable: false,
 			align: 'center',
 			formatter: (url, rowItem, columnItem) => {
-				return `<a class="cmm-btn-download" tooltip="Download file" href="${url}" target="_blank">${icons.download}</a>`;
+				const href = sanitizeUrl(url);
+				if (!href) {
+					return '';
+				}
+				return `<a class="cmm-btn-download" tooltip="Download file" href="${sanitizeHTML(href)}" target="_blank" rel="noopener noreferrer">${icons.download}</a>`;
 			}
 		}, {
 			id: 'size',
@@ -361,29 +376,33 @@ export class ModelManager {
 				if (typeof size === "number") {
 					return this.formatSize(size);
 				}
-				return size;
+				return sanitizeHTML(String(size ?? ''));
 			}
 		}, {
 			id: 'type',
 			name: 'Type',
-			width: 100
+			width: 100,
+			formatter: escapeCell
 		}, {
 			id: 'base',
-			name: 'Base'
+			name: 'Base',
+			formatter: escapeCell
 		}, {
 			id: 'description',
 			name: 'Description',
 			width: 400,
 			maxWidth: 5000,
-			classMap: 'cmm-node-desc'
+			classMap: 'cmm-node-desc'  // composed HTML from the server (convert_markdown_to_html)
 		}, {
 			id: "save_path",
 			name: 'Save Path',
-			width: 200
+			width: 200,
+			formatter: escapeCell
 		}, {
 			id: 'filename',
 			name: 'Filename',
-			width: 200
+			width: 200,
+			formatter: escapeCell
 		}];
 
 		restoreColumnWidth(gridId, columns);
@@ -415,7 +434,7 @@ export class ModelManager {
 		}
 
 		this.selectedModels = selectedList;
-		this.showSelection(`<span>Selected <b>${selectedList.length}</b> models <button class="cmm-btn-install p-button p-component" mode="install">Install</button>`);
+		this.showSelection(`<span>Selected <b>${selectedList.length}</b> models <button class="cmm-btn-install cm-ui-button" mode="install">Install</button>`);
 	}
 
 	focusInstall(item) {
@@ -433,7 +452,6 @@ export class ModelManager {
 		btn.classList.add("cmm-btn-loading");
 		this.showError("");
 
-		let needRefresh = false;
 		let errorMsg = "";
 
 		let target_items = [];
@@ -454,6 +472,8 @@ export class ModelManager {
 
 			const data = item.originalData;
 			data.ui_id = item.hash;
+			// Batch rejections refer to id; models need a stable request ID.
+			data.id ??= item.hash;
 
 
 			if(batch['install_model']) {
@@ -464,49 +484,133 @@ export class ModelManager {
 			}
 		}
 
-		this.install_context = {btn: btn, targets: target_items};
+		const batch_id = generateUUID();
+		batch['batch_id'] = batch_id;
+		this.install_contexts.set(batch_id, {btn: btn, targets: target_items, queued: false});
 
-		if(errorMsg) {
-			this.showError(errorMsg);
-			show_message("[Installation Errors]\n"+errorMsg);
-
-			// reset
-			for(let k in target_items) {
-				const item = target_items[k];
-				this.grid.updateCell(item, "installed");
-			}
-		}
-		else {
-			this.batch_id = generateUUID();
-			batch['batch_id'] = this.batch_id;
-
-			const res = await api.fetchApi(`/v2/manager/queue/batch`, {
+		let failed;
+		try {
+			const { data, error } = await fetchData(`/v2/manager/queue/batch`, {
 				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(batch)
 			});
+			if (error) throw error;
+			if (!Array.isArray(data?.failed)) throw new Error('Invalid batch response.');
+			failed = data.failed;
+		} catch (error) {
+			errorMsg = `Failed to submit installation request: ${sanitizeHTML(String(error))}`;
+			this.showError(errorMsg);
+			show_message("[Installation Errors]\n" + errorMsg);
+			this.endInstall(batch_id);
+			return;
+		}
+		for (const id of failed) {
+			const item = target_items.find(item => item.originalData.id === id);
+			errorMsg += `[FAIL] ${item?.name ?? sanitizeHTML(String(id))}\n`;
+		}
+		if (errorMsg) {
+			this.showError(errorMsg);
+			show_message("[Installation Errors]\n" + errorMsg);
+		}
 
-			let failed = await res.json();
+		showTerminal();
 
-			if(failed.length > 0) {
-				for(let k in failed) {
-					let hash = failed[k];
-					const item = self.grid.getRowItemBy("hash", hash);
-					errorMsg = `[FAIL] ${item.title}`;
-				}
+		// No queued work means the server will not send batch-done.
+		if (target_items.every(item => failed.includes(item.originalData.id))) {
+			this.endInstall(batch_id);
+			return;
+		}
+
+		// The batch can end before its request is answered.
+		const context = this.install_contexts.get(batch_id);
+		if (!context) {
+			return;
+		}
+
+		context.queued = true;
+		this.showStop();
+
+		if (context.queue_ended) {
+			this.endDroppedInstalls();
+		}
+	}
+
+	// Forget a pending install and return its button and rows to idle.
+	// The Stop button goes with the last pending install.
+	endInstall(batch_id) {
+		const context = this.install_contexts.get(batch_id);
+		if (!context) {
+			return;
+		}
+		this.install_contexts.delete(batch_id);
+
+		context.btn.classList.remove("cmm-btn-loading");
+		for (const item of context.targets) {
+			this.grid.updateCell(item, "installed");
+		}
+
+		if (this.install_contexts.size == 0) {
+			this.hideLoading();
+			this.hideStop();
+		}
+
+		return context;
+	}
+
+	// The end of the queue was reported: a batch that was queued and has not ended was dropped
+	// by Stop. The report can also be that of a queue that ran before the batch was added, so
+	// the installs are ended only if the queue is not running now.
+	async endDroppedInstalls() {
+		const queued = [...this.install_contexts].filter(([, context]) => context.queued);
+		if (queued.length == 0) {
+			return;
+		}
+
+		// Without an answer the queue may still be running.
+		const { data } = await fetchData('/v2/manager/queue/status');
+		if (!data || data.is_processing) {
+			return;
+		}
+
+		let downloaded = false;
+		for (const [batch_id, context] of queued) {
+			if (this.endInstall(batch_id)) {
+				downloaded ||= context.targets.some(item => item.refresh);
 			}
-
-			this.showStop();
-			showTerminal();
+		}
+		if (downloaded) {
+			this.showRefresh();
+			this.showMessage(`To apply the installed model, please click the 'Refresh' button.`, "red")
 		}
 	}
 
 	async onQueueStatus(event) {
 		let self = ModelManager.instance;
+		const detail = event.detail;
 
-		if(event.detail.status == 'in_progress' && event.detail.ui_target == 'model_manager') {
-			const hash = event.detail.target;
+		if (!self) {
+			return;
+		}
+
+		if (detail.status == 'all-done') {
+			// An install whose request is not answered yet is looked at when it is.
+			for (const context of self.install_contexts.values()) {
+				context.queue_ended = !context.queued;
+			}
+			self.endDroppedInstalls();
+			return;
+		}
+
+		if (!self.install_contexts.has(detail.batch_id)) {
+			return;
+		}
+
+		if(detail.status == 'in_progress' && detail.ui_target == 'model_manager') {
+			const hash = detail.target;
 
 			const item = self.grid.getRowItemBy("hash", hash);
+			if (!item) return;
 
 			item.refresh = true;
 			self.grid.setRowSelected(item, false);
@@ -514,29 +618,20 @@ export class ModelManager {
 //			self.grid.updateCell(item, "tg-column-select");
 			self.grid.updateRow(item);
 		}
-		else if(event.detail.status == 'batch-done') {
-			self.hideStop();
-			self.onQueueCompleted(event.detail);
+		else if(detail.status == 'batch-done') {
+			self.onQueueCompleted(detail);
 		}
 	}
 
 	async onQueueCompleted(info) {
-		let result = info.model_result;
-
-		if(result.length == 0) {
-			return;
-		}
-
 		let self = ModelManager.instance;
 
-		if(!self.install_context) {
+		if(!self?.install_contexts.has(info.batch_id)) {
 			return;
 		}
+		self.endInstall(info.batch_id);
 
-		let btn = self.install_context.btn;
-
-		self.hideLoading();
-		btn.classList.remove("cmm-btn-loading");
+		const result = info.model_result ?? {};
 
 		let errorMsg = "";
 
@@ -544,26 +639,22 @@ export class ModelManager {
 			let v = result[hash];
 
 			if(v != 'success')
-				errorMsg += v + '\n';
-		}
-
-		for(let k in self.install_context.targets) {
-			let item = self.install_context.targets[k];
-			self.grid.updateCell(item, "installed");
+				errorMsg += sanitizeHTML(String(v)) + '\n';
 		}
 
 		if (errorMsg) {
 			self.showError(errorMsg);
 			show_message("Installation Error:\n"+errorMsg);
 		} else {
-			self.showStatus(`Install ${result.length} models successfully`);
+			self.showStatus(`Install ${Object.keys(result).length} models successfully`);
 		}
 
 		self.showRefresh();
-		self.showMessage(`To apply the installed model, please click the 'Refresh' button.`, "red")
+		if (!errorMsg) {
+			self.showMessage(`To apply the installed model, please click the 'Refresh' button.`, "red")
+		}
 
 		infoToast('Tasks done', `[ComfyUI-Manager] All model downloading tasks in the queue have been completed.\n${info.done_count}/${info.total_count}`);
-		self.install_context = undefined;
 	}
 
 	getModelList(models) {
@@ -720,22 +811,20 @@ export class ModelManager {
 		this.showMessage(err, "red");
 	}
 
+	// Messages contain HTML: preserve server-escaped names and escape raw values at the caller.
 	showMessage(msg, color) {
-		if (color) {
-			msg = `<font color="${color}">${msg}</font>`;
-		}
-		this.element.querySelector(".cmm-manager-message").innerHTML = msg;
+		const element = this.element.querySelector(".cmm-manager-message");
+		element.style.color = color || "";
+		element.innerHTML = msg ?? "";
 	}
 
 	showStatus(msg, color) {
-		if (color) {
-			msg = `<font color="${color}">${msg}</font>`;
-		}
-		this.element.querySelector(".cmm-manager-status").innerHTML = msg;
+		const element = this.element.querySelector(".cmm-manager-status");
+		element.style.color = color || "";
+		element.innerHTML = msg ?? "";
 	}
 
 	showLoading() {
-//		this.setDisabled(true);
 		if (this.grid) {
 			this.grid.showLoading();
 			this.grid.showMask({
@@ -745,43 +834,10 @@ export class ModelManager {
 	}
 
 	hideLoading() {
-//		this.setDisabled(false);
 		if (this.grid) {
 			this.grid.hideLoading();
 			this.grid.hideMask();
 		}
-	}
-
-	setDisabled(disabled) {
-		const $close = this.element.querySelector(".cmm-manager-close");
-		const $refresh = this.element.querySelector(".cmm-manager-refresh");
-		const $stop = this.element.querySelector(".cmm-manager-stop");
-
-		const list = [
-			".cmm-manager-header input",
-			".cmm-manager-header select",
-			".cmm-manager-footer button",
-			".cmm-manager-selection button"
-		].map(s => {
-			return Array.from(this.element.querySelectorAll(s));
-		})
-		.flat()
-		.filter(it => {
-			return it !== $close && it !== $refresh && it !== $stop;
-		});
-		
-		list.forEach($elem => {
-			if (disabled) {
-				$elem.setAttribute("disabled", "disabled");
-			} else {
-				$elem.removeAttribute("disabled");
-			}
-		});
-
-		Array.from(this.element.querySelectorAll(".cmm-btn-loading")).forEach($elem => {
-			$elem.classList.remove("cmm-btn-loading");
-		});
-
 	}
 
 	showRefresh() {

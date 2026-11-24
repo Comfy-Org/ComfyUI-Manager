@@ -481,7 +481,7 @@ the test audit above. Full list:
 | 5.4 | CV2 | Non-git error branch | NORMAL add |
 | 6.1 | LB4 | UI update-all | NORMAL add |
 | 6.1 | LB5 | Batch partial failure | NORMAL add |
-| 6.2 | LG2 | skip_update perf | NORMAL add |
+| 6.2 | LG2 | List without fetch | NORMAL add |
 | 6.4 | LM2 | Install flag seed | NORMAL add |
 | 6.5 | LV1 | Version dropdown | NORMAL add |
 | 6.5 | LV2 | Unknown pack 400 | NORMAL add |

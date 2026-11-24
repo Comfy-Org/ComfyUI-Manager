@@ -14,7 +14,7 @@ PATHS GUARDED (the OTHER security_level gates):
         deny                                 branch (``is_allowed_security_level
                                              ('block')`` is hard-False; Q1)
   P3  nodepack/snapshot high+/middle       — ``comfyui_switch_version`` (high+),
-        gates                                ``restore_snapshot`` (middle+)
+        gates                                ``restore_snapshot`` (high+)
   P4  model non-.safetensors high+ gate    — ``_install_model`` (L1713)
 
 NON-VACUITY (the bar from the GOAL MM): every assertion below is written so
@@ -145,10 +145,6 @@ def _run(coro):
 
 
 class FakeRequest:
-    """Minimal stand-in for an aiohttp request. ``content_type`` satisfies
-    ``reject_simple_form_post``; nothing else is read on the deny path (the
-    gate returns before any body access)."""
-
     def __init__(self, content_type="application/json"):
         self.content_type = content_type
 
@@ -160,7 +156,7 @@ class FakeRequest:
 # ===========================================================================
 
 # (security_level, is_local_mode, network_mode, expected_allowed)
-_MIDDLE_PLUS = [  # P1 batch entry, _update_all, _install_model entry, restore_snapshot
+_MIDDLE_PLUS = [
     ("weak", True, "public", True),
     ("normal", True, "public", True),
     ("normal-", True, "public", True),
@@ -240,7 +236,7 @@ def test_p1_install_custom_node_denies_at_strong_403(ms, gate):
     """P1 deny: at sl=strong the middle+ entry gate (first statement of
     _install_custom_node) returns 403 before any further processing."""
     gate("strong", is_local_mode=True)
-    resp = _run(ms._install_custom_node({}))
+    resp = _run(ms._queue_node_install({}, "install"))
     assert resp.status == 403
 
 
@@ -263,7 +259,7 @@ def test_p1_install_custom_node_passes_entry_gate_at_normal(ms, gate, monkeypatc
         "channel": "default",
         "mode": "cache",
     }
-    resp = _run(ms._install_custom_node(dict(json_data)))
+    resp = _run(ms._queue_node_install(dict(json_data), "install"))
     assert resp.status == 200
 
 
@@ -286,7 +282,7 @@ def test_p2_unknown_pip_block_denies_404_even_at_weak(ms, gate, monkeypatch):
         "channel": "default",
         "mode": "cache",
     }
-    resp = _run(ms._install_custom_node(dict(json_data)))
+    resp = _run(ms._queue_node_install(dict(json_data), "install"))
     assert resp.status == 404
 
 
@@ -298,10 +294,9 @@ def test_p3_comfyui_switch_version_denies_high_plus_403(ms, gate):
     assert resp.status == 403
 
 
-def test_p3_restore_snapshot_denies_middle_plus_403(ms, gate):
-    """P3 middle+ handler: restore_snapshot denies with 403 at sl=strong
-    (middle+ requires normal or lower)."""
-    gate("strong", is_local_mode=True)
+@pytest.mark.parametrize("security_level", ["strong", "normal"])
+def test_p3_restore_snapshot_denies_high_plus_403(ms, gate, security_level):
+    gate(security_level, is_local_mode=True)
     resp = _run(ms.restore_snapshot(FakeRequest()))
     assert resp.status == 403
 

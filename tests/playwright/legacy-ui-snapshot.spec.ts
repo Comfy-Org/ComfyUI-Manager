@@ -6,7 +6,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { waitForComfyUI, openManagerMenu, clickMenuButton } from './helpers';
+import { waitForComfyUI, openManagerMenu, clickMenuButton, closeToasts } from './helpers';
 
 const SNAPSHOT_ROW_SELECTOR = '#snapshot-manager-dialog tr, #snapshot-manager-dialog li';
 
@@ -32,7 +32,7 @@ test.describe('Snapshot Manager', () => {
   test.afterEach(async ({ page }) => {
     // Cleanup snapshots newly created during the test to avoid state leak.
     for (const name of createdDuringTest) {
-      await page.request.post(`/v2/snapshot/remove?target=${encodeURIComponent(name)}`);
+      await page.request.post(`/v2/snapshot/remove?target=${encodeURIComponent(name)}`, { headers: { 'Content-Type': 'application/json' } });
     }
   });
 
@@ -78,7 +78,7 @@ test.describe('Snapshot Manager', () => {
 
   test('UI Remove button deletes a snapshot row', async ({ page }) => {
     // SETUP: create a snapshot via API so we have a deterministic target
-    const saveResp = await page.request.post('/v2/snapshot/save');
+    const saveResp = await page.request.post('/v2/snapshot/save', { headers: { 'Content-Type': 'application/json' } });
     expect(saveResp.ok()).toBe(true);
     const namesAfterSave = await getSnapshotNames(page);
     expect(namesAfterSave.length).toBeGreaterThan(0);
@@ -113,6 +113,7 @@ test.describe('Snapshot Manager', () => {
     page.once('dialog', async (d) => {
       await d.accept();
     });
+    await closeToasts(page);
     await removeBtn.first().click();
 
     // Effect verification: snapshot disappears from backend AND from UI
@@ -120,5 +121,83 @@ test.describe('Snapshot Manager', () => {
       .poll(async () => (await getSnapshotNames(page)).includes(targetName), { timeout: 10_000 })
       .toBe(false);
     await expect(page.locator(SNAPSHOT_ROW_SELECTOR, { hasText: targetName })).toHaveCount(0);
+  });
+
+  /** List one snapshot, answer the given action with `status` and `body` without touching the disk, and
+   *  return once the dialog has finished handling the answer: it refreshes its list, and only then
+   *  decides about the restart notice. */
+  async function clickAction(page: import('@playwright/test').Page, action: string, status: number, body: string,
+                             contentType = 'text/plain') {
+    const name = '2026-01-01_00-00-00_<b>snapshot</b>';
+    await page.route('**/v2/snapshot/getlist**', (route) => route.fulfill({ json: { items: [name] } }));
+    await page.route(`**/v2/snapshot/${action.toLowerCase()}**`, (route) => route.fulfill({ status, body, contentType }));
+    await clickMenuButton(page, 'Snapshot Manager');
+    await page.waitForSelector('#snapshot-manager-dialog', { timeout: 10_000 });
+    page.once('dialog', async (d) => {
+      await d.accept();
+    });
+    await page.evaluate(async () => {
+      const { SnapshotManager } = await import('/extensions/comfyui-manager-legacy/snapshot.js');
+      const manager = SnapshotManager.instance;
+      const refresh = manager.invalidateControl.bind(manager);
+      (window as any).__handled = new Promise<void>((resolve) => {
+        manager.invalidateControl = async () => {
+          await refresh();
+          setTimeout(resolve, 0);
+        };
+      });
+    });
+    await closeToasts(page);
+    await page.locator(SNAPSHOT_ROW_SELECTOR, { hasText: name }).first()
+      .locator(`button:has-text("${action}")`).click();
+    await page.evaluate(() => (window as any).__handled);
+    return name;
+  }
+
+  async function messageDialog(page: import('@playwright/test').Page) {
+    return page.evaluate(async () => {
+      const { app } = await import('/scripts/app.js');
+      const element = app.ui.dialog.element;
+      return { text: element.textContent, markup: element.querySelectorAll('b, i').length };
+    });
+  }
+
+  const PROXY_PAGE = '<html><body><center><h1>502 Bad Gateway</h1></center><hr><i>proxy</i></body></html>';
+  const failures: [string, number, string, string, string][] = [
+    ['400', 400, 'text/plain', '', 'HTTP 400 Bad Request'],
+    ['400, with a reason', 400, 'text/plain', 'Invalid <i>target</i>', 'Invalid <i>target</i>'],
+    ['502, with the page of a proxy', 502, 'text/html', PROXY_PAGE, 'HTTP 502 Bad Gateway'],
+  ];
+  for (const action of ['Restore', 'Remove']) {
+    for (const [label, status, contentType, body, reason] of failures) {
+      test(`a failed ${action} (${label}) is reported as literal text`, async ({ page }) => {
+        const errors: string[] = [];
+        page.on('pageerror', (error) => errors.push(String(error)));
+
+        const name = await clickAction(page, action, status, body, contentType);
+
+        await expect.poll(async () => (await messageDialog(page)).text)
+          .toContain(`${action} snapshot failed: ${name} / ${reason}`);
+        expect((await messageDialog(page)).text).not.toContain('Bad Gateway<');
+        expect((await messageDialog(page)).markup).toBe(0);
+        // Nothing was scheduled, so there is nothing to restart for.
+        await expect(page.locator('#cm-reboot-button2')).toHaveCount(0);
+        expect(errors).toEqual([]);
+      });
+    }
+  }
+
+  test('a Restore refused by the security level asks for no restart', async ({ page }) => {
+    await clickAction(page, 'Restore', 403, '');
+
+    await expect.poll(async () => (await messageDialog(page)).text)
+      .toContain('This action is not allowed with this security level configuration.');
+    await expect(page.locator('#cm-reboot-button2')).toHaveCount(0);
+  });
+
+  test('an accepted Restore asks for a restart', async ({ page }) => {
+    await clickAction(page, 'Restore', 200, '');
+
+    await expect(page.locator('#cm-reboot-button2')).toBeVisible();
   });
 });

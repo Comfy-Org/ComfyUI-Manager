@@ -6,6 +6,27 @@ import os
 from .git_utils import get_commit_hash
 
 
+IO_REPARSE_TAG_MOUNT_POINT = 0xA0000003
+
+
+def is_link(path: str) -> bool:
+    """
+    A junction is told by the reparse tag that os.lstat reads on every Python; os.path.isjunction is new in 3.12.
+    """
+    try:
+        return os.path.islink(path) or getattr(os.lstat(path), 'st_reparse_tag', 0) == IO_REPARSE_TAG_MOUNT_POINT
+    except OSError:
+        return False
+
+
+@dataclass(frozen=True)
+class InvalidInstallation:
+    fullpath: str
+    unknown_key: str
+    project_name: str | None
+    enabled: bool
+
+
 @dataclass
 class InstalledNodePackage:
     """Information about an installed node package."""
@@ -38,11 +59,16 @@ class InstalledNodePackage:
     def get_commit_hash(self) -> str:
         return get_commit_hash(self.fullpath)
 
-    def isValid(self) -> bool:
-        if self.is_from_cnr:
-            return os.path.exists(os.path.join(self.fullpath, '.tracking'))
+    def is_exempt_from_installation_check(self) -> bool:
+        name = os.path.basename(self.fullpath)
+        return ('comfyui-manager' in self.id.lower() or is_link(self.fullpath)
+                or name.startswith('.') or name in ('__MACOSX', '__pycache__'))
 
-        return True
+    def isValid(self) -> bool:
+        if self.is_exempt_from_installation_check():
+            return True
+
+        return os.path.exists(os.path.join(self.fullpath, '.git')) or os.path.exists(os.path.join(self.fullpath, '.tracking'))
 
     @staticmethod
     def from_fullpath(fullpath: str, resolve_from_path) -> InstalledNodePackage:

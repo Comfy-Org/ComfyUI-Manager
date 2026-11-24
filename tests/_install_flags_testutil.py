@@ -175,3 +175,9 @@ def import_glob_security_utils():
     (the glob copy of the security_level gate matrix — guard rows
     SC-25C / SC-28)."""
     return _import_real("comfyui_manager.glob.utils.security_utils")
+
+
+# what `git rev-parse --local-env-vars` lists: with one of them, git does not work on the repository of its directory
+GIT_LOCATION = ('GIT_ALTERNATE_OBJECT_DIRECTORIES', 'GIT_CONFIG', 'GIT_CONFIG_PARAMETERS', 'GIT_CONFIG_COUNT', 'GIT_OBJECT_DIRECTORY',
+                'GIT_DIR', 'GIT_WORK_TREE', 'GIT_IMPLICIT_WORK_TREE', 'GIT_GRAFT_FILE', 'GIT_INDEX_FILE', 'GIT_NO_REPLACE_OBJECTS',
+                'GIT_REPLACE_REF_BASE', 'GIT_PREFIX', 'GIT_SHALLOW_FILE', 'GIT_COMMON_DIR')
