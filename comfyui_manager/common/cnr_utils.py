@@ -20,6 +20,29 @@ lock = asyncio.Lock()
 
 is_cache_loading = False
 
+def get_form_factor():
+    """Form factor reported to the registry, based on environment and platform."""
+    is_desktop = bool(os.environ.get('__COMFYUI_DESKTOP_VERSION__'))
+    system = platform.system().lower()
+
+    if is_desktop:
+        if system == 'windows':
+            return 'desktop-win'
+        if system == 'darwin':
+            return 'desktop-mac'
+        if system == 'linux':
+            return 'desktop-linux'
+        return 'other'
+
+    if system == 'windows':
+        return 'git-windows'
+    if system == 'darwin':
+        return 'git-mac'
+    if system == 'linux':
+        return 'git-linux'
+    return 'other'
+
+
 async def get_cnr_data(cache_mode=True, dont_wait=True):
     try:
         return await _get_cnr_data(cache_mode, dont_wait)
@@ -39,12 +62,7 @@ async def _get_cnr_data(cache_mode=True, dont_wait=True):
         full_nodes = {}
 
         
-        # Determine form factor based on environment and platform
         is_desktop = bool(os.environ.get('__COMFYUI_DESKTOP_VERSION__'))
-        system = platform.system().lower()
-        is_windows = system == 'windows'
-        is_mac = system == 'darwin'
-        is_linux = system == 'linux'
 
         # Get ComfyUI version tag
         if is_desktop:
@@ -53,22 +71,7 @@ async def _get_cnr_data(cache_mode=True, dont_wait=True):
         else:
             comfyui_ver = context.get_comfyui_tag() or 'unknown'
 
-        if is_desktop:
-            if is_windows:
-                form_factor = 'desktop-win'
-            elif is_mac:
-                form_factor = 'desktop-mac'
-            else:
-                form_factor = 'other'
-        else:
-            if is_windows:
-                form_factor = 'git-windows'
-            elif is_mac:
-                form_factor = 'git-mac'
-            elif is_linux:
-                form_factor = 'git-linux'
-            else:
-                form_factor = 'other'
+        form_factor = get_form_factor()
 
         from comfyui_manager.glob import manager_core
         verbose = manager_core.get_config().get('verbose', False)
