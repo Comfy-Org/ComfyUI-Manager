@@ -34,6 +34,50 @@ use_uv = False
 use_unified_resolver = False
 bypass_ssl = False
 
+# When False, ComfyUI-Manager will not attempt to install, upgrade, or
+# uninstall Python packages on its own (prestartup auto-healing and the unified
+# dependency resolver batch). This is intended for distro-packaged or otherwise
+# externally-managed Python environments (e.g. Nix, Guix, system package
+# managers, locked-down corporate images) where the interpreter is read-only.
+#
+# Read-only pip operations (`list`, `freeze`, `show`) still run so the UI,
+# inventory, and security checks keep working.
+dependency_management_enabled = True
+
+
+_OFF_VALUES = frozenset({'off', 'false', '0', 'no', 'disabled'})
+
+
+def is_off_value(value):
+    """Return True if a config or env-var string spells "off".
+
+    Anything else — including the empty string and unknown words — is treated
+    as "on", so a typo doesn't silently disable dependency management.
+    """
+    return value.strip().lower() in _OFF_VALUES
+
+
+DEPENDENCY_MANAGEMENT_ENV = 'COMFYUI_MANAGER_DEPENDENCY_MANAGEMENT'
+
+
+def apply_dependency_management_setting(config_value=None):
+    """Set `dependency_management_enabled` from the environment, else from config.ini's value.
+
+    The environment wins over config.ini; with neither, the current value stays. Every process
+    that loads this module (the server, cm-cli, the cm-cli that the startup runs) applies the
+    environment."""
+    global dependency_management_enabled
+    value = os.environ.get(DEPENDENCY_MANAGEMENT_ENV)
+    if value is None:
+        value = config_value
+    if value is not None:
+        dependency_management_enabled = not is_off_value(value)
+    return dependency_management_enabled
+
+
+apply_dependency_management_setting()
+
+
 def is_manager_pip_package():
     return not os.path.exists(os.path.join(comfyui_manager_path, '..', 'custom_nodes'))
 
@@ -945,6 +989,10 @@ class PIPFixer:
             return {parse_pip_spec(x)[0] for x in f.readlines()}
 
     def fix_broken(self):
+        if not dependency_management_enabled:
+            logging.info("[ComfyUI-Manager] dependency management disabled; skipping PIPFixer.fix_broken()")
+            return
+
         new_pip_versions = get_installed_packages(True)
 
         # remove `comfy` python package
