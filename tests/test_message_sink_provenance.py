@@ -120,6 +120,11 @@ REGISTRY = {
     ("custom-nodes-manager.js", "showStatus",
      "`Loading custom nodes (${mode}) ...`);"):
         (NO_DATA, "UI-chosen mode"),
+    ("custom-nodes-manager.js", "showStatus", "\"Checking updates ...\");"):
+        (NO_DATA, "hardcoded"),
+    ("custom-nodes-manager.js", "showStatus",
+     "`Checking updates (${sanitizeHTML(String(done_count))}/${sanitizeHTML(String(total_count))}) ...`);"):
+        (RAW, "the counts come with the cm-check-update event, so this caller escapes them"),
     ("custom-nodes-manager.js", "showMessage",
      "`To apply the installed/updated/disabled/enabled custom node, please restart "
      "ComfyUI. And refresh browser.`, \"red\");"):

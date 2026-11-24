@@ -419,34 +419,6 @@ def get_model_path(data, show_log=False):
             return os.path.join(base_model, data['filename'])
 
 
-def check_state_of_git_node_pack(node_packs, do_fetch=False, do_update_check=True, do_update=False):
-    if do_fetch:
-        print("Start fetching...", end="")
-    elif do_update:
-        print("Start updating...", end="")
-    elif do_update_check:
-        print("Start update check...", end="")
-
-    def process_custom_node(item):
-        core.check_state_of_git_node_pack_single(item, do_fetch, do_update_check, do_update)
-
-    with concurrent.futures.ThreadPoolExecutor(4) as executor:
-        for k, v in node_packs.items():
-            if v.get('active_version') in ['unknown', 'nightly']:
-                executor.submit(process_custom_node, v)
-
-    if do_fetch:
-        print("\x1b[2K\rFetching done.")
-    elif do_update:
-        update_exists = any(item.get('updatable', False) for item in node_packs.values())
-        if update_exists:
-            print("\x1b[2K\rUpdate done.")
-        else:
-            print("\x1b[2K\rAll extensions are already up-to-date.")
-    elif do_update_check:
-        print("\x1b[2K\rUpdate check done.")
-
-
 def nickname_filter(json_obj):
     preemptions_map = {}
 
@@ -480,6 +452,11 @@ nodepack_result = {}
 model_result = {}
 tasks_in_progress = set()
 task_worker_lock = threading.Lock()
+update_check_done = threading.Event()
+update_check_done.set()
+update_check_lock = threading.Lock()
+update_check_paths = {}
+update_check_ui_ids = set()
 
 async def task_worker():
     global task_queue
@@ -699,6 +676,10 @@ async def task_worker():
             kind, item = task_queue.get()
             tasks_in_progress.add((kind, item[0]))
 
+        # a check fetches the repositories of the nodepacks, which a model download and an update of ComfyUI do not touch
+        if kind not in ('install-model', 'update-comfyui'):
+            update_check_done.wait()
+
         try:
             if kind in ('install', 'reinstall'):
                 msg = await do_install(item, kind)
@@ -791,32 +772,14 @@ async def fetch_updates(request):
     if resp is not None:
         return resp
 
-    try:
-        json_data = await request.json()
-        mode = json_data.get("mode", "default")
-
-        if mode == "local":
-            channel = 'local'
-        else:
-            channel = core.get_config()['channel_url']
-
-        await core.unified_manager.reload(mode)
-        await core.unified_manager.get_custom_nodes(channel, mode)
-
-        res = core.unified_manager.fetch_or_pull_git_repo(is_pull=False)
-
-        for x in res['failed']:
-            logging.error(f"FETCH FAILED: {x}")
-
-        logging.info("\nDone.")
-
-        if len(res['updated']) > 0:
-            return web.Response(status=201)
-
-        return web.Response(status=200)
-    except:
-        traceback.print_exc()
-        return web.Response(status=400)
+    return web.json_response(
+        {
+            "error": "This endpoint has been deprecated",
+            "message": "Repository fetching is no longer supported. Please ask for a check with /customnode/check_update.",
+            "deprecated": True,
+        },
+        status=410,
+    )
     
 @routes.get("/customnode/get_node_types_in_workflows")
 async def get_node_types_in_workflows(request):
@@ -1031,16 +994,79 @@ async def installed_list(request):
     return web.json_response(res, content_type='application/json')
 
 
+@routes.post("/customnode/check_update")
+async def check_update(request):
+    resp = _reject_non_json_content_type(request)
+    if resp is not None:
+        return resp
+
+    json_data = await request.json()
+    mode = json_data["mode"]
+    ui_id = json_data["ui_id"]
+
+    if mode == "local":
+        channel = 'local'
+    else:
+        channel = core.get_config()['channel_url']
+
+    paths = {}
+    for k, v in (await core.get_unified_total_nodes(channel, mode, 'cache')).items():
+        if v.get('active_version') == 'unknown':
+            path = core.unified_manager.unknown_active_nodes[k][1]
+        elif v.get('active_version') == 'nightly':
+            path = core.unified_manager.active_nodes[k][1]
+        else:
+            continue
+
+        if path not in core.unified_manager.invalid_installations:
+            paths[k] = path
+
+    def check():
+        fetched = 0
+        updatable = []
+
+        def on_fetched(done_count):
+            PromptServer.instance.send_sync("cm-check-update",
+                                            {'status': 'in_progress', 'done_count': fetched + done_count, 'total_count': len(update_check_paths)})
+
+        while True:
+            with update_check_lock:
+                added = dict(list(update_check_paths.items())[fetched:])
+                if updatable is None or not added:
+                    # under the lock: a request is added to this check, or starts the next one
+                    ui_ids = list(update_check_ui_ids)
+                    update_check_done.set()
+                    break
+
+            try:
+                updatable += core.fetch_git_node_packs(added, on_fetched)
+                fetched += len(added)
+            except Exception:
+                # the pages that wait are told that the check failed
+                traceback.print_exc()
+                updatable = None
+
+        PromptServer.instance.send_sync("cm-check-update", {'status': 'done', 'updatable': updatable, 'ui_ids': ui_ids})
+
+    # a check that runs fetches these too, and its result names the requests that it answers
+    with update_check_lock:
+        if update_check_done.is_set():
+            threading.Thread(target=check).start()
+            update_check_done.clear()
+            update_check_paths.clear()
+            update_check_ui_ids.clear()
+
+        update_check_paths.update(paths)
+        update_check_ui_ids.add(ui_id)
+
+    return web.json_response({})
+
+
 @routes.get("/customnode/getlist")
 async def fetch_customnode_list(request):
     """
     provide unified custom node list
     """
-    if request.rel_url.query.get("skip_update", '').lower() == "true":
-        skip_update = True
-    else:
-        skip_update = False
-
     if request.rel_url.query["mode"] == "local":
         channel = 'local'
     else:
@@ -1052,8 +1078,6 @@ async def fetch_customnode_list(request):
 
     core.populate_github_stats(node_packs, await json_obj_github)
     core.populate_favorites(node_packs, await json_obj_extras)
-
-    check_state_of_git_node_pack(node_packs, not skip_update, do_update_check=not skip_update)
 
     for v in node_packs.values():
         populate_markdown(v)

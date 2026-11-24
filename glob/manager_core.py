@@ -659,45 +659,6 @@ class UnifiedManager:
 
         return False
 
-    def fetch_or_pull_git_repo(self, is_pull=False):
-        updated = set()
-        failed = set()
-
-        def check_update(node_name, fullpath, ver_spec):
-            try:
-                if is_pull:
-                    is_updated, success = git_repo_update_check_with(fullpath, do_update=True)
-                else:
-                    is_updated, success = git_repo_update_check_with(fullpath, do_fetch=True)
-
-                return f"{node_name}@{ver_spec}", is_updated, success
-            except Exception:
-                traceback.print_exc()
-
-            return f"{node_name}@{ver_spec}", False, False
-
-        with ThreadPoolExecutor() as executor:
-            futures = []
-
-            for k, v in self.unknown_active_nodes.items():
-                if v[1] not in self.invalid_installations:
-                    futures.append(executor.submit(check_update, k, v[1], 'unknown'))
-
-            for k, v in self.active_nodes.items():
-                if v[0] == 'nightly':
-                    futures.append(executor.submit(check_update, k, v[1], 'nightly'))
-
-            for future in as_completed(futures):
-                item, is_updated, success = future.result()
-
-                if is_updated:
-                    updated.add(item)
-
-                if not success:
-                    failed.add(item)
-
-        return dict(updated=list(updated), failed=list(failed))
-
     def is_enabled(self, node_id, version_spec=None):
         """
         1. true if node_id@<specified_version> is enabled
@@ -2297,13 +2258,8 @@ def try_install_script(url, repo_path, install_cmd, instant_execution=False):
 
 
 # use subprocess to avoid file system lock by git (Windows)
-def __win_check_git_update(path, do_fetch=False, do_update=False):
-    if do_fetch:
-        command = [sys.executable, git_script_path, "--fetch", path]
-    elif do_update:
-        command = [sys.executable, git_script_path, "--pull", path]
-    else:
-        command = [sys.executable, git_script_path, "--check", path]
+def __win_check_git_update(path):
+    command = [sys.executable, git_script_path, "--fetch", path]
 
     new_env = get_script_env()
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=get_default_custom_nodes_path(), env=new_env)
@@ -2330,30 +2286,17 @@ def __win_check_git_update(path, do_fetch=False, do_update=False):
                   f'git config --global --add safe.directory "{safedir_path}"\n'
                   f'-----------------------------------------------------------------------------------------\n')
 
-    if do_update:
-        if "CUSTOM NODE PULL: Success" in output:
-            process.wait()
-            print(f"\x1b[2K\rUpdated: {path}")
-            return True, True    # updated
-        elif "CUSTOM NODE PULL: None" in output:
-            process.wait()
-            return False, True   # there is no update
-        else:
-            print(f"\x1b[2K\rUpdate error: {path}")
-            process.wait()
-            return False, False  # update failed
+    if "CUSTOM NODE CHECK: True" in output:
+        process.wait()
+        return True, True
+    elif "CUSTOM NODE CHECK: False" in output:
+        process.wait()
+        return False, True
     else:
-        if "CUSTOM NODE CHECK: True" in output:
-            process.wait()
-            return True, True
-        elif "CUSTOM NODE CHECK: False" in output:
-            process.wait()
-            return False, True
-        else:
-            print(f"\x1b[2K\rFetch error: {path}")
-            print(f"\n{output}\n")
-            process.wait()
-            return False, True
+        print(f"\x1b[2K\rFetch error: {path}")
+        print(f"\n{output}\n")
+        process.wait()
+        return False, True
 
 
 def __win_check_git_pull(path):
@@ -2406,32 +2349,22 @@ def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=Fa
     return True
 
 
-def git_repo_update_check_with(path, do_fetch=False, do_update=False, no_deps=False):
+def git_repo_update_check_with(path):
     """
 
-    perform update check for git custom node
-    and fetch or update if flag is on
+    fetch git custom node and perform update check
 
     :param path: path to git custom node
-    :param do_fetch: do fetch during check
-    :param do_update: do update during check
-    :param no_deps: don't install dependencies
     :return: update state * success
     """
-    if do_fetch:
-        orig_print(f"\x1b[2K\rFetching: {path}", end='')
-    elif do_update:
-        orig_print(f"\x1b[2K\rUpdating: {path}", end='')
+    orig_print(f"\x1b[2K\rFetching: {path}", end='')
 
     # Check if the path is a git repository
     if not os.path.exists(os.path.join(path, '.git')):
         raise ValueError(f'[ComfyUI-Manager] Not a valid git repository: {path}')
 
     if platform.system() == "Windows":
-        updated, success = __win_check_git_update(path, do_fetch, do_update)
-        if updated and success:
-            execute_install_script(None, path, lazy_mode=True, no_deps=no_deps)
-        return updated, success
+        return __win_check_git_update(path)
     else:
         # Fetch the latest commits from the remote repository
         repo = git.Repo(path)
@@ -2443,65 +2376,14 @@ def git_repo_update_check_with(path, do_fetch=False, do_update=False, no_deps=Fa
 
         remote = repo.remote(name=remote_name)
 
-        if not do_update and repo.head.is_detached:
-            if do_fetch:
-                remote.fetch()
-
-            return True, True  # detached branch is treated as updatable
-
         if repo.head.is_detached:
-            if not switch_to_default_branch(repo):
-                raise ValueError(f"Failed to switch detached branch to default branch: {path}")
-
-        current_branch = repo.active_branch
-        branch_name = current_branch.name
+            remote.fetch()
+            return True, True  # detached branch is treated as updatable
 
         # Get the current commit hash
         commit_hash = repo.head.commit.hexsha
 
-        if do_fetch or do_update:
-            remote.fetch()
-
-        if do_update:
-            if repo.is_dirty():
-                print(f"\nSTASH: '{path}' is dirty.")
-                repo.git.stash()
-
-            if f'{remote_name}/{branch_name}' not in repo.refs:
-                if not switch_to_default_branch(repo):
-                    raise ValueError(f"Failed to switch to default branch while updating: {path}")
-
-                current_branch = repo.active_branch
-                branch_name = current_branch.name
-
-            if f'{remote_name}/{branch_name}' in repo.refs:
-                remote_commit_hash = repo.refs[f'{remote_name}/{branch_name}'].object.hexsha
-            else:
-                return False, False
-
-            if commit_hash == remote_commit_hash:
-                repo.close()
-                return False, True
-
-            try:
-                remote.pull()
-                repo.git.submodule('update', '--init', '--recursive')
-                new_commit_hash = repo.head.commit.hexsha
-
-                if commit_hash != new_commit_hash:
-                    execute_install_script(None, path, no_deps=no_deps)
-                    print(f"\x1b[2K\rUpdated: {path}")
-                    return True, True
-                else:
-                    return False, False
-
-            except Exception as e:
-                print(f"\nUpdating failed: {path}\n{e}", file=sys.stderr)
-                return False, False
-
-        if repo.head.is_detached:
-            repo.close()
-            return True, True
+        remote.fetch()
 
         # Get commit hash of the remote branch
         current_branch = repo.active_branch
@@ -3071,25 +2953,26 @@ def simple_check_custom_node(url):
     return 'not-installed'
 
 
-def check_state_of_git_node_pack_single(item, do_fetch=False, do_update_check=True, do_update=False):
-    if item['version'] == 'unknown':
-        dir_path = unified_manager.unknown_active_nodes.get(item['id'])[1]
-    elif item['version'] == 'nightly':
-        dir_path = unified_manager.active_nodes.get(item['id'])[1]
-    else:
-        # skip CNR nodes
-        dir_path = None
+def fetch_git_node_packs(paths, on_fetched):
+    print("Start fetching...", end="")
 
-    if dir_path and os.path.exists(dir_path):
-        if do_update_check:
-            try:
-                update_state, success = git_repo_update_check_with(dir_path, do_fetch, do_update)
-                if (do_update_check or do_update) and update_state:
-                    item['update-state'] = 'true'
-                elif do_update and not success:
-                    item['update-state'] = 'fail'
-            except Exception:
-                print(f"[ComfyUI-Manager] Failed to check state of the git node pack: {dir_path}")
+    def has_update(path):
+        try:
+            return git_repo_update_check_with(path)[0]
+        except Exception:
+            print(f"[ComfyUI-Manager] Failed to check state of the git node pack: {path}")
+            return False
+
+    updatable = []
+    with ThreadPoolExecutor(4) as executor:
+        keys = {executor.submit(has_update, path): key for key, path in paths.items()}
+        for done_count, future in enumerate(as_completed(keys), 1):
+            if future.result():
+                updatable.append(keys[future])
+            on_fetched(done_count)
+
+    print("\x1b[2K\rFetching done.")
+    return updatable
 
 
 def get_installed_pip_packages():

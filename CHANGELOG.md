@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### Check Update no longer stops the server, and shows how far it is
+
+Check Update in the Custom Nodes Manager fetched every git nodepack inside the
+request for the node list. Until the last fetch had ended the server answered
+nothing else, and with many git nodepacks the page gave up after a minute with
+`Failed to get custom node list.` (#3574). The check now runs in the
+background. The page shows `Checking updates (n/total) ...` while the
+repositories are fetched, the server goes on answering, and the nodepacks that
+have an update are listed when the check has ended. A task on nodepacks that
+is started during a check, such as Update All, runs when the check has ended,
+as before. A model download and an update of ComfyUI do not wait for it. When
+the connection to the server is lost and comes back during a check, as when
+the server restarts, the page asks for the check again.
+
+A git nodepack that the registry does not know was left out of the check,
+unless the node list gave it an `id` that is its repository name. Every enabled
+git nodepack of the list is fetched now, so a check can take longer than
+before.
+
+On Windows, a check that found an update for a git nodepack put the install
+script of that nodepack down to run at the next start, though nothing had been
+updated. A check no longer does that.
+
+`GET /customnode/getlist` no longer fetches, with or without `skip_update`,
+and `POST /customnode/fetch_updates` answers 410. A check is asked for with
+`POST /customnode/check_update` and reports by the `cm-check-update` event.
+
 ### A search in the Custom Nodes Manager lists the best matches first
 
 A search in the Custom Nodes Manager only filtered the list. The rows stayed in
