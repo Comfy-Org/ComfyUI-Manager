@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+## [4.4.3] - 2026-11-24
+
 ### Changed
 
 - A search in the legacy Custom Nodes Manager lists the best matches first.
@@ -853,6 +855,7 @@ programmatic clients.
   perform the change from a trusted entry point. Read access via `GET` is
   unaffected.
 
+[4.4.3]: https://github.com/Comfy-Org/ComfyUI-Manager/compare/v4.4.2...v4.4.3
 [4.4.2]: https://github.com/Comfy-Org/ComfyUI-Manager/compare/v4.4.1...v4.4.2
 [4.4.1]: https://github.com/Comfy-Org/ComfyUI-Manager/compare/v4.4...v4.4.1
 [4.4]: https://github.com/Comfy-Org/ComfyUI-Manager/compare/v4.3...v4.4
