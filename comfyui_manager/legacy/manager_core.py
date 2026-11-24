@@ -2364,6 +2364,14 @@ async def get_data_by_mode(mode, filename, channel_url=None):
             cache_uri = str(manager_util.simple_hash(uri))+'_'+filename
             cache_uri = os.path.join(manager_util.cache_dir, cache_uri)
 
+            if mode == "remote" and get_config()['network_mode'] != 'offline' and manager_util.is_manager_pip_package():
+                try:
+                    json_obj = await manager_util.get_data(uri)
+                    manager_util.write_cache_file(cache_uri, json_obj)
+                    return json_obj
+                except Exception as e:
+                    print(f"[ComfyUI-Manager] Due to a network error, switching to cache mode.\n=> {filename} @ {channel_url}/{mode}\n=> {e}")
+
             if get_config()['network_mode'] == 'offline' or manager_util.is_manager_pip_package():
                 # offline network mode
                 if os.path.exists(cache_uri):
