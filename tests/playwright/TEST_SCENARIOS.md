@@ -56,7 +56,6 @@ ComfyUI's `api.fetchApi()` automatically prepends the `/api` prefix to every pat
 | 2-5 | Import Failed filter | Filter → "Import Failed" | Filter works | Client-side filter |
 | 2-6 | Check Update | "Check Update" button | Filter flips to "Update", the check runs in the background, the list is loaded when the `cm-check-update` event tells its end | `POST /api/v2/customnode/check_update`, then `GET /api/v2/customnode/getlist?mode=cache&skip_update=true` |
 | 2-7 | Check Missing | "Check Missing" button | Filter flips to "Missing" | `GET /api/v2/customnode/getmappings?mode=cache` |
-| 2-8 | Alternatives filter | Filter → "Alternatives of A1111" | Data loads | `GET /api/customnode/alternatives?mode=cache` |
 
 ## 3. Full node install lifecycle
 
@@ -156,7 +155,7 @@ Note: skipped when no import-failed nodes are present.
 | File | New/Enhanced | Scenarios | Target Endpoints |
 |------|----------|:-------:|---------------|
 | `legacy-ui-manager-menu.spec.ts` | enhanced | 7 | db_mode, channel_url_list, policy/update, notice |
-| `legacy-ui-custom-nodes.spec.ts` | enhanced | 9 | getlist, getmappings, alternatives, import_fail_info |
+| `legacy-ui-custom-nodes.spec.ts` | enhanced | 8 | getlist, getmappings, import_fail_info |
 | `legacy-ui-node-lifecycle.spec.ts` | **new** | 8 | versions/{id}, disabled_versions/{id}, queue/batch (install/uninstall/update/fix/disable/enable) |
 | `legacy-ui-node-versions.spec.ts` | **new** | 2 | versions/{id}, disabled_versions/{id} |
 | `legacy-ui-batch-operations.spec.ts` | **new** | 4 | queue/batch (update_all, update_comfyui), queue/reset |
@@ -165,7 +164,7 @@ Note: skipped when no import-failed nodes are present.
 | `legacy-ui-snapshot.spec.ts` | enhanced | 4 | snapshot/getlist, save, restore, remove |
 | `legacy-ui-navigation.spec.ts` | existing | 4 | is_legacy_manager_ui, version |
 
-**Total: 44 scenarios**
+**Total: 43 scenarios**
 
 ## Legacy-only endpoint coverage
 
@@ -173,7 +172,6 @@ Note: skipped when no import-failed nodes are present.
 |----------|---------|
 | `GET /api/v2/customnode/getlist` | 2-1, 2-6 |
 | `GET /api/v2/customnode/getmappings` | 2-2, 2-7 |
-| `GET /api/customnode/alternatives` | 2-8 |
 | `GET /api/v2/customnode/versions/{id}` | 3-1, 4-1 |
 | `GET /api/v2/customnode/disabled_versions/{id}` | 3-6, 4-2 |
 | `POST /api/v2/customnode/import_fail_info` | 7-1 |

@@ -19,7 +19,6 @@ Each subdirectory contains a standard set of JSON files:
 - **custom-node-list.json**: Primary database of custom nodes with metadata
 - **extension-node-map.json**: Maps between extensions and individual nodes they provide
 - **model-list.json**: Catalog of models that can be downloaded through the manager
-- **alter-list.json**: Alternative implementations of nodes for compatibility or functionality
 - **github-stats.json**: GitHub repository statistics for node popularity metrics
 
 ## Database Schema

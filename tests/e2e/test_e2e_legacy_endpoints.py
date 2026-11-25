@@ -1,12 +1,11 @@
 """E2E positive-path tests for legacy-only GET endpoints.
 
-SCOPE — closes the 6 pytest-N gaps from reports/api-coverage-matrix.md
+SCOPE — closes the pytest-N gaps from reports/api-coverage-matrix.md
 (WI-TT). Each target endpoint is registered ONLY in
 `comfyui_manager/legacy/manager_server.py` and thus reachable only when
 ComfyUI runs with `--enable-manager-legacy-ui`.
 
 Endpoints covered:
-  - GET /customnode/alternatives                        (legacy L1072)
   - GET /v2/customnode/disabled_versions/{node_name}    (legacy L1273)
   - GET /v2/customnode/getlist                          (legacy L1018)
   - GET /v2/customnode/versions/{node_name}             (legacy L1262)
@@ -94,25 +93,6 @@ def comfyui_legacy():
     pid = _start_comfyui_legacy()
     yield pid
     _stop_comfyui()
-
-
-class TestLegacyCustomNodeAlternatives:
-    """GET /customnode/alternatives?mode=local (wi-031)."""
-
-    def test_returns_dict_of_alternatives(self, comfyui_legacy):
-        resp = requests.get(
-            f"{BASE_URL}/customnode/alternatives",
-            params={"mode": "local"},
-            timeout=30,
-        )
-        assert resp.status_code == 200, (
-            f"Expected 200, got {resp.status_code}: {resp.text[:200]}"
-        )
-        data = resp.json()
-        assert isinstance(data, dict), (
-            f"alternatives response should be a dict keyed by unified id, "
-            f"got {type(data).__name__}"
-        )
 
 
 class TestLegacyCustomNodeDisabledVersions:

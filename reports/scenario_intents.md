@@ -316,12 +316,6 @@ Same as db_mode: observability of current policy + user choice to change update 
 | With or without skip_update | Performance: the list loads without a remote fetch; a check for updates runs in the background |
 | Channel resolution | Observability: user sees which channel data came from |
 
-### GET /customnode/alternatives
-
-| Scenario | Intent |
-|---|---|
-| Success | User capability: recommend alternative packs when one is discontinued/unavailable |
-
 ### GET /v2/externalmodel/getlist
 
 | Scenario | Intent |
@@ -385,7 +379,7 @@ Some scenarios recur across many endpoints with consistent intent:
 | Security level denial (middle/middle+/high+) | destructive endpoints | Security boundary — tier privileged ops per deployment risk profile |
 | Idempotent re-call on empty state | queue/reset, history_list, snapshot/getlist, installed | Idempotency — safe to poll or retry |
 | Repeated read returns same value | version, db_mode, policy/update | Data integrity — config/runtime state is stable |
-| Empty collection returned cleanly | history, getlist, installed, alternatives | Input resilience — empty is valid, not an error |
+| Empty collection returned cleanly | history, getlist, installed | Input resilience — empty is valid, not an error |
 
 ---
 
@@ -393,7 +387,7 @@ Some scenarios recur across many endpoints with consistent intent:
 
 | Intent category | # scenarios | Notes |
 |---|---:|---|
-| User capability (positive user need) | 62 | The "happy paths" |
+| User capability (positive user need) | 61 | The "happy paths" |
 | Input resilience | 32 | Mostly 400s for bad input |
 | Security boundary | 15 | Security levels + path traversal |
 | Idempotency | 14 | No-op / retry safety |
@@ -402,7 +396,7 @@ Some scenarios recur across many endpoints with consistent intent:
 | Recovery | 5 | Fix, restore, reset |
 | Concurrency safety | 2 | Worker dedup |
 
-Total unique scenarios mapped: ~154 (matches Report A).
+Total unique scenarios mapped: ~153 (matches Report A).
 
 ---
 

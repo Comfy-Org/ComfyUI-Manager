@@ -530,7 +530,6 @@ test('nodes: lookup errors and missing row IDs remain literal text', async ({ pa
     try {
       for (const invoke of [
         () => manager.getMissingNodesLegacy({}, new Set()),
-        () => manager.getAlternatives(),
         () => manager.installNodes([payload], { target: document.createElement('button'), mode: 'install' }),
       ]) {
         await invoke();
@@ -543,7 +542,7 @@ test('nodes: lookup errors and missing row IDs remain literal text', async ({ pa
     }
     return results;
   }, XSS_PAYLOAD);
-  expect(results).toHaveLength(3);
+  expect(results).toHaveLength(2);
   for (const result of results) {
     expect(result.text).toContain(XSS_PAYLOAD);
     expect(result.images).toBe(0);

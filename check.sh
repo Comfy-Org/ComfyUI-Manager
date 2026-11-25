@@ -6,7 +6,6 @@ echo CHECK1
 files=(
     "custom-node-list.json"
     "model-list.json"
-    "alter-list.json"
     "extension-node-map.json"
     "github-stats.json"
     "extras.json"
