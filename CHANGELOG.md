@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### The Custom Nodes Manager no longer offers the "Alternatives of A1111" filter
+
+The Filter of the Custom Nodes Manager no longer offers "Alternatives of
+A1111", which showed the entries of `alter-list.json` in an extra Alternatives
+column. The choice and its route `GET /customnode/alternatives` are removed,
+and Manager no longer fetches `alter-list.json` at start. The file stays in the
+channels, where older versions of Manager still fetch it.
+
 ### Check Update no longer stops the server, and shows how far it is
 
 Check Update in the Custom Nodes Manager fetched every git nodepack inside the

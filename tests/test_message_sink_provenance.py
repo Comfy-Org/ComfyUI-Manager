@@ -112,9 +112,6 @@ REGISTRY = {
      "`Loading missing nodes (${mode}) ...`);"):
         (NO_DATA, "UI-chosen mode"),
     ("custom-nodes-manager.js", "showStatus",
-     "`Loading alternatives (${mode}) ...`);"):
-        (NO_DATA, "UI-chosen mode"),
-    ("custom-nodes-manager.js", "showStatus",
      "`Loading workflow usage analysis ...`);"):
         (NO_DATA, "hardcoded"),
     ("custom-nodes-manager.js", "showStatus",
@@ -376,7 +373,6 @@ class HtmlByDesignSinkTest(unittest.TestCase):
         escaped = {
             "custom-nodes-manager.js": {
                 '`Failed to get custom node mappings: ${sanitizeHTML(String(res.error))}`);',
-                '`Failed to get alternatives: ${sanitizeHTML(String(res.error))}`);',
                 '`Failed to get workflow data: ${sanitizeHTML(String(result.error))}`);',
             },
             "node-usage-analyzer.js": {'sanitizeHTML(String(result.error)));'},

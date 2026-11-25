@@ -182,7 +182,7 @@ def test_manager_search_matches_visible_text(page, filename, column, value, quer
         const element = document.createElement('div');
         element.innerHTML = '<div id="tested-grid" class="cn-manager-grid cmm-manager-grid" style="width:800px;height:300px"></div>';
         document.body.append(element);
-        window.manager = {element, keywords: query, showStatus() {}, handleFlyoverHover() {}, createFlyover: () => ({}), hasAlternatives: () => false,
+        window.manager = {element, keywords: query, showStatus() {}, handleFlyoverHover() {}, createFlyover: () => ({}),
             calculateSortScore: new Function(`return ${score}`)()};
         initGrid.call(manager);
         manager.grid.setData({columns: [{id: column, name: column}], rows: [{[column]: value}]});

@@ -133,17 +133,6 @@ docStyle.innerHTML = `
 	text-decoration: underline;
 }
 
-#alternatives-grid a {
-	color: #5555FF;
-	font-weight: bold;
-	text-decoration: none;
-}
-
-#alternatives-grid a:hover {
-	color: #7777FF;
-	text-decoration: underline;
-}
-
 .cm-notice-board {
 	width: auto;
 	height: 280px;
