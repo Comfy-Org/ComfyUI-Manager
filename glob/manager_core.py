@@ -1075,6 +1075,7 @@ class UnifiedManager:
 
         from_path = None
         to_path = None
+        to_disable = None
 
         if version_spec == 'unknown':
             repo_and_path = self.unknown_inactive_nodes.get(node_id)
@@ -1085,14 +1086,14 @@ class UnifiedManager:
             base_path = extract_base_custom_nodes_dir(from_path)
             to_path = os.path.join(base_path, node_id)
         elif version_spec == 'nightly':
-            self.unified_disable(node_id, False)
+            to_disable = self.active_nodes.get(node_id)
             from_path = self.nightly_inactive_nodes.get(node_id)
             if from_path is None:
                 return result.fail(f'Specified inactive node not exists: {node_id}@nightly')
             base_path = extract_base_custom_nodes_dir(from_path)
             to_path = os.path.join(base_path, node_id)
         elif version_spec is not None:
-            self.unified_disable(node_id, False)
+            to_disable = self.active_nodes.get(node_id)
             cnr_info = self.cnr_inactive_nodes.get(node_id)
 
             if cnr_info is None or len(cnr_info) == 0:
@@ -1111,8 +1112,15 @@ class UnifiedManager:
         if from_path is None or not os.path.exists(from_path):
             return result.fail(f'Specified inactive node path not exists: {from_path}')
 
-        if os.path.lexists(to_path):
+        # Decide before moving anything. The enabled copy is disabled first only when its folder is still there, so the
+        # place may be that folder itself, under any name of it, but not a link to it.
+        if to_disable is not None and not os.path.exists(to_disable[1]):
+            to_disable = None
+        if os.path.lexists(to_path) and (to_disable is None or not os.path.samestat(os.lstat(to_path), os.lstat(to_disable[1]))):
             return result.fail(f'Install path already exists: {to_path}')
+
+        if to_disable is not None:
+            self.unified_disable(node_id, False)
 
         # move from disk
         shutil.move(from_path, to_path)

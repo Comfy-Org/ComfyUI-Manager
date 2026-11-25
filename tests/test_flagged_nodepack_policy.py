@@ -385,7 +385,8 @@ print(json.dumps({{'printed': printed, 'exit': code, 'downloads': core.manager_d
 FOLDER_TAKERS = ['a clone of a fork', 'a registry copy of another nodepack', 'a file', 'a link to a checkout of a fork',
                  'a dangling link']
 
-# custom_nodes/fixture is taken by something the scan does not record as fixture, beside a disabled copy of fixture
+# custom_nodes/fixture is taken by TAKEN_BY, something the scan does not record as fixture, beside a disabled copy of
+# fixture and a nightly clone of fixture in the folder NIGHTLY_IN
 TAKEN_FOLDER = '''
 import ast, rich.console
 URL = 'https://github.com/owner/fixture'
@@ -411,6 +412,8 @@ def clone(folder, url):
     (folder / '__init__.py').write_text(f'clone of {url}')
     return folder
 pack(nodes / '.disabled/fixture@1_0_0', 'fixture', '1.0.0')
+if NIGHTLY_IN is not None:
+    clone(nodes / NIGHTLY_IN, URL)
 taken, elsewhere = nodes / 'fixture', pathlib.Path(tmp) / 'elsewhere'
 if TAKEN_BY == 'a clone of a fork':
     clone(taken, 'https://github.com/someone/fixture-fork')
@@ -420,9 +423,14 @@ elif TAKEN_BY == 'a file':
     taken.write_text('a file of the user')
 elif TAKEN_BY == 'a link to a checkout of a fork':
     taken.symlink_to(clone(elsewhere / 'checkout', 'https://github.com/someone/fixture-fork'), target_is_directory=True)
-else:
+elif TAKEN_BY == 'a dangling link':
     taken.symlink_to(elsewhere / 'missing', target_is_directory=True)
+elif TAKEN_BY == 'a link to the nightly':
+    taken.symlink_to(nodes / NIGHTLY_IN, target_is_directory=True)
 asyncio.run(manager.reload('cache', dont_wait=False))
+if TAKEN_BY == 'a link to the nightly':
+    # the scan reads the nightly twice, through the link too; it is enabled in its own folder
+    manager.active_nodes['fixture'] = ('nightly', str(nodes / NIGHTLY_IN))
 def on_disk():
     root = pathlib.Path(tmp)
     return sorted((str(x.relative_to(root)), os.readlink(x) if x.is_symlink() else x.read_text()) for x in root.rglob('*')
@@ -431,11 +439,34 @@ before = on_disk()
 '''
 
 
+def taken_folder(taken_by, nightly_in=None):
+    return f'TAKEN_BY = {taken_by!r}\nNIGHTLY_IN = {nightly_in!r}\n' + TAKEN_FOLDER
+
+
+# what the Enable button of the Custom Nodes Manager sends for the disabled 1.0.0; `reported` is what the page is told
+PRESS_ENABLE = '''
+from aiohttp import web
+source = pathlib.Path(core.__file__).with_name('manager_server.py').read_text(encoding='utf-8')
+handler = [node for node in ast.parse(source).body
+           if isinstance(node, ast.AsyncFunctionDef) and node.name == '_queue_node_install']
+events = []
+namespace = {'core': core, 'web': web, 'logging': logging, 'os': os,
+    '_reject_non_json_content_type': lambda request: None, 'is_allowed_security_level': lambda level: True,
+    'PromptServer': SimpleNamespace(instance=SimpleNamespace(send_sync=lambda event, data: events.append(data)))}
+exec(compile(ast.Module(body=handler, type_ignores=[]), 'manager_server.py', 'exec'), namespace)
+body = {'id': 'fixture', 'version': '1.0.0', 'selected_version': '1.0.0', 'channel': 'default', 'mode': 'cache',
+    'ui_id': 'row', 'skip_post_install': True}
+response = asyncio.run(namespace['_queue_node_install'](SimpleNamespace(json=AsyncMock(return_value=body)), 'install'))
+reported = [{k: v.replace(str(taken), '<folder>') for k, v in event['nodepack_result'].items()}
+            for event in events if event['status'] == 'done']
+'''
+
+
 @pytest.mark.parametrize('exit_on_fail', [False, True])
 @pytest.mark.parametrize('spec', ['fixture', 'fixture@1.0.0', 'fixture@2.0.0', 'https://github.com/owner/fixture'])
 @pytest.mark.parametrize('taken_by', FOLDER_TAKERS)
 def test_cli_install_leaves_the_disabled_copy_when_its_folder_is_taken(taken_by, spec, exit_on_fail):
-    data = run(f'TAKEN_BY = {taken_by!r}\n' + TAKEN_FOLDER + f'''
+    data = run(taken_folder(taken_by) + f'''
 source = (pathlib.Path(core.__file__).parent.parent / 'cm-cli.py').read_text(encoding='utf-8')
 found = [node for node in ast.parse(source).body if isinstance(node, ast.FunctionDef) and node.name == 'install_node']
 out = io.StringIO()
@@ -459,24 +490,105 @@ print(json.dumps({{'printed': printed, 'exit': code, 'unchanged': on_disk() == b
 
 @pytest.mark.parametrize('taken_by', FOLDER_TAKERS)
 def test_enable_button_leaves_the_disabled_copy_when_its_folder_is_taken(taken_by):
-    data = run(f'TAKEN_BY = {taken_by!r}\n' + TAKEN_FOLDER + '''
-from aiohttp import web
-source = pathlib.Path(core.__file__).with_name('manager_server.py').read_text(encoding='utf-8')
-handler = [node for node in ast.parse(source).body
-           if isinstance(node, ast.AsyncFunctionDef) and node.name == '_queue_node_install']
-events = []
-namespace = {'core': core, 'web': web, 'logging': logging, 'os': os,
-    '_reject_non_json_content_type': lambda request: None, 'is_allowed_security_level': lambda level: True,
-    'PromptServer': SimpleNamespace(instance=SimpleNamespace(send_sync=lambda event, data: events.append(data)))}
-exec(compile(ast.Module(body=handler, type_ignores=[]), 'manager_server.py', 'exec'), namespace)
-body = {'id': 'fixture', 'version': '1.0.0', 'selected_version': '1.0.0', 'channel': 'default', 'mode': 'cache',
-    'ui_id': 'row', 'skip_post_install': True}
-response = asyncio.run(namespace['_queue_node_install'](SimpleNamespace(json=AsyncMock(return_value=body)), 'install'))
-print(json.dumps({'status': response.status, 'unchanged': on_disk() == before,
-    'reported': [{k: v.replace(str(taken), '<folder>') for k, v in event['nodepack_result'].items()}
-                 for event in events if event['status'] == 'done']}))
+    data = run(taken_folder(taken_by) + PRESS_ENABLE + '''
+print(json.dumps({'status': response.status, 'unchanged': on_disk() == before, 'reported': reported}))
 ''')
     assert data == {'status': 200, 'unchanged': True, 'reported': [{'row': 'Install path already exists: <folder>'}]}
+
+
+NIGHTLY_ELSEWHERE = "manager.active_nodes.get('fixture') == ('nightly', str(nodes / 'ComfyUI-Fixture'))"
+
+
+@pytest.mark.parametrize('taken_by', ['a clone of a fork', 'a file', 'a link to the nightly'])
+def test_enable_button_leaves_the_nightly_enabled_in_another_folder_when_the_folder_is_taken(taken_by):
+    data = run(taken_folder(taken_by, nightly_in='ComfyUI-Fixture') + PRESS_ENABLE + f'''
+print(json.dumps({{'reported': reported, 'unchanged': on_disk() == before, 'nightly_enabled': {NIGHTLY_ELSEWHERE}}}))
+''')
+    assert data == {'reported': [{'row': 'Install path already exists: <folder>'}], 'unchanged': True, 'nightly_enabled': True}
+
+
+def test_install_of_the_disabled_version_leaves_the_nightly_enabled_in_another_folder_when_the_folder_is_taken():
+    data = run(taken_folder('a clone of a fork', nightly_in='ComfyUI-Fixture') + f'''
+result = asyncio.run(manager.install_by_id('fixture', '1.0.0', instant_execution=True))
+print(json.dumps({{'ok': result.result, 'msg': result.msg.replace(str(taken), '<folder>'), 'unchanged': on_disk() == before,
+    'nightly_enabled': {NIGHTLY_ELSEWHERE}, 'downloads': core.manager_downloader.download_url.call_count}}))
+''')
+    assert data == {'ok': False, 'msg': 'Install path already exists: <folder>', 'unchanged': True, 'nightly_enabled': True,
+                    'downloads': 0}
+
+
+# The nightly holds custom_nodes/fixture under the same name, as Fixture where the file system ignores letter case
+# (where it does not, Fixture is another folder and fixture is free), or through a link to custom_nodes.
+@pytest.mark.parametrize('spelling', ['fixture', 'Fixture', 'a link to custom_nodes'])
+def test_enable_button_puts_aside_the_nightly_that_holds_the_folder(spelling):
+    data = run(taken_folder(None, nightly_in='Fixture' if spelling == 'Fixture' else 'fixture') + f'''
+if {spelling!r} == 'a link to custom_nodes':
+    (pathlib.Path(tmp) / 'link').symlink_to(nodes, target_is_directory=True)
+    manager.active_nodes['fixture'] = ('nightly', str(pathlib.Path(tmp) / 'link/fixture'))
+''' + PRESS_ENABLE + '''
+print(json.dumps({'reported': reported, 'enabled': (nodes / 'fixture/__init__.py').read_text(),
+    'put_aside': (nodes / '.disabled/fixture@nightly/__init__.py').read_text()}))
+''')
+    assert data == {'reported': [{'row': 'success'}], 'enabled': 'fixture 1.0.0',
+                    'put_aside': 'clone of https://github.com/owner/fixture'}
+
+
+@pytest.mark.parametrize('version', ['1.0.0', 'nightly'])
+def test_enable_puts_aside_the_registry_version_that_holds_the_folder(version):
+    data = run(f'''
+version = {version!r}
+enabled, disabled = nodes / 'fixture', nodes / ('.disabled/fixture@' + version.replace('.', '_'))
+for folder, content in ((enabled, '1.5.0'), (disabled, version)):
+    folder.mkdir(parents=True)
+    (folder / '__init__.py').write_text(content)
+manager.active_nodes['fixture'] = ('1.5.0', str(enabled))
+if version == 'nightly':
+    manager.nightly_inactive_nodes['fixture'] = str(disabled)
+else:
+    manager.cnr_inactive_nodes['fixture'] = {{version: str(disabled)}}
+result = manager.unified_enable('fixture', version)
+print(json.dumps({{'ok': result.result, 'active': manager.active_nodes['fixture'][0],
+    'enabled': (enabled / '__init__.py').read_text(),
+    'put_aside': (nodes / '.disabled/fixture@1_5_0/__init__.py').read_text()}}))
+''')
+    assert data == {'ok': True, 'active': version, 'enabled': version, 'put_aside': '1.5.0'}
+
+
+def test_enable_button_enables_the_disabled_copy_when_the_enabled_nightly_was_removed_after_the_scan():
+    data = run(taken_folder(None, nightly_in='ComfyUI-Fixture') + '''
+import shutil
+shutil.rmtree(nodes / 'ComfyUI-Fixture')
+''' + PRESS_ENABLE + '''
+print(json.dumps({'reported': reported, 'enabled': (nodes / 'fixture/__init__.py').read_text()}))
+''')
+    assert data == {'reported': [{'row': 'success'}], 'enabled': 'fixture 1.0.0'}
+
+
+def test_enable_button_refuses_when_the_folder_is_taken_and_the_enabled_nightly_was_removed_after_the_scan():
+    data = run(taken_folder('a clone of a fork', nightly_in='ComfyUI-Fixture') + '''
+import shutil
+shutil.rmtree(nodes / 'ComfyUI-Fixture')
+before = on_disk()
+''' + PRESS_ENABLE + '''
+print(json.dumps({'status': response.status, 'unchanged': on_disk() == before, 'reported': reported}))
+''')
+    assert data == {'status': 200, 'unchanged': True, 'reported': [{'row': 'Install path already exists: <folder>'}]}
+
+
+# custom_nodes and a second custom_nodes folder of extra_model_paths.yaml: the registry 1.5.0 is enabled in the
+# second; in custom_nodes the nightly was disabled and a clone of a fork now holds fixture
+def test_enable_of_the_disabled_nightly_leaves_the_registry_version_enabled_in_another_folder_when_the_folder_is_taken():
+    data = run(taken_folder('a clone of a fork', nightly_in='.disabled/fixture@nightly') + '''
+second = pathlib.Path(tmp) / 'second' / 'custom_nodes'
+pack(second / 'fixture', 'fixture', '1.5.0')
+sys.modules['folder_paths'].get_folder_paths = lambda name: [str(second), str(nodes)]
+asyncio.run(manager.reload('cache', dont_wait=False))
+before = on_disk()
+result = manager.unified_enable('fixture', 'nightly')
+print(json.dumps({'ok': result.result, 'msg': result.msg.replace(str(taken), '<folder>'), 'unchanged': on_disk() == before,
+    'registry_enabled': manager.active_nodes.get('fixture') == ('1.5.0', str(second / 'fixture'))}))
+''')
+    assert data == {'ok': False, 'msg': 'Install path already exists: <folder>', 'unchanged': True, 'registry_enabled': True}
 
 
 def test_cli_install_enables_the_disabled_copy_that_is_left_when_another_was_removed_after_the_scan():

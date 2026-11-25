@@ -25,7 +25,9 @@ disabled copy into it. **Enable**, an install of the disabled version and an
 install by the repository URL then reported success. A file or a dangling link
 there failed the install with `[Errno 17] File exists`. These and
 **Switch Ver** now refuse with `Install path already exists: <path>` and leave
-what is there untouched.
+what is there untouched. A refused enable, or a refused install of the
+disabled version, moves nothing else either: a version of the nodepack that is
+enabled in another folder stays enabled.
 
 ### Check Update no longer stops the server, and shows how far it is
 
