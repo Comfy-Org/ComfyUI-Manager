@@ -472,10 +472,11 @@ class UnifiedManager:
             # 4. Fail
 
             if node_name in self.cnr_map:
-                latest = self.get_from_cnr_inactive_nodes(node_name)
+                versions = self.cnr_inactive_nodes.get(node_name)
 
-                if latest is not None:
-                    version_spec = str(latest[0])
+                if versions:
+                    # the key itself, which callers look up: str() of the parsed version can differ ('1.0.0b0' for '1.0.0-beta')
+                    version_spec = max(versions, key=self.safe_version)
                 else:
                     if node_name in self.nightly_inactive_nodes:
                         version_spec = "nightly"
@@ -705,8 +706,12 @@ class UnifiedManager:
         elif node_id in self.unknown_inactive_nodes:
             return True
 
+        # cnr_inactive_nodes holds a version -> path dict; comparing the dict
+        # to version_spec (None here) is always False, so a disabled CNR pack
+        # looked active and enable never restored it. Any non-nightly inactive
+        # version counts, mirroring the explicit "cnr" branch above.
         target = self.cnr_inactive_nodes.get(node_id, None)
-        if target is not None and target == version_spec:
+        if target and any(ver != 'nightly' for ver in target.keys()):
             return True
 
         return False
@@ -1058,17 +1063,19 @@ class UnifiedManager:
 
         if version_spec is None:
             version_spec = self.resolve_unspecified_version(node_id, guess_mode='inactive')
-            if version is None:
-                return result.fail(f'Specified inactive node not exists: {node_id}')
 
         if self.is_enabled(node_id, version_spec):
             return ManagedResult('skip').with_msg('Already enabled')
+
+        if version_spec is None:
+            return result.fail(f'Specified inactive node not exists: {node_id}')
 
         if not self.is_disabled(node_id, version_spec):
             return ManagedResult('skip').with_msg('Not installed')
 
         from_path = None
         to_path = None
+        to_disable = None
 
         if version_spec == 'unknown':
             repo_and_path = self.unknown_inactive_nodes.get(node_id)
@@ -1079,14 +1086,14 @@ class UnifiedManager:
             base_path = extract_base_custom_nodes_dir(from_path)
             to_path = os.path.join(base_path, node_id)
         elif version_spec == 'nightly':
-            self.unified_disable(node_id, False)
+            to_disable = self.active_nodes.get(node_id)
             from_path = self.nightly_inactive_nodes.get(node_id)
             if from_path is None:
                 return result.fail(f'Specified inactive node not exists: {node_id}@nightly')
             base_path = extract_base_custom_nodes_dir(from_path)
             to_path = os.path.join(base_path, node_id)
         elif version_spec is not None:
-            self.unified_disable(node_id, False)
+            to_disable = self.active_nodes.get(node_id)
             cnr_info = self.cnr_inactive_nodes.get(node_id)
 
             if cnr_info is None or len(cnr_info) == 0:
@@ -1104,6 +1111,16 @@ class UnifiedManager:
 
         if from_path is None or not os.path.exists(from_path):
             return result.fail(f'Specified inactive node path not exists: {from_path}')
+
+        # Decide before moving anything. The enabled copy is disabled first only when its folder is still there, so the
+        # place may be that folder itself, under any name of it, but not a link to it.
+        if to_disable is not None and not os.path.exists(to_disable[1]):
+            to_disable = None
+        if os.path.lexists(to_path) and (to_disable is None or not os.path.samestat(os.lstat(to_path), os.lstat(to_disable[1]))):
+            return result.fail(f'Install path already exists: {to_path}')
+
+        if to_disable is not None:
+            self.unified_disable(node_id, False)
 
         # move from disk
         shutil.move(from_path, to_path)
@@ -1498,6 +1515,8 @@ class UnifiedManager:
 
         repo_url = None
         if version_spec is None:
+            if node_id in self.cnr_map:
+                self.forget_folders([x for x in self.cnr_inactive_nodes.get(node_id, {}).values() if not os.path.exists(x)])
             if self.is_enabled(node_id):
                 return ManagedResult('skip')
             elif self.is_disabled(node_id):
@@ -1542,7 +1561,9 @@ class UnifiedManager:
 
         if self.is_disabled(node_id, "cnr"):
             # enable and switch version if cnr is disabled (not specified version)
-            self.unified_enable(node_id, "cnr")
+            enabled = self.unified_enable(node_id, "cnr")
+            if not enabled.result:
+                return enabled
             return self._cnr_switch_version(node_id, node_info, instant_execution, no_deps, return_postinstall)
 
         if self.is_enabled(node_id, "cnr"):
