@@ -20,6 +20,7 @@ SCRIPTS = {
         export const api = {
             addEventListener() {},
             getNodeDefs: async () => ({}),
+            getSystemStats: async () => ({system: {comfyui_version: '0.3.60'}}),
             async fetchApi(path) {
                 const answer = window.server[path.split('?')[0]];
                 if(answer === undefined) return {status: 404, statusText: 'Not Found'};
@@ -32,7 +33,8 @@ SCRIPTS = {
         dialog.className = 'comfy-modal';
         export const app = {
             graph: {_nodes: [], extra: {}},
-            registerExtension() {},
+            extensions: [],
+            registerExtension(extension) { this.extensions.push(extension); },
             ui: {
                 settings: {settingsValues: {'Comfy.ColorPalette': 'dark'}},
                 dialog: {element: dialog, show(html) { dialog.innerHTML = html; document.body.append(dialog); }},
@@ -141,12 +143,41 @@ def test_missing_lists_the_nodepack_of_an_unknown_node_without_saying_it_is_not_
     assert page.errors == []
 
 
-def test_missing_says_which_id_of_the_workflow_no_nodepack_has(page):
-    node = {"type": "NowhereNode", "properties": {"cnr_id": "comfyui-nowhere", "ver": "1.0.0"}}
+@pytest.mark.parametrize("cnr_id", ["comfyui-nowhere", 123], ids=["text", "number"])
+def test_missing_says_which_id_of_the_workflow_no_nodepack_has(page, cnr_id):
+    node = {"type": "NowhereNode", "properties": {"cnr_id": cnr_id, "ver": "1.0.0"}}
 
     shown = open_list(page, "MISSING", node_packs("not-installed"), [node], [])
 
     assert shown["rows"] == []
     assert "Failed to find the following ComfyRegistry list." in shown["message"]
-    assert "comfyui-nowhere" in shown["message"]
+    assert str(cnr_id) in shown["message"]
     assert page.errors == []
+
+
+def new_node_properties(page, folder, cnr_id):
+    installed = {folder: {"ver": "1.1.1", "cnr_id": cnr_id, "aux_id": None, "enabled": True}}
+    return page.evaluate("""async ({module, server, python_module}) => {
+        window.server = server;
+        const {app} = await import('/scripts/app.js');
+        await import(module);
+        const extension = app.extensions.find(extension => extension.nodeCreated);
+        await extension.init();
+        class Node {}
+        Node.nodeData = {python_module};
+        const node = new Node();
+        extension.nodeCreated(node);
+        return node.properties;
+    }""", {"module": EXTENSION + "workflow-metadata.js", "server": {"/customnode/installed": installed},
+           "python_module": "custom_nodes." + folder})
+
+
+def test_a_new_node_takes_the_id_of_its_nodepack_as_the_installed_list_spells_it(page):
+    properties = new_node_properties(page, "ComfyUI_SigmoidOffsetScheduler", "ComfyUI_SigmoidOffsetScheduler")
+
+    assert properties == {"cnr_id": "ComfyUI_SigmoidOffsetScheduler", "ver": "1.1.1"}
+
+
+@pytest.mark.parametrize("cnr_id", ["comfy-core", "Comfy-Core"])
+def test_a_new_node_of_a_nodepack_that_names_itself_as_the_core_takes_no_id(page, cnr_id):
+    assert new_node_properties(page, "core-lookalike", cnr_id) == {}
