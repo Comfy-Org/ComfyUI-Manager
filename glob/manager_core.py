@@ -1671,7 +1671,7 @@ def identify_node_pack_from_path(fullpath):
         # cnr
         cnr = cnr_utils.read_cnr_info(fullpath)
         if cnr is not None:
-            return module_name, cnr['version'], cnr['id'], None
+            return module_name, cnr['version'], cnr['original_name'], None
 
         return None
     else:

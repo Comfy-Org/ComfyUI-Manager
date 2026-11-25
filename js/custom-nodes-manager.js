@@ -1851,6 +1851,20 @@ export class CustomNodesManager {
 		return allUsedNodes;
 	}
 
+	getNodepackByCnrId(cnr_id) {
+		let item = this.custom_nodes[cnr_id];
+		if(item) {
+			return item;
+		}
+
+		const normalized_id = cnr_id.toLowerCase();
+		for(let k in this.custom_nodes) {
+			if(k.toLowerCase() == normalized_id) {
+				return this.custom_nodes[k];
+			}
+		}
+	}
+
 	async getMissingNodes() {
 		let unresolved_missing_nodes = new Set();
 		let hashMap = {};
@@ -1875,7 +1889,7 @@ export class CustomNodesManager {
 						outdated_comfyui = true;
 					}
 
-					let item = this.custom_nodes[node.properties.cnr_id];
+					let item = this.getNodepackByCnrId(node.properties.cnr_id);
 					if(item) {
 						hashMap[item.hash] = true;
 					}
