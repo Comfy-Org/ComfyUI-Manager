@@ -1890,7 +1890,7 @@ export class CustomNodesManager {
 			return item;
 		}
 
-		const normalized_id = cnr_id.toLowerCase();
+		const normalized_id = String(cnr_id).toLowerCase();
 		for(let k in this.custom_nodes) {
 			if(k.toLowerCase() == normalized_id) {
 				return this.custom_nodes[k];
