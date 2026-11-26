@@ -18,6 +18,24 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ### Fixed
 
+- The legacy server lists a nodepack installed from the registry with its id
+  as the registry writes it, as `ComfyUI_SigmoidOffsetScheduler`, as the
+  server of the new UI already does. It gave the id in lowercase, a node
+  added to a workflow took that id, and the legacy Custom Nodes Manager,
+  which names the nodepack as the registry writes it, did not find it from
+  that node. Custom Nodes In Workflow and Used In Workflow showed
+  `0 custom nodes` for such a workflow, and Check Missing and Install Missing
+  Custom Nodes said `Failed to find the following ComfyRegistry list` for the
+  id and then listed the same nodepack.
+
+- The legacy Custom Nodes Manager also finds the nodepack of a workflow node
+  whose id differs from the registry's only in case, as the lowercased id in
+  a workflow saved with an earlier install. When that nodepack was not
+  installed, Check Missing and Install Missing Custom Nodes said `Failed to
+  find the following ComfyRegistry list` for the id, and did not list the
+  nodepack at all when the node map did not know the node. The id of a node
+  is now matched without regard to case when the list has no exact match.
+
 - Update All in the legacy Manager menu shows its result again when its tasks
   are done: a box that lists the nodepacks that were updated and those whose
   update failed, with a RESTART button, or says that everything is up to

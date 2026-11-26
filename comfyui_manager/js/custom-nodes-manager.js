@@ -1860,6 +1860,21 @@ export class CustomNodesManager {
 		return allUsedNodes;
 	}
 
+	getNodepackByCnrId(cnr_id) {
+		let item = this.custom_nodes[cnr_id];
+		// comfy-core is ComfyUI itself, not a nodepack that is named so in another case
+		if(item || cnr_id == 'comfy-core') {
+			return item;
+		}
+
+		const normalized_id = String(cnr_id).toLowerCase();
+		for(let k in this.custom_nodes) {
+			if(k.toLowerCase() == normalized_id) {
+				return this.custom_nodes[k];
+			}
+		}
+	}
+
 	async getMissingNodes() {
 		let unresolved_missing_nodes = new Set();
 		let hashMap = {};
@@ -1884,7 +1899,7 @@ export class CustomNodesManager {
 						outdated_comfyui = true;
 					}
 
-					let item = this.custom_nodes[node.properties.cnr_id];
+					let item = this.getNodepackByCnrId(node.properties.cnr_id);
 					if(item) {
 						hashMap[item.hash] = true;
 					}
@@ -2054,7 +2069,7 @@ export class CustomNodesManager {
 		for(let k in allUsedNodes) {
 			var item;
 			if(allUsedNodes[k].properties.cnr_id) {
-				item = this.custom_nodes[allUsedNodes[k].properties.cnr_id];
+				item = this.getNodepackByCnrId(allUsedNodes[k].properties.cnr_id);
 			}
 			else if(allUsedNodes[k].properties.aux_id) {
 				item = aux_id_to_pack[allUsedNodes[k].properties.aux_id];
