@@ -10,6 +10,15 @@ column. The choice and its route `GET /customnode/alternatives` are removed,
 and Manager no longer fetches `alter-list.json` at start. The file stays in the
 channels, where older versions of Manager still fetch it.
 
+### Update All Custom Nodes in the desktop app shows its result
+
+In the desktop app the Manager menu has Update All Custom Nodes, which does
+not update ComfyUI. When its updates were done the menu showed nothing. The
+result had no entry for ComfyUI, and the menu stopped with an error on the
+missing entry. The box now lists the nodepacks that were updated, with a
+RESTART button, and those whose update failed. When nothing was updated and
+nothing failed, it says `You are already up to date.`
+
 ### Check Update no longer stops the server, and shows how far it is
 
 Check Update in the Custom Nodes Manager fetched every git nodepack inside the
