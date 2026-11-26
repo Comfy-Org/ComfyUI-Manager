@@ -397,12 +397,11 @@
 
 ## 22. tests/e2e/test_e2e_legacy_endpoints.py — Legacy-only endpoint positive-path suite (WI-TT + WI-UU deliverable)
 
-**Reference**: WI-TT seeded this file with 6 GET positive-path tests closing pytest-N gaps (wi-031/032/033/034/035/036). WI-UU extends the file with a 7th test — the POST `/v2/manager/queue/batch` positive-path (wi-039) — closing the pytest-I gap for the high-fanout queue-batch endpoint. All seven routes are registered only in `legacy/manager_server.py` and reachable only under `--enable-manager-legacy-ui`, so they share the same legacy fixture (`start_comfyui_legacy.sh`, PORT 8199) mirroring the `test_e2e_csrf_legacy.py` pattern.
+**Reference**: WI-TT seeded this file with 6 GET positive-path tests closing pytest-N gaps (wi-031/032/033/034/035/036). WI-UU extends the file with a 7th test — the POST `/v2/manager/queue/batch` positive-path (wi-039) — closing the pytest-I gap for the high-fanout queue-batch endpoint. All six routes are registered only in `legacy/manager_server.py` and reachable only under `--enable-manager-legacy-ui`, so they share the same legacy fixture (`start_comfyui_legacy.sh`, PORT 8199) mirroring the `test_e2e_csrf_legacy.py` pattern.
 **Scope**: Positive-path assertions — status 200 + response-shape verification for each legacy-only endpoint. `disabled_versions` additionally accepts 400 as a valid branch because the handler returns 400 when the target node has no disabled versions (empty-result convention, not a validation error). `queue/batch` uses an empty-payload strategy to exercise the full handler path (parse → action-loop no-op → finalize-with-empty-guard → `_queue_start()` → JSON 200) with zero state mutation, plus a queue/status liveness check to verify the worker lock was released cleanly.
 
 | Test | Design Goal | Verdict | Evidence |
 |---|---|---|---|
-| `TestLegacyCustomNodeAlternatives::test_returns_dict_of_alternatives` | Endpoint contract (alternatives — wi-031) | ✅ PASS | GET `/customnode/alternatives?mode=local` → 200 + dict body. Exercises unified-key mapping path (handler L1072-1084). |
 | `TestLegacyCustomNodeDisabledVersions::test_endpoint_reachable_and_parses_param` | Endpoint contract (disabled_versions — wi-032) | ✅ PASS | GET `/v2/customnode/disabled_versions/ComfyUI_SigmoidOffsetScheduler` → status ∈ {200, 400}; 200 body asserted as list of `{version}` entries. Seed pack has no disabled versions → 400 is the live branch, 200 is guarded for when state is mutated. |
 | `TestLegacyCustomNodeGetList::test_returns_channel_and_node_packs` | Endpoint contract (getlist — wi-033) | ✅ PASS | GET `/v2/customnode/getlist?mode=local&skip_update=true` → 200 + `{channel, node_packs}` dict with node_packs as dict. Exercises the unified `get_unified_total_nodes + populate_*` pipeline. |
 | `TestLegacyCustomNodeVersions::test_returns_versions_list_for_seed_pack` | Endpoint contract (versions — wi-034) | ✅ PASS | GET `/v2/customnode/versions/ComfyUI_SigmoidOffsetScheduler` → 200 + non-empty list. Verifies CNR version lookup for the seed pack (handler L1262-1270). |
@@ -410,7 +409,7 @@
 | `TestLegacyManagerNotice::test_returns_text_body` | Endpoint contract (notice — wi-036) | ✅ PASS | GET `/v2/manager/notice` → 200 + non-empty text body. Handler returns text/html (not JSON); both the markdown-fetch branch and the 'Unable to retrieve Notice' fallback return 200 with body. |
 | `TestLegacyQueueBatch::test_accepts_empty_payload_returns_failed_list` | Endpoint contract (queue/batch — wi-039) | ✅ PASS | POST `/v2/manager/queue/batch` with `{}` → 200 + `{"failed": []}`. Safe-payload choice (empty body) exercises full handler path with zero state mutation; `finalize_temp_queue_batch` no-ops via its `if len(temp_queue_batch):` guard (handler L444), and `_queue_start()` releases the task-worker lock cleanly. Post-POST `/v2/manager/queue/status` returns 200 — lock-release liveness check. Closes the wi-039 pytest-I gap (was CSRF-only direct + indirect-via-callers). |
 
-**File verdict**: 7/7 ✅ PASS.
+**File verdict**: 6/6 ✅ PASS.
 
 ---
 
@@ -431,32 +430,32 @@
 | test_e2e_csrf_legacy.py | 29 | 0 | 0 | 0 | 29 |
 | test_e2e_secgate_strict.py | 1 | 0 | 0 | 0 | 1 |
 | test_e2e_secgate_default.py | 1 | 0 | 0 | 0 | 1 |
-| test_e2e_legacy_endpoints.py | 7 | 0 | 0 | 0 | 7 |
+| test_e2e_legacy_endpoints.py | 6 | 0 | 0 | 0 | 6 |
 | legacy-ui-manager-menu.spec.ts | 5 | 0 | 0 | 0 | 5 |
 | legacy-ui-custom-nodes.spec.ts | 5 | 0 | 0 | 0 | 5 |
 | legacy-ui-model-manager.spec.ts | 4 | 0 | 0 | 0 | 4 |
 | legacy-ui-snapshot.spec.ts | 3 | 0 | 0 | 0 | 3 |
 | legacy-ui-navigation.spec.ts | 2 | 0 | 0 | 0 | 2 |
 | legacy-ui-install.spec.ts | 2 | 0 | 0 | 0 | 2 |
-| **TOTAL** | **122** | **0** | **0** | **1** | **123** |
+| **TOTAL** | **121** | **0** | **0** | **1** | **122** |
 
 (Count adjusted to 109 after Wave1 WI-L/M/N: 10 WEAK→PASS upgrades across 5 files (endpoint, git_clone, customnode_info, queue_lifecycle, version_mgmt) + 1 WEAK-row retired via WI-M dedup (test_get_current_returns_dict folded into strengthened test_get_current_snapshot — the folded row is treated as a deletion rather than a separate upgrade). Stage2 WI-F earlier established the 110 baseline from 112 by retiring 4 INADEQUATE legacy-ui tests with net +2 PASS. Wave2 WI-P/Q added 7 more WEAK→PASS upgrades (WI-P: task_operations 6 upgrades for update/fix effect + params; WI-Q: snapshot_lifecycle 1 upgrade for save_snapshot disk + content verification). Wave3 WI-T/U/W completed the reconciliation with 10 further WEAK→PASS upgrades: WI-T Cluster C+G strengthened queue_lifecycle (3), customnode_info (1), system_info (1) for field-level effect checks; WI-U Cluster H rewrote 3 Playwright legacy-ui specs (manager-menu 2, custom-nodes 1, model-manager 2) to verify UI state via dialog reopen / `<select>.value` assertions instead of direct API; WI-W fixed the TaskHistoryItem schema-drop regression enabling queue_lifecycle un-skip. Cumulative **upgrade** count across the three waves = 10 + 7 + 10 = **27** (unchanged). WI-Z reconciled the audit with the actual test-file surface (no upgrades, only inventory): Y1 recorded the pre-existing `test_remove_path_traversal_rejected` in snapshot_lifecycle (§7, 6→7), and Y3 recorded 5 pre-existing config_api rows (junk_value rejections ×3 + persists_to_config_ini ×2 from WI-E/WI-I, §4, 10→15). WI-AA recorded the pre-existing `legacy-ui-install.spec.ts` (LB1 + LB2) as new §16 — these UI-driven install/uninstall tests (from WI-U Cluster) close the LB1/LB2 gap formerly flagged in `coverage_gaps.md`. WI-GG added new §19 for `test_e2e_csrf_legacy.py` (from WI-FF): 4 new test functions / 26 parametrized invocations closing the legacy-side CSRF regression-guard gap — counted per-invocation (+26 PASS rows) for parity with the CSRF endpoint-fixture accounting in `endpoint_scenarios.md`; this is an accounting-granularity choice, not a contract addition (CSRF-M1/M2/M3 Goals were already referenced in §18). Total test count progression: **109 → 115 (WI-Z) → 117 (WI-AA) → 143 (WI-GG) → 146 (WI-JJ) → 148 (WI-LL)**; all 39 added rows were **pre-existing** tests or newly-added tests from their source WIs, not new engineering work performed by the audit reconciliation itself.)
 
-> **Note**: The matrix above counts *tests* (148), not *design Goals* (92).
-> See `reports/verification_design.md` for the 92 Goals and the RV-B trace
+> **Note**: The matrix above counts *tests* (147), not *design Goals* (91).
+> See `reports/verification_design.md` for the 91 Goals and the RV-B trace
 > (adhoc-rv-b-trace session evidence) for the Goal↔test cross-reference.
-> **Design-Goal coverage: 70/92 Goals referenced (76.1%), 22 Goals absent from this audit** — see § Design-Goal Coverage Gap below. With the 3 CSRF-mitigation Goals (CSRF-M1/M2/M3) from `verification_design.md` Section 10 added as supplementary coverage, the superset tally is **73/95** (76.8%). (WI-Z Y1 strengthens SR3 coverage from Key-gap note to an actual ✅ PASS row (`test_remove_path_traversal_rejected`); WI-AA adds ✅ PASS rows for LB1/LB2 via `legacy-ui-install.spec.ts`. WI-GG adds a second test-reference for CSRF-M1/M2/M3 via `test_e2e_csrf_legacy.py` but does NOT introduce new Goals — each CSRF-M Goal is now backed by paired glob + legacy coverage. WI-LL adds two previously T2 SECGATE-PENDING Goals (SR4 via `test_e2e_secgate_strict.py` §20, CV4 via `test_e2e_secgate_default.py` §21) as formal ✅ PASS rows — reclassifying them from "T2-pending" Key-gap notes to test-backed coverage. The 68→70 base tally uplift reflects this formal-status upgrade: SR4 and CV4 transition from Key-gap reference to explicit test-row-backed Goals.)
+> **Design-Goal coverage: 69/91 Goals referenced (75.8%), 22 Goals absent from this audit** — see § Design-Goal Coverage Gap below. With the 3 CSRF-mitigation Goals (CSRF-M1/M2/M3) from `verification_design.md` Section 10 added as supplementary coverage, the superset tally is **72/94** (76.6%). (WI-Z Y1 strengthens SR3 coverage from Key-gap note to an actual ✅ PASS row (`test_remove_path_traversal_rejected`); WI-AA adds ✅ PASS rows for LB1/LB2 via `legacy-ui-install.spec.ts`. WI-GG adds a second test-reference for CSRF-M1/M2/M3 via `test_e2e_csrf_legacy.py` but does NOT introduce new Goals — each CSRF-M Goal is now backed by paired glob + legacy coverage. WI-LL adds two previously T2 SECGATE-PENDING Goals (SR4 via `test_e2e_secgate_strict.py` §20, CV4 via `test_e2e_secgate_default.py` §21) as formal ✅ PASS rows — reclassifying them from "T2-pending" Key-gap notes to test-backed coverage. The 68→70 base tally uplift reflects this formal-status upgrade: SR4 and CV4 transition from Key-gap reference to explicit test-row-backed Goals.)
 
-Percentages (excluding N/A, denominator = 122+0+0 = 122):
-- ✅ PASS: 122 / 122 = 100%
-- ⚠️ WEAK: 0 / 122 = 0%
-- ❌ INADEQUATE: 0 / 122 = 0%
+Percentages (excluding N/A, denominator = 121+0+0 = 121):
+- ✅ PASS: 121 / 121 = 100%
+- ⚠️ WEAK: 0 / 121 = 0%
+- ❌ INADEQUATE: 0 / 121 = 0%
 
 ---
 
 # Design-Goal Coverage Gap
 
-24 of 92 design Goals (`reports/verification_design.md`) have no corresponding row in
+24 of 91 design Goals (`reports/verification_design.md`) have no corresponding row in
 the test audit above. Full list:
 
 | Section | Goal | Intent | Recommended |
@@ -482,11 +481,11 @@ the test audit above. Full list:
 | 6.1 | LB4 | UI update-all | NORMAL add |
 | 6.1 | LB5 | Batch partial failure | NORMAL add |
 | 6.2 | LG2 | List without fetch | NORMAL add |
-| 6.4 | LM2 | Install flag seed | NORMAL add |
-| 6.5 | LV1 | Version dropdown | NORMAL add |
-| 6.5 | LV2 | Unknown pack 400 | NORMAL add |
+| 6.3 | LM2 | Install flag seed | NORMAL add |
+| 6.4 | LV1 | Version dropdown | NORMAL add |
+| 6.4 | LV2 | Unknown pack 400 | NORMAL add |
 
-Final Goal-class tally (92 design Goals): KEEP 22 (SR4 + CV4 promoted post-WI-LL) / NORMAL strengthen 25 / NORMAL add 39 (22 UNREF + 14 GAP + 3 T1 DESTRUCTIVE-SAFE) / T2 PENDING-SECGATE **reduced 8 → 4 and reclassified** (see WI-KK SECGATE Harness Design block below) / T3 IRREDUCIBLE-NA 0. With the supplementary CSRF-M1/M2/M3 Goals covered by `verification_design.md` Section 10, superset tally is 95 Goals: KEEP 25 / rest unchanged.
+Final Goal-class tally (91 design Goals): KEEP 22 (SR4 + CV4 promoted post-WI-LL) / NORMAL strengthen 25 / NORMAL add 39 (22 UNREF + 14 GAP + 3 T1 DESTRUCTIVE-SAFE) / T2 PENDING-SECGATE **reduced 8 → 4 and reclassified** (see WI-KK SECGATE Harness Design block below) / T3 IRREDUCIBLE-NA 0. With the supplementary CSRF-M1/M2/M3 Goals covered by `verification_design.md` Section 10, superset tally is 94 Goals: KEEP 25 / rest unchanged.
 
 ---
 
@@ -539,7 +538,6 @@ Final Goal-class tally (92 design Goals): KEEP 22 (SR4 + CV4 promoted post-WI-LL
 - LN1-LN4 manager/notice tests (4 variants)
 - LPP1/LPP2 pip install tests
 - LGU1/LGU2 git_url install tests
-- LA1 alternatives display test
 - LDV1 disabled_versions test
 
 ## Classification policy (tier rule)
@@ -599,9 +597,9 @@ should land as one cross-cutting item" collapses into a 4-sub-tier structure:
 | T2-TASKLEVEL | IM4 | Queue-observation pattern (not HTTP 403) — pattern TBD | Open design question; not a simple mechanical add |
 
 Propagation plan (post-PR):
-1. Land SR6, V5, UA2 in `test_e2e_secgate_strict.py` using the SR4 template; adds 3 PASS rows, brings this audit to 136/151 TOTAL.
-2. Create `test_e2e_secgate_legacy_default.py` for LGU2 + LPP2; +2 PASS → 138/153.
-3. Design the IM4 queue-observation pattern (distinct from the HTTP 403 pattern used in §20/§21); +1 PASS → 139/154. This item may be reclassified to T3 IRREDUCIBLE-NA if the observable turns out to be log-only.
+1. Land SR6, V5, UA2 in `test_e2e_secgate_strict.py` using the SR4 template; adds 3 PASS rows, brings this audit to 135/150 TOTAL.
+2. Create `test_e2e_secgate_legacy_default.py` for LGU2 + LPP2; +2 PASS → 137/152.
+3. Design the IM4 queue-observation pattern (distinct from the HTTP 403 pattern used in §20/§21); +1 PASS → 138/153. This item may be reclassified to T3 IRREDUCIBLE-NA if the observable turns out to be log-only.
 
 ---
 
@@ -617,11 +615,11 @@ Cumulative Wave1+Wave2+Wave3 upgrade count: **27 WEAK → PASS** (10 + 7 + 10). 
 
 - Check status code without verifying the actual effect (WEAK — 0%) ✅
 - Use direct API in UI tests (INADEQUATE — 0%) ✅
-- Are outside endpoint-effect scope (N/A — 15/148 ≈ 10.1% of total)
+- Are outside endpoint-effect scope (N/A — 15/147 ≈ 10.2% of total)
 
-Remaining 🟢 gaps (not WEAK): ~~**SR3 snapshot-remove path-traversal**~~ (RESOLVED by WI-Z Y1 — `test_remove_path_traversal_rejected`) and **QH2 queue-history path-traversal** (destructive-safe security test, already present via `test_history_path_traversal_rejected` in queue_lifecycle § Key gaps). Design-Goal coverage gap (22/92 absent, 70/92 referenced) is tracked separately in § Design-Goal Coverage Gap and is not a test-quality issue.
+Remaining 🟢 gaps (not WEAK): ~~**SR3 snapshot-remove path-traversal**~~ (RESOLVED by WI-Z Y1 — `test_remove_path_traversal_rejected`) and **QH2 queue-history path-traversal** (destructive-safe security test, already present via `test_history_path_traversal_rejected` in queue_lifecycle § Key gaps). Design-Goal coverage gap (22/91 absent, 69/91 referenced) is tracked separately in § Design-Goal Coverage Gap and is not a test-quality issue.
 
-Post-Wave3 + WI-Z + WI-AA + WI-GG + WI-JJ + WI-LL state: **100% adequate coverage achieved** (133/133 PASS, excluding 15 N/A). Audit is in a terminal state for the current 148 tests. Further coverage expansion (design-Goal additions, the 3 T2-pending harness-ready Goals, NORMAL-legacy Goals, T2-TASKLEVEL IM4) is new-work territory — propagation plan is documented in the WI-KK SECGATE Harness Design block above — not reconciliation.
+Post-Wave3 + WI-Z + WI-AA + WI-GG + WI-JJ + WI-LL state: **100% adequate coverage achieved** (132/132 PASS, excluding 15 N/A). Audit is in a terminal state for the current 147 tests. Further coverage expansion (design-Goal additions, the 3 T2-pending harness-ready Goals, NORMAL-legacy Goals, T2-TASKLEVEL IM4) is new-work territory — propagation plan is documented in the WI-KK SECGATE Harness Design block above — not reconciliation.
 
 > **WI-Z + WI-AA + WI-GG + WI-JJ + WI-LL note**: Total test count 109 → 115 (WI-Z Y1 +1 snapshot, Y3 +5 config_api) → 117 (WI-AA +2 LB1/LB2) → 143 (WI-GG +26 legacy CSRF per-invocation rows) → 146 (WI-JJ +3 legacy-side install/parity rows) → 148 (WI-LL +2 SECGATE PoC rows) reflects inventory reconciliation plus WI-KK's newly-landed secgate coverage. Cumulative **upgrade** count remains 27 (unchanged since Wave3). WI-LL is the first audit-reflect WI to also introduce a Classification-policy reshape (T2 SECGATE-PENDING 8 → 4 sub-tiers), not just row additions.
 

@@ -1532,7 +1532,6 @@ async def _force_update_cache(channel):
         "custom-node-list.json",
         "extension-node-map.json",
         "model-list.json",
-        "alter-list.json",
         "github-stats.json",
     ]
 

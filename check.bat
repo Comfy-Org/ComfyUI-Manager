@@ -2,7 +2,6 @@
 
 python json-checker.py "custom-node-list.json"
 python json-checker.py "model-list.json"
-python json-checker.py "alter-list.json"
 python json-checker.py "extension-node-map.json"
 python json-checker.py "node_db\new\custom-node-list.json"
 python json-checker.py "node_db\new\model-list.json"

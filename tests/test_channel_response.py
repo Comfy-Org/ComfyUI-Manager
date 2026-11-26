@@ -20,7 +20,7 @@ from _install_flags_testutil import import_context
 from legacy_html_testutil import PACKAGE, load_functions
 
 FILENAME = "model-list.json"
-STARTUP_FILES = 5
+STARTUP_FILES = 4
 BUNDLED = {"models": [{"name": "bundled with the Manager"}]}
 SERVED = {"models": [{"name": "served by the channel"}]}
 NOT_JSON = [

@@ -2201,10 +2201,9 @@ async def default_cache_update():
         a = get_cache("custom-node-list.json")
         b = get_cache("extension-node-map.json")
         c = get_cache("model-list.json")
-        d = get_cache("alter-list.json")
-        e = get_cache("github-stats.json")
+        d = get_cache("github-stats.json")
 
-        await asyncio.gather(a, b, c, d, e)
+        await asyncio.gather(a, b, c, d)
 
         if core.get_config()["network_mode"] == "private":
             logging.info(

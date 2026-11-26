@@ -10,9 +10,9 @@
 | Category | Endpoints | Unique Scenarios |
 |---|---:|---:|
 | Glob v2 | 30 | 120 |
-| Legacy-only (not in glob) | 9 | 34 |
+| Legacy-only (not in glob) | 8 | 33 |
 | Legacy-shared (same path as glob) | 29 | — (see glob) |
-| **TOTAL unique HTTP handlers** | **39** | **154** |
+| **TOTAL unique HTTP handlers** | **38** | **153** |
 
 Security-gated endpoints:
 - `middle`: reboot, snapshot/remove, _uninstall_custom_node, _update_custom_node
@@ -308,12 +308,6 @@ Endpoints in this section exist **only in the legacy server** (not registered in
   2. With or without `skip_update` — no git fetch; the page marks the git packs that have an update from the result of `POST /v2/customnode/check_update`
   3. Removes comfyui-manager self-entry from results
   4. Channel lookup resolves to 'default'/'custom'/known name
-
-### GET /customnode/alternatives
-- **Handler**: `fetch_customnode_alternatives` (L1072)
-- **Query**: `mode` (required)
-- **Scenarios**:
-  1. Success — alter-list.json items keyed by id → 200
 
 ### GET /v2/externalmodel/getlist
 - **Handler**: `fetch_externalmodel_list` (L1143)

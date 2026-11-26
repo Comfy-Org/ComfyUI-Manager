@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Removed
+
+- Remove the "Alternatives of A1111" choice from the Filter of the legacy
+  Custom Nodes Manager, with its Alternatives column and the legacy route
+  `GET /customnode/alternatives`. The page asked `/v2/customnode/alternatives`,
+  which no server registers, so the choice showed no rows and an error. Manager
+  no longer fetches `alter-list.json` at start or in `cm-cli update-cache`, and
+  no longer ships it.
+
 ### Fixed
 
 - Update All in the legacy Manager menu shows its result again when its tasks

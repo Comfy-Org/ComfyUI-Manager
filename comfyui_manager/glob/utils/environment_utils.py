@@ -124,7 +124,6 @@ def initialize_environment():
 
     # Legacy database paths - kept for potential future use
     # local_db_model = os.path.join(manager_util.comfyui_manager_path, "model-list.json")
-    # local_db_alter = os.path.join(manager_util.comfyui_manager_path, "alter-list.json")
     # local_db_custom_node_list = os.path.join(
     #     manager_util.comfyui_manager_path, "custom-node-list.json"
     # )

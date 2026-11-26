@@ -40,7 +40,6 @@ import {
   openCustomNodesManager,
   routeNodeList,
   routeMappings,
-  routeAlternatives,
   makePack,
   expectInert,
   serverSanitizeTag,
@@ -120,7 +119,7 @@ test.describe('grid render sinks', () => {
       // PRECONDITION — the two virtualised columns must actually have body
       // cells before their legs mean anything. Without this the row can go
       // pass again the moment a layout change hides them, on a fixture that
-      // proved nothing (the same vacuous-pass shape the tags row guards against).
+      // proved nothing.
       await expect(
         page.locator(`${GRID} .cn-pack-stars`).first(),
         'precondition: no .cn-pack-stars body cell rendered — the stars column is virtualised away at this viewport, so its leg would pass vacuously.',
@@ -134,46 +133,6 @@ test.describe('grid render sinks', () => {
       await expectInert(page, GRID, XSS_PAYLOAD, 'img', 'author');
       await expectInert(page, GRID, XSS_PAYLOAD_NOSPACE, 'img', 'last_update');
     });
-  });
-
-  test('hostile tags render inert once the alternatives column is shown (LIVE, gated)', async ({ page }) => {
-    // The alternatives column is `invisible: !this.hasAlternatives()`, so this
-    // row MUST establish the gate. Without the precondition assertion below it
-    // passes vacuously against a grid that never rendered the column at all.
-    await routeNodeList(page, { alt1: makePack('alt1') });
-    await routeAlternatives(page, {
-      alt1: {
-        id: 'alt1',
-        title: 'alt1',
-        description: 'alternative description',
-        tags: XSS_PAYLOAD,
-      },
-    });
-    await openManagerMenu(page);
-    await openCustomNodesManager(page);
-
-    // ESTABLISH THE GATE. `hasAlternatives()` is `this.filter ===
-    // ShowMode.ALTERNATIVES`, so the column exists ONLY while the filter
-    // dropdown is on "Alternatives of A1111" — selecting it is also what
-    // triggers getAlternatives() and therefore the `:1903` tag loop. Without
-    // this step the fixture is never fetched, nothing renders, and the row
-    // would report a failure that has nothing to do with the sink.
-    const filterSelect = page.locator('select.cn-manager-filter').first();
-    await expect(filterSelect).toBeVisible({ timeout: 10_000 });
-    await filterSelect.selectOption({ label: 'Alternatives of A1111' });
-
-    // PRECONDITION — assert on `.cn-tag-list` SPECIFICALLY, the div the tag
-    // loop emits. An earlier draft accepted `.cn-pack-desc` too, which the
-    // description column also carries: it matched, the row failed on a
-    // different leg, and it looked like a reproduction. That is the vacuous
-    // vacuous pass this row has to guard against, arriving as a vacuous
-    // FAILURE instead.
-    await expect(
-      page.locator(`${GRID} .cn-tag-list`).first(),
-      'precondition: no .cn-tag-list rendered, so the alternatives tag sink was never exercised — the row proves nothing about the sink.',
-    ).toBeVisible({ timeout: 15_000 });
-
-    await expectInert(page, GRID, XSS_PAYLOAD, 'img', 'tags');
   });
 
   test('a server-escaped title renders decoded (no double-escape)', async ({ page }) => {
