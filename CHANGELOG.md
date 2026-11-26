@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+### An installed registry nodepack is listed with the registry's id
+
+`GET /customnode/installed` gave the id of a nodepack installed from the
+registry in lowercase, as `comfyui_sigmoidoffsetscheduler`, and a node added
+to a workflow took that id. The Custom Nodes Manager names the nodepack as
+the registry writes it, `ComfyUI_SigmoidOffsetScheduler`, and Check Missing
+and Install Missing Custom Nodes said `Failed to find the following
+ComfyRegistry list` for the id of such a workflow when the nodepack was not
+installed, and then listed the same nodepack. The id is now given as the
+`pyproject.toml` of the nodepack writes it.
+
+### Check Missing finds the nodepack of a node whose id differs in case
+
+A workflow saved with an earlier install keeps the lowercased id. When that
+nodepack was not installed, Check Missing and Install Missing Custom Nodes
+said `Failed to find the following ComfyRegistry list` for the id, and did
+not list the nodepack at all when the node map did not know the node. The id
+of a missing node is now matched without regard to case when the list has no
+exact match, as Custom Nodes In Workflow already did.
+
 ### The Custom Nodes Manager no longer offers the "Alternatives of A1111" filter
 
 The Filter of the Custom Nodes Manager no longer offers "Alternatives of
