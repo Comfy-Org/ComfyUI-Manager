@@ -22,6 +22,23 @@ not list the nodepack at all when the node map did not know the node. The id
 of a missing node is now matched without regard to case when the list has no
 exact match, as Custom Nodes In Workflow already did.
 
+### The Custom Nodes Manager no longer offers the "Alternatives of A1111" filter
+
+The Filter of the Custom Nodes Manager no longer offers "Alternatives of
+A1111", which showed the entries of `alter-list.json` in an extra Alternatives
+column. The choice and its route `GET /customnode/alternatives` are removed,
+and Manager no longer fetches `alter-list.json` at start. The file stays in the
+channels, where older versions of Manager still fetch it.
+
+### Update All Custom Nodes in the desktop app shows its result
+
+In the desktop app the Manager menu has Update All Custom Nodes, which does
+not update ComfyUI. When its updates were done the menu showed nothing. The
+result had no entry for ComfyUI, and the menu stopped with an error on the
+missing entry. The box now lists the nodepacks that were updated, with a
+RESTART button, and those whose update failed. When nothing was updated and
+nothing failed, it says `You are already up to date.`
+
 ### Check Update no longer stops the server, and shows how far it is
 
 Check Update in the Custom Nodes Manager fetched every git nodepack inside the

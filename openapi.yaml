@@ -305,22 +305,6 @@ paths:
         '500':
           description: Error occurred
                       
-  /customnode/alternatives:
-    get:
-      summary: Get alternative node options
-      description: Provides alternatives for nodes
-      parameters:
-        - $ref: '#/components/parameters/modeParam'
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  type: object
-                  
   /customnode/versions/{node_name}:
     get:
       summary: Get available versions for a node

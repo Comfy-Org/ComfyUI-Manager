@@ -43,7 +43,6 @@ const ShowMode = {
 	UPDATE: "Update",
 	MISSING: "Missing",
 	FAVORITES: "Favorites",
-	ALTERNATIVES: "Alternatives",
 	IN_WORKFLOW: "In Workflow",
 	USED_IN_ANY_WORKFLOW: "Used In Any Workflow",
 	NOT_USED_IN_ANY_WORKFLOW: "Installed and Unused",
@@ -297,10 +296,6 @@ export class CustomNodesManager {
 		}, {
 			label: "Favorites",
 			value: ShowMode.FAVORITES,
-			hasData: false
-		}, {
-			label: "Alternatives of A1111",
-			value: ShowMode.ALTERNATIVES,
 			hasData: false
 		}];
 		this.filterList = filterList;
@@ -618,7 +613,7 @@ export class CustomNodesManager {
 			bindContainerResize: true,
 
 			cellResizeObserver: (rowItem, columnItem) => {
-				const autoHeightColumns = ['title', 'action', 'description', "alternatives"];
+				const autoHeightColumns = ['title', 'action', 'description'];
 				return autoHeightColumns.includes(columnItem.id)
 			},
 
@@ -636,9 +631,6 @@ export class CustomNodesManager {
 			rowFilter: (rowItem) => {
 
 				const searchableColumns = ["title", "author", "description"];
-				if (this.hasAlternatives()) {
-					searchableColumns.push("alternatives");
-				}
 
 				let shouldShown = grid.highlightKeywordsFilter(rowItem, searchableColumns, this.keywords);
 
@@ -751,10 +743,6 @@ export class CustomNodesManager {
 		distance += 1 - stars / 10000;
 		// score
 		return 1 / distance;
-	}
-
-	hasAlternatives() {
-		return this.filter === ShowMode.ALTERNATIVES
 	}
 
 	async handleImportFail(rowItem) {
@@ -913,13 +901,6 @@ export class CustomNodesManager {
 				return list.join("");
 			}
 		}, {
-			id: "alternatives",
-			name: "Alternatives",
-			width: 400,
-			maxWidth: 5000,
-			invisible: !this.hasAlternatives(),
-			classMap: 'cn-pack-desc'
-		}, {
 			id: 'description',
 			name: 'Description',
 			width: 400,
@@ -1004,11 +985,6 @@ export class CustomNodesManager {
 	updateGrid() {
 		if (this.grid) {
 			this.grid.update();
-			if (this.hasAlternatives()) {
-				this.grid.showColumn("alternatives");
-			} else {
-				this.grid.hideColumn("alternatives");
-			}
 		}
 	}
 
@@ -2075,41 +2051,6 @@ export class CustomNodesManager {
 		return hashMap;
 	}
 
-	async getAlternatives() {
-		const mode = manager_instance.datasrc_combo.value;
-		this.showStatus(`Loading alternatives (${mode}) ...`);
-		const res = await fetchData(`/customnode/alternatives?mode=${mode}`);
-		if (res.error) {
-			this.showError(`Failed to get alternatives: ${sanitizeHTML(String(res.error))}`);
-			return [];
-		}
-
-		const hashMap = {};
-		const items = res.data;
-
-		for(let i in items) {
-			let item = items[i];
-			let custom_node = this.custom_nodes[i];
-
-			if (!custom_node) {
-				console.log(`Not found custom node: ${item.id}`);
-				continue;
-			}
-
-			// tags (alter-list.json) is not server-transformed, so escape before innerHTML.
-			const tags = `${item.tags}`.split(",").map(tag => {
-				return `<div>${sanitizeHTML(tag.trim())}</div>`;
-			}).join("");
-
-			hashMap[custom_node.hash] = {
-				alternatives: `<div class="cn-tag-list">${tags}</div> ${item.description}`
-			}
-
-		}
-	
-		return hashMap;
-	}
-
 	async getUsedInAnyWorkflow() {
 		this.showStatus(`Loading workflow usage analysis ...`);
 		
@@ -2228,8 +2169,6 @@ export class CustomNodesManager {
 				}
 			} else if(this.show_mode == ShowMode.MISSING) {
 				hashMap = await this.getMissingNodes();
-			} else if(this.show_mode == ShowMode.ALTERNATIVES) {
-				hashMap = await this.getAlternatives();
 			} else if(this.show_mode == ShowMode.FAVORITES) {
 				hashMap = await this.getFavorites();
 			} else if(this.show_mode == ShowMode.IN_WORKFLOW) {
@@ -2279,9 +2218,6 @@ export class CustomNodesManager {
 						}
 						if (value === ShowMode.MISSING) {
 							nodeItem['missing-node'] = "true";
-						}
-						if (typeof hashData === "object") {
-							Object.assign(nodeItem, hashData);
 						}
 					}
 				} else {
