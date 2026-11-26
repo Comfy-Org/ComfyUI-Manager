@@ -706,7 +706,7 @@ async function onQueueStatus(event) {
 
 		let msg = "";
 		
-		if(success_list.length == 0 && comfyui_state.startsWith('skip')) {
+		if(success_list.length == 0 && (comfyui_state == null || comfyui_state.startsWith('skip'))) {
 			if(failed_list.length == 0) {
 				msg += "You are already up to date.";
 			}
@@ -718,7 +718,7 @@ async function onQueueStatus(event) {
 				msg += "ComfyUI has been updated to latest nightly version.<BR><BR>";
 				infoToast("ComfyUI has been updated to the latest nightly version.");
 			}
-			else if(comfyui_state.startsWith('success-stable')) {
+			else if(comfyui_state?.startsWith('success-stable')) {
 				const ver = comfyui_state.split("-").pop();
 				msg += `ComfyUI has been updated to ${ver}.<BR><BR>`;
 				infoToast(`ComfyUI has been updated to ${ver}`);
@@ -794,6 +794,7 @@ async function updateAll(update_comfyui) {
 	batch_id = generateUUID();
 
 	let batch = {};
+	batch['batch_id'] = batch_id;
 	if(update_comfyui) {
 		update_all_button.innerText = "Updating ComfyUI...";
 		batch['update_comfyui'] = true;

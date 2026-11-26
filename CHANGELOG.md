@@ -16,6 +16,16 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   no longer fetches `alter-list.json` at start or in `cm-cli update-cache`, and
   no longer ships it.
 
+### Fixed
+
+- Update All in the legacy Manager menu shows its result again when its tasks
+  are done: a box that lists the nodepacks that were updated and those whose
+  update failed, with a RESTART button, or says that everything is up to
+  date. The menu sent the batch without the id by which it recognizes the
+  report of the batch's end, so it ignored that report and showed nothing.
+  Update All Custom Nodes of the desktop app, which does not update ComfyUI,
+  shows its result as well.
+
 ## [4.4.3] - 2026-11-24
 
 ### Changed
