@@ -388,14 +388,6 @@ Purpose: **feed the Custom Nodes Manager dialog with the list of available + ins
 | With or without skip_update | No git fetch performed (check timing / no remote calls) |
 | Channel resolution | Maps URL back to name (default/custom/etc.) |
 
-### GET /customnode/alternatives (legacy)
-
-Purpose: **show alternative pack recommendations for a given pack**.
-
-| Scenario | Effect to verify |
-|---|---|
-| Success | Response dict keyed by unified pack id; values from `alter-list.json` with markdown processed |
-
 ### GET /v2/externalmodel/getlist (legacy)
 
 Purpose: **list available external models with install state for Model Manager dialog**.
@@ -473,7 +465,6 @@ For Playwright tests, the "UI→effect" contract requires:
 | Click "Disable" on row | POST queue/batch (disable) | Pack in `.disabled/` + row state "Disabled" |
 | Click "Update" on outdated row | POST queue/batch (update) | Pack version changes + row state update |
 | Click "Fix" on row | POST queue/batch (fix) | Dependencies restored |
-| Click "Try alternatives" | GET /customnode/alternatives | Alternatives list rendered |
 | Open "Versions" dropdown on row | GET customnode/versions/{id} | Version list rendered in UI |
 | Open "Disabled Versions" on row | GET customnode/disabled_versions/{id} | Disabled versions rendered |
 | Click "Install via Git URL" button + enter URL + confirm | POST customnode/install/git_url | Pack cloned; dir visible in UI |

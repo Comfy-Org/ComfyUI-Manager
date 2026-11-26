@@ -24,7 +24,6 @@ OPEN_GRID = """async (rows) => {
         keywords: '',
         filter: '',
         grid: new ManagerGrid(document.getElementById('grid')),
-        hasAlternatives() { return false; },
         setDisabled() {},
         %(show_loading)s,
         %(hide_loading)s,

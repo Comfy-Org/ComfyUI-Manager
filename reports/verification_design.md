@@ -518,14 +518,7 @@ All verification here assumes Playwright UI interaction as the Action. Effect is
 - **Observable**: loading time; network log
 - **Assertion**: no git fetch calls; load time < N seconds
 
-## 6.3 GET /customnode/alternatives
-
-### Goal LA1 — Show alternatives on dedicated UI flow
-- **Action (UI)**: trigger alternatives display (specific button or context)
-- **Observable**: alternatives panel/dialog
-- **Assertion**: populated with alter-list.json entries (at least one if data exists)
-
-## 6.4 GET /v2/externalmodel/getlist
+## 6.3 GET /v2/externalmodel/getlist
 
 ### Goal LM1 — Populate Model Manager dialog
 - **Action (UI)**: open Model Manager
@@ -537,7 +530,7 @@ All verification here assumes Playwright UI interaction as the Action. Effect is
 - **Action (UI)**: open Model Manager
 - **Assertion**: that model row shows "Installed"
 
-## 6.5 GET /v2/customnode/versions/{node_name}
+## 6.4 GET /v2/customnode/versions/{node_name}
 
 ### Goal LV1 — Version dropdown on Install click
 - **Action (UI)**: click Install on a CNR pack row
@@ -548,7 +541,7 @@ All verification here assumes Playwright UI interaction as the Action. Effect is
 - **Action**: direct API call with bogus node_name
 - **Assertion**: 400; UI shows error or skips
 
-## 6.6 GET /v2/customnode/disabled_versions/{node_name}
+## 6.5 GET /v2/customnode/disabled_versions/{node_name}
 
 ### Goal LDV1 — Show disabled versions for re-enable
 - **Precondition**: pack has disabled versions
@@ -556,7 +549,7 @@ All verification here assumes Playwright UI interaction as the Action. Effect is
 - **Observable**: dropdown options
 - **Assertion**: options match backend disabled_versions response
 
-## 6.7 POST /v2/customnode/install/git_url
+## 6.6 POST /v2/customnode/install/git_url
 
 ### Goal LGU1 — Install via "Install via Git URL" button
 - **Precondition**: security_level ≥ high+; pack absent
@@ -568,7 +561,7 @@ All verification here assumes Playwright UI interaction as the Action. Effect is
 - **Precondition**: security_level < high+
 - **Assertion**: 403 from API; UI shows error; no clone occurs
 
-## 6.8 POST /v2/customnode/install/pip
+## 6.7 POST /v2/customnode/install/pip
 
 ### Goal LPP1 — Install pip packages via UI
 - **Action (UI)**: trigger pip install flow with known package
@@ -578,7 +571,7 @@ All verification here assumes Playwright UI interaction as the Action. Effect is
 ### Goal LPP2 — Security gate
 - **Assertion**: 403 at lower security; no pip invocation
 
-## 6.9 GET /v2/manager/notice
+## 6.8 GET /v2/manager/notice
 
 ### Goal LN1 — Fetch and display News
 - **Precondition**: GitHub reachable
@@ -752,7 +745,7 @@ Reusable verification templates organized by intent category. Apply the template
 
 | Intent category | Template | Scenarios using | Test type needed |
 |---|---|---:|---|
-| User capability | 7.1 | 62 | E2E effect verification (real install/remove/save etc.) |
+| User capability | 7.1 | 61 | E2E effect verification (real install/remove/save etc.) |
 | Input resilience | 7.2 | 32 | Negative tests with negative-check assertions |
 | Security boundary | 7.3 | 15 | Permission tests at each security level |
 | Observability | 7.4 | 16 | GET correctness + traceability tests |

@@ -220,19 +220,6 @@ export async function routeMappings(page: Page, mappings: Record<string, unknown
   });
 }
 
-/** Seed `/customnode/alternatives` — required to OPEN the alternatives column,
- *  which is `invisible: !this.hasAlternatives()`. Without this the alternatives
- *  column stays hidden and any test asserting on it passes vacuously. */
-export async function routeAlternatives(page: Page, alts: Record<string, unknown>) {
-  await page.route('**/customnode/alternatives**', async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(alts),
-    });
-  });
-}
-
 /** Open Manager menu -> Custom Nodes Manager and wait for the grid to fill. */
 export async function openCustomNodesManager(page: Page) {
   await clickMenuButton(page, 'Custom Nodes Manager');

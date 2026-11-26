@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ## [Unreleased]
 
+### Removed
+
+- Remove the "Alternatives of A1111" choice from the Filter of the legacy
+  Custom Nodes Manager, with its Alternatives column and the legacy route
+  `GET /customnode/alternatives`. The page asked `/v2/customnode/alternatives`,
+  which no server registers, so the choice showed no rows and an error. Manager
+  no longer fetches `alter-list.json` at start or in `cm-cli update-cache`, and
+  no longer ships it.
+
 ### Fixed
 
 - The legacy server lists a nodepack installed from the registry with its id
@@ -26,6 +35,14 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
   find the following ComfyRegistry list` for the id, and did not list the
   nodepack at all when the node map did not know the node. The id of a node
   is now matched without regard to case when the list has no exact match.
+
+- Update All in the legacy Manager menu shows its result again when its tasks
+  are done: a box that lists the nodepacks that were updated and those whose
+  update failed, with a RESTART button, or says that everything is up to
+  date. The menu sent the batch without the id by which it recognizes the
+  report of the batch's end, so it ignored that report and showed nothing.
+  Update All Custom Nodes of the desktop app, which does not update ComfyUI,
+  shows its result as well.
 
 ## [4.4.3] - 2026-11-24
 

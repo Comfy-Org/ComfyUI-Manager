@@ -195,7 +195,6 @@ context.comfy_path = os.path.dirname(folder_paths.__file__)
 core.js_path = os.path.join(context.comfy_path, "web", "extensions")
 
 local_db_model = os.path.join(manager_util.comfyui_manager_path, "model-list.json")
-local_db_alter = os.path.join(manager_util.comfyui_manager_path, "alter-list.json")
 local_db_custom_node_list = os.path.join(manager_util.comfyui_manager_path, "custom-node-list.json")
 local_db_extension_node_mappings = os.path.join(manager_util.comfyui_manager_path, "extension-node-map.json")
 
@@ -1172,21 +1171,6 @@ async def fetch_customnode_list(request):
     return web.json_response(result, content_type='application/json')
 
 
-@routes.get("/customnode/alternatives")
-async def fetch_customnode_alternatives(request):
-    alter_json = await core.get_data_by_mode(request.rel_url.query["mode"], 'alter-list.json')
-
-    res = {}
-
-    for item in alter_json['items']:
-        populate_markdown(item)
-        res[item['id']] = item
-
-    res = core.map_to_unified_keys(res)
-
-    return web.json_response(res, content_type='application/json')
-
-
 def check_model_installed(json_obj):
     def is_exists(model_dir_name, filename, url):
         if filename == '<huggingface>':
@@ -2078,10 +2062,9 @@ async def default_cache_update():
         a = get_cache("custom-node-list.json")
         b = get_cache("extension-node-map.json")
         c = get_cache("model-list.json")
-        d = get_cache("alter-list.json")
-        e = get_cache("github-stats.json")
+        d = get_cache("github-stats.json")
 
-        await asyncio.gather(a, b, c, d, e)
+        await asyncio.gather(a, b, c, d)
 
         if core.get_config()['network_mode'] == 'private':
             logging.info("[ComfyUI-Manager] The private comfyregistry is not yet supported in `network_mode=private`.")
