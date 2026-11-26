@@ -155,6 +155,21 @@ def test_missing_says_which_id_of_the_workflow_no_nodepack_has(page, cnr_id):
     assert page.errors == []
 
 
+def with_core_lookalike(packs, state):
+    packs["Comfy-Core"] = pack("Comfy-Core", "Core Lookalike", state, "https://github.com/someone/Comfy-Core")
+    return packs
+
+
+def test_missing_does_not_offer_a_nodepack_named_as_the_core_for_a_built_in_node(page):
+    node = {"type": "NewBuiltInNode", "properties": {"cnr_id": "comfy-core", "ver": "0.3.60"}}
+
+    shown = open_list(page, "MISSING", with_core_lookalike(node_packs("not-installed"), "not-installed"), [node], [])
+
+    assert shown["rows"] == []
+    assert "comfy-core" in shown["message"]
+    assert page.errors == []
+
+
 def new_node_properties(page, folder, cnr_id):
     installed = {folder: {"ver": "1.1.1", "cnr_id": cnr_id, "aux_id": None, "enabled": True}}
     return page.evaluate("""async ({module, server, python_module}) => {

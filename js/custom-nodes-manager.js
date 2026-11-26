@@ -1829,7 +1829,8 @@ export class CustomNodesManager {
 
 	getNodepackByCnrId(cnr_id) {
 		let item = this.custom_nodes[cnr_id];
-		if(item) {
+		// comfy-core is ComfyUI itself, not a nodepack that is named so in another case
+		if(item || cnr_id == 'comfy-core') {
 			return item;
 		}
 
