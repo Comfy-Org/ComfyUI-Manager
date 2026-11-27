@@ -414,13 +414,22 @@ const style = `
 #cm-manual-button-menu {
 	z-index: 10000000000 !important;
 }
+.cm-share-none .cm-share-button {
+	display: none;
+}
 `;
+
+// the frontend mounts the new style buttons into its top bar after setup(), so they are hidden by a class of the page
+function update_share_buttons() {
+	document.body.classList.toggle("cm-share-none", share_option === 'none');
+}
 
 async function init_share_option() {
 	api.fetchApi('/manager/share_option')
 		.then(response => response.text())
 		.then(data => {
 			share_option = to_share_option(data);
+			update_share_buttons();
 		});
 }
 
@@ -1149,12 +1158,7 @@ class ManagerMenuDialog extends ComfyDialog {
 			const value = event.target.value;
 			share_option = value;
 			api.fetchApi('/manager/share_option', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ value }) });
-			const shareButton = document.getElementById("shareButton");
-			if (value === 'none') {
-				shareButton.style.display = "none";
-			} else {
-				shareButton.style.display = "inline-block";
-			}
+			update_share_buttons();
 		});
 
 		const shareSetttingItem = createSettingsCombo("Share", share_combo);
@@ -1610,7 +1614,8 @@ app.registerExtension({
 						}
 						ShareDialogChooser.instance.show();
 					},
-					tooltip: "Share"
+					tooltip: "Share",
+					classList: "comfyui-button cm-share-button"
 				}).element
 			);
 
@@ -1650,11 +1655,7 @@ app.registerExtension({
 		// make the background color a gradient of blue to green
 		shareButton.style.background = "linear-gradient(90deg, #00C9FF 0%, #92FE9D 100%)";
 		shareButton.style.color = "black";
-
-		// Load share option from local storage to determine whether to show
-		// the share button.
-		const shouldShowShareButton = share_option !== 'none';
-		shareButton.style.display = shouldShowShareButton ? "inline-block" : "none";
+		shareButton.className = "cm-share-button";
 
 		menu.append(shareButton);
 	},

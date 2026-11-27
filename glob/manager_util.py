@@ -543,6 +543,9 @@ def normalize_pip_name(name):
 
 
 _PIP_LINE_TAIL_PATTERN = re.compile(r'\s[#-]')    # a comment or a pip option after the requirement
+_PIP_COMMENT_PATTERN = re.compile(r'(^|\s)#.*')    # as pip reads it: the '#' of a URL fragment starts no comment
+_PIP_INDEX_OPTIONS = {'--index-url', '--extra-index-url'}
+_PIP_EDITABLE_PATTERN = re.compile(r'(?:-e\s*|--editable(?:\s+|=))(\S+)')    # how pip reads -e and its target
 _PIP_MALFORMED_PATTERN = re.compile(r'([A-Za-z0-9][A-Za-z0-9._-]*)\s*(\[[^\]]*\]\s*)?[<>=!~(]')
 _PIP_URL_PATTERN = re.compile(r'[A-Za-z][A-Za-z0-9+.-]*://')
 
@@ -581,6 +584,54 @@ def parse_pip_spec(spec):
     if requirement.url:
         return name, extras, [('@', requirement.url)]
     return name, extras, [(specifier.operator, specifier.version) for specifier in requirement.specifier]
+
+
+def installer_args(requirement):
+    """The arguments of a requirement as the installer in use takes them.
+
+    uv installs an editable from a local folder only: where the arguments are `-e`
+    and a git URL, uv gets the URL alone, as a normal install, and a line says so.
+    """
+    if requirement[0] == '-e' and requirement[1].startswith('git+') and 'uv' in get_pip_cmd(force_uv=use_uv):
+        print(f"[ComfyUI-Manager] uv installs an editable from a local folder only: '{requirement[1]}' is installed without -e")
+        return requirement[1:]
+    return requirement
+
+
+def pip_install_args(line, overrides):
+    """The arguments that a line of requirements.txt gives to `pip install`, or [] if it has none.
+
+    Each line is installed on its own, and an option applies to its line only. The
+    comment is left out as pip leaves it out, so a URL keeps its fragment. A line that
+    `overrides` (pip_overrides.json) names is replaced. An editable requirement
+    (`-e path`, `--editable=path`) is `-e` and its target. A requirement followed by
+    index options, such as `--extra-index-url URL`, gives the requirement and the
+    options; any other line with a requirement is one argument, with the spaces of an
+    environment marker. Where `-e` and a git URL are two arguments, uv gets the URL
+    alone: it installs an editable from a local folder only. A line that starts with
+    another option than `-e`, such as `-r other.txt`, names no requirement and gives
+    none.
+    """
+    text = _PIP_COMMENT_PATTERN.sub('', line).strip()
+    if text in overrides:
+        print(f"[ComfyUI-Manager] '{text}' is remapped to '{overrides[text]}'")
+        text = overrides[text]
+    if not text:
+        return []
+    editable = _PIP_EDITABLE_PATTERN.match(text)
+    if editable is not None:
+        requirement, options = ['-e', editable.group(1)], text[editable.end():].split()
+    elif text.startswith('-'):
+        print(f"[ComfyUI-Manager] skip '{text}': the Manager installs requirements one row at a time and does not apply this row")
+        return []
+    else:
+        tail = _PIP_LINE_TAIL_PATTERN.search(text)
+        if tail is None:
+            return [text]
+        requirement, options = [text[:tail.start()].rstrip()], text[tail.start():].split()
+    if len(options) % 2 == 0 and set(options[::2]) <= _PIP_INDEX_OPTIONS:
+        return [*installer_args(requirement), *options]
+    return [text]
 
 
 def _upper_bound_state(operator, version, installed):
@@ -869,15 +920,15 @@ def installed_from(url, name=None):
     return None
 
 
-def fix_cmd(requirement):
-    """The pip command with which a fix installs a requirement.
+def fix_cmd(install_args):
+    """The pip command with which a fix installs the arguments of a requirement line, from `pip_install_args()`.
 
     A direct reference is installed again by force, whatever is installed: nothing but
     its URL says what it should be. That command is run with `reinstall()`. Any other
     requirement is installed as an install does it.
     """
-    cmd = make_pip_cmd(['install', requirement])
-    clauses = parse_pip_spec(requirement)[2]
+    cmd = make_pip_cmd(['install', *install_args])
+    clauses = parse_pip_spec(install_args[0])[2]
     if clauses and clauses[0][0] == '@':
         # --no-deps: without it every package the distribution needs is installed again as well, torch among them.
         # The cache is left out: with it uv installs the wheel it has built of the commit before, forced or not, and so
@@ -1287,13 +1338,22 @@ def restore_pip_snapshot(pips, options):
         if k.startswith("torch==") or k.startswith("torchvision==") or k.startswith("torchaudio==") or k.startswith("nvidia-"):
             continue
 
-        if v == "":
+        # pip freeze prints an editable install as `-e <path or url>`, after a comment line
+        if k.startswith('#'):
+            continue
+        elif k.startswith('-e '):
+            v = k[3:]
+            args = ['-e', v]
+        elif v == "":
             non_url.append(k)
+            continue
         else:
-            if v.startswith('file:'):
-                local_url.append(v)
-            else:
-                non_local_url.append(v)
+            args = [v]
+
+        if v.startswith('file:') or '://' not in v:
+            local_url.append(args)
+        else:
+            non_local_url.append(args)
 
 
     # restore other pips
@@ -1322,23 +1382,23 @@ def restore_pip_snapshot(pips, options):
         for x in non_local_url:
             res = 1
             try:
-                res = subprocess.check_call(make_pip_cmd(['install', '--no-deps', x]))
+                res = subprocess.check_call(make_pip_cmd(['install', '--no-deps', *installer_args(x)]))
             except Exception:
                 pass
 
             if res != 0:
-                failed.append(x)
+                failed.append(' '.join(x))
 
     if '--pip-local-url' in options:
         for x in local_url:
             res = 1
             try:
-                res = subprocess.check_call(make_pip_cmd(['install', '--no-deps', x]))
+                res = subprocess.check_call(make_pip_cmd(['install', '--no-deps', *installer_args(x)]))
             except Exception:
                 pass
 
             if res != 0:
-                failed.append(x)
+                failed.append(' '.join(x))
 
     print(f"Installation failed for pip packages: {failed}")
     return failed

@@ -154,15 +154,6 @@ if os.path.exists(manager_pip_blacklist_path):
                 cm_global.pip_blacklist.add(y)
 
 
-def remap_pip_package(pkg):
-    if pkg in cm_global.pip_overrides:
-        res = cm_global.pip_overrides[pkg]
-        print(f"[ComfyUI-Manager] '{pkg}' is remapped to '{res}'")
-        return res
-    else:
-        return pkg
-
-
 std_log_lock = threading.Lock()
 
 
@@ -713,16 +704,9 @@ def execute_lazy_install_script(repo_path, executable):
 
         lines = manager_util.robust_readlines(requirements_path)
         for line in lines:
-            package_name = remap_pip_package(line.strip())
-            package_name = package_name.split('#')[0].strip()
-            if package_name and not is_installed(package_name):
-                if '--index-url' in package_name:
-                    s = package_name.split('--index-url')
-                    install_cmd = manager_util.make_pip_cmd(["install", s[0].strip(), '--index-url', s[1].strip()])
-                else:
-                    install_cmd = manager_util.make_pip_cmd(["install", package_name])
-
-                process_wrap(install_cmd, repo_path)
+            install_args = manager_util.pip_install_args(line, cm_global.pip_overrides)
+            if install_args and not is_installed(install_args[0]):
+                process_wrap(manager_util.make_pip_cmd(["install", *install_args]), repo_path)
 
     if os.path.exists(install_script_path) and f'{repo_path}/install.py' not in processed_install:
         processed_install.add(f'{repo_path}/install.py')

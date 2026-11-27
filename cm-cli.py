@@ -462,11 +462,7 @@ def show_list(kind, simple=False):
 
     if flag and kind != 'cnr':
         for k, v in unified_manager.unknown_active_nodes.items():
-            item = repo_unknown.get(k)
-
-            if item is None:
-                continue
-
+            item = repo_unknown.get(k, {'title': k, 'author': 'N/A'})
             log_item = "[    ENABLED    ] ", item['title'], k, item['author']
             unknown_processed.append(log_item)
 
@@ -493,11 +489,7 @@ def show_list(kind, simple=False):
 
     if flag and kind != 'cnr':
         for k, v in unified_manager.unknown_inactive_nodes.items():
-            item = repo_unknown.get(k)
-
-            if item is None:
-                continue
-
+            item = repo_unknown.get(k, {'title': k, 'author': 'N/A'})
             log_item = "[    DISABLED   ] ", item['title'], k, item['author']
             unknown_processed.append(log_item)
 
@@ -538,19 +530,19 @@ def show_list(kind, simple=False):
             print(f"{prefix} {title:50} {short_id:30} (author: {author:20}) [UNKNOWN]")
 
 
-async def show_snapshot(simple_mode=False):
-    json_obj = await core.get_current_snapshot()
+def show_snapshot(simple_mode=False):
+    json_obj = asyncio.run(core.get_current_snapshot())
 
     if simple_mode:
-        print(f"[{json_obj['comfyui']}] comfyui")
+        core.print(f"[{json_obj['comfyui']}] comfyui")
         for k, v in json_obj['git_custom_nodes'].items():
-            print(f"[{v['hash']}] {k}")
+            core.print(f"[{v['hash']}] {k}")
         for v in json_obj['file_custom_nodes']:
-            print(f"[                   N/A                  ] {v['filename']}")
+            core.print(f"[                   N/A                  ] {v['filename']}")
 
     else:
         formatted_json = json.dumps(json_obj, ensure_ascii=False, indent=4)
-        print(formatted_json)
+        core.print(formatted_json)
 
 
 def show_snapshot_list(simple_mode=False):
@@ -1251,7 +1243,8 @@ def install_deps(
                 elif state == 'not-installed':
                     asyncio.run(core.gitclone_install(k, instant_execution=True))
                 else:  # disabled
-                    core.gitclone_set_active([k], False)
+                    cnr = unified_manager.get_cnr_by_repo(k)
+                    enable_node(cnr['id'] if cnr else core.unknown_node_id(k))
             pip_fixer.fix_broken()
 
         print("Dependency installation and activation complete.")

@@ -57,6 +57,7 @@ version_str = f"V{version_code[0]}.{version_code[1]}" + (f'.{version_code[2]}' i
 
 
 DEFAULT_CHANNEL = "https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main"
+DEFAULT_CHANNEL_URLS = {"https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/main", "https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main"}
 
 
 default_custom_nodes_path = None
@@ -279,17 +280,12 @@ valid_channels = {'default', 'local'}
 channel_list = None
 
 
-def remap_pip_package(pkg):
-    if pkg in cm_global.pip_overrides:
-        res = cm_global.pip_overrides[pkg]
-        print(f"[ComfyUI-Manager] '{pkg}' is remapped to '{res}'")
-        return res
-    else:
-        return pkg
-
-
 def is_blacklisted(name):
     return manager_util.pip_block_reason(name, cm_global.pip_blacklist, cm_global.pip_downgrade_blacklist) is not None
+
+
+def normalize_channel_url(url):
+    return DEFAULT_CHANNEL if url in DEFAULT_CHANNEL_URLS else url
 
 
 def normalize_channel(channel):
@@ -298,7 +294,7 @@ def normalize_channel(channel):
     elif channel is None:
         return None
     elif channel.startswith('https://'):
-        return channel
+        return normalize_channel_url(channel)
     elif channel.startswith('http://') and get_config()['http_channel_enabled'] == True:
         return channel
 
@@ -476,11 +472,12 @@ class UnifiedManager:
 
                 if latest is not None:
                     version_spec = str(latest[0])
+                elif node_name in self.nightly_inactive_nodes:
+                    version_spec = "nightly"
+                elif node_name in self.unknown_inactive_nodes:
+                    version_spec = "unknown"
                 else:
-                    if node_name in self.nightly_inactive_nodes:
-                        version_spec = "nightly"
-                    else:
-                        version_spec = "unknown"
+                    return None
 
             elif node_name in self.unknown_inactive_nodes:
                 version_spec = "unknown"
@@ -518,7 +515,8 @@ class UnifiedManager:
 
         spec = node_name.split('@')
 
-        if len(spec) == 2:
+        # 'latest' names no installed version: with a guess mode the installed one is guessed, as for a bare name
+        if len(spec) == 2 and (spec[1] != 'latest' or guess_mode is None):
             node_name = spec[0]
             version_spec = spec[1]
 
@@ -528,6 +526,11 @@ class UnifiedManager:
                     return None
                 else:
                     version_spec = self.cnr_map[node_name]['latest_version']['version']
+
+            if guess_mode == 'active' and not self.is_enabled(node_name, version_spec):
+                return None
+            elif guess_mode == 'inactive' and not self.is_disabled(node_name, version_spec):
+                return None
 
         elif guess_mode in ['active', 'inactive']:
             node_name = spec[0]
@@ -749,13 +752,8 @@ class UnifiedManager:
 
         latest = None
         for k, v in ver_map.items():
-            if latest is None:
-                latest = self.safe_version(k), v
-                continue
-
-            cur_ver = self.safe_version(k)
-            if cur_ver > latest[0]:
-                latest = cur_ver, v
+            if latest is None or self.safe_version(k) > self.safe_version(latest[0]):
+                latest = k, v
 
         return latest
 
@@ -899,12 +897,14 @@ class UnifiedManager:
                 # a fix is held back by what the same fix has done, and not by an install or another fix of the session
                 done = self.processed_install if fixed is None else fixed
                 for line in lines:
-                    package_name = remap_pip_package(line.strip())
-                    if package_name and not package_name.startswith('#') and package_name not in done:
-                        clean_package_name = package_name.split('#')[0].strip()
-                        install_cmd = manager_util.make_pip_cmd(["install", clean_package_name]) if fixed is None else manager_util.fix_cmd(clean_package_name)
-                        if clean_package_name != "" and not clean_package_name.startswith('#'):
-                            res = res and try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
+                    install_args = manager_util.pip_install_args(line, cm_global.pip_overrides)
+                    package_name = ' '.join(install_args)
+                    names_a_path = any(os.path.exists(os.path.join(repo_path, re.split(r'[\[;]', arg)[0].strip())) for arg in install_args)
+                    if names_a_path:
+                        package_name = f'{repo_path}: {package_name}'
+                    if install_args and package_name not in done:
+                        install_cmd = manager_util.make_pip_cmd(["install", *install_args]) if fixed is None else manager_util.fix_cmd(install_args)
+                        res = res and try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
                         if res:
                             self.processed_install.add(package_name)
                             done.add(package_name)
@@ -1847,8 +1847,9 @@ def get_channel_dict():
             for x in channels.split('\n'):
                 channel_info = x.split("::")
                 if len(channel_info) == 2:
-                    channel_dict[channel_info[0]] = channel_info[1]
-                    valid_channels.add(channel_info[1])
+                    channel_url = normalize_channel_url(channel_info[1])
+                    channel_dict[channel_info[0]] = channel_url
+                    valid_channels.add(channel_url)
 
     return channel_dict
 
@@ -2073,7 +2074,7 @@ def read_config():
                     # read as written: a path of Windows may hold a `%`, which the parser takes as the start of a reference
                     'git_exe': default_conf.get('git_exe', '', raw=True),
                     'use_uv': get_bool('use_uv', False),
-                    'channel_url': default_conf.get('channel_url', DEFAULT_CHANNEL),
+                    'channel_url': normalize_channel_url(default_conf.get('channel_url', DEFAULT_CHANNEL)),
                     'default_cache_as_channel_url': get_bool('default_cache_as_channel_url', False),
                     'share_option': default_conf.get('share_option', 'all').lower(),
                     'bypass_ssl': get_bool('bypass_ssl', False),
@@ -2320,25 +2321,9 @@ def execute_install_script(url, repo_path, lazy_mode=False, instant_execution=Fa
             pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path if manager_migration.has_system_user_api() else None)
             with open(requirements_path, "r") as requirements_file:
                 for line in requirements_file:
-                    #handle comments
-                    if '#' in line:
-                        if line.strip()[0] == '#':
-                            print("Line is comment...skipping")
-                            continue
-                        else:
-                            line = line.split('#')[0].strip()
-
-                    package_name = remap_pip_package(line.strip())
-
-                    if package_name and not package_name.startswith('#'):
-                        if '--index-url' in package_name:
-                            s = package_name.split('--index-url')
-                            install_cmd = manager_util.make_pip_cmd(["install", s[0].strip(), '--index-url', s[1].strip()])
-                        else:
-                            install_cmd = manager_util.make_pip_cmd(["install", package_name])
-
-                        if package_name.strip() != "" and not package_name.startswith('#'):
-                            try_install_script(url, repo_path, install_cmd, instant_execution=instant_execution)
+                    install_args = manager_util.pip_install_args(line, cm_global.pip_overrides)
+                    if install_args:
+                        try_install_script(url, repo_path, manager_util.make_pip_cmd(["install", *install_args]), instant_execution=instant_execution)
             pip_fixer.fix_broken()
 
         if os.path.exists(install_script_path):
@@ -2570,19 +2555,14 @@ def git_pull(path):
 
 
 async def get_data_by_mode(mode, filename, channel_url=None):
-    if channel_url in get_channel_dict():
-        channel_url = get_channel_dict()[channel_url]
-
     try:
         local_uri = os.path.join(manager_util.comfyui_manager_path, filename)
 
         if mode == "local":
             json_obj = await manager_util.get_data(local_uri)
         else:
-            if channel_url is None:
-                uri = get_config()['channel_url'] + '/' + filename
-            else:
-                uri = channel_url + '/' + filename
+            channel_url = normalize_channel(channel_url) or get_config()['channel_url']
+            uri = channel_url + '/' + filename
 
             cache_uri = str(manager_util.simple_hash(uri))+'_'+filename
             cache_uri = os.path.join(manager_util.cache_dir, cache_uri)
@@ -2707,70 +2687,6 @@ def gitclone_uninstall(files):
             return False
 
     print("Uninstallation was successful.")
-    return True
-
-
-def gitclone_set_active(files, is_disable):
-    import os
-
-    if is_disable:
-        action_name = "Disable"
-    else:
-        action_name = "Enable"
-
-    print(f"{action_name}: {files}")
-    for url in files:
-        if url.endswith("/"):
-            url = url[:-1]
-        try:
-            for custom_nodes_dir in get_custom_nodes_paths():
-                dir_name = os.path.splitext(os.path.basename(url))[0].replace(".git", "")
-                dir_path = os.path.join(custom_nodes_dir, dir_name)
-
-                # safety check
-                if dir_path == '/' or dir_path[1:] == ":/" or dir_path == '':
-                    print(f"{action_name}(git-clone) error: invalid path '{dir_path}' for '{url}'")
-                    return False
-
-                if is_disable:
-                    current_path = dir_path
-                    base_path = extract_base_custom_nodes_dir(current_path)
-                    new_path = os.path.join(base_path, ".disabled", dir_name)
-
-                    if not os.path.exists(current_path):
-                        continue
-                else:
-                    current_path1 = os.path.join(get_default_custom_nodes_path(), ".disabled", dir_name)
-                    current_path2 = dir_path + ".disabled"
-
-                    if os.path.exists(current_path1):
-                        current_path = current_path1
-                    elif os.path.exists(current_path2):
-                        current_path = current_path2
-                    else:
-                        continue
-
-                    base_path = extract_base_custom_nodes_dir(current_path)
-                    new_path = os.path.join(base_path, dir_name)
-
-                shutil.move(current_path, new_path)
-
-                if is_disable:
-                    if os.path.exists(os.path.join(new_path, "disable.py")):
-                        disable_script = [sys.executable, "disable.py"]
-                        try_install_script(url, new_path, disable_script)
-                else:
-                    if os.path.exists(os.path.join(new_path, "enable.py")):
-                        enable_script = [sys.executable, "enable.py"]
-                        try_install_script(url, new_path, enable_script)
-
-                break  # for safety
-
-        except Exception as e:
-            print(f"{action_name}(git-clone) error: {url} / {e}", file=sys.stderr)
-            return False
-
-    print(f"{action_name} was successful.")
     return True
 
 
@@ -2943,11 +2859,11 @@ def lookup_installed_custom_nodes_legacy(repo_name):
 
 
 def simple_check_custom_node(url):
-    dir_name = os.path.splitext(os.path.basename(url))[0].replace(".git", "")
-    dir_path = os.path.join(get_default_custom_nodes_path(), dir_name)
-    if os.path.exists(dir_path):
+    cnr = unified_manager.get_cnr_by_repo(url)
+    node_id = cnr['id'] if cnr else unknown_node_id(url)
+    if unified_manager.is_enabled(node_id):
         return 'installed'
-    elif os.path.exists(dir_path+'.disabled'):
+    elif unified_manager.installed_folders_of(node_id):
         return 'disabled'
 
     return 'not-installed'

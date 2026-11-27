@@ -2,6 +2,164 @@
 
 ## Unreleased
 
+### Both URLs of the default channel are the default channel
+
+The default channel is served at
+`https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main` and at
+`https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/main`, and
+Manager took only the first as the default channel. Manager 4 writes the
+second into the same `config.ini` and `channels.list`. With the second as
+`channel_url` of `config.ini`, or as the `default` line of `channels.list`,
+the start stopped with `An invalid channel was used`, the list of the Custom
+Nodes Manager failed to load, and the channel menu showed no channel. Both
+URLs now mean the default channel: the lists are read from one set of cache
+files, the registry nodepacks are listed, and `default` is selected.
+`config.ini` and `channels.list` are left as they are.
+
+### Every place reads a line of requirements.txt the same way
+
+Each place that installs the `requirements.txt` of a nodepack line by line
+read a line its own way. A URL was cut at its `#`, so
+`git+https://host/repo#subdirectory=sub` installed the root of the
+repository, which pip and uv refuse as no Python project. A requirement
+followed by `--index-url URL` went to the installer as one argument, which it
+refuses, in an install from the registry, an update and a fix of a nodepack,
+and in `cm-cli install`, `fix` and `restore-dependencies`. An entry of
+`pip_overrides.json` did not apply to a line with a comment there either, nor
+in a reserved install that runs at the next start. Now a comment starts at a
+`#` at the start of the line or after whitespace, as pip reads it, and a
+requirement followed by `--index-url URL` is installed from that index in
+every place. A requirement followed by another option, such as
+`flash-attn --no-build-isolation`, still goes to the installer as one
+argument and fails as before.
+
+### An option in requirements.txt applies to its own row only
+
+A row of the `requirements.txt` of a nodepack that has only an option, such as
+`--extra-index-url URL`, `--trusted-host host` or `-r other.txt`, went to pip
+or uv as one argument, which both refuse. In an install from the registry, an
+update and a fix of a nodepack, and in `cm-cli install`, `fix` and
+`restore-dependencies`, that failure stopped every row after it: none of them
+was installed, and the nodepack was reported as failed. The Manager installs
+requirements one row at a time, and an option applies to the row it is
+written on only. A row with only an option has nothing to install: it is now
+left out with the line `skip '<row>': the Manager installs requirements one
+row at a time and does not apply this row`, and the rows after it are
+installed. `-r` and `-c` install nothing. A row `-e path` or
+`--editable path` is an editable requirement and goes to the installer as
+`-e` and its target, which pip and uv install as editable; before, uv
+installed `-e path` and pip refused it. With a git URL, pip installs `-e` as
+it is written. uv installs an editable from a local folder only, so with uv
+a row `-e git+URL`, with or without index options after it, is installed
+without `-e`, and a line says so; before, uv refused the row.
+`--extra-index-url URL` after a requirement now goes to the installer with
+that requirement, as `--index-url URL` does.
+
+### A row that names a path is installed for each nodepack
+
+In one session the Manager installs a row of `requirements.txt` once: a row
+that an earlier nodepack has installed is not installed again. A row that
+names a path, such as `-e .`, `-e ./local` or
+`./wheels/demo-1.0-py3-none-any.whl`, counted as the same row in every
+nodepack, although the installer reads the path from the folder of each
+nodepack. In an install, an update and a fix, the second nodepack with such a
+row was reported as done without its row being installed. Such a row is now
+installed for each nodepack: a row counts as one when an argument of it,
+without extras and marker, exists as a path seen from that folder. Any other
+row is installed once in a session, as before.
+
+### cm-cli show snapshot prints the snapshot
+
+`cm-cli show snapshot` and `cm-cli simple-show snapshot` printed only a
+`RuntimeWarning` that a coroutine was never awaited, and ended with exit code
+0. They now print the snapshot of the current state: as JSON with `show`, and
+with `simple-show` a line with the commit hash of ComfyUI and of each git
+nodepack. The hashes, the URLs and the JSON are written as they are, so a hash
+that starts with a letter is no longer left out and a long line is not broken.
+
+### cm-cli enable all enables the disabled nodepacks
+
+`cm-cli enable all` enabled nothing and said `Already enabled` for every
+nodepack, the disabled ones too. `all` names each nodepack with its version,
+and a nodepack named with a version counted as enabled and as disabled at
+once. `enable`, `disable`, `update` and `fix` now look at the state of the
+version that is named, also in `<id>@<version>` on the command line. `enable
+all` enables the disabled nodepacks, `disable all` says `Already disabled` for
+a disabled registry nodepack instead of `Not installed`, and `fix all` leaves
+the disabled nodepacks out instead of printing an error for each.
+`<id>@latest` names no installed version, so with it these four commands act
+on the installed nodepack, as with the id alone. A disabled version with a
+pre-release part, such as `1.0.0-rc1`, is enabled as well: it was named
+`1.0.0rc1`, which no installed version is called, so `cm-cli enable` did not
+find it. The Custom Nodes Manager shows the version of a disabled nodepack
+under that name too. For a registry nodepack that is not installed, `update`
+and `fix` say `Not installed` and `enable` and `disable` say `Not found`,
+instead of `Disabled` and `Already disabled`.
+
+### cm-cli show installed lists a git nodepack that the lists do not know
+
+`cm-cli show installed`, `show enabled` and `show disabled`, and the same lists
+of `simple-show`, left out a git nodepack that neither the node list of the
+channel nor the registry knows, enabled or disabled. The documentation says
+that `installed` shows all nodes that have been installed. They now list such
+a nodepack with its id and `author: N/A`, as cm-cli did before it supported
+the registry.
+
+### cm-cli deps-in-workflow tells whether a registry nodepack is installed
+
+`cm-cli deps-in-workflow` wrote `"state": "not-installed"` for a nodepack
+installed from the registry, enabled or disabled, and for a git nodepack
+disabled into `custom_nodes/.disabled`. It looked for a folder named after
+the repository, but a registry install has a folder named by its id, and a
+disable moves the folder into `.disabled`. The state now comes from the
+nodepacks the Manager knows to be installed, as in the Custom Nodes Manager.
+`cm-cli install-deps`, which reads the same state, enables a disabled
+nodepack as `cm-cli enable` does; a git nodepack in `.disabled` stayed
+disabled. It no longer runs an `enable.py` of the nodepack, which `cm-cli
+enable` and the Custom Nodes Manager do not run either.
+
+### cm-cli restore-snapshot restores an editable install
+
+`cm-cli restore-snapshot` with `--pip-non-url`, `--pip-non-local-url` or
+`--pip-local-url` ended with exit code 1 when the snapshot had a package
+installed in editable mode, as `pip install -e` makes it. `pip freeze` lists
+it as `-e <path>` after a comment line, and the restore gave both lines to
+pip as packages of PyPI, which pip refused; every package was then installed
+again one at a time. An editable install is now restored as editable with
+the option of where it is: `--pip-local-url` for a path,
+`--pip-non-local-url` for a repository URL. With uv, a git URL is
+installed without `-e`, as such a row of `requirements.txt` is, and a line
+says so. A path that the machine does not have is listed under
+`Installation failed for pip packages`, as a `file:` URL is. The comment
+line is skipped.
+
+### In Workflow of the Model Manager lists only the models of the workflow
+
+The Filter "In Workflow" of the Model Manager took the name of each model file
+of the workflow without its extension, and showed every row that had that text
+anywhere in its name, type, base, description, file name or save path. The
+default workflow loads `ae.safetensors`, and the filter showed 29 rows, every
+TAESD model among them, where only FLUX.1 VAE model is that file. It also
+cleared the marks of a search, and did not list a model whose file has none of
+eight extensions, such as a `.gguf` file. A row is now listed when a widget of
+the workflow names its file, also in a subfolder.
+
+### The Filter of the Model Manager works together with Type and Base
+
+With a Filter choice other than All, the Model Manager ignored Type and Base.
+Type TAESD with the Filter at Not Installed showed all 569 models that are not
+installed, instead of the 8 TAESD models. The list now shows the rows that
+match the Filter, Type, Base and the search together.
+
+### Share = None hides the Share button of the top bar
+
+The Share setting of the Manager menu says it hides the share button of the
+main menu, but it hid only the Share button of the old menu, which the
+frontend shows only when "Use new menu" is Disabled. The Share button that
+Manager puts in the top bar, beside its Manager button, stayed when Share was
+None, both right after the choice and after a reload. Share = None now hides
+the Share button in either menu, and another choice shows it again.
+
 ### An install without torchaudio gets the PyTorch restore, and the restore does not add torchaudio
 
 ComfyUI no longer needs torchaudio (Comfy-Org/ComfyUI#16457). On an install

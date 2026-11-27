@@ -25,17 +25,27 @@ PIPS = {
     'torch==2.5.1': '',
 }
 
+GIT_URL = 'git+https://example.com/vcs-pack.git@0123abcd#egg=vcs-pack'
+EDITABLE = {
+    'alpha==1.0': '',
+    '# Editable install with no version control (local-pack==0.1)': '',
+    '-e /work/local-pack': '',
+    '-e file:///work/uv-pack': '',
+    f'-e {GIT_URL}': '',
+}
+UV = ['uv', 'pip']
+
 
 @pytest.fixture
 def restore(monkeypatch, capsys):
     """Run restore_pip_snapshot() with pip replaced; return the pip commands and the reported failures."""
     manager_util = MANAGER_UTIL
 
-    def run(options, failing=()):
+    def run(options, failing=(), pips=PIPS, installer=('python', '-m', 'pip')):
         commands = []
 
         def check_call(cmd, **_):
-            commands.append(cmd[3:])
+            commands.append(cmd[len(installer):])
             if any(name in arg for arg in cmd for name in failing):
                 raise subprocess.CalledProcessError(1, cmd)
             return 0
@@ -44,13 +54,13 @@ def restore(monkeypatch, capsys):
             # pip's output, as the real check_output returns it: never an exit status.
             return check_call(cmd) or b'Successfully installed\n'
 
-        monkeypatch.setattr(manager_util, 'make_pip_cmd', lambda cmd: ['python', '-m', 'pip', *cmd])
+        monkeypatch.setattr(manager_util, 'get_pip_cmd', lambda force_uv=False: list(installer))
         monkeypatch.setattr(manager_util, 'subprocess', SimpleNamespace(
             check_call=check_call, check_output=check_output,
             CalledProcessError=subprocess.CalledProcessError))
 
-        run.not_installed = manager_util.restore_pip_snapshot(PIPS, options)
-        report = capsys.readouterr().out.strip().splitlines()[-1]
+        run.not_installed = manager_util.restore_pip_snapshot(pips, options)
+        *run.said, report = capsys.readouterr().out.strip().splitlines()
         return commands, report
 
     return run
@@ -119,3 +129,47 @@ def test_group_without_its_option_is_left_alone(restore):
 
     assert commands == []
     assert report == 'Installation failed for pip packages: []'
+
+
+@pytest.mark.parametrize('option, installed', [
+    ('--pip-non-url', [['install', 'alpha==1.0']]),
+    ('--pip-local-url', [['install', '--no-deps', '-e', '/work/local-pack'],
+                         ['install', '--no-deps', '-e', 'file:///work/uv-pack']]),
+    ('--pip-non-local-url', [['install', '--no-deps', '-e', GIT_URL]]),
+])
+def test_editable_install_is_restored_as_editable_with_the_option_of_its_url(restore, option, installed):
+    commands, report = restore([option], pips=EDITABLE)
+
+    assert commands == installed
+    assert restore.said == []
+    assert report == 'Installation failed for pip packages: []'
+
+
+def test_uv_restores_an_editable_install_of_a_git_url_without_e(restore):
+    commands, report = restore(['--pip-non-local-url', '--pip-local-url'], pips=EDITABLE, installer=UV)
+
+    assert commands == [['install', '--no-deps', GIT_URL],
+                        ['install', '--no-deps', '-e', '/work/local-pack'],
+                        ['install', '--no-deps', '-e', 'file:///work/uv-pack']]
+    assert restore.said == [f"[ComfyUI-Manager] uv installs an editable from a local folder only: '{GIT_URL}' is installed without -e"]
+    assert report == 'Installation failed for pip packages: []'
+
+
+def test_uv_says_nothing_of_an_editable_install_that_its_option_leaves_alone(restore):
+    commands, _ = restore(['--pip-local-url'], pips=EDITABLE, installer=UV)
+
+    assert commands == [['install', '--no-deps', '-e', '/work/local-pack'], ['install', '--no-deps', '-e', 'file:///work/uv-pack']]
+    assert restore.said == []
+
+
+def test_an_editable_git_url_that_uv_does_not_install_is_reported_as_the_snapshot_has_it(restore):
+    _, report = restore(['--pip-non-local-url'], failing=['vcs-pack'], pips=EDITABLE, installer=UV)
+
+    assert report == f"Installation failed for pip packages: ['-e {GIT_URL}']"
+
+
+def test_editable_install_whose_path_is_gone_is_reported(restore):
+    _, report = restore(['--pip-non-url', '--pip-local-url'], failing=['/work/local-pack'], pips=EDITABLE)
+
+    assert report == "Installation failed for pip packages: ['-e /work/local-pack']"
+    assert restore.not_installed == ['-e /work/local-pack']
