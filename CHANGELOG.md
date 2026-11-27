@@ -18,6 +18,18 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ### Fixed
 
+- An install without torchaudio is no longer reported as one without
+  PyTorch, and gets the PyTorch restore after a nodepack. ComfyUI no longer
+  needs torchaudio (Comfy-Org/ComfyUI#16457). On an install without it,
+  Manager logged `[ComfyUI-Manager] PyTorch is not installed` at every start
+  and after an install, an update or a fix of a nodepack that has
+  requirements, and did not restore PyTorch when a nodepack changed torch or
+  torchvision (#3388). That line is no longer logged, and after such a
+  nodepack Manager runs the PyTorch restore that an install with torchaudio
+  gets. The restore installs torchaudio only when the install had it or the
+  nodepack added it. A nodepack that changes only torchaudio no longer starts
+  that restore.
+
 - The legacy server lists a nodepack installed from the registry with its id
   as the registry writes it, as `ComfyUI_SigmoidOffsetScheduler`, as the
   server of the new UI already does. It gave the id in lowercase, a node
