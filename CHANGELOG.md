@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### An install without torchaudio gets the PyTorch restore, and the restore does not add torchaudio
+
+ComfyUI no longer needs torchaudio (Comfy-Org/ComfyUI#16457). On an install
+without it, Manager logged `[ComfyUI-Manager] PyTorch is not installed` at
+every start and after an install, an update or a fix of a nodepack that has
+requirements, and did not restore PyTorch when a nodepack changed torch or
+torchvision. That line is no longer logged, and after such a nodepack Manager
+runs the PyTorch restore that an install with torchaudio gets. The restore
+installs torchaudio only when the install had it or the nodepack added it. A
+nodepack that changes only torchaudio no longer starts that restore. The Linux
+and Windows venv install scripts and the Colab notebook no longer install
+torchaudio.
+
 ### An installed registry nodepack is listed with the registry's id
 
 `GET /customnode/installed` gave the id of a nodepack installed from the
