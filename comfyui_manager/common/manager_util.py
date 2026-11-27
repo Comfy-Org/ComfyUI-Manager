@@ -933,52 +933,85 @@ def parse_requirement_line(line):
     return res
 
 
-torch_torchvision_torchaudio_version_map = {
-    '2.7.0': ('0.22.0', '2.7.0'),
-    '2.6.0': ('0.21.0', '2.6.0'),
-    '2.5.1': ('0.20.0', '2.5.0'),
-    '2.5.0': ('0.20.0', '2.5.0'),
-    '2.4.1': ('0.19.1', '2.4.1'),
-    '2.4.0': ('0.19.0', '2.4.0'),
-    '2.3.1': ('0.18.1', '2.3.1'),
-    '2.3.0': ('0.18.0', '2.3.0'),
-    '2.2.2': ('0.17.2', '2.2.2'),
-    '2.2.1': ('0.17.1', '2.2.1'),
-    '2.2.0': ('0.17.0', '2.2.0'),
-    '2.1.2': ('0.16.2', '2.1.2'),
-    '2.1.1': ('0.16.1', '2.1.1'),
-    '2.1.0': ('0.16.0', '2.1.0'),
-    '2.0.1': ('0.15.2', '2.0.1'),
-    '2.0.0': ('0.15.1', '2.0.0'),
-}
+def torch_rollback(installed_before, installed_after):
+    def pytorch_index(build, option):
+        version = Version(build)
+        if version.is_devrelease:
+            return ['--pre', option, f"https://download.pytorch.org/whl/nightly/{version.local or 'cpu'}"]
+        if version.local is not None:
+            return [option, f"https://download.pytorch.org/whl/{version.local}"]
+        return []
 
+    def install(*arguments, from_index_of):
+        index = pytorch_index(from_index_of, '--extra-index-url')
+        command = make_pip_cmd(['install', *arguments, *index])
+        if 'uv' not in command:
+            subprocess.check_output(command, universal_newlines=True)
+            return
 
-def torch_rollback(prev, packages):
-    spec = prev.split('+')
-    if len(spec) > 1:
-        platform = spec[1]
-    else:
-        cmd = make_pip_cmd(['install', '--force', *packages])
-        subprocess.check_output(cmd, universal_newlines=True)
-        logging.error(cmd)
-        return
+        # uv does not put back what it removed when a command fails while it installs, and an install command sent
+        # after it can lay the new build over what is left and report it as installed. uv ends a command when it
+        # cannot reach an index that the command names. A --extra-index-url of the command takes the place of
+        # UV_EXTRA_INDEX_URL.
+        forms = [command, [*command, '--offline']]
+        if index:
+            forms.append([*make_pip_cmd(['install', *arguments, *index[:-2]]), '--offline'])
+        for form in forms:
+            try:
+                subprocess.check_output([*form, '--dry-run'], universal_newlines=True, stderr=subprocess.DEVNULL)
+            except subprocess.CalledProcessError:
+                continue
+            if form is not command:
+                logging.info("[ComfyUI-Manager] restore PyTorch: the command does not resolve with its indexes, "
+                             "installing from uv's cache alone")
+            subprocess.check_output(form, universal_newlines=True)
+            return
+        try:
+            subprocess.check_output(command, universal_newlines=True)
+        except subprocess.CalledProcessError:
+            logging.warning("[ComfyUI-Manager] restore PyTorch: no dry run of the command resolved, neither with its "
+                            "indexes nor from uv's cache alone")
+            raise
 
-    torch_ver = StrictVersion(spec[0])
-    torch_ver = f"{torch_ver.major}.{torch_ver.minor}.{torch_ver.patch}"
-    torch_torchvision_torchaudio_ver = torch_torchvision_torchaudio_version_map.get(torch_ver)
+    changed = {name: installed_before[name] for name in ('torch', 'torchvision', 'torchaudio')
+               if name in installed_before and installed_after.get(name) != installed_before[name]}
+    logging.info(f"[ComfyUI-Manager] restore PyTorch: {', '.join(f'{name} {build}' for name, build in changed.items())}")
 
-    if torch_torchvision_torchaudio_ver is None:
-        cmd = make_pip_cmd(['install', '--pre', *packages,
-                            '--index-url', f"https://download.pytorch.org/whl/nightly/{platform}"])
-        logging.info("[ComfyUI-Manager] restore PyTorch to nightly version")
-    else:
-        torchvision_ver, torchaudio_ver = torch_torchvision_torchaudio_ver
-        versions = {'torch': torch_ver, 'torchvision': torchvision_ver, 'torchaudio': torchaudio_ver}
-        cmd = make_pip_cmd(['install', *[f'{name}=={versions[name]}' for name in packages],
-                            '--index-url', f"https://download.pytorch.org/whl/{platform}"])
-        logging.info(f"[ComfyUI-Manager] restore PyTorch to {torch_ver}+{platform}")
+    torch = changed.pop('torch', None)
+    if torch is not None:
+        install(f'torch==={torch}', from_index_of=torch)
 
-    subprocess.check_output(cmd, universal_newlines=True)
+        # cuDNN, cuSPARSELt, NCCL and NVSHMEM ship one distribution per CUDA version, all writing the same file
+        # paths. A torch of another CUDA version brings its own and overwrites the files of those the restored
+        # torch requires, and the command above does not install those again: their version is the same.
+        def recorded(name):
+            try:
+                return {str(file): file.hash.value for file in importlib.metadata.files(name) or [] if file.hash}
+            except importlib.metadata.PackageNotFoundError:
+                return {}
+
+        replaced = {}
+        for name in installed_after:
+            if installed_before.get(name) != installed_after[name]:
+                replaced.update(recorded(name))
+        required = {parse_pip_spec(line)[0] for line in importlib.metadata.requires('torch') or []}
+        overwritten = [f'{name}=={installed_after[name]}' for name in sorted(required)
+                       if name in installed_after and installed_before.get(name) == installed_after[name]
+                       and any(replaced.get(path, digest) != digest for path, digest in recorded(name).items())]
+        if overwritten:
+            install('--no-deps', '--force-reinstall', *overwritten, from_index_of=torch)
+
+    for name, build in changed.items():
+        # With its dependencies, a torchvision or torchaudio that did not fit its torch before the nodepack
+        # would move torch to the version it requires.
+        install('--no-deps', f'{name}==={build}', from_index_of=build)
+
+    if torch is not None and 'torchaudio' in installed_after and 'torchaudio' not in installed_before:
+        # torchaudio 2.11.0 declares no requirement on torch, so without the bound the resolver takes it beside
+        # an older torch. With the user's index as well, pip would take the highest version of all, which can
+        # be a build for another CUDA version.
+        subprocess.check_output(make_pip_cmd(['install', f'torch==={torch}', f'torchaudio<={Version(torch).public}',
+                                              *pytorch_index(torch, '--index-url')]), universal_newlines=True)
 
 
 class PIPFixer:
@@ -1014,11 +1047,8 @@ class PIPFixer:
         try:
             if 'torch' not in self.prev_pip_versions or 'torchvision' not in self.prev_pip_versions:
                 logging.error("[ComfyUI-Manager] PyTorch is not installed")
-            elif self.prev_pip_versions['torch'] != new_pip_versions['torch'] \
-                or self.prev_pip_versions['torchvision'] != new_pip_versions['torchvision']:
-                    packages = [name for name in ('torch', 'torchvision', 'torchaudio')
-                                if name in self.prev_pip_versions or name in new_pip_versions]
-                    torch_rollback(self.prev_pip_versions['torch'], packages)
+            elif any(self.prev_pip_versions[name] != new_pip_versions.get(name) for name in ('torch', 'torchvision')):
+                torch_rollback(self.prev_pip_versions, new_pip_versions)
         except Exception as e:
             logging.error("[ComfyUI-Manager] Failed to restore PyTorch")
             logging.error(e)
