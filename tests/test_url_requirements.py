@@ -398,10 +398,10 @@ def recorder(result=lambda cmd: 0):
 
 
 def test_fix_installs_a_url_requirement_by_force_and_other_requirements_as_ever(installer):
-    assert MANAGER_UTIL.fix_cmd(f'git+{REPO}') == [*installer.base, 'install', f'git+{REPO}', *installer.forced]
-    assert MANAGER_UTIL.fix_cmd(f'Proto-Dist @ git+{REPO}') == [*installer.base, 'install', f'Proto-Dist @ git+{REPO}', *installer.forced]
-    assert MANAGER_UTIL.fix_cmd(WHEEL) == [*installer.base, 'install', WHEEL, *installer.forced]
-    assert MANAGER_UTIL.fix_cmd('numpy>=1.20') == [*installer.base, 'install', 'numpy>=1.20']
+    assert MANAGER_UTIL.fix_cmd([f'git+{REPO}']) == [*installer.base, 'install', f'git+{REPO}', *installer.forced]
+    assert MANAGER_UTIL.fix_cmd([f'Proto-Dist @ git+{REPO}']) == [*installer.base, 'install', f'Proto-Dist @ git+{REPO}', *installer.forced]
+    assert MANAGER_UTIL.fix_cmd([WHEEL]) == [*installer.base, 'install', WHEEL, *installer.forced]
+    assert MANAGER_UTIL.fix_cmd(['numpy>=1.20']) == [*installer.base, 'install', 'numpy>=1.20']
 
 
 @pytest.mark.parametrize('cmd,forced', [
@@ -420,7 +420,7 @@ def test_forced_install_is_known_by_its_url_requirement_and_its_option(cmd, forc
 def test_fix_installs_the_requirement_as_an_install_does_and_then_the_package_by_force(installer, capsys):
     """The first resolves what the package needs and changes nothing when it cannot; the second puts a clean copy there."""
     run, commands = recorder()
-    forced = MANAGER_UTIL.fix_cmd(f'git+{REPO}')
+    forced = MANAGER_UTIL.fix_cmd([f'git+{REPO}'])
 
     assert MANAGER_UTIL.reinstall(forced, run) == 0
     assert commands == [[*installer.base, 'install', f'git+{REPO}'], forced]
@@ -429,13 +429,13 @@ def test_fix_installs_the_requirement_as_an_install_does_and_then_the_package_by
 
 def test_fix_forces_also_what_the_install_has_just_put_there(installer):
     """uv takes a commit it has built before from its cache while the remote answers: only the forced install is a clean copy."""
-    forced = MANAGER_UTIL.fix_cmd(f'git+{REPO}')
+    forced = MANAGER_UTIL.fix_cmd([f'git+{REPO}'])
     run, commands = recorder(lambda cmd: installer.install('Proto-Dist', installer.records['no revision'].replace(COMMIT, LATER)) or 0)
 
     assert MANAGER_UTIL.reinstall(forced, run) == 0
     assert commands == [[*installer.base, 'install', f'git+{REPO}'], forced]
 
-    other = MANAGER_UTIL.fix_cmd(OTHER)
+    other = MANAGER_UTIL.fix_cmd([OTHER])
     run, commands = recorder(lambda cmd: installer.install('Other', installer.records['no revision'].replace(REPO, OTHER[4:])) or 0)
 
     assert MANAGER_UTIL.reinstall(other, run) == 0
@@ -444,7 +444,7 @@ def test_fix_forces_also_what_the_install_has_just_put_there(installer):
 
 def test_fix_keeps_what_is_installed_when_the_requirement_cannot_be_installed(installer):
     """What the new commit needs may not be there to install: the forced install would leave the package without it."""
-    forced = MANAGER_UTIL.fix_cmd(f'git+{REPO}')
+    forced = MANAGER_UTIL.fix_cmd([f'git+{REPO}'])
     run, commands = recorder(lambda cmd: 1)
 
     assert MANAGER_UTIL.reinstall(forced, run) == 1
@@ -456,7 +456,7 @@ def test_fix_goes_on_when_only_the_forced_install_fails(installer, capsys):
 
     Nothing is installed in place of the clean copy: that it failed does not say that the remote is out of reach.
     """
-    forced = MANAGER_UTIL.fix_cmd(f'git+{REPO}')
+    forced = MANAGER_UTIL.fix_cmd([f'git+{REPO}'])
     run, commands = recorder(lambda cmd: int(cmd == forced))
 
     assert MANAGER_UTIL.reinstall(forced, run) == 0
@@ -476,7 +476,7 @@ def test_fix_uses_the_cache_of_uv_only_when_the_remote_is_out_of_reach(installer
     installer.install('Proto-Dist', installer.records[record])
     asked = []
     monkeypatch.setattr(MANAGER_UTIL, 'is_git_remote_usable', lambda url: asked.append(url) or remote == 'answers')
-    forced = MANAGER_UTIL.fix_cmd(requirement)
+    forced = MANAGER_UTIL.fix_cmd([requirement])
     plain = [*installer.base, 'install', requirement]
     cached = [*installer.base, 'install', from_the_cache, '--force-reinstall', '--no-deps', '--offline']
     run, commands = recorder(lambda cmd: int(cmd == plain))
@@ -492,7 +492,7 @@ def test_fix_uses_the_cache_of_uv_only_when_the_remote_is_out_of_reach(installer
 def test_fix_does_not_take_a_package_of_another_name_from_the_cache(installer, monkeypatch):
     """A requirement that gives a name is met by a distribution of that name only."""
     monkeypatch.setattr(MANAGER_UTIL, 'is_git_remote_usable', lambda url: False)
-    forced = MANAGER_UTIL.fix_cmd(f'Other-Name @ git+{REPO}')
+    forced = MANAGER_UTIL.fix_cmd([f'Other-Name @ git+{REPO}'])
     run, commands = recorder(lambda cmd: 1)
 
     assert MANAGER_UTIL.reinstall(forced, run) == 1
@@ -502,7 +502,7 @@ def test_fix_does_not_take_a_package_of_another_name_from_the_cache(installer, m
 def test_fix_with_a_run_that_raises_as_in_cm_cli(installer, monkeypatch):
     """What `run` raised for the install is raised again, unless the cache made the fix good."""
     monkeypatch.setattr(MANAGER_UTIL, 'is_git_remote_usable', lambda url: False)
-    forced = MANAGER_UTIL.fix_cmd(f'git+{REPO}')
+    forced = MANAGER_UTIL.fix_cmd([f'git+{REPO}'])
     plain = [*installer.base, 'install', f'git+{REPO}']
     commands = []
 
@@ -534,7 +534,7 @@ def startup_runs(tmp_path, lines):
 
 def test_startup_runs_the_forced_install_a_fix_reserved(installer, tmp_path):
     """The plain command for the same requirement is skipped: the package is installed."""
-    forced = MANAGER_UTIL.fix_cmd(f'git+{REPO}')
+    forced = MANAGER_UTIL.fix_cmd([f'git+{REPO}'])
     plain = [*installer.base, 'install', f'git+{REPO}']
 
     assert startup_runs(tmp_path, [[str(tmp_path), *plain], [str(tmp_path), *forced]]) == [plain, forced]
@@ -550,7 +550,7 @@ def test_command_the_user_forced_is_run_as_it_is(installer, tmp_path):
 def test_blacklisted_requirement_is_not_installed_by_a_reserved_forced_install(installer, set_lists, tmp_path):  # noqa: F811
     set_lists(blacklist={f'git+{REPO}'})
 
-    assert startup_runs(tmp_path, [[str(tmp_path), *MANAGER_UTIL.fix_cmd(f'git+{REPO}')]]) == []
+    assert startup_runs(tmp_path, [[str(tmp_path), *MANAGER_UTIL.fix_cmd([f'git+{REPO}'])]]) == []
 
 
 CM_CLI_FIX = """
@@ -672,7 +672,7 @@ manager_core.subprocess = SimpleNamespace(check_call=lambda cmd, **options: said
 console = sys.stdout
 sys.stdout = SimpleNamespace(write=written.append, flush=lambda: (out.extend(written), written.clear()))
 try:
-    result = manager_core.try_install_script(None, '.', manager_util.fix_cmd('git+{REPO}'), instant_execution=True)
+    result = manager_core.try_install_script(None, '.', manager_util.fix_cmd(['git+{REPO}']), instant_execution=True)
 finally:
     sys.stdout = console
 print(json.dumps([result, [text.count('EXECUTE =>') for text in said]]))
@@ -713,7 +713,7 @@ def test_fix_with_the_real_pip(set_lists, monkeypatch, pip_environment):  # noqa
     monkeypatch.setattr(MANAGER_UTIL, 'pip_map', None)
 
     def fix():
-        code = MANAGER_UTIL.reinstall(MANAGER_UTIL.fix_cmd(f'git+{REMOTE}'), lambda cmd: subprocess.run(cmd, capture_output=True, env=env).returncode)
+        code = MANAGER_UTIL.reinstall(MANAGER_UTIL.fix_cmd([f'git+{REMOTE}']), lambda cmd: subprocess.run(cmd, capture_output=True, env=env).returncode)
         MANAGER_UTIL.clear_pip_cache()
         return code, MANAGER_UTIL.installed_from(f'git+{REMOTE}')['vcs_info']['commit_id']
 
@@ -777,7 +777,7 @@ def test_fix_with_the_real_uv(set_lists, monkeypatch, uv_environment):  # noqa: 
 
     def fix(clean_copy=True):
         """`clean_copy=False`: the install without the cache fails, as with a temporary folder that is full."""
-        code = MANAGER_UTIL.reinstall(MANAGER_UTIL.fix_cmd(f'git+{REMOTE}'), lambda cmd: (
+        code = MANAGER_UTIL.reinstall(MANAGER_UTIL.fix_cmd([f'git+{REMOTE}']), lambda cmd: (
             subprocess.run(cmd, capture_output=True).returncode if clean_copy or '--no-cache' not in cmd else 1))
         MANAGER_UTIL.clear_pip_cache()
         return code, MANAGER_UTIL.installed_from(f'git+{REMOTE}')['vcs_info']['commit_id']

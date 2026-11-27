@@ -37,7 +37,7 @@ def load_get_data_by_mode(manager_util, channel_url):
     assert len(nodes) == 1
     config = {"channel_url": channel_url, "network_mode": "public"}
     namespace = {"os": os, "json": json, "manager_util": manager_util,
-                 "get_config": lambda: config, "get_channel_dict": lambda: {}}
+                 "get_config": lambda: config, "normalize_channel": lambda channel: channel}
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "manager_core.py", "exec"), namespace)
     return namespace["get_data_by_mode"]
 

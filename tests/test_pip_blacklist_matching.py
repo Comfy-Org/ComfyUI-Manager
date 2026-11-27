@@ -48,7 +48,7 @@ xformers        0.0.30+cu126
 @pytest.fixture
 def set_lists(monkeypatch):
     """Replace the `pip list` output and return a setter for the two lists."""
-    monkeypatch.setattr(MANAGER_UTIL, 'make_pip_cmd', lambda cmd: ['python', '-m', 'pip', *cmd])
+    monkeypatch.setattr(MANAGER_UTIL, 'get_pip_cmd', lambda force_uv=False: ['python', '-m', 'pip'])
     monkeypatch.setattr(MANAGER_UTIL, 'subprocess', SimpleNamespace(
         check_output=lambda *args, **kwargs: PIP_LIST, CalledProcessError=subprocess.CalledProcessError))
     monkeypatch.setattr(MANAGER_UTIL, 'pip_map', None)
@@ -77,7 +77,7 @@ def load_prestartup(**module_globals):
         pytest.skip('MANAGER_GLOB_DIR points at a glob directory without prestartup_script.py beside it')
     return load_functions(
         PRESTARTUP_SCRIPT,
-        {'is_installed', 'remap_pip_package', 'execute_lazy_install_script', 'execute_startup_script'},
+        {'is_installed', 'execute_lazy_install_script', 'execute_startup_script'},
         **module_globals)
 
 
@@ -392,7 +392,7 @@ from types import SimpleNamespace
 import cm_global, manager_util
 
 PIP_LIST = {PIP_LIST!r}
-manager_util.make_pip_cmd = lambda cmd: ['python', '-m', 'pip', *cmd]
+manager_util.get_pip_cmd = lambda force_uv=False: ['python', '-m', 'pip']
 manager_util.subprocess = SimpleNamespace(
     check_output=lambda *args, **kwargs: PIP_LIST, CalledProcessError=subprocess.CalledProcessError)
 manager_util.pip_map = None

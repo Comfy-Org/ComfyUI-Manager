@@ -256,31 +256,20 @@ export class ModelManager {
 			rowFilter: (rowItem) => {
 
 				const searchableColumns = ["name", "type", "base", "description", "filename", "save_path"];
-				const models_extensions = ['.ckpt', '.pt', '.pt2', '.bin', '.pth', '.safetensors', '.pkl', '.sft'];
 
 				let shouldShown = grid.highlightKeywordsFilter(rowItem, searchableColumns, this.keywords);
 
 				if (shouldShown) {
-					if(this.filter) {
-						if (this.filter == "in_workflow") {
-							rowItem.in_workflow = null;
-							if (Array.isArray(app.graph._nodes)) {
-								app.graph._nodes.forEach((item, i) => {
-									if (Array.isArray(item.widgets_values)) {
-										item.widgets_values.forEach((_item, i) => {
-											if (rowItem.in_workflow === null && _item !== null && models_extensions.includes("." + _item.toString().split('.').pop())) {
-												let filename = _item.match(/([^\/]+)(?=\.\w+$)/)[0];
-												if (grid.highlightKeywordsFilter(rowItem, searchableColumns, filename)) {
-													rowItem.in_workflow = "True";
-													grid.highlightKeywordsFilter(rowItem, searchableColumns, "");
-												}
-											}
-										});
-									}
-								});
-							}
-						}
-						return ((this.filter == "installed" && rowItem.installed == "True") || (this.filter == "not_installed" && rowItem.installed == "False") || (this.filter == "in_workflow" && rowItem.in_workflow == "True"));
+					if(this.filter == "installed" && rowItem.installed !== "True") {
+						return false;
+					}
+
+					if(this.filter == "not_installed" && rowItem.installed !== "False") {
+						return false;
+					}
+
+					if(this.filter == "in_workflow" && !app.graph._nodes.some(node => Array.isArray(node.widgets_values) && node.widgets_values.some(value => String(value).split(/[\\/]/).pop() === rowItem.filename))) {
+						return false;
 					}
 
 					if(this.type && rowItem.type !== this.type) {

@@ -511,7 +511,7 @@ def installs(*answers):
         return answers.pop(0)
 
     core.try_install_script = try_install_script
-    core.remap_pip_package = lambda package: package
+    core.cm_global.pip_overrides = {}
     manager_util.PIPFixer = Mock()
     manager_util.get_installed_packages = Mock(return_value={})
     return ran
