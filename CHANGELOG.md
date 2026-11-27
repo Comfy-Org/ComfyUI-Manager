@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+### The PyTorch restore after a nodepack installs the builds that were installed before
+
+When a nodepack changed torch or torchvision and the torch from before had
+no local label, Manager installed the newest releases, and through uv
+nothing. For a torch with a label it installed the versions of a table that
+ends at 2.7.0, or the newest nightly build. A nodepack that removed torch,
+or removed torchvision and left torch as it was, ended the restore with
+`Failed to restore PyTorch`.
+
+Now Manager installs each of torch, torchvision and torchaudio that is not
+the build it was before as that build, such as `torch===2.14.0+cu130`, and
+names the index `https://download.pytorch.org/whl/<label>` for a release
+with a local label and the nightly index for a development build. A package
+that the restored torch requires, such as a CUDA library, is installed
+again when the nodepack's install overwrote its files.
+
+When the nodepack changed torch and added a torchaudio to an install
+without one, a last command asks for a torchaudio no newer than the
+restored torch. pip and uv keep one that satisfies it, so a torchaudio
+built for another CUDA version stays and can fail to import. With uv, a
+command that puts back a build is sent with `--offline` when a dry run
+shows that it resolves only from uv's cache. An install command that fails
+ends the restore with `Failed to restore PyTorch` and that command. The
+restore sends no command after it and installs no other build in place of
+the one from before, and a command that failed while it installed can leave
+torch not importable.
+
 ### Both URLs of the default channel are the default channel
 
 The default channel is served at
