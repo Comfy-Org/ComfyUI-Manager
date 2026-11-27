@@ -108,7 +108,7 @@ def read_config():
     global default_conf
     try:
         import configparser
-        config = configparser.ConfigParser(strict=False)
+        config = configparser.ConfigParser(strict=False, interpolation=None)
         config.read(manager_config_path)
         default_conf = config['default']
     except Exception:
@@ -123,15 +123,25 @@ def check_file_logging():
     if 'file_logging' in default_conf and default_conf['file_logging'].lower() == 'false':
         enable_file_logging = False
 
+def set_git_executable():
+    # GitPython reads this when it is imported, so that a git that is not on PATH can be named
+    # read as written: a path of Windows may hold a `%`, which the parser takes as the start of a reference
+    git_exe = default_conf.get('git_exe', '', raw=True) if 'git_exe' in default_conf else ''
+    if git_exe != '' and _has_system_user_api:
+        git_exe = manager_util.find_git_executable(git_exe)
+        if git_exe is not None:
+            os.environ['GIT_PYTHON_GIT_EXECUTABLE'] = git_exe
+
 
 read_config()
+set_git_executable()
 read_uv_mode()
 security_check.security_check()
 check_file_logging()
 
 cm_global.pip_overrides = {}
 
-if os.path.exists(manager_pip_overrides_path):
+if _has_system_user_api and os.path.exists(manager_pip_overrides_path):
     with open(manager_pip_overrides_path, 'r', encoding="UTF-8", errors="ignore") as json_file:
         cm_global.pip_overrides = json.load(json_file)
 
@@ -288,6 +298,7 @@ try:
             self.is_stdout = is_stdout
             self.encoding = "utf-8"
             self.last_char = ''
+            self.console_is_gone = False
 
         def fileno(self):
             try:
@@ -300,7 +311,36 @@ try:
                 raise ValueError("The object does not have a fileno method")
 
         def isatty(self):
-            return False
+            # Delegate to the real console we wrap, not a hardcoded False.
+            # Returning False here made colorama (and any ANSI-aware lib) believe
+            # the stream is a pipe and strip every ANSI code from the print() path
+            # in both the console and the file log. The console still receives the
+            # text unchanged -- this only tells colorama the truth about the target.
+            stream = original_stdout if self.is_stdout else original_stderr
+            try:
+                return stream.isatty()
+            except (AttributeError, ValueError, OSError):
+                return False
+
+        @property
+        def closed(self):
+            # Same reasoning as isatty(): without this attribute, colorama's
+            # StreamWrapper.closed falls back to True (AttributeError -> closed),
+            # which again forces strip=True. Report the real underlying state.
+            if log_file.closed:
+                # after close_log() nothing can be written through this logger;
+                # colorama, which keeps it, would write its reset at exit
+                return True
+
+            stream = original_stdout if self.is_stdout else original_stderr
+            try:
+                return stream.closed
+            except AttributeError:
+                # the output still goes to a stream that cannot say whether it is closed
+                return False
+            except ValueError:
+                # a detached stream
+                return True
 
         def write(self, message):
             global is_start_mode
@@ -332,36 +372,50 @@ try:
                     if '100%' in message:
                         self.sync_write(message)
                     else:
-                        write_stderr(message)
-                        original_stderr.flush()
+                        self.write_console(message)
                 else:
                     self.sync_write(message)
             else:
                 self.sync_write(message)
 
+        def write_console(self, message):
+            # A console that is gone does not come back, and ComfyUI's stream keeps every write
+            # it could not flush, so it is not written to again.
+            if self.console_is_gone:
+                return
+
+            try:
+                if self.is_stdout:
+                    write_stdout(message)
+                    original_stdout.flush()
+                else:
+                    write_stderr(message)
+                    original_stderr.flush()
+            except BlockingIOError:
+                pass
+            except OSError:
+                self.console_is_gone = True
+
         def sync_write(self, message, file_only=False):
             with log_lock:
-                timestamp = current_timestamp()
-                if self.last_char != '\n':
-                    log_file.write(message)
-                else:
-                    log_file.write(f"[{timestamp}] {message}")
+                # after close_log() the output goes to the console only
+                if not log_file.closed:
+                    timestamp = current_timestamp()
+                    if self.last_char != '\n':
+                        log_file.write(message)
+                    else:
+                        log_file.write(f"[{timestamp}] {message}")
 
-                try:
-                    log_file.flush()
-                except Exception:
-                    pass
+                    try:
+                        log_file.flush()
+                    except Exception:
+                        pass
 
                 self.last_char = message if message == '' else message[-1]
 
             if not file_only:
                 with std_log_lock:
-                    if self.is_stdout:
-                        write_stdout(message)
-                        original_stdout.flush()
-                    else:
-                        write_stderr(message)
-                        original_stderr.flush()
+                    self.write_console(message)
 
         def flush(self):
             try:
@@ -388,12 +442,15 @@ try:
         def close_log(self):
             sys.stderr = original_stderr
             sys.stdout = original_stdout
-            log_file.close()
+            with log_lock:
+                log_file.close()
             
     def close_log():
         sys.stderr = original_stderr
         sys.stdout = original_stdout
-        log_file.close()
+        # a write that has found the file open finishes first
+        with log_lock:
+            log_file.close()
 
 
     if enable_file_logging:
@@ -411,7 +468,15 @@ try:
         def emit(self, record):
             global is_start_mode
 
-            message = record.getMessage()
+            try:
+                message = record.getMessage()
+            except Exception as e:
+                try:
+                    error = f"{type(e).__name__}: {e}"
+                except Exception:
+                    # an error can carry the message that cannot be turned into text
+                    error = type(e).__name__
+                message = f"<<logging error>>: {record.pathname}:{record.lineno} - {error}"
 
             if is_start_mode:
                 match = re.search(pat_import_fail, message)
@@ -545,61 +610,45 @@ check_bypass_ssl()
 processed_install = set()
 # Use manager_files_path for consistency (fixes path inconsistency bug)
 script_list_path = os.path.join(manager_files_path, "startup-scripts", "install-scripts.txt")
-pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path)
+pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, manager_files_path if _has_system_user_api else None)
 
 
-def is_installed(name):
+def is_installed(name, reinstall=False):
     name = name.strip()
 
     if name.startswith('#'):
         return True
 
-    pattern = r'([^<>!~=]+)([<>!~=]=?)([0-9.a-zA-Z]*)'
-    match = re.search(pattern, name)
-
-    if match:
-        name = match.group(1)
-
-    if name in cm_global.pip_blacklist:
+    reason = manager_util.pip_block_reason(name, cm_global.pip_blacklist, cm_global.pip_downgrade_blacklist)
+    if reason is not None:
+        if reason == 'downgrade blacklisted':
+            print(f"[ComfyUI-Manager] skip black listed pip installation: '{name}'")
         return True
 
-    if name in cm_global.pip_downgrade_blacklist:
-        pips = manager_util.get_installed_packages()
+    pkg_name, extras, clauses = manager_util.parse_pip_spec(name)
+    if extras:
+        return False  # extras to add: let pip decide
 
-        if match is None:
-            if name in pips:
-                return True
-        elif match.group(2) in ['<=', '==', '<', '~=']:
-            if name in pips:
-                if manager_util.StrictVersion(pips[name]) >= manager_util.StrictVersion(match.group(3)):
-                    print(f"[ComfyUI-Manager] skip black listed pip installation: '{name}'")
-                    return True
+    if clauses and clauses[0][0] == '@':
+        return not reinstall and manager_util.installed_from(clauses[0][1], pkg_name) is not None
 
-    pkg = manager_util.get_installed_packages().get(name.lower())
+    if pkg_name is None:
+        return False  # a path or an option: let pip decide
+
+    pkg = manager_util.get_installed_packages().get(pkg_name)
     if pkg is None:
         return False  # update if not installed
 
-    if match is None:
-        return True   # don't update if version is not specified
-
-    if match.group(2) in ['>', '>=']:
-        if manager_util.StrictVersion(pkg) < manager_util.StrictVersion(match.group(3)):
-            return False
-        elif manager_util.StrictVersion(pkg) > manager_util.StrictVersion(match.group(3)):
-            print(f"[SKIP] Downgrading pip package isn't allowed: {name.lower()} (cur={pkg})")
-
-    if match.group(2) == '==':
-        if manager_util.StrictVersion(pkg) < manager_util.StrictVersion(match.group(3)):
-            return False
-
-    if match.group(2) == '~=':
-        if manager_util.StrictVersion(pkg) == manager_util.StrictVersion(match.group(3)):
-            return False
+    if manager_util.requires_newer_version(clauses, pkg):
+        return False
 
     return True       # prevent downgrade
 
 
-if os.path.exists(restore_snapshot_path):
+if not _has_system_user_api:
+    if os.path.exists(restore_snapshot_path):
+        print("[ComfyUI-Manager] Snapshot restore blocked on old ComfyUI version.")
+elif os.path.exists(restore_snapshot_path):
     try:
         cloned_repos = []
 
@@ -626,6 +675,8 @@ if os.path.exists(restore_snapshot_path):
 
         print("[ComfyUI-Manager] Restore snapshot.")
         new_env = os.environ.copy()
+        if 'COMFYUI_PATH' not in new_env:
+            new_env["COMFYUI_PATH"] = os.path.dirname(folder_paths.__file__)
         if 'COMFYUI_FOLDERS_BASE_PATH' not in new_env:
             new_env["COMFYUI_FOLDERS_BASE_PATH"] = comfy_path
 
@@ -635,7 +686,8 @@ if os.path.exists(restore_snapshot_path):
         new_env['_COMFYUI_MANAGER_CNR_ALLOW_FLAGGED'] = str(
             allow_flagged or manager_util.is_loopback_listener(args.listen)
         ).lower()
-        cmd_str = [sys.executable, cm_cli_path, 'restore-snapshot', restore_snapshot_path]
+        cmd_str = [sys.executable, cm_cli_path, 'restore-snapshot', restore_snapshot_path,
+                   '--user-directory', folder_paths.get_user_directory(), '--restore-to', custom_nodes_base_path]
         exit_code = process_wrap(cmd_str, custom_nodes_base_path, handler=msg_capture, env=new_env)
 
         if exit_code != 0:
@@ -701,9 +753,10 @@ def execute_lazy_cnr_switch(target, zip_url, from_path, to_path, no_deps, custom
     download_path = os.path.join(custom_nodes_path, archive_name)
     manager_downloader.download_url(zip_url, custom_nodes_path, archive_name)
 
-    # 2. extract files into <node_id>@<cur_ver>
-    extracted = manager_util.extract_package_as_zip(download_path, from_path)
-    os.remove(download_path)
+    try:
+        extracted = manager_util.switch_package_files(download_path, from_path)
+    finally:
+        os.remove(download_path)
 
     if extracted is None:
         if len(os.listdir(from_path)) == 0:
@@ -712,32 +765,10 @@ def execute_lazy_cnr_switch(target, zip_url, from_path, to_path, no_deps, custom
         print(f'Empty archive file: {target}')
         return False
 
+    if from_path != to_path:
+        print(f"'{from_path}' is moved to '{to_path}'")
+        shutil.move(from_path, to_path)
 
-    # 3. calculate garbage files (.tracking - extracted)
-    tracking_info_file = os.path.join(from_path, '.tracking')
-    prev_files = set()
-    with open(tracking_info_file, 'r') as f:
-        for line in f:
-            prev_files.add(line.strip())
-    garbage = prev_files.difference(extracted)
-    garbage = [os.path.join(custom_nodes_path, x) for x in garbage]
-
-    # 4-1. remove garbage files
-    for x in garbage:
-        if os.path.isfile(x):
-            os.remove(x)
-
-    # 4-2. remove garbage dir if empty
-    for x in garbage:
-        if os.path.isdir(x):
-            if not os.listdir(x):
-                os.rmdir(x)
-
-    # 5. rename dir name <node_id>@<prev_ver> ==> <node_id>@<cur_ver>
-    print(f"'{from_path}' is moved to '{to_path}'")
-    shutil.move(from_path, to_path)
-
-    # 6. create .tracking file
     tracking_info_file = os.path.join(to_path, '.tracking')
     with open(tracking_info_file, "w", encoding='utf-8') as file:
         file.write('\n'.join(list(extracted)))
@@ -800,26 +831,34 @@ def execute_startup_script():
 
                     elif script[1] == "#LAZY-CNR-SWITCH-SCRIPT":
                         status = script[8] if len(script) > 8 else ''
-                        if execute_lazy_cnr_switch(script[0], script[2], script[3], script[4], script[5], script[6], status):
-                            execute_lazy_install_script(script[3], script[7])
+                        to_path = script[4]
+                        if execute_lazy_cnr_switch(script[0], script[2], script[3], to_path, script[5], script[6], status):
+                            execute_lazy_install_script(to_path, script[7])
 
                     elif script[1] == "#LAZY-DELETE-NODEPACK":
                         execute_lazy_delete(script[2])
 
                 elif os.path.exists(script[0]):
+                    reinstall = False
                     if script[1] == "#FORCE":
                         del script[1]
                     else:
-                        if 'pip' in script[1:] and 'install' in script[1:] and is_installed(script[-1]):
+                        reinstall = manager_util.is_reinstall(script[1:])
+                        requirement = manager_util.pip_install_requirement(script[1:])
+                        if requirement is not None and is_installed(requirement, reinstall):
                             continue
 
-                    print(f"\n## ComfyUI-Manager: EXECUTE => {script[1:]}")
+                    if not reinstall:
+                        print(f"\n## ComfyUI-Manager: EXECUTE => {script[1:]}")
                     print(f"\n## Execute management script for '{script[0]}'")
 
                     new_env = os.environ.copy()
                     if 'COMFYUI_FOLDERS_BASE_PATH' not in new_env:
                         new_env["COMFYUI_FOLDERS_BASE_PATH"] = comfy_path
-                    exit_code = process_wrap(script[1:], script[0], env=new_env)
+                    if reinstall:
+                        exit_code = manager_util.reinstall(script[1:], lambda cmd: process_wrap(cmd, script[0], env=new_env))
+                    else:
+                        exit_code = process_wrap(script[1:], script[0], env=new_env)
 
                     if exit_code != 0:
                         print(f"management script failed: {script[0]}")
@@ -846,6 +885,10 @@ if not _has_system_user_api:
 elif os.path.exists(script_list_path):
     execute_startup_script()
 
+if _has_system_user_api and os.path.exists(os.path.join(folder_paths.get_user_directory(), 'default', 'ComfyUI-Manager', 'config.ini')):
+    print("[ComfyUI-Manager] The legacy config.ini is still there: installing the requirements of ComfyUI.")
+    execute_lazy_install_script(comfy_path, sys.executable)
+
 
 pip_fixer.fix_broken()
 
@@ -864,15 +907,7 @@ if script_executed:
         print("--------------------------------------------------------------------------\n")
         exit(0)
     else:
-        sys_argv = sys.argv.copy()
-
-        if sys_argv[0].endswith("__main__.py"):  # this is a python module
-            module_name = os.path.basename(os.path.dirname(sys_argv[0]))
-            cmds = [sys.executable, '-m', module_name] + sys_argv[1:]
-        elif sys.platform.startswith('win32'):
-            cmds = ['"' + sys.executable + '"', '"' + sys_argv[0] + '"'] + sys_argv[1:]
-        else:
-            cmds = [sys.executable] + sys_argv
+        cmds = manager_util.build_restart_command(sys.argv)
 
         print(f"Command: {cmds}", flush=True)
         print("--------------------------------------------------------------------------\n")
@@ -883,7 +918,7 @@ if script_executed:
 def check_windows_event_loop_policy():
     try:
         import configparser
-        config = configparser.ConfigParser(strict=False)
+        config = configparser.ConfigParser(strict=False, interpolation=None)
         config.read(manager_config_path)
         default_conf = config['default']
 

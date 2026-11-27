@@ -225,7 +225,7 @@ def install(server, node, version, operation='install'):
                 async with session.post(server.base + '/manager/queue/' + operation, json=params) as response:
                     if response.status != 200:
                         return {'http': response.status, 'message': await response.text()}
-                async with session.post(server.base + '/manager/queue/start') as response:
+                async with session.post(server.base + '/manager/queue/start', headers={'Content-Type': 'application/json'}) as response:
                     response.raise_for_status()
                 while True:
                     event = await ws.receive_json(timeout=30)
@@ -359,7 +359,7 @@ def test_scheduled_snapshot_inherits_parent_policy(tmp_path, registry, existing,
     installed = tmp_path / 'custom_nodes/fixture-snapshot'
     marker = installed / 'installed.txt'
     reservation = tmp_path / 'user/__manager/startup-scripts/restore-snapshot.json'
-    with running_server(tmp_path, '127.0.0.1', False, registry) as server:
+    with running_server(tmp_path, '127.0.0.1', False, registry, security='normal-') as server:
         if existing:
             assert install(server, 'fixture-snapshot', '1.0.0')['message'] == 'success'
             assert marker.read_text() == '1.0.0'

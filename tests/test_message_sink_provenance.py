@@ -112,14 +112,16 @@ REGISTRY = {
      "`Loading missing nodes (${mode}) ...`);"):
         (NO_DATA, "UI-chosen mode"),
     ("custom-nodes-manager.js", "showStatus",
-     "`Loading alternatives (${mode}) ...`);"):
-        (NO_DATA, "UI-chosen mode"),
-    ("custom-nodes-manager.js", "showStatus",
      "`Loading workflow usage analysis ...`);"):
         (NO_DATA, "hardcoded"),
     ("custom-nodes-manager.js", "showStatus",
      "`Loading custom nodes (${mode}) ...`);"):
         (NO_DATA, "UI-chosen mode"),
+    ("custom-nodes-manager.js", "showStatus", "\"Checking updates ...\");"):
+        (NO_DATA, "hardcoded"),
+    ("custom-nodes-manager.js", "showStatus",
+     "`Checking updates (${sanitizeHTML(String(done_count))}/${sanitizeHTML(String(total_count))}) ...`);"):
+        (RAW, "the counts come with the cm-check-update event, so this caller escapes them"),
     ("custom-nodes-manager.js", "showMessage",
      "`To apply the installed/updated/disabled/enabled custom node, please restart "
      "ComfyUI. And refresh browser.`, \"red\");"):
@@ -136,7 +138,8 @@ REGISTRY = {
          "item.name comes from /externalmodel/getlist, where populate_markdown -> "
          "sanitize_tag has already escaped it. WI-112 added a caller escape here "
          "and it rendered '&lt;Flux&gt;' to the user; removing it is the fix"),
-    ("model-manager.js", "showStatus", "`Install ${result.length} models successfully`);"):
+    ("model-manager.js", "showStatus",
+     "`Install ${Object.keys(result).length} models successfully`);"):
         (NO_DATA, "a count of queue results"),
     ("model-manager.js", "showStatus", "`Loading external model list ...`);"):
         (NO_DATA, "hardcoded"),
@@ -349,7 +352,7 @@ class HtmlByDesignSinkTest(unittest.TestCase):
                 '"");',
                 '"");',
                 '`<span>Selected <b>${selectedList.length}</b> models <button '
-                'class="cmm-btn-install p-button p-component" mode="install">Install</button>`);',
+                'class="cmm-btn-install cm-ui-button" mode="install">Install</button>`);',
             ],
             "node-usage-analyzer.js": [
                 '"");',
@@ -370,7 +373,6 @@ class HtmlByDesignSinkTest(unittest.TestCase):
         escaped = {
             "custom-nodes-manager.js": {
                 '`Failed to get custom node mappings: ${sanitizeHTML(String(res.error))}`);',
-                '`Failed to get alternatives: ${sanitizeHTML(String(res.error))}`);',
                 '`Failed to get workflow data: ${sanitizeHTML(String(result.error))}`);',
             },
             "node-usage-analyzer.js": {'sanitizeHTML(String(result.error)));'},

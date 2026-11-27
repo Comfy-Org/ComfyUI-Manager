@@ -211,6 +211,7 @@ def read_cnr_info(fullpath):
 
             project = data.get('project', {})
             name = project.get('name').strip().lower()
+            original_name = project.get('name')
 
             # normalize version
             # for example: 2.5 -> 2.5.0
@@ -222,6 +223,7 @@ def read_cnr_info(fullpath):
             if name and version:  # repository is optional
                 return {
                     "id": name,
+                    "original_name": original_name,
                     "version": version,
                     "url": repository
                 }
@@ -229,6 +231,14 @@ def read_cnr_info(fullpath):
         return None
     except Exception:
         return None  # not valid CNR node pack
+
+
+def read_project_name(fullpath):
+    try:
+        with open(os.path.join(fullpath, 'pyproject.toml'), "r", encoding="utf-8") as f:
+            return toml.load(f)['project']['name'].strip()
+    except Exception:
+        return None
 
 
 def generate_cnr_id(fullpath, cnr_id):

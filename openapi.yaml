@@ -192,27 +192,47 @@ paths:
 
   /customnode/fetch_updates:
     post:
-      summary: Check for updates
-      description: Fetches updates for custom nodes
+      summary: Check for updates (deprecated)
+      deprecated: true
+      description: No longer fetches. A check for updates is asked for with `/customnode/check_update`.
+      responses:
+        '400':
+          description: Content-Type is not application/json
+        '410':
+          description: The endpoint is gone
+          
+  /customnode/check_update:
+    post:
+      summary: Check the git custom nodes for updates
+      description: >-
+        Starts a check in the background that fetches the repositories of the enabled git custom nodes of the list,
+        and answers at once. The check reports by the websocket event `cm-check-update`:
+        `{status: "in_progress", done_count, total_count}` after each repository, and at the end
+        `{status: "done", updatable, ui_ids}` with the keys of the custom nodes that have an update (`null` when
+        the check failed) and the `ui_id` of every request that this result answers. While a check runs, no second one is started: the custom nodes
+        of this request that the check does not have are added to it, so `total_count` can grow, and its result
+        answers this request too.
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required: [mode, ui_id]
               properties:
                 mode:
                   type: string
-                  enum: [local, remote, default]
-                  description: Source mode (e.g., "local", "remote")
+                  enum: [cache, local, remote]
+                  description: Source mode of the node list
+                ui_id:
+                  type: string
+                  description: Chosen by the client. The `done` event of the check that answers this request names it.
       responses:
         '200':
-          description: No updates available
-        '201':
-          description: Updates found
+          description: The check runs
         '400':
-          description: Error occurred
-          
+          description: Content-Type is not application/json
+
   /customnode/installed:
     get:
       summary: Get installed custom nodes
@@ -242,7 +262,8 @@ paths:
         - $ref: '#/components/parameters/modeParam'
         - name: skip_update
           in: query
-          description: Skip update check
+          deprecated: true
+          description: Not used. The list is given without fetching the repositories; a check for updates is asked for with `/customnode/check_update`.
           schema:
             type: boolean
       responses:
@@ -284,22 +305,6 @@ paths:
         '500':
           description: Error occurred
                       
-  /customnode/alternatives:
-    get:
-      summary: Get alternative node options
-      description: Provides alternatives for nodes
-      parameters:
-        - $ref: '#/components/parameters/modeParam'
-      responses:
-        '200':
-          description: Successful operation
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  type: object
-                  
   /customnode/versions/{node_name}:
     get:
       summary: Get available versions for a node
@@ -405,9 +410,14 @@ paths:
       requestBody:
         required: true
         content:
-          text/plain:
+          application/json:
             schema:
-              type: string
+              type: object
+              required: [url]
+              properties:
+                url:
+                  type: string
+                  description: Git repository URL
       responses:
         '200':
           description: Installation successful or already installed
@@ -425,9 +435,14 @@ paths:
       requestBody:
         required: true
         content:
-          text/plain:
+          application/json:
             schema:
-              type: string
+              type: object
+              required: [packages]
+              properties:
+                packages:
+                  type: string
+                  description: Space-separated pip packages
       responses:
         '200':
           description: Installation successful
@@ -483,10 +498,12 @@ paths:
   /manager/queue/reset:
     post:
       summary: Reset queue
-      description: Resets the operation queue
+      description: Resets the operation queue. The request has no body and needs the Content-Type `application/json`.
       responses:
         '200':
           description: Queue reset successfully
+        '400':
+          description: Content-Type is not application/json
           
   /manager/queue/status:
     get:
@@ -523,12 +540,14 @@ paths:
   /manager/queue/start:
     post:
       summary: Start queue processing
-      description: Starts processing the operation queue
+      description: Starts processing the operation queue. The request has no body and needs the Content-Type `application/json`.
       responses:
         '200':
           description: Processing started
         '201':
           description: Processing already in progress
+        '400':
+          description: Content-Type is not application/json
           
   /manager/queue/fix:
     post:
@@ -619,10 +638,12 @@ paths:
   /manager/queue/update_comfyui:
     post:
       summary: Update ComfyUI
-      description: Queues an update operation for ComfyUI itself
+      description: Queues an update operation for ComfyUI itself. The request has no body and needs the Content-Type `application/json`.
       responses:
         '200':
           description: Update queued successfully
+        '400':
+          description: Content-Type is not application/json
           
   /manager/queue/install_model:
     post:
@@ -729,12 +750,12 @@ paths:
   /snapshot/save:
     post:
       summary: Save snapshot
-      description: Saves the current system state as a new snapshot
+      description: Saves the current system state as a new snapshot. The request has no body and needs the Content-Type `application/json`.
       responses:
         '200':
           description: Snapshot saved successfully
         '400':
-          description: Error saving snapshot
+          description: Content-Type is not application/json, or error saving snapshot
           
   # ComfyUI Management Endpoints
   /comfyui_manager/comfyui_versions:
@@ -761,9 +782,11 @@ paths:
   /comfyui_manager/comfyui_switch_version:
     post:
       summary: Switch ComfyUI version
-      description: Switches to a specified ComfyUI version
+      description: Switches to a specified ComfyUI version. Only a switch to an older version is held to the security level.
+      security:
+        - securityLevel: []
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
@@ -777,16 +800,20 @@ paths:
           description: Version switch successful
         '400':
           description: Error switching version
+        '403':
+          description: Security policy violation
           
   /manager/reboot:
     post:
       summary: Reboot ComfyUI
-      description: Restarts the ComfyUI server
+      description: Restarts the ComfyUI server. The request has no body and needs the Content-Type `application/json`.
       security:
         - securityLevel: []
       responses:
         '200':
           description: Reboot initiated
+        '400':
+          description: Content-Type is not application/json
         '403':
           description: Security policy violation
           
