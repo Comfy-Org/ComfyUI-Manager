@@ -141,7 +141,7 @@ def _dedicated_install_allowed(flag_key: str) -> bool:
 
 async def get_risky_level(files, pip_packages):
     json_data1 = await core.get_data_by_mode('local', 'custom-node-list.json')
-    json_data2 = await core.get_data_by_mode('cache', 'custom-node-list.json', channel_url='https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/main')
+    json_data2 = await core.get_data_by_mode('cache', 'custom-node-list.json', channel_url=core.DEFAULT_CHANNEL)
 
     all_urls = set()
     for x in json_data1['custom_nodes'] + json_data2['custom_nodes']:
@@ -1156,7 +1156,7 @@ async def fetch_customnode_list(request):
     if channel != 'local':
         found = 'custom'
 
-        if channel == core.DEFAULT_CHANNEL or channel == core.DEFAULT_CHANNEL_LEGACY:
+        if channel == core.DEFAULT_CHANNEL:
             channel = 'default'
         else:
             for name, url in core.get_channel_dict().items():
@@ -1599,8 +1599,8 @@ def _queue_start():
 
 
 async def _fix_custom_node(json_data):
-    if not is_allowed_security_level('middle'):
-        logging.error(SECURITY_MESSAGE_GENERAL)
+    if not is_allowed_security_level('high+'):
+        logging.error(SECURITY_MESSAGE_HIGH_P)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
 
     node_id = json_data.get('id')

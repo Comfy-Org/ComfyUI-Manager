@@ -12,7 +12,7 @@ comfyui_manager/
 │   ├── manager_util.py              # Existing: get_pip_cmd(), PIPFixer, use_uv flag
 │   ├── cm_global.py                 # Existing: pip_overrides, pip_blacklist (runtime dynamic assignment)
 │   └── unified_dep_resolver.py      # New: Unified dependency resolution module
-├── prestartup_script.py             # Existing: config reading, remap_pip_package, cm_global initialization
+├── prestartup_script.py             # Existing: config reading, cm_global initialization
 └── legacy/
     └── manager_core.py              # Legacy (not a modification target)
 cm_cli/
@@ -248,7 +248,7 @@ def collect_requirements(self) -> CollectedDeps:
                 skipped.append((line, f"rejected: path separator in package name"))
                 continue
 
-            # 2. Apply remap_pip_package (using cm_global.pip_overrides)
+            # 2. Apply cm_global.pip_overrides
             pkg_spec = self._remap_package(line)
 
             # 3. Blacklist check (cm_global.pip_blacklist)
@@ -318,8 +318,7 @@ def _is_downgrade_blacklisted(self, pkg_name: str, pkg_spec: str, installed: dic
     return blocked
 
 def _remap_package(self, pkg: str) -> str:
-    """Package name remapping based on cm_global.pip_overrides.
-    Reuses existing remap_pip_package() logic."""
+    """Package name remapping based on cm_global.pip_overrides."""
     if pkg in self.overrides:
         remapped = self.overrides[pkg]
         logging.info(f"[UnifiedDepResolver] '{pkg}' remapped to '{remapped}'")
@@ -735,15 +734,11 @@ sequenceDiagram
 > **Note**: Line numbers may shift as code changes, so references use symbol names (function/class names).
 > Use `grep -n` or IDE symbol search for exact locations.
 
-### remap_pip_package Location (Code Duplication Exists)
+### pip_overrides Outside the Resolver
 
-```
-comfyui_manager/glob/manager_core.py     — def remap_pip_package(pkg)
-comfyui_manager/prestartup_script.py     — def remap_pip_package(pkg)
-```
-
-Both reference `cm_global.pip_overrides` with identical logic.
-The unified resolver uses `cm_global.pip_overrides` directly to avoid adding more duplication.
+The paths that install one line at a time read each line with
+`manager_util.pip_install_args(line, cm_global.pip_overrides)`, which applies the override.
+The unified resolver applies `cm_global.pip_overrides` itself in `_remap_package()`.
 
 ### cm_global Global State
 
@@ -795,15 +790,9 @@ The unified resolver's `_is_downgrade_blacklisted()` method calls the same
 `manager_util.parse_pip_spec()` and `manager_util.downgrade_protection()`, so the two
 paths cannot diverge.
 
-### Existing Code --index-url Handling (Asymmetric)
+### Existing Code --index-url Handling
 
-```python
-# Only exists in standalone function execute_install_script():
-if '--index-url' in package_name:
-    s = package_name.split('--index-url')
-    install_cmd = manager_util.make_pip_cmd(["install", s[0].strip(), '--index-url', s[1].strip()])
-
-# UnifiedManager.execute_install_script() method does NOT have this handling
-```
-
-The unified resolver unifies both paths for consistent handling via `_split_index_url()`.
+On every path that installs one line at a time, `manager_util.pip_install_args()` gives a
+requirement followed by `--index-url URL` or `--extra-index-url URL` to the installer with that
+requirement only, and leaves out a line that has only an option.
+The unified resolver collects index URLs for the whole batch via `_split_index_url()`.

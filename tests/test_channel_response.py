@@ -65,7 +65,7 @@ def load_server(server, manager_util, channel_url):
         "manager_util": manager_util, "core": core, "ManagerDatabaseSource": remote})
     reader = load_functions(PACKAGE / server / "manager_core.py", {"get_data_by_mode"}, {
         "os": os, "json": json, "manager_util": manager_util,
-        "get_config": lambda: config, "get_channel_dict": lambda: {}})
+        "get_config": lambda: config, "normalize_channel": lambda channel: channel})
     return startup["default_cache_update"], reader["get_data_by_mode"]
 
 

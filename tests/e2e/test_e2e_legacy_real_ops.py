@@ -326,6 +326,7 @@ class TestUpdateComfyuiQueued:
             f"update_comfyui should return 200 at default security_level, "
             f"got {resp.status_code}: {resp.text[:200]}"
         )
+        requests.post(f"{BASE_URL}/v2/manager/queue/reset", headers={"Content-Type": "application/json"}, timeout=10).raise_for_status()
 
 
 class TestInstallModelRealDownload:

@@ -202,11 +202,11 @@ else:
 
 if USE_PYGIT2:
     if _PYGIT2_REQUESTED:
-        print("[ComfyUI-Manager] Using pygit2 backend (CM_USE_PYGIT2=1)")
+        BACKEND_LINE = "[ComfyUI-Manager] Using pygit2 backend (CM_USE_PYGIT2=1)"
     else:
-        print("[ComfyUI-Manager] Using pygit2 backend (system git not available)")
+        BACKEND_LINE = "[ComfyUI-Manager] Using pygit2 backend (system git not available)"
 else:
-    print("[ComfyUI-Manager] Using GitPython backend")
+    BACKEND_LINE = "[ComfyUI-Manager] Using GitPython backend"
 
 
 # ===================================================================

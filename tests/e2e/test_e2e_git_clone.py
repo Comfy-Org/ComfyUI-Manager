@@ -348,3 +348,19 @@ class TestNightlyInstallCycle:
                     f"Installed entry {pkg_key!r} still references {PACK_TEST1!r} "
                     f"via cnr_id/aux_id: {pkg!r}"
                 )
+
+
+class TestGitBackendLine:
+    def test_server_log_has_the_line(self, comfyui):
+        with open(os.path.join(E2E_ROOT, "logs", "comfyui.log")) as f:
+            log = f.read()
+
+        assert "Using GitPython backend" in log or "Using pygit2 backend" in log
+
+    def test_cm_cli_does_not_write_the_line(self, comfyui):
+        r = subprocess.run([_cm_cli_path(), "--help"], capture_output=True, text=True, timeout=120,
+                           env={**os.environ, "COMFYUI_PATH": COMFYUI_PATH})
+
+        assert r.returncode == 0, r.stderr
+        assert "Using GitPython backend" not in r.stdout + r.stderr
+        assert "Using pygit2 backend" not in r.stdout + r.stderr
