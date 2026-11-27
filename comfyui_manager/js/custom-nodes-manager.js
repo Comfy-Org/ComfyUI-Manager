@@ -1631,7 +1631,8 @@ export class CustomNodesManager {
 			}
 		}
 
-		this.install_context = {btn: btn, targets: target_items};
+		const context = {btn: btn, targets: target_items};
+		this.install_context = context;
 
 		if(errorMsg) {
 			this.showError(errorMsg);
@@ -1689,6 +1690,7 @@ export class CustomNodesManager {
 				return;
 			}
 
+			context.queued = true;
 			this.showStop();
 		}
 	}
@@ -1767,6 +1769,37 @@ export class CustomNodesManager {
 		else if(event.detail.status == 'batch-done' && event.detail.batch_id == self.batch_id) {
 			self.hideStop();
 			self.onQueueCompleted(event.detail);
+		}
+		else if(event.detail.status == 'all-done') {
+			self.endDroppedInstall();
+		}
+	}
+
+	// The end of the queue was reported and the install did not get the end of its batch: Stop dropped
+	// the batch. The report can also be that of a queue that ran before the batch was added, so the
+	// install is ended only if the queue is not running now.
+	async endDroppedInstall() {
+		const context = this.install_context;
+		if(!context?.queued) {
+			return;
+		}
+
+		// Without an answer the queue may still be running.
+		const { data } = await fetchData('/v2/manager/queue/status');
+		if(!data || data.is_processing) {
+			return;
+		}
+
+		context.btn.target.classList.remove("cn-btn-loading");
+		for(const item of context.targets) {
+			this.grid.updateCell(item, "action");
+		}
+		this.hideStop();
+		this.install_context = undefined;
+
+		if(context.targets.some(item => item.restart)) {
+			this.showRestart();
+			this.showMessage(`To apply the installed/updated/disabled/enabled custom node, please restart ComfyUI. And refresh browser.`, "red");
 		}
 	}
 

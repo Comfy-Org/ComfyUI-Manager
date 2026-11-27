@@ -41,7 +41,7 @@ def set_lists(monkeypatch):
     import_context()
     from comfyui_manager.common import cm_global, manager_util
 
-    monkeypatch.setattr(manager_util, 'make_pip_cmd', lambda cmd: ['python', '-m', 'pip', *cmd])
+    monkeypatch.setattr(manager_util, 'get_pip_cmd', lambda force_uv=False: ['python', '-m', 'pip'])
     monkeypatch.setattr(manager_util, 'subprocess', SimpleNamespace(
         check_output=lambda *args, **kwargs: PIP_LIST, CalledProcessError=subprocess.CalledProcessError))
     monkeypatch.setattr(manager_util, 'pip_map', None)
@@ -60,7 +60,7 @@ def load_prestartup(**module_globals):
     from comfyui_manager.common import cm_global, manager_util
 
     source = Path(manager_util.__file__).parents[1] / 'prestartup_script.py'
-    wanted = {'is_installed', 'remap_pip_package', 'execute_lazy_install_script', 'execute_startup_script'}
+    wanted = {'is_installed', 'execute_lazy_install_script', 'execute_startup_script'}
     functions = [node for node in ast.parse(source.read_text(encoding='utf-8')).body
                  if isinstance(node, ast.FunctionDef) and node.name in wanted]
     scope = {'os': os, 're': re, 'manager_util': manager_util, 'cm_global': cm_global, **module_globals}

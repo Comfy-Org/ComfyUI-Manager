@@ -53,7 +53,7 @@ async def get_risky_level(files, pip_packages):
     json_data2 = await core.get_data_by_mode(
         ManagerDatabaseSource.cache.value,
         "custom-node-list.json",
-        channel_url="https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main",
+        channel_url=core.DEFAULT_CHANNEL,
     )
 
     all_urls = set()

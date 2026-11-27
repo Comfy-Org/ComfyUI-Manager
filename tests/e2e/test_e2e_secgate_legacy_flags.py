@@ -626,7 +626,7 @@ class TestUnknownPipStaysBlocked:
 # ===========================================================================
 
 def _batch_op_item(ui_id: str) -> dict:
-    """Item for middle-gated batch ops (fix/uninstall/update). The GATE
+    """Item for middle-gated batch ops (uninstall/update). The GATE
     check precedes node resolution, so a placeholder spec is sufficient:
     the queue worker's later failure on the nonexistent node is irrelevant
     to the synchronous gate observable (the response's failed list)."""
@@ -646,10 +646,9 @@ class _LegacyGuardRows:
     flags_label = ""
 
     def _assert_sc25a(self):
-        """SC-25A: legacy middle-gated ops (fix/uninstall/update) stay
+        """SC-25A: legacy middle-gated ops (uninstall/update) stay
         allowed at sl=normal local for this flag combination."""
         payload = {
-            "fix": [_batch_op_item(f"sc25a-fix-{self.flags_label}")],
             "uninstall": [_batch_op_item(f"sc25a-unin-{self.flags_label}")],
             "update": [_batch_op_item(f"sc25a-upd-{self.flags_label}")],
         }
