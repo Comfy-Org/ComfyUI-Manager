@@ -48,10 +48,9 @@ from ..common.enums import NetworkMode, SecurityLevel, DBMode
 from ..common import context
 
 
-def print(*objects, sep=" ", end="\n", file=None):
-    # rich's print with its highlighting only, so that a path, a URL or an error text is written as it is
+def print(*objects, sep=" ", end="\n", file=None, style=None):
     console = rich.get_console() if file is None else Console(file=file)
-    console.print(*objects, sep=sep, end=end, markup=False, emoji=False, soft_wrap=True)
+    console.print(*objects, sep=sep, end=end, style=style, highlight=style is None, markup=False, emoji=False, soft_wrap=True)
 
 
 try:

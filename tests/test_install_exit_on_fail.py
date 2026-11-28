@@ -7,7 +7,6 @@ from unittest.mock import Mock
 
 import pytest
 import typer
-from rich import print
 from typing_extensions import Annotated, List
 
 from legacy_html_testutil import ROOT, load_functions
@@ -25,7 +24,7 @@ def install(node, exit_on_fail):
     load_functions(ROOT / 'cm_cli/__main__.py', {'install', 'install_node', 'for_each_nodes', '_finalize_resolve'}, {
         'app': SimpleNamespace(command=lambda *args, **kwargs: lambda function: function),
         'typer': typer, 'Annotated': Annotated, 'List': List, 'Optional': Optional,
-        'asyncio': asyncio, 'sys': sys, 'traceback': traceback, 'print': print, 'NodeInstallError': NodeInstallError,
+        'asyncio': asyncio, 'sys': sys, 'traceback': traceback, 'print': lambda *objects, style=None: print(*objects), 'NodeInstallError': NodeInstallError,
         'cmd_ctx': Mock(no_deps=False), 'comfy_path': '', 'context': Mock(), 'manager_util': Mock(),
         'core': SimpleNamespace(is_valid_url=lambda spec: False), 'unified_manager': unified_manager,
     })['install']([node], None, None, False, False, None, exit_on_fail)

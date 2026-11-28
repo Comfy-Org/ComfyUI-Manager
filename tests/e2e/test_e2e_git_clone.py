@@ -364,3 +364,10 @@ class TestGitBackendLine:
         assert r.returncode == 0, r.stderr
         assert "Using GitPython backend" not in r.stdout + r.stderr
         assert "Using pygit2 backend" not in r.stdout + r.stderr
+
+    def test_cm_cli_writes_no_empty_line_before_the_output_of_its_command(self, comfyui):
+        r = subprocess.run([_cm_cli_path(), "simple-show", "snapshot-list"], capture_output=True, text=True, timeout=120,
+                           env={**os.environ, "COMFYUI_PATH": COMFYUI_PATH})
+
+        assert r.returncode == 0, r.stderr
+        assert not r.stdout.startswith("\n")
