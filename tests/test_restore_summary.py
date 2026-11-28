@@ -130,6 +130,7 @@ def test_enabled_version_of_the_registry_is_disabled_before_the_clone_of_a_snaps
     assert lines(f'''
 manager.repo_cnr_map['{URL}'] = {{'id': 'fixture'}}
 manager.get_custom_nodes.return_value = {{'fixture': {{'repository': '{URL}'}}}} if {in_node_list} else {{}}
+(nodes / 'fixture').mkdir()
 manager.active_nodes['fixture'] = ('1.0.0', str(nodes / 'fixture'))
 done = steps()
 result = summary(cnr_custom_nodes=None, **pinned('{URL}')) + [done]
@@ -166,6 +167,7 @@ result = summary(cnr_custom_nodes=saved['cnr_custom_nodes'], git_custom_nodes=sa
 def test_clone_that_is_enabled_is_left_to_the_install_of_the_version_that_the_snapshot_names():
     assert lines('''
 manager.repo_cnr_map[URL] = {'id': 'fixture'}
+(nodes / 'fixture').mkdir()
 manager.active_nodes['fixture'] = ('nightly', str(nodes / 'fixture'))
 done = steps()
 result = summary(cnr_custom_nodes={'fixture': '1.0.0'}, git_custom_nodes={URL: {'hash': HASH, 'disabled': True}}) + [done]
@@ -178,11 +180,12 @@ result = summary(cnr_custom_nodes={'fixture': '1.0.0'}, git_custom_nodes={URL: {
      [f'[  CHECKOUT ] fixture@{HASH}', '[  FAILED   ] fixture@1.0.0', ['disable fixture', 'enable fixture@nightly']]),
     ("manager.cnr_inactive_nodes['fixture'] = {'2.0.0': str(nodes / '.disabled/fixture@2_0_0')}; "
      "manager._cnr_switch_version = lambda name, version, *args: core.ManagedResult('switch-cnr').fail('the download failed')",
-     [f'[  CHECKOUT ] fixture@{HASH}', '[  FAILED   ] fixture@1.0.0', ['disable fixture', 'enable fixture@cnr', 'enable fixture@nightly']]),
+     [f'[  CHECKOUT ] fixture@{HASH}', '[  FAILED   ] fixture@1.0.0', ['enable fixture@cnr', 'disable fixture', 'enable fixture@nightly']]),
 ], ids=['the registry does not have it', 'its download fails', 'its download fails after another version was enabled'])
 def test_clone_of_the_snapshot_is_restored_when_the_version_that_the_snapshot_names_cannot_be_installed(failure, state):
     assert lines(f'''
 manager.repo_cnr_map[URL] = {{'id': 'fixture'}}
+(nodes / 'fixture').mkdir()
 manager.active_nodes['fixture'] = ('nightly', str(nodes / 'fixture'))
 done = steps()
 def disable(name, is_unknown):
@@ -192,6 +195,7 @@ def disable(name, is_unknown):
 def enable(name, version):
     done.append('enable %s@%s' % (name, version))
     if version == 'cnr':
+        disable(name, False)
         manager.active_nodes[name] = ('2.0.0', manager.cnr_inactive_nodes[name].pop('2.0.0'))
     return core.ManagedResult('enable').with_target(str(nodes / name))
 manager.unified_disable, manager.unified_enable = disable, enable

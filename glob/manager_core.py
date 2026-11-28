@@ -1041,6 +1041,22 @@ class UnifiedManager:
 
         return result
 
+    def disable_for_replacement(self, node_id, to_path):
+        """
+        Disable the enabled version of node_id, for another version that goes to to_path.
+        Fails with nothing changed when anything but the folder of the enabled version is at to_path.
+        """
+        result = ManagedResult('disable')
+        enabled = self.active_nodes.get(node_id)
+        on_disk = enabled is not None and os.path.exists(enabled[1])
+        if os.path.lexists(to_path) and not (on_disk and os.path.samestat(os.lstat(enabled[1]), os.lstat(to_path))):
+            return result.fail(f'Destination already exists: {to_path}')
+
+        if on_disk:
+            return self.unified_disable(node_id, False)
+
+        return result
+
     def unified_enable(self, node_id: str, version_spec=None):
         """
         priority if version_spec == None
@@ -1079,14 +1095,12 @@ class UnifiedManager:
             base_path = extract_base_custom_nodes_dir(from_path)
             to_path = os.path.join(base_path, node_id)
         elif version_spec == 'nightly':
-            self.unified_disable(node_id, False)
             from_path = self.nightly_inactive_nodes.get(node_id)
             if from_path is None:
                 return result.fail(f'Specified inactive node not exists: {node_id}@nightly')
             base_path = extract_base_custom_nodes_dir(from_path)
             to_path = os.path.join(base_path, node_id)
         elif version_spec is not None:
-            self.unified_disable(node_id, False)
             cnr_info = self.cnr_inactive_nodes.get(node_id)
 
             if cnr_info is None or len(cnr_info) == 0:
@@ -1104,6 +1118,14 @@ class UnifiedManager:
 
         if from_path is None or not os.path.exists(from_path):
             return result.fail(f'Specified inactive node path not exists: {from_path}')
+
+        if version_spec == 'unknown':
+            if os.path.lexists(to_path):
+                return result.fail(f'Destination already exists: {to_path}')
+        else:
+            res = self.disable_for_replacement(node_id, to_path)
+            if not res.result:
+                return res
 
         # move from disk
         shutil.move(from_path, to_path)
@@ -1147,6 +1169,8 @@ class UnifiedManager:
 
             base_path = extract_base_custom_nodes_dir(repo_and_path[1])
             to_path = os.path.join(base_path, '.disabled', node_id)
+            if os.path.lexists(to_path):
+                return result.fail(f'Destination already exists: {to_path}')
 
             shutil.move(repo_and_path[1], to_path)
             result.append((repo_and_path[1], to_path))
@@ -1166,6 +1190,9 @@ class UnifiedManager:
 
         # NOTE: A disabled node may have multiple versions, so preserve it using the `@ suffix`.
         to_path = os.path.join(base_path, '.disabled', f"{node_id}@{ver_and_path[0].replace('.', '_')}")
+        if os.path.lexists(to_path):
+            return result.fail(f'Destination already exists: {to_path}')
+
         shutil.move(ver_and_path[1], to_path)
         result.append((ver_and_path[1], to_path))
 
@@ -1532,21 +1559,25 @@ class UnifiedManager:
             return ManagedResult('install-cnr').fail(f'not available node: {node_id}@{version_spec}')
         version_spec = node_info.version
 
-        if self.is_enabled(node_id, 'nightly'):
-            # disable nightly nodes
-            self.unified_disable(node_id, False)  # NOTE: don't return from here
-
         if self.is_disabled(node_id, version_spec):
             # enable and return if specified version is disabled
             return self.unified_enable(node_id, version_spec)
 
         if self.is_disabled(node_id, "cnr"):
             # enable and switch version if cnr is disabled (not specified version)
-            self.unified_enable(node_id, "cnr")
+            res = self.unified_enable(node_id, "cnr")
+            if not res.result:
+                return res
             return self._cnr_switch_version(node_id, node_info, instant_execution, no_deps, return_postinstall)
 
         if self.is_enabled(node_id, "cnr"):
             return self._cnr_switch_version(node_id, node_info, instant_execution, no_deps, return_postinstall)
+
+        if self.is_enabled(node_id, 'nightly'):
+            # disable nightly nodes
+            res = self.disable_for_replacement(node_id, os.path.join(get_default_custom_nodes_path(), node_id))
+            if not res.result:
+                return res
 
         res = self._cnr_install(node_id, node_info, instant_execution, no_deps, return_postinstall)
         if res.result:
@@ -1570,7 +1601,9 @@ class UnifiedManager:
         if version_spec == 'nightly':
             # disable cnr nodes
             if self.is_enabled(node_id, 'cnr'):
-                self.unified_disable(node_id, False)
+                res = self.disable_for_replacement(node_id, to_path)
+                if not res.result:
+                    return res
 
         res = self.repo_install(repo_url, to_path, instant_execution=instant_execution, no_deps=no_deps, return_postinstall=return_postinstall)
         if res.result:
