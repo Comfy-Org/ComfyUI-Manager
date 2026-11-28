@@ -494,6 +494,39 @@ def test_checkout_that_fails_is_reported_as_failed(manager, summary, tmp_path, i
     assert summary(**pinned(REPO_URL)) == [f'[  FAILED   ] fixture@{COMMIT}']
 
 
+@pytest.mark.parametrize('installed, lines, done', [
+    (registry_git_pack, ['[  DISABLED ] fixture'], ['disable fixture']),
+    (unknown_git_pack, ['[  DISABLED ] fixture'], ['disable fixture']),
+    (disabled_registry_git_pack, [], []),
+    (disabled_unknown_git_pack, [], []),
+    (lambda unified_manager, path: in_registry(unified_manager), [], []),
+    (lambda unified_manager, path: None, [], []),
+], ids=['registry_git_pack', 'unknown_git_pack', 'disabled_registry_git_pack', 'disabled_unknown_git_pack',
+        'registry_git_pack_that_is_not_installed', 'unknown_git_pack_that_is_not_installed'])
+def test_git_pack_that_the_snapshot_lists_as_disabled_is_restored_as_disabled(manager, summary, steps, tmp_path, installed, lines, done):  # noqa: F811
+    """Enabled, it is disabled; disabled, it is left as it is; not installed, it is not cloned."""
+    installed(manager, tmp_path)
+
+    assert summary(git_custom_nodes={REPO_URL: {'hash': COMMIT, 'disabled': True}}) == lines
+    assert steps == done
+
+
+@pytest.mark.parametrize('read_first', ['nodes', 'more_nodes'], ids=['enabled_clone_read_first', 'disabled_clone_read_first'])
+def test_snapshot_lists_a_repository_as_enabled_when_one_of_its_two_clones_is_enabled(core, manager, monkeypatch, tmp_path, read_first):  # noqa: F811
+    """Both clones have the URL that names the entry: the enabled one is what a restore brings back."""
+    enabled, disabled = tmp_path / 'nodes/fixture', tmp_path / 'more_nodes/.disabled/fixture'
+    repository(enabled)
+    subprocess.run(['git', 'checkout', '-q', repository(disabled)[0]], cwd=disabled, check=True)
+    for clone in (enabled, disabled):
+        subprocess.run(['git', 'remote', 'add', 'origin', REPO_URL], cwd=clone, check=True)
+    folders = sorted(['nodes', 'more_nodes'], key=lambda name: name != read_first)
+    monkeypatch.setattr(core, 'get_custom_nodes_paths', lambda: [str(tmp_path / name) for name in folders])
+
+    saved = asyncio.run(core.get_current_snapshot(custom_nodes_only=True))['git_custom_nodes']
+
+    assert saved == {REPO_URL: {'hash': head(enabled), 'disabled': False}}
+
+
 def test_pack_that_fails_at_two_steps_is_listed_once(core, manager, summary, answer, tmp_path):  # noqa: F811
     manager.active_nodes['fixture'] = ('1.0.0', str(tmp_path / 'fixture'))
     in_registry(manager)

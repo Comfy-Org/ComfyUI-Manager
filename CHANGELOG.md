@@ -18,6 +18,18 @@ and this project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/
 
 ### Fixed
 
+- A git nodepack that a snapshot lists as disabled is restored as disabled.
+  A snapshot lists each git nodepack with whether it was disabled when the
+  snapshot was saved, and a restore did not read that, with
+  `cm-cli restore-snapshot` and from the Snapshot Manager alike. A nodepack
+  saved as disabled was enabled when it was disabled, left enabled when it
+  was enabled, and cloned when it was not installed. It is now left disabled,
+  disabled, and not cloned. A nodepack saved at a version of the registry
+  keeps its git clone disabled: that clone is restored when the version could
+  not be, as before. Where a URL has an enabled and a disabled clone
+  installed, a snapshot lists it as enabled, with the commit of the enabled
+  clone; it listed the clone it read last.
+
 - Both URLs of the default channel,
   `https://raw.githubusercontent.com/Comfy-Org/ComfyUI-Manager/main` and
   `https://raw.githubusercontent.com/ltdrdata/ComfyUI-Manager/main`, are one

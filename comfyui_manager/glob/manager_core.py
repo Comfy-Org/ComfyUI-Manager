@@ -2859,6 +2859,9 @@ async def get_current_snapshot(custom_nodes_only = False):
                     else:
                         commit_hash = git_utils.get_commit_hash(fullpath)
                         url = git_utils.git_url(fullpath)
+                        # of two clones of a repository, the enabled one is what a restore brings back
+                        if is_disabled and url in git_custom_nodes:
+                            continue
                         git_custom_nodes[url] = dict(hash=commit_hash, disabled=is_disabled)
                 except Exception:
                     print(f"Failed to extract snapshots for the custom node '{path}'.")
@@ -3346,10 +3349,14 @@ async def restore_snapshot(snapshot_path, git_helper_extras=None):
 
             norm_k = git_utils.normalize_url(k)
 
-            # a node pack saved at a version of the registry has the clone it keeps disabled as a git entry
+            # a clone saved as disabled is left out: the restore then disables it, leaves it disabled or does not clone it.
+            # A nodepack saved at a version of the registry has such a clone, which is restored when that version could not be
             cnr = unified_manager.repo_cnr_map.get(norm_k)
             version = (cnr_info or {}).get(cnr['id']) if cnr is not None else None
-            if version is not None and unified_manager.is_enabled(cnr['id'], 'cnr') and f"{cnr['id']}@{version}" not in failed:
+            if version is None:
+                if v.get('disabled'):
+                    continue
+            elif unified_manager.is_enabled(cnr['id'], 'cnr') and f"{cnr['id']}@{version}" not in failed:
                 continue
 
             git_info[norm_k] = v
