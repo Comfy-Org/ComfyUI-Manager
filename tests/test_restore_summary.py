@@ -308,6 +308,44 @@ result = summary(**pinned('{URL}')) + [[x.args for x in core.repo_switch_commit.
 ''') == [line, True]
 
 
+LISTED_AS_DISABLED = {
+    'registry_git_pack': ("manager.active_nodes[name] = ('nightly', str(nodes / name)); manager.repo_cnr_map[url] = {'id': name}",
+                          ['[  DISABLED ] fixture', ['disable fixture']]),
+    'unknown_git_pack': ("manager.unknown_active_nodes[name] = git_pack(name, url)", ['[  DISABLED ] fixture', ['disable fixture']]),
+    'disabled_registry_git_pack': ("manager.nightly_inactive_nodes[name] = git_pack('.disabled/' + name, url)[1]; manager.repo_cnr_map[url] = {'id': name}", [[]]),
+    'disabled_unknown_git_pack': ("manager.unknown_inactive_nodes[name] = git_pack('.disabled/' + name, url)", [[]]),
+    'registry_git_pack_that_is_not_installed': ("manager.repo_cnr_map[url] = {'id': name}", [[]]),
+    'unknown_git_pack_that_is_not_installed': ("", [[]]),
+}
+
+
+@pytest.mark.parametrize('installed', LISTED_AS_DISABLED)
+def test_git_pack_that_the_snapshot_lists_as_disabled_is_restored_as_disabled(installed):
+    """Enabled, it is disabled; disabled, it is left as it is; not installed, it is not cloned."""
+    assert lines(f'''
+name, url = 'fixture', URL
+{LISTED_AS_DISABLED[installed][0]}
+done = steps()
+result = summary(git_custom_nodes={{URL: {{'hash': HASH, 'disabled': True}}}}) + [done]
+''') == LISTED_AS_DISABLED[installed][1]
+
+
+@pytest.mark.parametrize('folders', ['nodes, more', 'more, nodes'], ids=['enabled_clone_read_first', 'disabled_clone_read_first'])
+def test_snapshot_lists_a_repository_as_enabled_when_one_of_its_two_clones_is_enabled(folders):
+    """Both clones have the URL that names the entry: the enabled one is what a restore brings back."""
+    assert lines(f'''
+more = nodes.parent / 'more_nodes'
+enabled, disabled = nodes / 'fixture', more / '.disabled/fixture'
+repository(enabled)
+subprocess.run(['git', 'checkout', '-q', repository(disabled)[0]], cwd=disabled, check=True)
+for clone in (enabled, disabled):
+    subprocess.run(['git', 'remote', 'add', 'origin', URL], cwd=clone, check=True)
+core.get_custom_nodes_paths = lambda: [str(folder) for folder in ({folders})]
+saved = asyncio.run(core.get_current_snapshot(custom_nodes_only=True))['git_custom_nodes']
+result = [list(saved), saved[URL]['disabled'], saved[URL]['hash'] == head(enabled)]
+''') == [[URL], False, True]
+
+
 def test_installed_git_pack_the_registry_does_not_know_is_checked_out_at_the_pinned_commit():
     assert lines(f'''
 commits = repository(nodes / 'fixture')
