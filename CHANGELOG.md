@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+### cm-cli prints a value in square brackets, and a line for each nodepack it counts
+
+cm-cli printed every line through rich, which reads a lowercase word in square
+brackets as markup and drops it, and typer shows a help text the same way.
+`cm-cli fix` named no version for a git nodepack (`[unknown]`, `[nightly]`),
+and an install of an id that no list has ended with `not found in` and nothing
+after it. The name of a nodepack, a reason, a title or an author of the node
+list, a changelog line, a path or the name of a snapshot lost a part in square
+brackets that starts with a lowercase letter, and a path lost a backslash
+before a bracket. cm-cli now writes every line as it is, as the Manager writes
+its own, a coloured line in its colour. A line longer than the console is wide
+is no longer broken in two, which was at 80 columns where no terminal is
+attached, as in a script, and a code such as `:bug:` in a value is no longer
+turned into an emoji. `--help` showed no text for `--mode` and for the argument
+of `show`, `simple-show`, `update`, `enable`, `disable`, `fix` and
+`cli-only-mode`. These texts are now written without their brackets, as
+`remote|local|cache`, and read the same with and without rich. `cm-cli
+simple-show` refused a word that is no list with the tags of a colour around
+the line: `[bold red]Invalid command: ...[/bold red]`. The reason of a failed
+`cm-cli fix` had an `f` before it. `cm-cli disable all` printed no line for the
+Manager and `cm-cli fix all` none for a disabled nodepack, so each skipped a
+number; both print a line now, as `update all` does. `cm-cli
+restore-dependencies` counted `__pycache__` as a nodepack. `cm-cli install`
+printed a line of its own before each nodepack: `install_node exit on
+fail:False...`.
+
 ### Both URLs of the default channel are the default channel
 
 The default channel is served at

@@ -182,11 +182,12 @@ def cm_cli_function(name, namespace, class_name=None):
     return namespace[name]
 
 def cm_cli_reinstall_node(out=None):
-    import io, rich.console, rich.markup
-    console = rich.console.Console(file=out if out is not None else io.StringIO(), width=1000, color_system=None)
+    import io
+    out = out if out is not None else io.StringIO()
     return cm_cli_function('reinstall_node', {
-        'asyncio': asyncio, 'os': os, 'core': core, 'unified_manager': manager, 'print': console.print,
-        'escape': rich.markup.escape, 'cmd_ctx': SimpleNamespace(channel='default', mode='cache', no_deps=False)})
+        'asyncio': asyncio, 'os': os, 'core': core, 'unified_manager': manager,
+        'print': lambda *objects, **kwargs: core.print(*objects, file=out, **kwargs),
+        'cmd_ctx': SimpleNamespace(channel='default', mode='cache', no_deps=False)})
 
 def notice():
     import contextlib, io
