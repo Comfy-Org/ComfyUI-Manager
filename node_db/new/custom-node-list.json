@@ -769,7 +769,9 @@
             "title": "ComfyUI-SpecAR",
             "id": "comfyui-specar",
             "reference": "https://github.com/statite-ai/ComfyUI-SpecAR",
-            "files": ["https://github.com/statite-ai/ComfyUI-SpecAR"],
+            "files": [
+                "https://github.com/statite-ai/ComfyUI-SpecAR"
+            ],
             "install_type": "git-clone",
             "description": "SpecAR: Training-free 2.04x-2.81x speedup on Krea Realtime 14B + Self-Forcing 1.3B (up to 23.1 FPS real-time on B200, 2.67x on H100) with lazy target KV caching and low-VRAM offload."
         },
@@ -1162,7 +1164,9 @@
             "author": "yourknife",
             "title": "ComfyUI_SaveJPEG",
             "reference": "https://github.com/yourknife/ComfyUI_SaveJPEG",
-            "files": ["https://github.com/yourknife/ComfyUI_SaveJPEG"],
+            "files": [
+                "https://github.com/yourknife/ComfyUI_SaveJPEG"
+            ],
             "install_type": "git-clone",
             "description": "Saves any input image as JPEG to the ComfyUI output directory (selectable .jpg/.jpeg extension, quality, background fill for transparent pixels, timestamp filename prefix)."
         },
@@ -2018,6 +2022,17 @@
             ],
             "install_type": "git-clone",
             "description": "Smart and practical custom nodes for ComfyUI."
+        },
+        {
+            "author": "WwwwwHM",
+            "title": "Herb Cleanup (Unload All Models)",
+            "reference": "https://github.com/WwwwwHM/comfyui_herb_cleanup",
+            "files": [
+                "https://github.com/WwwwwHM/comfyui_herb_cleanup"
+            ],
+            "install_type": "git-clone",
+            "description": "One-click node to unload all models and free VRAM/RAM via the official ComfyUI model_management API. Passes any input through unchanged; safe with quantized models. Best placed after the last image-producing node.",
+            "pip": []
         }
     ]
 }
