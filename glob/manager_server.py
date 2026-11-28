@@ -597,9 +597,10 @@ async def task_worker():
         try:
             res = core.unified_manager.unified_disable(node_name, is_unknown)
 
-            if res:
+            if res.result:
                 return 'success'
 
+            logging.error(f"[ComfyUI-Manager] Failed to disable '{node_name}': {res.msg}")
         except Exception:
             traceback.print_exc()
 
@@ -1471,7 +1472,10 @@ async def _queue_node_install(request, operation):
     if json_data['version'] != 'unknown' and selected_version != 'unknown':
         if skip_post_install:
             if cnr_id in core.unified_manager.nightly_inactive_nodes or cnr_id in core.unified_manager.cnr_inactive_nodes:
-                core.unified_manager.unified_enable(cnr_id)
+                res = core.unified_manager.unified_enable(cnr_id)
+                if not res.result:
+                    logging.error(f"[ComfyUI-Manager] Failed to enable '{cnr_id}': {res.msg}")
+                    return web.Response(status=400, text=res.msg)
                 # Mirror the pair of events (in_progress then done) that the async
                 # task_worker normally emits for queued operations. The in_progress
                 # event is what sets item.restart=true on the client row so the

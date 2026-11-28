@@ -105,7 +105,7 @@ def run_the_queue(*tasks):
     order = []
     config['model_download_by_agent'] = True
     core.update_path = lambda path: order.append('ComfyUI is updated') or 'skipped'
-    manager.unified_disable = lambda node_name, is_unknown: order.append('the task') or True
+    manager.unified_disable = lambda node_name, is_unknown: order.append('the task') or core.ManagedResult('disable')
     manager.unified_update = lambda node_name, node_ver: order.append('the task') or SimpleNamespace(ver='unknown', result=True, action='skip')
     task_queue = queue.Queue()
     for task in tasks:

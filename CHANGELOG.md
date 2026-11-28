@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### A disable or an enable does not move a nodepack into a folder that exists
+
+Disabling a nodepack moves its folder into `custom_nodes/.disabled`, and
+enabling moves it back. Where the folder it moves to was already there, as with
+an enabled nodepack and a disabled copy of it, the nodepack was moved inside
+that folder (`.disabled/<name>/<name>`) and reported as disabled. `cm-cli
+disable`, the Disable button, a restore that disables a nodepack, and an enable
+or an install that first disables the enabled version all did so. The disable or
+enable now fails with `Destination already exists: <folder>` and the nodepack
+stays in its folder. An enable or an install that first disables the enabled
+version now looks at its own folder before it does so, and stops when that
+version cannot be disabled, so one that is refused changes nothing. The Disable
+and Enable buttons reported success for a disable or an enable that the Manager
+refused; they now report the failure, and the terminal says why. The Custom
+Nodes Manager shows the reason of a refused enable as well. `cm-cli install`
+printed its `ENABLED` line for an enable that failed; it now prints the error.
+An install that first enables a disabled version stops when that enable fails;
+it went on to switch the version of whatever was in the folder.
+
 ### Both URLs of the default channel are the default channel
 
 The default channel is served at
