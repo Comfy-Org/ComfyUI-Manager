@@ -17,7 +17,6 @@ from unittest.mock import Mock
 
 import pytest
 import rich.console
-import rich.markup
 
 from _install_flags_testutil import import_reader
 from js_lift import NODE, JsSource, line_containing, parse, run_node, slice_braced
@@ -1440,11 +1439,11 @@ class NodeInstallError(Exception):
 
 
 def cm_cli_reinstall_node(core, out=None):
-    console = rich.console.Console(file=out if out is not None else io.StringIO(), width=1000, color_system=None)
+    out = out if out is not None else io.StringIO()
     return cm_cli_function('reinstall_node', {
-        'asyncio': asyncio, 'os': os, 'core': core, 'unified_manager': core.unified_manager, 'print': console.print,
-        'escape': rich.markup.escape, 'cmd_ctx': SimpleNamespace(channel='default', mode='cache', no_deps=False),
-        'NodeInstallError': NodeInstallError})
+        'asyncio': asyncio, 'os': os, 'core': core, 'unified_manager': core.unified_manager,
+        'print': lambda *objects, **kwargs: core.print(*objects, file=out, **kwargs),
+        'cmd_ctx': SimpleNamespace(channel='default', mode='cache', no_deps=False), 'NodeInstallError': NodeInstallError})
 
 
 @pytest.mark.parametrize('core', ['legacy'], indirect=True)

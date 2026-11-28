@@ -83,7 +83,7 @@ def write(user, writer):
         m.setattr(core, 'check_invalid_nodes', lambda: None)
         if writer == 'cm-cli update-cache':
             cli = load_functions(ROOT / 'cm_cli/__main__.py', {'_force_update_cache'}, {
-                'os': os, 'sys': sys, 'asyncio': asyncio, 'print': lambda *args: None, 'core': core,
+                'os': os, 'sys': sys, 'asyncio': asyncio, 'print': lambda *args, **kwargs: None, 'core': core,
                 'manager_util': user.util, 'unified_manager': SimpleNamespace(reload=idle, load_nightly=idle)})
             asyncio.run(cli['_force_update_cache']('default'))
         else:

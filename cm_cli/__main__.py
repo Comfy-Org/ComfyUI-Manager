@@ -8,8 +8,7 @@ import threading
 from typing import Optional
 
 import typer
-from rich import print
-from rich.markup import escape
+import rich
 from typing_extensions import List, Annotated
 import re
 import importlib
@@ -22,13 +21,13 @@ import importlib
 comfy_path = os.environ.get('COMFYUI_PATH')
 
 if comfy_path is None:
-    print("[bold red]cm-cli: environment variable 'COMFYUI_PATH' is not specified.[/bold red]")
+    rich.print("[bold red]cm-cli: environment variable 'COMFYUI_PATH' is not specified.[/bold red]")
     exit(-1)
 
 sys.path.append(comfy_path)
 
 if not os.path.exists(os.path.join(comfy_path, 'folder_paths.py')):
-    print("[bold red]cm-cli: '{comfy_path}' is not a valid 'COMFYUI_PATH' location.[/bold red]")
+    rich.print("[bold red]cm-cli: '{comfy_path}' is not a valid 'COMFYUI_PATH' location.[/bold red]")
     exit(-1)
 
 
@@ -40,6 +39,8 @@ from comfyui_manager.legacy import manager_core as core
 from comfyui_manager.common import context
 from comfyui_manager.legacy.manager_core import unified_manager
 from comfyui_manager.common import cnr_utils
+
+print = core.print
 
 comfyui_manager_path = os.path.abspath(os.path.dirname(__file__))
 
@@ -68,7 +69,7 @@ def check_comfyui_hash():
             core.comfy_ui_revision = repo.iter_commits_count()
             core.comfy_ui_commit_datetime = repo.head_commit_datetime
     except Exception:
-        print('[bold yellow]INFO: Frozen ComfyUI mode.[/bold yellow]')
+        print('INFO: Frozen ComfyUI mode.', style='bold yellow')
         core.comfy_ui_revision = 0
         core.comfy_ui_commit_datetime = 0
 
@@ -197,7 +198,7 @@ def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
         res = asyncio.run(core.gitclone_install(node_spec_str, no_deps=cmd_ctx.no_deps))
         if not res.result:
             print(res.msg)
-            print(f"[bold red]ERROR: An error occurred while installing '{node_spec_str}'.[/bold red]")
+            print(f"ERROR: An error occurred while installing '{node_spec_str}'.", style="bold red")
             if raise_on_fail:
                 raise NodeInstallError(node_spec_str)
         else:
@@ -233,7 +234,7 @@ def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
             show_versions(node_name)
             print("")
         else:
-            print(f"[bold red]ERROR: An error occurred while installing '{node_name}'.\n{res.msg}[/bold red]")
+            print(f"ERROR: An error occurred while installing '{node_name}'.\n{res.msg}", style="bold red")
             if raise_on_fail:
                 raise NodeInstallError(node_name)
 
@@ -258,10 +259,9 @@ def reinstall_node(node_spec_str, is_all=False, cnt_msg=''):
         print(f"{cnt_msg} [   SKIP  ] {node_name:50} => Already installed")
         return
     if not res.result:
-        print(f"[bold red]ERROR: An error occurred while reinstalling '{node_name}'.\n{escape(res.msg)}[/bold red]")
+        print(f"ERROR: An error occurred while reinstalling '{node_name}'.\n{res.msg}", style="bold red")
         raise NodeInstallError(node_name)
 
-    # in capitals, as install_node prints a git install: rich reads a lowercase [nightly] as markup
     target = res.target.upper() if res.target in ('nightly', 'unknown') else res.target
     print(f"{cnt_msg} [REINSTALLED] {node_name:50}[{target}]")
 
@@ -270,11 +270,10 @@ def fix_node(node_spec_str, is_all=False, cnt_msg='', fixed=None):
     node_spec = unified_manager.resolve_node_spec(node_spec_str, guess_mode='active')
 
     if node_spec is None:
-        if not is_all:
-            if unified_manager.resolve_node_spec(node_spec_str, guess_mode='inactive') is not None:
-                print(f"{cnt_msg} [  SKIPPED  ]: {node_spec_str:50} => Disabled")
-            else:
-                print(f"{cnt_msg} [  SKIPPED  ]: {node_spec_str:50} => Not installed")
+        if unified_manager.resolve_node_spec(node_spec_str, guess_mode='inactive') is not None:
+            print(f"{cnt_msg} [  SKIPPED  ]: {node_spec_str:50} => Disabled")
+        else:
+            print(f"{cnt_msg} [  SKIPPED  ]: {node_spec_str:50} => Not installed")
 
         return
 
@@ -284,7 +283,7 @@ def fix_node(node_spec_str, is_all=False, cnt_msg='', fixed=None):
     res = unified_manager.unified_fix(node_name, version_spec, no_deps=cmd_ctx.no_deps, fixed=fixed)
 
     if not res.result:
-        print(f"[bold red]ERROR: f{res.msg}[/bold red]")
+        print(f"ERROR: {res.msg}", style="bold red")
 
 
 def uninstall_node(node_spec_str: str, is_all: bool = False, cnt_msg: str = ''):
@@ -416,6 +415,7 @@ def enable_node(node_spec_str, is_all=False, cnt_msg=''):
 
 def disable_node(node_spec_str: str, is_all=False, cnt_msg=''):
     if 'comfyui-manager' in node_spec_str.lower():
+        print(f"{cnt_msg} [  SKIP  ] {node_spec_str:50} => Not disabled: its name has 'comfyui-manager'")
         return
 
     node_spec = unified_manager.resolve_node_spec(node_spec_str, guess_mode='active')
@@ -539,7 +539,7 @@ def show_list(kind, simple=False):
         if simple:
             print(title+'@'+ver_spec)
         else:
-            print(f"{prefix} {title:50} {short_id:30} (author: {author:20}) \\[{ver_spec}]")
+            print(f"{prefix} {title:50} {short_id:30} (author: {author:20}) [{ver_spec}]")
 
     for x in unknown_processed:
         prefix, title, short_id, author = x
@@ -642,7 +642,7 @@ def for_each_nodes(nodes, act, allow_all=True, **kwargs):
             failed.append(x)
 
     if failed:
-        print(f"\n[bold red]Failed nodes ({len(failed)}/{total}): {', '.join(str(x) for x in failed)}[/bold red]")
+        print(f"\nFailed nodes ({len(failed)}/{total}): {', '.join(str(x) for x in failed)}", style="bold red")
         sys.exit(1)
 
 
@@ -669,7 +669,7 @@ def install(
         ] = None,
         mode: str = typer.Option(
             None,
-            help="[remote|local|cache]"
+            help="remote|local|cache"
         ),
         no_deps: Annotated[
             Optional[bool],
@@ -700,7 +700,7 @@ def install(
     cmd_ctx.set_channel_mode(channel, mode)
 
     if uv_compile and no_deps:
-        print("[bold red]--uv-compile and --no-deps are mutually exclusive.[/bold red]")
+        print("--uv-compile and --no-deps are mutually exclusive.", style="bold red")
         raise typer.Exit(1)
 
     if uv_compile:
@@ -728,7 +728,7 @@ def reinstall(
         ] = None,
         mode: str = typer.Option(
             None,
-            help="[remote|local|cache]"
+            help="remote|local|cache"
         ),
         no_deps: Annotated[
             Optional[bool],
@@ -755,7 +755,7 @@ def reinstall(
     cmd_ctx.set_channel_mode(channel, mode)
 
     if uv_compile and no_deps:
-        print("[bold red]--uv-compile and --no-deps are mutually exclusive.[/bold red]")
+        print("--uv-compile and --no-deps are mutually exclusive.", style="bold red")
         raise typer.Exit(1)
 
     if uv_compile:
@@ -783,7 +783,7 @@ def uninstall(
         ] = None,
         mode: str = typer.Option(
             None,
-            help="[remote|local|cache]"
+            help="remote|local|cache"
         ),
 ):
     cmd_ctx.set_channel_mode(channel, mode)
@@ -794,7 +794,7 @@ def uninstall(
 def update(
         nodes: List[str] = typer.Argument(
             ...,
-            help="[all|List of custom nodes to update]"
+            help="all|List of custom nodes to update"
         ),
         channel: Annotated[
             str,
@@ -805,7 +805,7 @@ def update(
         ] = None,
         mode: str = typer.Option(
             None,
-            help="[remote|local|cache]"
+            help="remote|local|cache"
         ),
         user_directory: str = typer.Option(
             None,
@@ -845,7 +845,7 @@ def update(
 def disable(
         nodes: List[str] = typer.Argument(
             ...,
-            help="[all|List of custom nodes to disable]"
+            help="all|List of custom nodes to disable"
         ),
         channel: Annotated[
             str,
@@ -856,7 +856,7 @@ def disable(
         ] = None,
         mode: str = typer.Option(
             None,
-            help="[remote|local|cache]"
+            help="remote|local|cache"
         ),
         user_directory: str = typer.Option(
             None,
@@ -876,7 +876,7 @@ def disable(
 def enable(
         nodes: List[str] = typer.Argument(
             ...,
-            help="[all|List of custom nodes to enable]"
+            help="all|List of custom nodes to enable"
         ),
         channel: Annotated[
             str,
@@ -887,7 +887,7 @@ def enable(
         ] = None,
         mode: str = typer.Option(
             None,
-            help="[remote|local|cache]"
+            help="remote|local|cache"
         ),
         user_directory: str = typer.Option(
             None,
@@ -907,7 +907,7 @@ def enable(
 def fix(
         nodes: List[str] = typer.Argument(
             ...,
-            help="[all|List of custom nodes to fix]"
+            help="all|List of custom nodes to fix"
         ),
         channel: Annotated[
             str,
@@ -918,7 +918,7 @@ def fix(
         ] = None,
         mode: str = typer.Option(
             None,
-            help="[remote|local|cache]"
+            help="remote|local|cache"
         ),
         user_directory: str = typer.Option(
             None,
@@ -961,7 +961,7 @@ def show_versions(node_name: str):
 @app.command("show", help="Show node list")
 def show(
         arg: str = typer.Argument(
-            help="[installed|enabled|not-installed|disabled|all|cnr|snapshot|snapshot-list]"
+            help="installed|enabled|not-installed|disabled|all|cnr|snapshot|snapshot-list"
         ),
         channel: Annotated[
             str,
@@ -972,7 +972,7 @@ def show(
         ] = None,
         mode: str = typer.Option(
             None,
-            help="[remote|local|cache]"
+            help="remote|local|cache"
         ),
         user_directory: str = typer.Option(
             None,
@@ -1006,7 +1006,7 @@ def show(
 @app.command("simple-show", help="Show node list (simple mode)")
 def simple_show(
         arg: str = typer.Argument(
-            help="[installed|enabled|not-installed|disabled|all|snapshot|snapshot-list]"
+            help="installed|enabled|not-installed|disabled|all|snapshot|snapshot-list"
         ),
         channel: Annotated[
             str,
@@ -1017,7 +1017,7 @@ def simple_show(
         ] = None,
         mode: str = typer.Option(
             None,
-            help="[remote|local|cache]"
+            help="remote|local|cache"
         ),
         user_directory: str = typer.Option(
             None,
@@ -1034,7 +1034,7 @@ def simple_show(
         "snapshot-list",
     ]
     if arg not in valid_commands:
-        typer.echo(f"[bold red]Invalid command: `show {arg}`[/bold red]", err=True)
+        typer.echo(f"Invalid command: `show {arg}`", err=True)
         exit(1)
 
     cmd_ctx.set_user_directory(user_directory)
@@ -1068,7 +1068,7 @@ def deps_in_workflow(
         ] = None,
         mode: str = typer.Option(
             None,
-            help="[remote|local|cache]"
+            help="remote|local|cache"
         ),
         user_directory: str = typer.Option(
             None,
@@ -1082,7 +1082,7 @@ def deps_in_workflow(
     output_path = output
 
     if not os.path.exists(input_path):
-        print(f"[bold red]File not found: {input_path}[/bold red]")
+        print(f"File not found: {input_path}", style="bold red")
         exit(1)
 
     used_exts, unknown_nodes = asyncio.run(core.extract_nodes_from_workflow(input_path, mode=cmd_ctx.mode, channel_url=cmd_ctx.channel))
@@ -1127,13 +1127,13 @@ def save_snapshot(
 
     if output is not None:
         if(not output.endswith('.json') and not output.endswith('.yaml')):
-            print("[bold red]ERROR: output path should be either '.json' or '.yaml' file.[/bold red]")
+            print("ERROR: output path should be either '.json' or '.yaml' file.", style="bold red")
             raise typer.Exit(code=1)
     
         dir_path = os.path.dirname(output)
         
         if(dir_path != '' and not os.path.exists(dir_path)):
-            print(f"[bold red]ERROR: {output} path not exists.[/bold red]")
+            print(f"ERROR: {output} path not exists.", style="bold red")
             raise typer.Exit(code=1)
         
     path = asyncio.run(core.save_snapshot_with_postfix('snapshot', output, not full_snapshot))
@@ -1203,14 +1203,14 @@ def restore_snapshot(
     else:
         snapshot_path = os.path.join(cmd_ctx.get_snapshot_path(), snapshot_name)
         if not os.path.exists(snapshot_path):
-            print(f"[bold red]ERROR: `{snapshot_path}` is not exists.[/bold red]")
+            print(f"ERROR: `{snapshot_path}` is not exists.", style="bold red")
             exit(1)
 
     pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
     try:
         is_restored = asyncio.run(core.restore_snapshot(snapshot_path, extras))
     except Exception:
-        print("[bold red]ERROR: Failed to restore snapshot.[/bold red]")
+        print("ERROR: Failed to restore snapshot.", style="bold red")
         traceback.print_exc()
         if uv_compile:
             pip_fixer.fix_broken()
@@ -1249,7 +1249,7 @@ def restore_dependencies(
     for base_path in cmd_ctx.get_custom_nodes_paths():
         for name in os.listdir(base_path):
             target = os.path.join(base_path, name)
-            if os.path.isdir(target) and not name.endswith('.disabled'):
+            if os.path.isdir(target) and not name.endswith('.disabled') and name != '__pycache__':
                 node_paths.append(target)
 
     total = len(node_paths)
@@ -1297,7 +1297,7 @@ def install_deps(
         ] = None,
         mode: str = typer.Option(
             None,
-            help="[remote|local|cache]"
+            help="remote|local|cache"
         ),
         user_directory: str = typer.Option(
             None,
@@ -1321,14 +1321,14 @@ def install_deps(
     asyncio.run(auto_save_snapshot())
 
     if not os.path.exists(deps):
-        print(f"[bold red]File not found: {deps}[/bold red]")
+        print(f"File not found: {deps}", style="bold red")
         exit(1)
     else:
         with open(deps, 'r', encoding="UTF-8", errors="ignore") as json_file:
             try:
                 json_obj = json.load(json_file)
             except Exception:
-                print(f"[bold red]Invalid json file: {deps}[/bold red]")
+                print(f"Invalid json file: {deps}", style="bold red")
                 exit(1)
 
             pip_fixer = manager_util.PIPFixer(manager_util.get_installed_packages(), comfy_path, context.manager_files_path)
@@ -1353,12 +1353,12 @@ def _finalize_resolve(pip_fixer, uv_compile) -> None:
         try:
             _run_unified_resolve()
         except ImportError as e:
-            print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+            print(f"Failed to import unified_dep_resolver: {e}", style="bold red")
             raise typer.Exit(1)
         except typer.Exit:
             raise
         except Exception as e:
-            print(f"[bold red]Batch resolution failed: {e}[/bold red]")
+            print(f"Batch resolution failed: {e}", style="bold red")
             raise typer.Exit(1)
         finally:
             pip_fixer.fix_broken()
@@ -1378,7 +1378,7 @@ def _run_unified_resolve():
 
     node_pack_paths = collect_node_pack_paths(cmd_ctx.get_custom_nodes_paths())
     if not node_pack_paths:
-        print("[bold yellow]No custom node packs found.[/bold yellow]")
+        print("No custom node packs found.", style="bold yellow")
         return
 
     print(f"Resolving dependencies for {len(node_pack_paths)} node pack(s)...")
@@ -1393,27 +1393,28 @@ def _run_unified_resolve():
     try:
         result = resolver.resolve_and_install()
     except UvNotAvailableError:
-        print("[bold red]uv is not available. Install uv to use this feature.[/bold red]")
+        print("uv is not available. Install uv to use this feature.", style="bold red")
         raise typer.Exit(1)
 
     if result.success:
         collected = result.collected
         if collected:
             print(
-                f"[bold green]Resolved {len(collected.requirements)} deps "
+                f"Resolved {len(collected.requirements)} deps "
                 f"from {len(collected.sources)} source(s) "
-                f"(skipped {len(collected.skipped)}).[/bold green]"
+                f"(skipped {len(collected.skipped)}).",
+                style="bold green",
             )
         else:
-            print("[bold green]Resolution complete (no deps needed).[/bold green]")
+            print("Resolution complete (no deps needed).", style="bold green")
     else:
-        print(f"[bold red]Resolution failed: {result.error}[/bold red]")
+        print(f"Resolution failed: {result.error}", style="bold red")
         if result.lockfile and result.lockfile.conflicts and result.collected:
             attributed = attribute_conflicts(result.collected.sources, result.lockfile.conflicts)
             if attributed:
-                print("[bold yellow]Conflicting packages (by node pack):[/bold yellow]")
+                print("Conflicting packages (by node pack):", style="bold yellow")
                 for pkg_name, requesters in sorted(attributed.items()):
-                    print(f"  [yellow]{pkg_name}[/yellow]:")
+                    print(f"  {pkg_name}:", style="yellow")
                     for pack_path, pkg_spec in requesters:
                         print(f"    {os.path.basename(pack_path)}  →  {pkg_spec}")
         raise typer.Exit(1)
@@ -1435,12 +1436,12 @@ def unified_uv_compile(
     try:
         _run_unified_resolve()
     except ImportError as e:
-        print(f"[bold red]Failed to import unified_dep_resolver: {e}[/bold red]")
+        print(f"Failed to import unified_dep_resolver: {e}", style="bold red")
         raise typer.Exit(1)
     except typer.Exit:
         raise
     except Exception as e:
-        print(f"[bold red]Unexpected error: {e}[/bold red]")
+        print(f"Unexpected error: {e}", style="bold red")
         raise typer.Exit(1)
     finally:
         pip_fixer.fix_broken()
@@ -1463,7 +1464,7 @@ def export_custom_node_ids(
         ] = None,
         mode: str = typer.Option(
             None,
-            help="[remote|local|cache]"
+            help="remote|local|cache"
         ),
         user_directory: str = typer.Option(
             None,
@@ -1545,7 +1546,7 @@ async def _force_update_cache(channel):
 
             print(f"  [CACHED] {filename}")
         except Exception as e:
-            print(f"  [bold red][FAILED] {filename}: {e}[/bold red]")
+            print(f"  [FAILED] {filename}: {e}", style="bold red")
             failed.append(filename)
 
     print("Fetching channel data...")
@@ -1558,7 +1559,7 @@ async def _force_update_cache(channel):
     try:
         await unified_manager.reload('remote', dont_wait=False)
     except Exception as e:
-        print(f"  [bold red][FAILED] CNR registry: {e}[/bold red]")
+        print(f"  [FAILED] CNR registry: {e}", style="bold red")
         failed.append("CNR registry")
 
     # Step 3: Load nightly data (cache files now exist from Step 1)
@@ -1566,10 +1567,10 @@ async def _force_update_cache(channel):
     await unified_manager.load_nightly(channel or 'default', 'cache')
 
     if failed:
-        print(f"\n[bold red]Cache update incomplete. Failed: {', '.join(failed)}[/bold red]")
+        print(f"\nCache update incomplete. Failed: {', '.join(failed)}", style="bold red")
         sys.exit(1)
     else:
-        print("[bold green]Cache update complete.[/bold green]")
+        print("Cache update complete.", style="bold green")
 
 
 def main():
@@ -1579,6 +1580,3 @@ def main():
 if __name__ == '__main__':
     sys.argv[0] = re.sub(r'(-script\.pyw|\.exe)?$', '', sys.argv[0])
     sys.exit(app())
-
-
-print("")
