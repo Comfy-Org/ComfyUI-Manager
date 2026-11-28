@@ -145,8 +145,8 @@ def run_the_queue(core, monkeypatch, update_check_done, *tasks):  # noqa: F811
     scratch = Path(core.get_default_custom_nodes_path()).parent
     core.get_config()['model_download_by_agent'] = True
     monkeypatch.setattr(core, 'update_path', lambda path: order.append('ComfyUI is updated') or 'skipped')
-    monkeypatch.setattr(core.unified_manager, 'unified_disable', lambda node_name, is_unknown: order.append('the task') or True)
-    monkeypatch.setattr(core.unified_manager, 'unified_enable', lambda cnr_id: order.append('the task'))
+    monkeypatch.setattr(core.unified_manager, 'unified_disable', lambda node_name, is_unknown: order.append('the task') or core.ManagedResult('disable'))
+    monkeypatch.setattr(core.unified_manager, 'unified_enable', lambda cnr_id: order.append('the task') or core.ManagedResult('enable'))
     monkeypatch.setattr(core.unified_manager, 'unified_update', lambda node_name, node_ver: order.append('the task') or SimpleNamespace(
         ver='unknown', result=True, action='skip'))
     namespace = server({'task_worker', 'TaskBatch'}, core=core, logging=logging, traceback=traceback, os=os,

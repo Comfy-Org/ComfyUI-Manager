@@ -500,8 +500,12 @@ async def task_worker():
         if replaces_cnr_with_nightly(cnr_id) and not is_allowed_security_level('middle+'):
             logging.error(SECURITY_MESSAGE_MIDDLE_P)
             return 'failed'
-        core.unified_manager.unified_enable(cnr_id)
-        return 'success'
+        res = core.unified_manager.unified_enable(cnr_id)
+        if res.result:
+            return 'success'
+
+        logging.error(f"[ComfyUI-Manager] Failed to enable '{cnr_id}': {res.msg}")
+        return f"Failed to enable: '{cnr_id}'"
 
     async def do_update(item):
         ui_id, node_name, node_ver = item
@@ -619,9 +623,10 @@ async def task_worker():
         try:
             res = core.unified_manager.unified_disable(node_name, is_unknown)
 
-            if res:
+            if res.result:
                 return 'success'
 
+            logging.error(f"[ComfyUI-Manager] Failed to disable '{node_name}': {res.msg}")
         except Exception:
             traceback.print_exc()
 
