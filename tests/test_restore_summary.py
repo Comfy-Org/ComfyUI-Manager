@@ -137,6 +137,7 @@ def test_enabled_version_of_the_registry_is_disabled_before_the_clone_of_a_snaps
     registered = {'id': 'fixture', 'repository': REPO_URL, 'publisher': {'name': 'owner'}}
     manager.repo_cnr_map[REPO_URL] = manager.cnr_map['fixture'] = registered
     manager.get_custom_nodes.return_value = {'fixture': {'repository': REPO_URL}} if in_node_list else {}
+    (tmp_path / 'fixture').mkdir()
     manager.active_nodes['fixture'] = ('1.0.0', str(tmp_path / 'fixture'))
 
     assert summary(cnr_custom_nodes=None, **pinned(REPO_URL)) == ['[ INSTALLED ] fixture']
@@ -171,6 +172,7 @@ def test_pack_saved_at_a_version_of_the_registry_with_its_clone_disabled_is_rest
 
 def test_clone_that_is_enabled_is_left_to_the_install_of_the_version_that_the_snapshot_names(manager, summary, steps, tmp_path):  # noqa: F811
     manager.repo_cnr_map[REPO_URL] = manager.cnr_map['fixture'] = {'id': 'fixture', 'repository': REPO_URL, 'publisher': {'name': 'owner'}}
+    (tmp_path / 'fixture').mkdir()
     manager.active_nodes['fixture'] = ('nightly', str(tmp_path / 'fixture'))
 
     assert summary(cnr_custom_nodes={'fixture': '1.0.0'}, git_custom_nodes={REPO_URL: {'hash': COMMIT, 'disabled': True}}) == ['[ INSTALLED ] fixture@1.0.0']
@@ -180,10 +182,11 @@ def test_clone_that_is_enabled_is_left_to_the_install_of_the_version_that_the_sn
 @pytest.mark.parametrize('failure, lines, done', [
     ('the registry does not have it', [f'[  CHECKOUT ] fixture@{COMMIT}', '[  FAILED   ] fixture@1.0.0'], []),
     ('its download fails', [f'[  CHECKOUT ] fixture@{COMMIT}', '[  FAILED   ] fixture@1.0.0'], ['disable fixture', 'enable fixture@nightly']),
-    ('its download fails after another version was enabled', [f'[  CHECKOUT ] fixture@{COMMIT}', '[  FAILED   ] fixture@1.0.0'], ['disable fixture', 'enable fixture@cnr', 'enable fixture@nightly']),
+    ('its download fails after another version was enabled', [f'[  CHECKOUT ] fixture@{COMMIT}', '[  FAILED   ] fixture@1.0.0'], ['enable fixture@cnr', 'disable fixture', 'enable fixture@nightly']),
 ], ids=['the registry does not have it', 'its download fails', 'its download fails after another version was enabled'])
 def test_clone_of_the_snapshot_is_restored_when_the_version_that_the_snapshot_names_cannot_be_installed(core, manager, summary, steps, monkeypatch, tmp_path, failure, lines, done):  # noqa: F811
     manager.repo_cnr_map[REPO_URL] = manager.cnr_map['fixture'] = {'id': 'fixture', 'repository': REPO_URL, 'publisher': {'name': 'owner'}}
+    (tmp_path / 'fixture').mkdir()
     manager.active_nodes['fixture'] = ('nightly', str(tmp_path / 'fixture'))
 
     def disable(name, is_unknown):
@@ -194,6 +197,7 @@ def test_clone_of_the_snapshot_is_restored_when_the_version_that_the_snapshot_na
     def enable(name, version):
         steps.append('enable %s@%s' % (name, version))
         if version == 'cnr':
+            disable(name, False)
             manager.active_nodes[name] = ('2.0.0', manager.cnr_inactive_nodes[name].pop('2.0.0'))
         return core.ManagedResult('enable').with_target(str(tmp_path / name))
 

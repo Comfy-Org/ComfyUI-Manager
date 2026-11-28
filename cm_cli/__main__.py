@@ -218,7 +218,7 @@ def install_node(node_spec_str, is_all=False, cnt_msg='', **kwargs):
 
         if res.action == 'skip':
             print(f"{cnt_msg} [   SKIP  ] {node_name:50} => Already installed")
-        elif res.action == 'enable':
+        elif res.action == 'enable' and res.result:
             print(f"{cnt_msg} [ ENABLED ] {node_name:50}")
         elif res.action == 'install-git' and res.target == 'nightly':
             print(f"{cnt_msg} [INSTALLED] {node_name:50}[NIGHTLY]")

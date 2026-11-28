@@ -63,7 +63,7 @@ def load(monkeypatch, server, security_level, listener, active=None, nightly_ina
     manager.cnr_inactive_nodes = packs(cnr_inactive)
     manager.unknown_active_nodes = unknown_active or {}
     manager.unknown_inactive_nodes = unknown_inactive or {}
-    manager.unified_enable = enabled.append
+    manager.unified_enable = lambda cnr_id: enabled.append(cnr_id) or SimpleNamespace(result=True)
     core = SimpleNamespace(
         unified_manager=manager,
         get_config=lambda: {"security_level": security_level,
